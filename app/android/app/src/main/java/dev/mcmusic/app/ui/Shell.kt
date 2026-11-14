@@ -779,19 +779,33 @@ private fun UpdateDialog(vm: AppViewModel) {
                 }
                 if (vm.updateDownloading) {
                     Text(
-                        "Downloading from GitHub… ${vm.updateProgress}%",
+                        if (vm.updateVerifying) "Download complete · verifying…"
+                        else "Downloading from GitHub… ${vm.updateProgress}%",
                         style = McType.mono10,
                         color = mc.accent,
                     )
-                    LinearProgressIndicator(
-                        progress = { vm.updateProgress / 100f },
-                        modifier = Modifier.fillMaxWidth().height(4.dp),
-                        color = mc.accent,
-                        trackColor = mc.line,
-                    )
+                    if (vm.updateVerifying) {
+                        LinearProgressIndicator(
+                            modifier = Modifier.fillMaxWidth().height(4.dp),
+                            color = mc.accent,
+                            trackColor = mc.line,
+                        )
+                    } else {
+                        LinearProgressIndicator(
+                            progress = { vm.updateProgress / 100f },
+                            modifier = Modifier.fillMaxWidth().height(4.dp),
+                            color = mc.accent,
+                            trackColor = mc.line,
+                        )
+                    }
                 } else if (info.size > 0) {
                     Text(fmtBytes(info.size), style = McType.mono10, color = mc.dim2)
                 }
+                Text(
+                    "The download is checked against GitHub's SHA-256 and the mcmusic package before the installer opens.",
+                    style = McType.bodyXs,
+                    color = mc.dim2,
+                )
             }
         },
         confirmButton = {
@@ -804,12 +818,22 @@ private fun UpdateDialog(vm: AppViewModel) {
             )
         },
         dismissButton = {
-            McButton(
-                "Later",
-                vm::dismissUpdate,
-                ghost = true,
-                enabled = !vm.updateDownloading,
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                McButton(
+                    "Skip",
+                    vm::skipUpdate,
+                    ghost = true,
+                    small = true,
+                    enabled = !vm.updateDownloading,
+                )
+                McButton(
+                    "Later",
+                    vm::dismissUpdate,
+                    ghost = true,
+                    small = true,
+                    enabled = !vm.updateDownloading,
+                )
+            }
         },
     )
 }
