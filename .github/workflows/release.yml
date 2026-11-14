@@ -26,24 +26,25 @@ jobs:
       ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
     steps:
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Accept Android SDK licenses
-        run: yes | sdkmanager --licenses >/dev/null || true
-
-      - name: Install SDK platform and build tools
-        run: sdkmanager "platforms;android-34" "build-tools;34.0.0" >/dev/null
+      # ubuntu-latest already ships the Android command-line tools and sets
+      # ANDROID_HOME. The old setup-android action tried to install the
+      # removed legacy "tools" package, so install only what this build uses.
+      - name: Install Android SDK platform and build tools
+        run: |
+          set -euo pipefail
+          sdkmanager --version
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-34" "build-tools;34.0.0" >/dev/null
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
