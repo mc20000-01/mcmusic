@@ -18,7 +18,7 @@ mcmusic.env
 *.pfx
 *.jks
 *.keystore
-secrets/
+/secrets/
 secret.key
 cookies.txt
 auth.json
@@ -28,8 +28,8 @@ config.local.*
 *.local.yml
 
 # --- server / runtime state -------------------------------------------------
-data/
-logs/
+/data/
+/logs/
 *.log
 *.db
 *.db-shm
@@ -38,13 +38,13 @@ logs/
 *.sqlite3
 *.pid
 *.sock
-cache/
-tmp/
-temp/
-backups/
+/cache/
+/tmp/
+/temp/
+/backups/
 
 # --- the music library itself -----------------------------------------------
-music/
+/music/
 music_activity/state.json
 *.mp3
 *.m4a
@@ -102,10 +102,10 @@ app/windows/*.spec
 
 # --- published binaries -----------------------------------------------------
 # Built by scripts/publish_apps.sh and attached to GitHub Releases.
-apps/
+/apps/
 web/apps/
-dist/
-release/
+/dist/
+/release/
 *.AppImage
 *.deb
 *.rpm
