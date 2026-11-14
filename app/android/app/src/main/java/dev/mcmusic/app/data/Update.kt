@@ -58,27 +58,25 @@ object UpdateChecker {
             val text = response.body?.string().orEmpty()
             val release = runCatching { JSONObject(text) }.getOrNull() ?: return@withContext null
 
+            // The rolling release keeps old assets, so never trust array order:
+            // pick the highest versioned APK or an installed 2.1 would reinstall 2.1.
             val assets: JSONArray = release.optJSONArray("assets") ?: JSONArray()
-            var apk: JSONObject? = null
+            var best: UpdateInfo? = null
             for (i in 0 until assets.length()) {
                 val asset = assets.optJSONObject(i) ?: continue
-                if (asset.optString("name").endsWith(".apk", ignoreCase = true)) {
-                    apk = asset
-                    break
-                }
+                val name = asset.optString("name")
+                if (!name.endsWith(".apk", ignoreCase = true)) continue
+                val version = Regex("""mcmusic-([0-9][^/]*)\.apk""")
+                    .find(name)?.groupValues?.getOrNull(1) ?: continue
+                val candidate = UpdateInfo(
+                    version = version,
+                    url = asset.optString("browser_download_url"),
+                    notes = release.optString("body"),
+                    size = asset.optLong("size"),
+                )
+                if (best == null || candidate.isNewerThan(best.version)) best = candidate
             }
-            val asset = apk ?: return@withContext null
-            val name = asset.optString("name")
-            val version = Regex("""mcmusic-([0-9][^/]*)\.apk""")
-                .find(name)?.groupValues?.getOrNull(1)
-                ?: release.optString("tag_name").removePrefix("v")
-
-            UpdateInfo(
-                version = version,
-                url = asset.optString("browser_download_url"),
-                notes = release.optString("body"),
-                size = asset.optLong("size"),
-            )
+            best
         }
     }
 }
