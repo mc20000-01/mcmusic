@@ -14,6 +14,7 @@ resulting session is our own signed cookie, and tokens stay server-side.
 """
 import base64
 import hashlib
+import os
 import secrets
 import threading
 import time
@@ -42,6 +43,10 @@ from database import _db
 STATE_KEY = "rotur_oauth"
 SESSION_SKEY = "rotur_pkce"
 PENDING_KEY = "rotur_pending"
+
+# A Token Manager sub-token is the only credential Rotur accepts on the status
+# WebSocket. OAuth access tokens are for the REST API and are rejected there.
+ROTUR_TOKEN = os.environ.get("ROTUR_TOKEN", "").strip()
 
 # A Rotur sign-in that has no account yet waits in the database until a friend
 # code is supplied, so a restart (or a second worker) does not lose the flow.
@@ -489,14 +494,23 @@ def _live_token(uid):
     return new_token, ""
 
 
+def _activity_token(uid):
+    if ROTUR_TOKEN:
+        return ROTUR_TOKEN, ""
+    return _live_token(uid)
+
+
 def _token_provider(uid):
     # The RoturSink resolves its token on a background thread. Flask's request
     # context (and therefore _db()) is not available there, so carry the real
     # app object into that thread instead of letting every first connect fail
-    # with "Working outside of application context".
+    # with "Working outside of application context". A configured Token Manager
+    # sub-token skips the DB entirely.
     app = current_app._get_current_object() if has_app_context() else None
 
     def get():
+        if ROTUR_TOKEN:
+            return ROTUR_TOKEN
         if app is None:
             token, _problem = _live_token(uid)
             return token
@@ -550,7 +564,7 @@ def listening_activity(track, position=0.0, room_url="", playing=True, cover_url
 
 def push_activity(uid, state: PlayerState, presence="online"):
     """Stream a rich activity over Rotur's status WebSocket."""
-    token, problem = _live_token(uid)
+    token, problem = _activity_token(uid)
     if not token:
         return False, problem
     if _presence_due(uid, presence):
