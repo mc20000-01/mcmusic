@@ -1,14 +1,22 @@
 package dev.mcmusic.app
 
 import android.app.Application
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import dev.mcmusic.app.data.AdminDeviceRef
 import dev.mcmusic.app.data.AdminRoom
 import dev.mcmusic.app.data.AdminStats
 import dev.mcmusic.app.data.AdminUser
+import dev.mcmusic.app.data.ChannelRef
+import dev.mcmusic.app.data.EnrichStatus
+import dev.mcmusic.app.data.LyricsStatus
 import dev.mcmusic.app.data.AlbumRef
 import dev.mcmusic.app.data.ArtistRef
 import dev.mcmusic.app.data.DownloadEntry
@@ -22,11 +30,18 @@ import dev.mcmusic.app.data.DeviceRef
 import dev.mcmusic.app.data.InviteCode
 import dev.mcmusic.app.data.Settings
 import dev.mcmusic.app.data.Track
+import dev.mcmusic.app.data.UpdateChecker
+import dev.mcmusic.app.data.UpdateInfo
 import dev.mcmusic.app.ui.MediaUrls
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.Request
 import org.json.JSONObject
+import java.io.File
+import java.io.IOException
 import kotlin.math.abs
 
 sealed interface Route {
@@ -45,6 +60,15 @@ sealed interface Route {
     data object NowPlaying : Route
 }
 
+data class CollectionMenu(
+    val kind: String,
+    val title: String,
+    val subtitle: String,
+    val coverId: Int?,
+    val playlistId: Int?,
+    val tracks: List<Track>,
+)
+
 class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private val mc = application as McMusicApp
@@ -60,6 +84,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     var busy by mutableStateOf(false)
     var loginError by mutableStateOf<String?>(null)
     var toastText by mutableStateOf<String?>(null)
+
+    /* ── GitHub updates ─────────────────────────────────────────────────── */
+    var updateInfo by mutableStateOf<UpdateInfo?>(null)
+        private set
+    var updateChecking by mutableStateOf(false)
+        private set
+    var updateDownloading by mutableStateOf(false)
+        private set
+    var updateProgress by mutableStateOf(0)
+        private set
+    var updateDialogOpen by mutableStateOf(false)
+        private set
 
     /* ── appearance ─────────────────────────────────────────────────────── */
     var settings by mutableStateOf(mc.settings.value)
@@ -151,6 +187,24 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     var requestLogTitle by mutableStateOf("")
         private set
 
+    /* ── long-press collection menu ─────────────────────────────────────── */
+    var collectionMenu by mutableStateOf<CollectionMenu?>(null)
+        private set
+    var collectionMenuLoading by mutableStateOf(false)
+        private set
+
+    /* ── admin extras ───────────────────────────────────────────────────── */
+    var channels by mutableStateOf<List<ChannelRef>>(emptyList())
+        private set
+    var channelsConfigured by mutableStateOf(false)
+        private set
+    var adminDevices by mutableStateOf<List<AdminDeviceRef>>(emptyList())
+        private set
+    var enrich by mutableStateOf<EnrichStatus?>(null)
+        private set
+    var lyricsStatus by mutableStateOf<LyricsStatus?>(null)
+        private set
+
     /* ── overlays ───────────────────────────────────────────────────────── */
     var queueOpen by mutableStateOf(false)
     var menuTrack by mutableStateOf<Track?>(null)
@@ -186,6 +240,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
             checked = true
+            checkForUpdates()
             if (me != null) {
                 loadSettings()
                 refreshDownloads()
@@ -319,6 +374,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             playlists = emptyList()
             requests = emptyList()
             searchData = null
+            collectionMenu = null
             route = Route.Home
             stack = emptyList()
             toast("Signed out")
@@ -543,6 +599,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                         adminUsers = repo.adminUsers()
                         adminRooms = repo.adminRooms()
                         adminInvites = runCatching { repo.adminInvites() }.getOrDefault(emptyList())
+                        runCatching { repo.channels() }.onSuccess { (configured, list) ->
+                            channelsConfigured = configured
+                            channels = list
+                        }
+                        adminDevices = runCatching { repo.adminDevices() }.getOrDefault(emptyList())
+                        enrich = runCatching { repo.enrichStatus() }.getOrNull()
+                        lyricsStatus = runCatching { repo.lyricsStatus() }.getOrNull()
                     }
                     Route.NowPlaying -> Unit
                 }
@@ -807,6 +870,134 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun closeRequestLog() {
         requestLog = null
+    }
+
+    /* ── long-press collection actions ─────────────────────────────────── */
+
+    /** Load an album, artist, playlist or the liked songs, then show its menu. */
+    fun openCollectionMenu(
+        kind: String,
+        title: String,
+        subtitle: String = "",
+        coverId: Int? = null,
+        playlistId: Int? = null,
+    ) {
+        if (collectionMenuLoading) return
+        collectionMenuLoading = true
+        viewModelScope.launch {
+            runCatching {
+                when (kind) {
+                    "album" -> repo.album(title)
+                    "artist" -> repo.artist(title)
+                    "playlist" -> repo.playlist(playlistId ?: 0).second
+                    "likes" -> repo.likes()
+                    else -> emptyList()
+                }
+            }.onSuccess { list ->
+                if (list.isEmpty()) {
+                    toast("Nothing here yet")
+                } else {
+                    collectionMenu = CollectionMenu(kind, title, subtitle, coverId, playlistId, list)
+                }
+            }.onFailure { toast(it.message ?: "Could not load ${kind}") }
+            collectionMenuLoading = false
+        }
+    }
+
+    fun closeCollectionMenu() {
+        collectionMenu = null
+    }
+
+    fun playCollection(list: List<Track>) {
+        closeCollectionMenu()
+        playList(list, 0)
+    }
+
+    fun shuffleCollection(list: List<Track>) {
+        closeCollectionMenu()
+        shufflePlay(list)
+    }
+
+    fun queueCollection(list: List<Track>, next: Boolean) {
+        val playable = if (settings.hideExplicit) list.filter { !it.explicit } else list
+        if (playable.isEmpty()) {
+            toast("Nothing to queue")
+            closeCollectionMenu()
+            return
+        }
+        if (engine.queue.isEmpty()) {
+            playList(playable, 0)
+        } else {
+            engine.addAll(playable, next)
+            toast(
+                if (next) "Playing next · ${playable.size} tracks"
+                else "Added ${playable.size} tracks to the queue"
+            )
+        }
+        closeCollectionMenu()
+    }
+
+    fun bindChannel(
+        platform: String,
+        channelId: String,
+        guildId: String,
+        mode: String,
+        done: () -> Unit = {},
+    ) {
+        if (channelId.isBlank()) {
+            toast("Channel id required")
+            return
+        }
+        viewModelScope.launch {
+            runCatching {
+                repo.bindChannel(platform.trim(), channelId.trim(), guildId.trim(), mode)
+            }.onSuccess { ch ->
+                channels = (channels + ch).distinctBy { it.id }
+                done()
+                toast("Channel bound")
+            }.onFailure { toast(it.message ?: "Could not bind channel") }
+        }
+    }
+
+    fun unbindChannel(ch: ChannelRef) {
+        viewModelScope.launch {
+            runCatching { repo.unbindChannel(ch.id) }
+                .onSuccess {
+                    channels = channels.filterNot { it.id == ch.id }
+                    toast("Channel unbound")
+                }
+                .onFailure { toast(it.message ?: "Could not unbind") }
+        }
+    }
+
+    fun runEnrich(force: Boolean = false) {
+        viewModelScope.launch {
+            runCatching {
+                repo.enrichStart(force)
+                repo.enrichStatus()
+            }.onSuccess {
+                enrich = it
+                toast("Metadata enrichment queued")
+            }.onFailure { toast(it.message ?: "Could not start enrichment") }
+        }
+    }
+
+    fun runLyricsBackfill() {
+        viewModelScope.launch {
+            runCatching { repo.lyricsStart() }
+                .onSuccess {
+                    lyricsStatus = it
+                    toast(if (it.running) "Lyrics backfill started" else "Nothing to backfill")
+                }
+                .onFailure { toast(it.message ?: "Could not start lyrics") }
+        }
+    }
+
+    fun refreshLyricsStatus() {
+        viewModelScope.launch {
+            lyricsStatus = runCatching { repo.lyricsStatus() }.getOrNull()
+            enrich = runCatching { repo.enrichStatus() }.getOrNull()
+        }
     }
 
     fun cancelRequest(row: RequestRow) {
@@ -1143,6 +1334,110 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearToast() {
         toastText = null
+    }
+
+    /* ── GitHub update flow ─────────────────────────────────────────────── */
+
+    fun checkForUpdates(manual: Boolean = false) {
+        if (updateChecking) return
+        updateChecking = true
+        viewModelScope.launch {
+            runCatching { UpdateChecker.latest() }
+                .onSuccess { latest ->
+                    if (latest != null && latest.isNewerThan(BuildConfig.VERSION_NAME)) {
+                        updateInfo = latest
+                        updateDialogOpen = true
+                        if (manual) toast("mcmusic ${latest.version} is available")
+                    } else {
+                        updateInfo = null
+                        if (manual) toast("You're on the latest version")
+                    }
+                }
+                .onFailure { if (manual) toast(it.message ?: "Could not check for updates") }
+            updateChecking = false
+        }
+    }
+
+    fun dismissUpdate() {
+        if (!updateDownloading) updateDialogOpen = false
+    }
+
+    fun installUpdate() {
+        val info = updateInfo ?: return
+        if (updateDownloading) return
+        val context = getApplication<Application>()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            !context.packageManager.canRequestPackageInstalls()
+        ) {
+            toast("Allow installs for mcmusic, then tap Update again")
+            runCatching {
+                context.startActivity(
+                    Intent(
+                        android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                        Uri.parse("package:${context.packageName}"),
+                    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+            }
+            return
+        }
+
+        updateDownloading = true
+        updateProgress = 0
+        viewModelScope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val dir = File(context.cacheDir, "updates").apply { mkdirs() }
+                    val apk = File(dir, "mcmusic-${info.version}.apk")
+                    val request = Request.Builder()
+                        .url(info.url)
+                        .header("User-Agent", "mcmusic-android")
+                        .build()
+                    UpdateChecker.client.newCall(request).execute().use { response ->
+                        if (!response.isSuccessful) {
+                            throw IOException("Download failed (${response.code})")
+                        }
+                        val body = response.body ?: throw IOException("Download failed")
+                        val total = body.contentLength()
+                        body.byteStream().use { input ->
+                            apk.outputStream().use { output ->
+                                val buffer = ByteArray(16 * 1024)
+                                var done = 0L
+                                while (true) {
+                                    val n = input.read(buffer)
+                                    if (n <= 0) break
+                                    output.write(buffer, 0, n)
+                                    done += n
+                                    if (total > 0) {
+                                        updateProgress = ((done * 100) / total).toInt().coerceIn(0, 100)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    apk
+                }
+            }.onSuccess { apk ->
+                updateDownloading = false
+                updateProgress = 100
+                updateDialogOpen = false
+                val uri = FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.updates",
+                    apk,
+                )
+                val install = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, "application/vnd.android.package-archive")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                runCatching { context.startActivity(install) }
+                    .onFailure { toast("Open the downloaded APK from Files to install") }
+            }.onFailure { error ->
+                updateDownloading = false
+                updateProgress = 0
+                toast(error.message ?: "Could not download the update")
+            }
+        }
     }
 
     fun playAlbum(name: String) {

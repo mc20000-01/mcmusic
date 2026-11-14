@@ -244,6 +244,75 @@ data class AdminRoom(
     }
 }
 
+data class ChannelRef(
+    val id: Int,
+    val platform: String,
+    val channelId: String,
+    val guildId: String?,
+    val mode: String,
+    val dashboardId: String?,
+    val ownerUserId: Int?,
+    val updated: Double,
+) {
+    companion object {
+        fun from(o: JSONObject) = ChannelRef(
+            id = o.optInt("id"),
+            platform = o.optString("platform", "discord"),
+            channelId = o.optString("channel_id", ""),
+            guildId = o.stringOrNull("guild_id"),
+            mode = o.optString("mode", "control"),
+            dashboardId = o.stringOrNull("dashboard_id"),
+            ownerUserId = o.intOrNull("owner_user_id"),
+            updated = o.optDouble("updated", 0.0),
+        )
+
+        fun list(arr: JSONArray): List<ChannelRef> =
+            (0 until arr.length()).mapNotNull { i -> arr.optJSONObject(i)?.let(::from) }
+    }
+}
+
+data class AdminDeviceRef(
+    val id: Int,
+    val username: String,
+    val name: String,
+    val deviceHash: String,
+    val ip: String,
+    val lastSeen: Double,
+    val isActive: Boolean,
+    val paused: Boolean,
+) {
+    companion object {
+        fun from(o: JSONObject) = AdminDeviceRef(
+            id = o.optInt("id"),
+            username = o.optString("username", ""),
+            name = o.optString("name", ""),
+            deviceHash = o.optString("device_hash", ""),
+            ip = o.optString("ip", ""),
+            lastSeen = o.optDouble("last_seen", 0.0),
+            isActive = o.optBoolean("is_active"),
+            paused = o.optBoolean("current_paused"),
+        )
+    }
+}
+
+data class EnrichStatus(val total: Int, val linked: Int, val fetched: Int)
+
+data class LyricsStatus(
+    val running: Boolean,
+    val done: Int,
+    val failed: Int,
+    val total: Int,
+) {
+    companion object {
+        fun from(o: JSONObject) = LyricsStatus(
+            running = o.optBoolean("running"),
+            done = o.optInt("done"),
+            failed = o.optInt("failed"),
+            total = o.optInt("total"),
+        )
+    }
+}
+
 data class DeviceRef(
     val id: Int,
     val name: String,

@@ -95,6 +95,12 @@ fun PlaylistsScreen(vm: AppViewModel) {
                                     p,
                                     onClick = { vm.navigate(Route.Playlist(p.id, p.name)) },
                                     onPlay = { vm.playPlaylist(p.id) },
+                                    onLongPress = {
+                                        vm.openCollectionMenu(
+                                            "playlist", p.name, "${p.n} tracks",
+                                            p.coverId, p.id,
+                                        )
+                                    },
                                     fillWidth = true,
                                 )
                             }
@@ -772,6 +778,18 @@ fun SettingsScreen(vm: AppViewModel) {
                         color = mc.dim2,
                     )
                 }
+                SettingRow(
+                    "App updates",
+                    if (vm.updateChecking) "Checking GitHub…" else "Check GitHub for a newer APK",
+                ) {
+                    McButton(
+                        if (vm.updateChecking) "Checking" else "Check",
+                        { vm.checkForUpdates(manual = true) },
+                        small = true,
+                        ghost = true,
+                        enabled = !vm.updateChecking,
+                    )
+                }
                 SettingRow("API", vm.api.baseUrl, last = true) {
                     Text(vm.api.baseUrl, style = McType.mono9, color = mc.dim2, maxLines = 1)
                 }
@@ -789,6 +807,9 @@ fun AdminScreen(vm: AppViewModel) {
     var invUses by remember { mutableStateOf("1") }
     var invHours by remember { mutableStateOf("0") }
     var invNote by remember { mutableStateOf("") }
+    var chPlatform by remember { mutableStateOf("discord") }
+    var chChannel by remember { mutableStateOf("") }
+    var chGuild by remember { mutableStateOf("") }
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 30.dp),
@@ -1000,6 +1021,153 @@ fun AdminScreen(vm: AppViewModel) {
                     )
                 }
                 McButton("End", { vm.closeRoom(room) }, small = true, ghost = true)
+            }
+        }
+
+        item {
+            Text(
+                "CONTROL CHANNELS",
+                style = McType.mono9,
+                color = mc.dim2,
+                modifier = Modifier.padding(top = 20.dp, bottom = 8.dp),
+            )
+        }
+        item {
+            Panel("Discord control") {
+                if (vm.channels.isEmpty()) {
+                    SettingRow(
+                        "No channel bound",
+                        if (vm.channelsConfigured) "Bind a channel so chat commands can control playback."
+                        else "Set DISCORD_BOT_TOKEN on the server first.",
+                    ) {}
+                }
+                vm.channels.forEachIndexed { i, ch ->
+                    SettingRow(
+                        "${ch.platform} · ${ch.channelId}",
+                        listOfNotNull(
+                            ch.guildId?.let { "guild $it" },
+                            ch.mode,
+                            if (ch.dashboardId != null) "dashboard linked" else null,
+                        ).joinToString(" · "),
+                        last = i == vm.channels.lastIndex,
+                    ) {
+                        McButton(
+                            "Unbind",
+                            { vm.unbindChannel(ch) },
+                            small = true,
+                            danger = true,
+                        )
+                    }
+                }
+                Box(Modifier.fillMaxWidth().height(1.dp).background(mc.line))
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Box(Modifier.weight(1f)) {
+                        McField(chPlatform, { chPlatform = it }, "Platform")
+                    }
+                    Box(Modifier.weight(1.4f)) {
+                        McField(chChannel, { chChannel = it }, "Channel ID")
+                    }
+                }
+                Box(Modifier.fillMaxWidth().padding(horizontal = 14.dp)) {
+                    McField(chGuild, { chGuild = it }, "Server / guild ID (optional)")
+                }
+                Row(Modifier.padding(14.dp)) {
+                    McButton(
+                        "Bind channel",
+                        {
+                            vm.bindChannel(chPlatform, chChannel, chGuild, "control") {
+                                chChannel = ""
+                                chGuild = ""
+                            }
+                        },
+                        small = true,
+                        solid = true,
+                        enabled = chChannel.isNotBlank() && chPlatform.isNotBlank(),
+                        leading = AppIcons.Link,
+                    )
+                }
+            }
+        }
+
+        item {
+            Text(
+                "DEVICES",
+                style = McType.mono9,
+                color = mc.dim2,
+                modifier = Modifier.padding(top = 20.dp, bottom = 8.dp),
+            )
+        }
+        item {
+            Panel("Active devices") {
+                if (vm.adminDevices.isEmpty()) {
+                    SettingRow("No devices reporting", "Playback devices appear here once they check in.") {}
+                }
+                vm.adminDevices.forEachIndexed { i, d ->
+                    SettingRow(
+                        "${d.username} · ${d.name}",
+                        listOfNotNull(
+                            d.ip.ifBlank { null },
+                            if (d.isActive) "playing" else "idle",
+                            if (d.paused) "paused" else null,
+                            fmtAgo(d.lastSeen),
+                        ).joinToString(" · "),
+                        last = i == vm.adminDevices.lastIndex,
+                    ) {
+                        StatusChip(
+                            if (d.isActive) "live" else "idle",
+                            if (d.isActive) mc.ok else mc.dim2,
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            Text(
+                "MAINTENANCE",
+                style = McType.mono9,
+                color = mc.dim2,
+                modifier = Modifier.padding(top = 20.dp, bottom = 8.dp),
+            )
+        }
+        item {
+            Panel("Library maintenance") {
+                val status = vm.enrich
+                SettingRow(
+                    "Metadata enrichment",
+                    if (status == null) "No status reported"
+                    else "${status.fetched} fetched · ${status.linked} linked · ${status.total} tracks",
+                ) {
+                    McButton("Run", { vm.runEnrich(false) }, small = true)
+                }
+                val lyrics = vm.lyricsStatus
+                SettingRow(
+                    "Lyrics backfill",
+                    when {
+                        lyrics == null -> "No status reported"
+                        lyrics.running -> "Running · ${lyrics.done}/${lyrics.total}"
+                        else -> "${lyrics.done} done · ${lyrics.failed} failed · ${lyrics.total} total"
+                    },
+                    last = true,
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        McButton(
+                            if (lyrics?.running == true) "Running" else "Start",
+                            { vm.runLyricsBackfill() },
+                            small = true,
+                            enabled = lyrics?.running != true,
+                        )
+                        IconBtn(
+                            AppIcons.Refresh,
+                            { vm.refreshLyricsStatus() },
+                            size = 30.dp,
+                            contentDescription = "Refresh maintenance status",
+                        )
+                    }
+                }
             }
         }
     }

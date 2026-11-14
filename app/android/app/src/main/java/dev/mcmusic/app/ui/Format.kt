@@ -103,6 +103,17 @@ fun fmtBytes(bytes: Long): String {
     return String.format(Locale.US, if (v >= 10) "%.0f %s" else "%.1f %s", v, units[i])
 }
 
+fun fmtAgo(timestamp: Double): String {
+    if (timestamp <= 0.0) return "never"
+    val secs = (System.currentTimeMillis() / 1000.0 - timestamp).toLong().coerceAtLeast(0)
+    return when {
+        secs < 60 -> "${secs}s ago"
+        secs < 3600 -> "${secs / 60}m ago"
+        secs < 86400 -> "${secs / 3600}h ago"
+        else -> "${secs / 86400}d ago"
+    }
+}
+
 fun fmtUptime(seconds: Double): String {
     val total = abs(seconds).toLong()
     val d = total / 86400

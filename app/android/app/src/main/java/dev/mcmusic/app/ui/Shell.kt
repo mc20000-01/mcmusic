@@ -1,3 +1,8 @@
+@file:OptIn(
+    androidx.compose.material3.ExperimentalMaterial3Api::class,
+    androidx.compose.foundation.ExperimentalFoundationApi::class,
+)
+
 package dev.mcmusic.app.ui
 
 import android.content.Intent
@@ -13,6 +18,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,20 +28,30 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,10 +59,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -55,13 +76,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import dev.mcmusic.app.AppViewModel
+import dev.mcmusic.app.BuildConfig
+import dev.mcmusic.app.CollectionMenu
 import dev.mcmusic.app.R
 import dev.mcmusic.app.Route
 import dev.mcmusic.app.data.Track
 import dev.mcmusic.app.ui.theme.D
 import dev.mcmusic.app.ui.theme.LocalMc
 import dev.mcmusic.app.ui.theme.McType
+import kotlin.math.roundToInt
 
 @Composable
 fun AppRoot(vm: AppViewModel) {
@@ -71,6 +96,7 @@ fun AppRoot(vm: AppViewModel) {
         when {
             vm.playerOpen -> vm.playerOpen = false
             vm.queueOpen -> vm.queueOpen = false
+            vm.collectionMenu != null -> vm.closeCollectionMenu()
             vm.addToPlaylistTrack != null -> vm.closeAddToPlaylist()
             vm.infoTrack != null -> vm.closeInfo()
             vm.menuTrack != null -> vm.closeTrackMenu()
@@ -159,6 +185,8 @@ fun Shell(vm: AppViewModel) {
 
         if (vm.queueOpen) QueueSheet(vm)
         if (vm.sleepOpen) SleepSheet(vm)
+        vm.collectionMenu?.let { CollectionMenuSheet(vm, it) }
+        if (vm.updateDialogOpen) UpdateDialog(vm)
         vm.menuTrack?.let { MenuSheet(vm, it) }
         vm.infoTrack?.let { InfoSheet(vm, it) }
         vm.addToPlaylistTrack?.let { AddToPlaylistSheet(vm, it) }
@@ -470,16 +498,41 @@ private fun QueueSheet(vm: AppViewModel) {
     val mc = LocalMc.current
     val engine = vm.engine
     val current = engine.current
+    val upcoming = engine.queue.drop(engine.index + 1)
+    val haptics = LocalHapticFeedback.current
+    val density = LocalDensity.current
+    val rowHeightPx = with(density) { 46.dp.toPx() }
+    val listState = rememberLazyListState()
+
+    var order by remember { mutableStateOf(upcoming) }
+    var draggingIndex by remember { mutableStateOf<Int?>(null) }
+    var dragOffset by remember { mutableStateOf(0f) }
+
+    LaunchedEffect(upcoming.map { it.id }) {
+        if (draggingIndex == null) order = upcoming
+    }
+
+    fun remove(track: Track) {
+        val at = engine.queue.indexOfFirst { it.id == track.id }
+        if (at >= 0) engine.removeAt(at)
+    }
+
+    fun jump(track: Track) {
+        val at = engine.queue.indexOfFirst { it.id == track.id }
+        if (at >= 0) engine.jumpTo(at)
+        vm.queueOpen = false
+    }
+
     McSheet(onDismiss = { vm.queueOpen = false }, title = "Queue") {
         if (current == null) {
             Text("Queue is empty", style = McType.bodySm, color = mc.dim)
             return@McSheet
         }
         Text("NOW PLAYING", style = McType.mono9, color = mc.dim2)
-        QueueRow(current)
-        val upcoming = engine.queue.drop(engine.index + 1)
+        QueueRow(current) { vm.queueOpen = false; vm.playerOpen = true }
+
         Row(
-            Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 6.dp),
+            Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("Next up (${upcoming.size})", style = McType.mono9, color = mc.dim2)
@@ -488,21 +541,137 @@ private fun QueueSheet(vm: AppViewModel) {
                 McButton("Clear next", { engine.clearUpcoming() }, small = true, ghost = true)
             }
         }
-        Column(Modifier.verticalScroll(rememberScrollState())) {
-            upcoming.take(60).forEachIndexed { i, track ->
-                QueueRow(track) { engine.removeAt(engine.index + 1 + i) }
-            }
-            if (upcoming.isEmpty()) {
-                Text("Nothing queued", style = McType.bodyXs, color = mc.dim2)
+        if (upcoming.isEmpty()) {
+            Text(
+                "Nothing queued — long-press a track to add more.",
+                style = McType.bodyXs,
+                color = mc.dim2,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+            return@McSheet
+        }
+
+        Text(
+            "Swipe left to remove · hold and drag to reorder",
+            style = McType.mono10,
+            color = mc.dim2,
+            modifier = Modifier.padding(bottom = 6.dp),
+        )
+
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp),
+        ) {
+            itemsIndexed(order, key = { _, t -> t.id }) { i, track ->
+                val isDragging = draggingIndex == i
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .zIndex(if (isDragging) 1f else 0f)
+                        .graphicsLayer {
+                            translationY = if (isDragging) dragOffset else 0f
+                            shadowElevation = if (isDragging) 12f else 0f
+                        }
+                        .pointerInput(Unit) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = {
+                                    draggingIndex = i
+                                    dragOffset = 0f
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                },
+                                onDragCancel = {
+                                    draggingIndex = null
+                                    dragOffset = 0f
+                                },
+                                onDragEnd = {
+                                    if (draggingIndex != null) engine.setUpcoming(order)
+                                    draggingIndex = null
+                                    dragOffset = 0f
+                                },
+                                onDrag = { change, amount ->
+                                    change.consume()
+                                    val from = draggingIndex ?: return@detectDragGesturesAfterLongPress
+                                    dragOffset += amount.y
+                                    val target = (from + (dragOffset / rowHeightPx).roundToInt())
+                                        .coerceIn(0, order.lastIndex)
+                                    if (target != from) {
+                                        order = order.toMutableList().apply {
+                                            add(target, removeAt(from))
+                                        }
+                                        draggingIndex = target
+                                        dragOffset -= (target - from) * rowHeightPx
+                                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    }
+                                },
+                            )
+                        },
+                ) {
+                    DismissibleQueueRow(
+                        track = track,
+                        onClick = { jump(track) },
+                        onRemove = { remove(track) },
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun QueueRow(t: Track, onRemove: (() -> Unit)? = null) {    val mc = LocalMc.current
+private fun DismissibleQueueRow(
+    track: Track,
+    onClick: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    val mc = LocalMc.current
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value == SwipeToDismissBoxValue.EndToStart) {
+                onRemove()
+                true
+            } else {
+                false
+            }
+        },
+        positionalThreshold = { it * 0.35f },
+    )
+    SwipeToDismissBox(
+        state = dismissState,
+        enableDismissFromStartToEnd = false,
+        backgroundContent = {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(D.r2))
+                    .background(mc.err.copy(alpha = 0.16f))
+                    .padding(horizontal = 14.dp),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text("Remove", style = McType.mono10, color = mc.err)
+                    Icon(AppIcons.Trash, null, Modifier.size(15.dp), tint = mc.err)
+                }
+            }
+        },
+    ) {
+        Box(Modifier.fillMaxWidth().background(mc.bg2)) {
+            QueueRow(track, onClick)
+        }
+    }
+}
+
+@Composable
+private fun QueueRow(t: Track, onClick: (() -> Unit)? = null) {
+    val mc = LocalMc.current
     Row(
-        Modifier.fillMaxWidth().padding(vertical = 3.dp),
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(D.r2))
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 4.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
@@ -511,10 +680,138 @@ private fun QueueRow(t: Track, onRemove: (() -> Unit)? = null) {    val mc = Loc
             Text(t.title, style = McType.bodySm, color = mc.fg, maxLines = 1, overflow = TextOverflow.Ellipsis)
             ArtistCredits(t, McType.mono10, mc.dim)
         }
-        if (onRemove != null) {
-            IconBtn(AppIcons.Close, onRemove, size = 28.dp)
+        Icon(AppIcons.ListMusic, null, Modifier.size(14.dp), tint = mc.dim2)
+    }
+}
+
+/* ── collection (album / artist / playlist) long-press menu ─────────────── */
+
+@Composable
+private fun CollectionMenuSheet(vm: AppViewModel, menu: CollectionMenu) {
+    val mc = LocalMc.current
+    val kind = menu.kind.lowercase()
+    McSheet(onDismiss = vm::closeCollectionMenu, title = menu.title) {
+        Row(
+            Modifier.fillMaxWidth().padding(bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Art(menu.coverId ?: menu.tracks.first().id, 56.dp)
+            Column(Modifier.weight(1f)) {
+                if (menu.subtitle.isNotBlank()) {
+                    Text(menu.subtitle, style = McType.bodyXs, color = mc.dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                Text(
+                    "${menu.tracks.size} tracks · ${kind.replaceFirstChar { it.uppercase() }}",
+                    style = McType.mono10,
+                    color = mc.dim2,
+                )
+            }
+        }
+        Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
+            MenuRow(AppIcons.Play, "Play") { vm.playCollection(menu.tracks) }
+            MenuRow(AppIcons.Shuffle, "Shuffle play") { vm.shuffleCollection(menu.tracks) }
+            MenuRow(AppIcons.ListMusic, "Play next") { vm.queueCollection(menu.tracks, next = true) }
+            MenuRow(AppIcons.Plus, "Add to queue") { vm.queueCollection(menu.tracks, next = false) }
+            MenuRow(AppIcons.Radio, "Start radio") {
+                vm.closeCollectionMenu()
+                vm.startRadio(menu.tracks.first())
+            }
+            MenuRow(AppIcons.Download, "Download for offline") {
+                vm.downloadAll(menu.tracks)
+                vm.closeCollectionMenu()
+            }
+            if (kind == "playlist" || kind == "likes") {
+                MenuRow(AppIcons.CloudDownload, "Queue on server") {
+                    vm.queueServerDownloads(kind, menu.playlistId)
+                    vm.closeCollectionMenu()
+                }
+            }
+            when (kind) {
+                "album" -> MenuRow(AppIcons.Disc, "Go to album") {
+                    vm.closeCollectionMenu()
+                    vm.navigate(Route.Album(menu.title))
+                }
+                "artist" -> MenuRow(AppIcons.Users, "Go to artist") {
+                    vm.closeCollectionMenu()
+                    vm.navigate(Route.Artist(menu.title))
+                }
+                "playlist" -> menu.playlistId?.let { id ->
+                    MenuRow(AppIcons.ListMusic, "Open playlist") {
+                        vm.closeCollectionMenu()
+                        vm.navigate(Route.Playlist(id))
+                    }
+                }
+                "likes" -> MenuRow(AppIcons.Heart, "Open liked songs") {
+                    vm.closeCollectionMenu()
+                    vm.navigate(Route.Likes)
+                }
+            }
         }
     }
+}
+
+/* ── GitHub update ─────────────────────────────────────────────────────── */
+
+@Composable
+private fun UpdateDialog(vm: AppViewModel) {
+    val mc = LocalMc.current
+    val info = vm.updateInfo ?: return
+    AlertDialog(
+        onDismissRequest = vm::dismissUpdate,
+        containerColor = mc.bg2,
+        title = { Text("Update available", style = McType.h3, color = mc.fg) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "mcmusic ${info.version} is ready. You're on ${BuildConfig.VERSION_NAME}.",
+                    style = McType.bodySm,
+                    color = mc.dim,
+                )
+                if (info.notes.isNotBlank()) {
+                    Text(
+                        info.notes.trim().take(320),
+                        style = McType.bodyXs,
+                        color = mc.dim2,
+                        maxLines = 6,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                if (vm.updateDownloading) {
+                    Text(
+                        "Downloading from GitHub… ${vm.updateProgress}%",
+                        style = McType.mono10,
+                        color = mc.accent,
+                    )
+                    LinearProgressIndicator(
+                        progress = { vm.updateProgress / 100f },
+                        modifier = Modifier.fillMaxWidth().height(4.dp),
+                        color = mc.accent,
+                        trackColor = mc.line,
+                    )
+                } else if (info.size > 0) {
+                    Text(fmtBytes(info.size), style = McType.mono10, color = mc.dim2)
+                }
+            }
+        },
+        confirmButton = {
+            McButton(
+                if (vm.updateDownloading) "Downloading…" else "Update now",
+                { vm.installUpdate() },
+                solid = true,
+                enabled = !vm.updateDownloading,
+                leading = AppIcons.Download,
+            )
+        },
+        dismissButton = {
+            McButton(
+                "Later",
+                vm::dismissUpdate,
+                ghost = true,
+                enabled = !vm.updateDownloading,
+            )
+        },
+    )
 }
 
 /* ── sleep timer ────────────────────────────────────────────────────────── */
