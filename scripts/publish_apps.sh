@@ -46,3 +46,5 @@ with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
 print(f"published apps/linux/mainbuild.zip ({out.stat().st_size} bytes)")
 PY
 fi
+
+./scripts/collect_builds.sh
