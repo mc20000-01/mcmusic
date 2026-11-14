@@ -42,9 +42,15 @@ jobs:
       - name: Install Android SDK platform and build tools
         run: |
           set -euo pipefail
-          sdkmanager --version
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platforms;android-34" "build-tools;34.0.0" >/dev/null
+          sdk="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          sdkmanager="$sdk/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$sdkmanager" ]; then
+            sdkmanager=$(find "$sdk/cmdline-tools" -maxdepth 3 -type f -name sdkmanager | sort | tail -1)
+          fi
+          echo "using $sdkmanager"
+          "$sdkmanager" --version
+          yes | "$sdkmanager" --licenses >/dev/null || true
+          "$sdkmanager" "platforms;android-34" "build-tools;34.0.0" >/dev/null
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -71,6 +77,8 @@ jobs:
         run: ./scripts/build_deb.sh
 
       - name: Publish web assets
+        env:
+          MCMUSIC_KEEP_APK: ${{ env.ANDROID_KEYSTORE_BASE64 == '' && '1' || '0' }}
         run: ./scripts/publish_apps.sh
 
       - name: Collect builds folder
