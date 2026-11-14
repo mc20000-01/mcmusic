@@ -1307,6 +1307,23 @@ async function settings(container) {
     b.onclick = () => emailSheet();
     return b;
   })()));
+
+  const publicProfileUrl = `${location.origin}/u/${encodeURIComponent(me?.username || "")}`;
+  pAcct.appendChild(row("Public profile", "No sign-in needed — use it in statuses", (() => {
+    const b = document.createElement("button");
+    b.className = "btn ghost sm";
+    b.textContent = "Copy link";
+    b.disabled = !me?.username;
+    b.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(publicProfileUrl);
+        toast("Public profile link copied", { iconName: "check" });
+      } catch (e) {
+        toast("Copy failed — long-press the link", { iconName: "triangle-alert" });
+      }
+    };
+    return b;
+  })()));
   container.appendChild(pAcct);
 
   /* apps — every build we publish, pulled from the server so this list can't

@@ -233,6 +233,8 @@ def api_docs():
             "channels": ["GET|POST /api/channels", "DELETE /api/channels/<id>",
                          "GET /api/channels/<id>/state", "POST /api/channels/<id>/dashboard",
                          "GET /api/bot/context", "POST /api/bot/rotur-ticket"],
+            "public": ["GET /u/<username> (no auth)",
+                       "GET /u/<username>/cover.png (no auth)"],
             "requests": ["POST /api/requests", "GET /api/requests",
                          "POST /api/requests/<id>/<action>"],
             "rooms": ["POST /api/rooms", "GET|DELETE /api/rooms/<code>",

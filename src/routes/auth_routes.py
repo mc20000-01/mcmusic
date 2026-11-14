@@ -8,6 +8,7 @@ from flask import Blueprint, request, jsonify, session, current_app
 from werkzeug.security import generate_password_hash, check_password_hash
 import json
 import time
+from urllib.parse import quote
 
 from config import (
     INVITE_CODE, ROTUR_CALLBACK_PATH, ROTUR_APP, BOT_TOKEN, RESET_TTL, PUBLIC_URL,
@@ -294,8 +295,16 @@ def rotur_activity():
         from routes.system_routes import room_url
         room = room_url(uid)
 
+    user_row = _db().execute(
+        "select username from users where id=?", (uid,)
+    ).fetchone()
+    username = user_row["username"] if user_row else ""
+    base = PUBLIC_URL or request.url_root.rstrip("/")
+    profile_url = f"{base}/u/{quote(username)}" if username else ""
+    cover_url = f"{base}/u/{quote(username)}/cover.png" if username else ""
     activity = rotur.listening_activity(
         row, float(d.get("position", 0) or 0), room,
+        cover_url=cover_url, profile_url=profile_url,
     )
     ok, err = rotur.push_activity(
         uid, activity, str(d.get("presence", "online")),

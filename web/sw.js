@@ -8,7 +8,7 @@
      JSON shapes never outlive the app that wrote them; media survives updates
    ========================================================================== */
 
-const SHELL = "mcmusic-shell-v14";
+const SHELL = "mcmusic-shell-v15";
 const API = "mcmusic-api-v2";
 const MEDIA = "mcmusic-media-v1";
 const MEDIA_MAX = 400;                        // tracks + artwork kept offline
@@ -265,6 +265,10 @@ self.addEventListener("fetch", (event) => {
     })());
     return;
   }
+
+  // Public profile pages are standalone documents. Cache-first/offline logic
+  // for the app shell must never turn one into the cached "/" entry.
+  if (url.pathname === "/u" || url.pathname.startsWith("/u/")) return;
 
   // navigations
   if (req.mode === "navigate") {
