@@ -29,11 +29,19 @@
 ::selection { background: var(--accent); color: var(--accent-fg); }
 
 /* theme preview swatches (settings) */
-.th-dusk    { background: repeating-linear-gradient(135deg, #151022 0 7px, #a06bff 7px 14px); }
-.th-paper   { background: linear-gradient(135deg, #fbf7ee, #b4531f); }
-.th-ink     { background: linear-gradient(135deg, #121214, #d7d7de); }
-.th-tide    { background: linear-gradient(135deg, #18262c, #6fb3c4); }
-.th-copper  { background: linear-gradient(135deg, #2b1a16, #e08a5f); }
+/* Theme previews are defined once here, from each palette's real bg,
+   surface and accent. The card just paints the three bands. */
+.th-dusk   { --sw-bg: #151022; --sw-surface: #241a38; --sw-accent: #a06bff; }
+.th-paper  { --sw-bg: #f4efe4; --sw-surface: #fbf7ee; --sw-accent: #b4531f; }
+.th-ink    { --sw-bg: #0b0b0c; --sw-surface: #1d1d22; --sw-accent: #d7d7de; }
+.th-tide   { --sw-bg: #0e161a; --sw-surface: #1f3038; --sw-accent: #6fb3c4; }
+.th-copper { --sw-bg: #1a0f0d; --sw-surface: #37211c; --sw-accent: #e08a5f; }
+.th-auto {
+  --sw-bg: #0b0b0c;
+  --sw-surface: #f4efe4;
+  --sw-accent: #a06bff;
+  background: linear-gradient(90deg, #0b0b0c 0 50%, #f4efe4 50% 100%);
+}
 
 /* keep the focus ring visible on light surfaces */
 [data-theme="paper"] :focus-visible { outline-color: var(--accent); }

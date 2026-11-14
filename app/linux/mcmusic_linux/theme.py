@@ -40,6 +40,32 @@ class Palette:
         c.setAlpha(36)
         return c
 
+    # ── Liquid Glass tokens ─────────────────────────────────────────────
+    # Painting code reads these; QSS uses the matching rgba literals below.
+    @property
+    def glass(self) -> QColor:
+        c = QColor("#ffffff")
+        c.setAlpha(36)
+        return c
+
+    @property
+    def glass_strong(self) -> QColor:
+        c = QColor("#ffffff")
+        c.setAlpha(56)
+        return c
+
+    @property
+    def glass_border(self) -> QColor:
+        c = QColor("#ffffff")
+        c.setAlpha(46)
+        return c
+
+    @property
+    def glass_highlight(self) -> QColor:
+        c = QColor("#ffffff")
+        c.setAlpha(64)
+        return c
+
 
 # ── palettes (variables.css + Theme.kt) ─────────────────────────────────────
 
@@ -176,9 +202,9 @@ def families() -> dict[str, str]:
             "Sans Serif",
         )
         _FAMILIES["display"] = _pick(
-            ["Iowan Old Style", "Palatino Linotype", "Palatino", "Noto Serif",
-             "DejaVu Serif", "Liberation Serif", "Georgia"],
-            "Serif",
+            ["Inter", "SF Pro Display", "Adwaita Sans", "Cantarell", "Noto Sans",
+             "DejaVu Sans"],
+            "Sans Serif",
         )
         _FAMILIES["mono"] = _pick(
             ["JetBrains Mono", "Adwaita Mono", "Noto Sans Mono", "DejaVu Sans Mono",
@@ -228,28 +254,28 @@ def stylesheet(p: Palette | None = None) -> str:
         selection-color: {p.accent_fg};
     }}
     QLineEdit {{
-        background: {p.bg2};
-        border: 1px solid {p.line2};
-        border-radius: 4px;
-        padding: 6px 10px;
+        background: rgba(255, 255, 255, 0.10);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 12px;
+        padding: 8px 12px;
         color: {p.fg};
         font-size: 13px;
     }}
-    QLineEdit:focus {{ border-color: {p.accent}; }}
+    QLineEdit:focus {{ border-color: rgba(255, 255, 255, 0.32); }}
     QLineEdit[echoMode="2"] {{ letter-spacing: 2px; }}
     QMenu {{
         background: {p.bg2};
-        border: 1px solid {p.line2};
-        border-radius: 7px;
-        padding: 5px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 16px;
+        padding: 6px;
     }}
     QMenu::item {{
         padding: 8px 28px 8px 12px;
-        border-radius: 4px;
+        border-radius: 10px;
         color: {p.fg};
         font-size: 13px;
     }}
-    QMenu::item:selected {{ background: {p.surface}; }}
+    QMenu::item:selected {{ background: rgba(255, 255, 255, 0.12); }}
     QMenu::item:disabled {{ color: {p.dim2}; }}
     QMenu::separator {{ height: 1px; background: {p.line}; margin: 4px 2px; }}
     QScrollBar:vertical {{
@@ -286,8 +312,8 @@ def stylesheet(p: Palette | None = None) -> str:
     QMessageBox {{ background: {p.bg2}; }}
     QMessageBox QLabel {{ color: {p.fg}; }}
     QMessageBox QPushButton {{
-        background: {p.bg2}; border: 1px solid {p.line2};
-        border-radius: 4px; padding: 6px 14px; color: {p.fg};
+        background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 999px; padding: 7px 15px; color: {p.fg};
     }}
     QMessageBox QPushButton:hover {{ background: {p.surface}; }}
     QColorDialog {{ background: {p.bg2}; }}

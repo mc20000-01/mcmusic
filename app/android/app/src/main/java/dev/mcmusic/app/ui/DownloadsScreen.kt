@@ -20,6 +20,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.mcmusic.app.AppViewModel
 import dev.mcmusic.app.Route
+import dev.mcmusic.app.ui.theme.D
 import dev.mcmusic.app.ui.theme.LocalMc
 import dev.mcmusic.app.ui.theme.McType
 
@@ -27,7 +28,7 @@ import dev.mcmusic.app.ui.theme.McType
 @Composable
 fun DownloadsScreen(vm: AppViewModel) {
     Column(Modifier.fillMaxSize()) {
-        Box(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)) {
+        Box(Modifier.fillMaxWidth().padding(horizontal = D.gutter, vertical = 10.dp)) {
             Seg(
                 options = listOf("downloads" to "Downloads", "requests" to "Requests"),
                 selected = vm.downloadsTab,
@@ -47,7 +48,7 @@ private fun DownloadsBody(vm: AppViewModel) {
 
     Column(Modifier.fillMaxSize()) {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+            Modifier.fillMaxWidth().padding(horizontal = D.gutter, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
@@ -80,7 +81,7 @@ private fun DownloadsBody(vm: AppViewModel) {
         } else {
             LazyColumn(
                 Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = 24.dp),
+                contentPadding = PaddingValues(start = D.gutter, end = D.gutter, bottom = 24.dp),
             ) {
                 items(list, key = { it.id }) { d ->
                     Row(
@@ -124,7 +125,6 @@ private fun DownloadsBody(vm: AppViewModel) {
                             contentDescription = "Remove download",
                         )
                     }
-                    Box(Modifier.fillMaxWidth().height(1.dp).background(mc.line))
                 }
             }
         }

@@ -1,0 +1,225 @@
+/* ==========================================================================
+   mcmusic — graphics quality profiles
+   Every value comes from variables.css. This file only decides which surfaces
+   receive the token, never the token values themselves.
+   ========================================================================== */
+
+/* Keep glass on its own paint layer, and keep the scroll container glass-free
+   so a backdrop filter never nests inside another one. */
+html[data-gfx] :is(#rail, #deck, .panel, .menu, .toast, .sheet) {
+  isolation: isolate;
+  contain: layout paint style;
+  transform: translateZ(0);
+  will-change: auto;
+}
+
+html[data-gfx] #main {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+html[data-gfx] #top .sfield input,
+html[data-gfx] #top .btn,
+html[data-gfx] #top .iconbtn {
+  -webkit-backdrop-filter: var(--gfx-top-blur);
+  backdrop-filter: var(--gfx-top-blur);
+}
+
+/* Off is deliberately plain: no SVG, no blur, no saturate. */
+html[data-gfx="0"] :is(.glass, #rail, #deck, .menu, .toast, .panel, .sheet,
+  #drawer, #media-modal, #main, .btn, #top .sfield input, #top .btn,
+  #top .iconbtn, .toast .toast-act) {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* Low and Medium keep the large panels solid; only floating chrome gets blur. */
+html[data-gfx="0"] :is(.panel, .sheet, #drawer, #media-modal, #main, .menu),
+html[data-gfx="1"] :is(.panel, .sheet, #drawer, #media-modal, #main, .menu),
+html[data-gfx="2"] :is(.panel, .sheet, #drawer, #media-modal, #main) {
+  background: var(--gfx-panel-fill);
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+html[data-gfx="1"] :is(.panel, .sheet, #drawer, #media-modal, #main, .menu) {
+  box-shadow: var(--gfx-shadow);
+}
+
+html[data-gfx] .toast .toast-act {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* The hero tint is a cheap CSS gradient; it is disabled at the two lowest
+   levels rather than composited behind the content. */
+html[data-gfx="0"] .hero::before,
+html[data-gfx="1"] .hero::before {
+  opacity: var(--gfx-hero-opacity);
+}
+
+/* Off: opacity-only changes. Low: transform/opacity only. */
+html[data-gfx="0"] *,
+html[data-gfx="0"] *::before,
+html[data-gfx="0"] *::after {
+  animation: none !important;
+  transition-property: opacity !important;
+  transition-duration: 120ms !important;
+}
+
+html[data-gfx="1"] *,
+html[data-gfx="1"] *::before,
+html[data-gfx="1"] *::after {
+  animation: none !important;
+  transition-property: transform, opacity !important;
+  transition-duration: 150ms !important;
+}
+
+html[data-gfx="2"] :is(.vinyl, .eq i, .status .dot, .rail-net .dot) {
+  animation: none !important;
+}
+
+html[data-gfx="2"] *,
+html[data-gfx="2"] *::before,
+html[data-gfx="2"] *::after,
+html[data-gfx="3"] *,
+html[data-gfx="3"] *::before,
+html[data-gfx="3"] *::after,
+html[data-gfx="4"] *,
+html[data-gfx="4"] *::before,
+html[data-gfx="4"] *::after {
+  transition-property: transform, opacity !important;
+}
+
+/* High/Max keep the existing colour tint crossfade. */
+html[data-gfx="3"] #app,
+html[data-gfx="4"] #app {
+  transition: background 400ms var(--ease) !important;
+}
+
+/* These two loops animate layout or box-shadow, so they are disabled at every
+   profile instead of being patched into a transform-only approximation. */
+html[data-gfx] .login-eq i,
+html[data-gfx] .rail-net .dot {
+  animation: none !important;
+}
+
+/* View transitions are allowed only on High and Max. */
+html[data-gfx="3"].has-view-transitions::view-transition-old(root),
+html[data-gfx="3"].has-view-transitions::view-transition-new(root),
+html[data-gfx="4"].has-view-transitions::view-transition-old(root),
+html[data-gfx="4"].has-view-transitions::view-transition-new(root) {
+  animation-duration: 180ms;
+  animation-timing-function: var(--ease);
+}
+
+/* When the tab is hidden or the window is not focused, drop the expensive
+   backdrop layers. The tinted fills remain, so there is no layout shift. */
+html[data-gfx-paused] :is(#rail, #deck, .menu, .toast, .panel, .sheet,
+  #drawer, #media-modal, #top .sfield input, #top .btn, #top .iconbtn) {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+html[data-gfx] .rnav:active,
+html[data-gfx] .btn:active,
+html[data-gfx] .iconbtn:active,
+html[data-gfx] .switch:active {
+  will-change: transform;
+}
+
+html[data-gfx] .trow {
+  content-visibility: auto;
+  contain-intrinsic-size: 48px;
+}
+
+.gfx-row {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px 16px;
+}
+
+.gfx-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.gfx-head b {
+  display: block;
+  font-size: var(--t-sm);
+  font-weight: 500;
+  color: var(--t1);
+}
+
+.gfx-head small {
+  display: block;
+  margin-top: 2px;
+  color: var(--t2);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.gfx-auto {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  color: var(--t2);
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.gfx-auto input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+}
+
+.gfx-range {
+  width: 100%;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.gfx-scale {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 2px;
+  color: var(--t3);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.gfx-scale span:nth-child(2) { text-align: center; }
+.gfx-scale span:nth-child(3) { text-align: center; }
+.gfx-scale span:nth-child(4) { text-align: center; }
+.gfx-scale span:last-child { text-align: right; }
+
+.gfx-desc {
+  margin: 2px 0 0;
+  color: var(--t2);
+  font-size: 12px;
+}
+
+.gfx-readout {
+  color: var(--t2);
+  font-size: 10px;
+}
+
+.gfx-warning {
+  margin: 0;
+  color: var(--warn);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.gfx-warning[hidden] { display: none; }
+
+html.gfx-reduced-motion :is(#content.swap > *, .vinyl, .eq i, .status .dot, .rail-net .dot) {
+  animation: none !important;
+}

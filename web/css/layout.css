@@ -502,3 +502,128 @@
 #media-modal .video-body { flex: 1; }
 #media-modal .video-body iframe { width: 100%; height: 100%; border: 0; border-radius: var(--r-2); }
 @media (max-width: 720px) { #media-modal { inset: 5vh 4vw 10vh; } }
+
+/* ══ Liquid Glass shell ══════════════════════════════════════════════════ */
+
+body {
+  background:
+    radial-gradient(110% 80% at 50% -10%, color-mix(in srgb, var(--hero) 30%, transparent), transparent 62%),
+    var(--tint);
+  transition: background 400ms var(--ease);
+}
+
+#app {
+  gap: 12px;
+  padding: 12px;
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+#rail {
+  padding: 18px 10px 12px;
+  border: 1px solid var(--glass-border);
+  border-right: 1px solid var(--glass-border);
+  border-radius: 28px;
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-shadow);
+}
+
+#railnav { gap: 4px; }
+
+.rnav { border-radius: 999px; }
+.rnav.on { background: var(--glass-strong); }
+.rnav.on::before { display: none; }
+.rnav.on svg { color: var(--t1); }
+
+#main {
+  margin: 0;
+  border: 1px solid var(--glass-border);
+  border-radius: 28px;
+  background: color-mix(in srgb, var(--bg) 58%, transparent);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  overflow: hidden;
+}
+
+#top {
+  height: var(--top-h);
+  padding: 6px 16px 0;
+  border-bottom: 0;
+  background: transparent;
+}
+
+#content { padding: 14px 24px 140px; }
+
+#deck {
+  justify-self: center;
+  width: min(680px, calc(100% - 24px));
+  margin: 2px auto 8px;
+  padding: 0 16px;
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-shadow);
+}
+
+#deck::before { display: none; }
+
+#drawer, #media-modal {
+  background: color-mix(in srgb, var(--bg-2) 82%, transparent);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: inset 0 1px 0 var(--glass-highlight), 0 24px 80px rgba(0, 0, 0, 0.35);
+}
+
+#remote-bar {
+  border: 1px solid var(--glass-border);
+  border-left: 2px solid var(--accent);
+  border-radius: 18px;
+  background: var(--glass);
+  backdrop-filter: var(--glass-small-blur);
+  -webkit-backdrop-filter: var(--glass-small-blur);
+  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-shadow);
+}
+
+/* Three genuine zones: the center column owns controls + seek, so nothing
+   can sit on top of the progress rail. */
+#deck {
+  grid-template-columns: minmax(220px, 1fr) minmax(320px, 560px) minmax(200px, 1fr);
+  gap: 16px;
+  min-height: var(--deck-h);
+  width: min(940px, calc(100% - 24px));
+  padding: 8px 18px;
+}
+
+.deck-now { min-width: 220px; }
+.deck-now .art { width: 44px; height: 44px; }
+.deck-meta { min-width: 0; }
+.deck-meta b { font-size: 14px; }
+.deck-meta small { font-size: 11px; }
+.deck-center { gap: 6px; }
+.deck-controls { gap: 6px; height: 40px; }
+.deck-controls .iconbtn { width: 32px; height: 32px; }
+.deck-controls .iconbtn.play { width: 40px; height: 40px; }
+.deck-right { gap: 4px; min-width: 0; }
+#vol { width: 76px; }
+.deck-more { display: none; }
+
+@media (max-width: 1280px) {
+  .deck-secondary { display: none; }
+  .deck-more { display: grid; }
+}
+
+@media (max-width: 1060px) {
+  .deck-volume, .deck-volume-icon { display: none; }
+}
+
+@media (max-width: 1100px) {
+  #deck-like { display: none; }
+}
+
+/* Content and toasts always clear the floating player. */
+#content { padding-bottom: calc(var(--deck-h) + 24px); }
+#toasts { bottom: calc(var(--deck-h) + 12px); }

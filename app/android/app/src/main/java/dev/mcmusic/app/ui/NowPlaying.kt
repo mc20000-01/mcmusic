@@ -41,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -71,7 +72,17 @@ fun PlayerOverlay(vm: AppViewModel) {
     val tick: () -> Unit = { haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
     var lyricsOpen by remember { mutableStateOf(false) }
 
-    Box(Modifier.fillMaxSize().background(mc.bg)) {
+    Box(
+        Modifier.fillMaxSize().background(
+            Brush.verticalGradient(
+                listOf(
+                    mc.accent.copy(alpha = 0.20f),
+                    mc.bg.copy(alpha = 0.94f),
+                    mc.bg,
+                ),
+            ),
+        ),
+    ) {
         Column(
             Modifier
                 .fillMaxSize()
@@ -121,7 +132,7 @@ fun PlayerOverlay(vm: AppViewModel) {
                     ),
                 contentAlignment = Alignment.Center,
             ) {
-                val artSize = if (maxWidth < 320.dp) maxWidth else 320.dp
+                val artSize = minOf(maxWidth * 0.72f, 300.dp)
                 Art(
                     t.id,
                     artSize,
@@ -165,14 +176,7 @@ fun PlayerOverlay(vm: AppViewModel) {
                 }
             }
 
-            Spacer(Modifier.height(14.dp))
-            Equalizer(
-                playing = engine.playing,
-                tint = mc.accent,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(18.dp))
             ProgressBar(
                 position = engine.position,
                 duration = if (engine.duration > 0) engine.duration else t.duration,
@@ -196,17 +200,23 @@ fun PlayerOverlay(vm: AppViewModel) {
                     contentDescription = "Previous track")
                 Box(
                     Modifier
-                        .size(58.dp)
+                        .size(56.dp)
+                        .shadow(
+                            12.dp,
+                            CircleShape,
+                            ambientColor = mc.accent.copy(alpha = 0.28f),
+                            spotColor = mc.accent.copy(alpha = 0.28f),
+                        )
                         .clip(CircleShape)
-                        .background(mc.fg)
+                        .background(mc.accent)
                         .clickable { tick(); engine.toggle() },
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         if (engine.playing) AppIcons.Pause else AppIcons.Play,
                         if (engine.playing) "Pause" else "Play",
-                        Modifier.size(24.dp),
-                        tint = mc.bg,
+                        Modifier.size(22.dp),
+                        tint = mc.accentFg,
                     )
                 }
                 IconBtn(AppIcons.SkipForward, { tick(); engine.next() }, size = 44.dp, tint = mc.fg,
@@ -223,8 +233,6 @@ fun PlayerOverlay(vm: AppViewModel) {
                     },
                 )
             }
-
-            ModeStrip(engine.shuffle, engine.repeat, engine.sleepLeft)
 
             Spacer(Modifier.height(16.dp))
             Row(
@@ -261,67 +269,6 @@ fun PlayerOverlay(vm: AppViewModel) {
                 )
             }
 
-            val upcoming = engine.queue.drop(engine.index + 1)
-            if (upcoming.isNotEmpty()) {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 16.dp)
-                        .height(1.dp)
-                        .background(mc.line)
-                )
-                Text(
-                    "UP NEXT",
-                    style = McType.mono9,
-                    color = mc.dim2,
-                    modifier = Modifier.padding(bottom = 8.dp),
-                )
-                Text(
-                    "Tap to jump · open Queue to reorder or swipe tracks away.",
-                    style = McType.mono10,
-                    color = mc.dim2,
-                    modifier = Modifier.padding(bottom = 10.dp),
-                )
-                upcoming.take(8).forEachIndexed { i, track ->
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(D.r2))
-                            .combinedClickable(
-                                onClick = {
-                                    tick()
-                                    engine.jumpTo(engine.queue.indexOfFirst { it.id == track.id })
-                                },
-                                onLongClick = {
-                                    tick()
-                                    vm.queueOpen = true
-                                },
-                            )
-                            .padding(vertical = 5.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        Art(track.id, 34.dp)
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                track.title,
-                                style = McType.bodySm,
-                                color = mc.fg,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Text(
-                                track.artist,
-                                style = McType.mono10,
-                                color = mc.dim,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                        Text(fmtTime(track.duration), style = McType.mono10, color = mc.dim2)
-                    }
-                }
-            }
             Spacer(Modifier.height(24.dp))
         }
 
@@ -342,7 +289,7 @@ fun NowPlayingScreen(vm: AppViewModel) {
         Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(14.dp),
+            .padding(D.gutter),
     ) {
         val t = vm.engine.current
         if (t == null) {

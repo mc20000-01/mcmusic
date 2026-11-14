@@ -433,9 +433,10 @@ class Repo(private val api: Api, private val store: SessionStore) {
 }
 
 data class Settings(
-    val theme: String = "ink",
+    val theme: String = "dusk",
     val accent: String = "#a06bff",
     val density: String = "comfy",
+    val realGlass: String = "auto",
     val covers: Boolean = true,
     val autoplay: Boolean = true,
     val hideExplicit: Boolean = false,
@@ -454,6 +455,7 @@ data class Settings(
         .put("theme", theme)
         .put("accent", accent)
         .put("density", density)
+        .put("real_glass", realGlass)
         .put("covers", covers)
         .put("autoplay", autoplay)
         .put("hide_explicit", hideExplicit)
@@ -468,9 +470,10 @@ data class Settings(
 
     companion object {
         fun from(o: JSONObject) = Settings(
-            theme = o.optString("theme", "ink"),
+            theme = o.optString("theme", "dusk"),
             accent = o.optString("accent", "#a06bff"),
             density = o.optString("density", "comfy"),
+            realGlass = o.optString("real_glass", "auto"),
             covers = o.optBoolean("covers", true),
             autoplay = o.optBoolean("autoplay", true),
             hideExplicit = o.optBoolean("hide_explicit", false),

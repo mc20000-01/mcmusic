@@ -28,6 +28,7 @@ export const Player = {
   bars: new Set(),
 
   _reported: false,
+  _lastPaint: 0,
   _lastPublish: 0,
   _lastSave: 0,
   _scrubPct: 0,
@@ -44,13 +45,13 @@ export const Player = {
 
     el.addEventListener("play", () => {
       this.playing = true;
-      this._paint();
+      this._paint(true);
       this._publish(true);
       this._mediaState("playing");
     });
     el.addEventListener("pause", () => {
       this.playing = false;
-      this._paint();
+      this._paint(true);
       this._publish(true);
       this.save();
       this._mediaState("paused");
@@ -64,7 +65,7 @@ export const Player = {
     el.addEventListener("progress", () => this._paint());
     el.addEventListener("durationchange", () => {
       this.duration = el.duration || 0;
-      this._paint();
+      this._paint(true);
     });
     el.addEventListener("loadedmetadata", () => {
       this.duration = el.duration || 0;
@@ -355,7 +356,10 @@ export const Player = {
     };
   },
 
-  _paint() {
+  _paint(force = false) {
+    const now = performance.now();
+    if (!force && now - this._lastPaint < 100) return;
+    this._lastPaint = now;
     const el = this.el;
     if (!el) return;
     const dur = el.duration || this.duration || 0;
@@ -370,8 +374,8 @@ export const Player = {
     } catch (e) { /* ignore */ }
 
     for (const bar of this.bars) {
-      if (bar.fill) bar.fill.style.width = `${pct}%`;
-      if (bar.buf) bar.buf.style.width = `${Math.max(pct, Math.min(100, buffered))}%`;
+      if (bar.fill) bar.fill.style.transform = `scaleX(${pct / 100})`;
+      if (bar.buf) bar.buf.style.transform = `scaleX(${Math.max(pct, Math.min(100, buffered)) / 100})`;
       if (bar.knob) bar.knob.style.left = `${pct}%`;
       if (bar.cur) bar.cur.textContent = fmtTime(pos);
       if (bar.dur) bar.dur.textContent = fmtTime(dur);

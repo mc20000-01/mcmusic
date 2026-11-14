@@ -245,7 +245,8 @@ export function notice(text, { actionLabel, onAction } = {}) {
 export function art(id, cls = "art-xs", { round = false } = {}) {
   const wrap = document.createElement("div");
   wrap.className = `art ${cls}${round ? " round" : ""}`;
-  if (id) {
+  const coversOff = document.body?.dataset.covers === "off";
+  if (id && !coversOff) {
     const img = document.createElement("img");
     img.src = `/api/tracks/${id}/cover`;
     img.alt = "";
@@ -372,10 +373,12 @@ export function hero(o) {
 
   const cover = document.createElement("div");
   cover.className = `hero-art${o.round ? " round" : ""}`;
-  if (o.cover) {
+  if (o.cover && document.body?.dataset.covers !== "off") {
     const img = document.createElement("img");
     img.src = `/api/tracks/${o.cover}/cover`;
     img.alt = "";
+    img.loading = "lazy";
+    img.decoding = "async";
     img.onerror = () => {
       img.remove();
       cover.appendChild(icon(o.round ? "users" : "disc-3", { size: 34 }));

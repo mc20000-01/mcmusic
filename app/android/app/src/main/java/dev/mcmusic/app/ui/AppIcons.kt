@@ -25,7 +25,7 @@ private fun buildIcon(name: String, path: String, filled: Boolean): ImageVector 
             pathData = nodes,
             fill = if (filled) SolidColor(Color.Black) else null,
             stroke = if (filled) null else SolidColor(Color.Black),
-            strokeLineWidth = 1.9f,
+            strokeLineWidth = 1.75f,
             strokeLineCap = StrokeCap.Round,
             strokeLineJoin = StrokeJoin.Round,
         )
@@ -65,6 +65,10 @@ object AppIcons {
     val ChevronRight = stroked("chevron-right", "m9 18 6-6-6-6")
     val ChevronDown = stroked("chevron-down", "m6 9 6 6 6-6")
     val MoreVertical = stroked("more-vertical", "M11.0 12.0a1.0 1.0 0 1 0 2.0 0a1.0 1.0 0 1 0 -2.0 0M11.0 5.0a1.0 1.0 0 1 0 2.0 0a1.0 1.0 0 1 0 -2.0 0M11.0 19.0a1.0 1.0 0 1 0 2.0 0a1.0 1.0 0 1 0 -2.0 0")
+    val MoreHorizontal = stroked("more-horizontal", "M4.0 12.0a1.0 1.0 0 1 0 2.0 0a1.0 1.0 0 1 0 -2.0 0M11.0 12.0a1.0 1.0 0 1 0 2.0 0a1.0 1.0 0 1 0 -2.0 0M18.0 12.0a1.0 1.0 0 1 0 2.0 0a1.0 1.0 0 1 0 -2.0 0")
+    val Sun = stroked("sun", "M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8")
+    val Moon = stroked("moon", "M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z")
+    val Monitor = stroked("monitor", "M2 3h20v14H2zM8 21h8M12 17v4")
     val Clock = stroked("clock", "M2.0 12.0a10.0 10.0 0 1 0 20.0 0a10.0 10.0 0 1 0 -20.0 0M12 6v6l4 2")
     val LogOut = stroked("log-out", "m16 17 5-5-5-5M21 12H9M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4")
     val Link = stroked("link", "M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71")

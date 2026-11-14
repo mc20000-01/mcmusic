@@ -44,6 +44,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.SwipeToDismissBox
@@ -51,6 +53,7 @@ import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -59,6 +62,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -86,6 +92,7 @@ import dev.mcmusic.app.data.Track
 import dev.mcmusic.app.ui.theme.D
 import dev.mcmusic.app.ui.theme.LocalMc
 import dev.mcmusic.app.ui.theme.McType
+import dev.mcmusic.app.ui.theme.glass
 import kotlin.math.roundToInt
 
 @Composable
@@ -118,7 +125,8 @@ fun AppRoot(vm: AppViewModel) {
             onDismiss = vm::clearToast,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = if (vm.me == null) 44.dp else 180.dp),
+                .navigationBarsPadding()
+                .padding(bottom = if (vm.me == null) 44.dp else 144.dp),
         )
     }
 }
@@ -147,13 +155,28 @@ fun Shell(vm: AppViewModel) {
         Column(
             Modifier
                 .fillMaxSize()
-                .background(mc.bg)
-                .statusBarsPadding(),
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            mc.accent.copy(alpha = 0.18f),
+                            mc.bg.copy(alpha = 0.92f),
+                            mc.bg,
+                        ),
+                    ),
+                )
+                .statusBarsPadding()
+                .navigationBarsPadding(),
         ) {
             TopBar(vm)
             RoomBanner(vm)
-            Box(Modifier.weight(1f)) {
+            Box(Modifier.weight(1f).padding(bottom = D.pageBottom)) {
                 ArtistNav.go = { name -> vm.navigate(Route.Artist(name)) }
+                CompositionLocalProvider(
+                    LocalListPrefs provides ListPrefs(
+                        covers = vm.settings.covers,
+                        compact = vm.settings.density == "compact",
+                    ),
+                ) {
                 AnimatedContent(
                     targetState = vm.route,
                     transitionSpec = {
@@ -178,10 +201,20 @@ fun Shell(vm: AppViewModel) {
                         Route.NowPlaying -> NowPlayingScreen(vm)
                     }
                 }
+                }
             }
-            Deck(vm)
-            NavBar(vm)
         }
+
+        if (vm.engine.current != null) {
+            Deck(
+                vm,
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(start = 10.dp, end = 10.dp, bottom = 78.dp),
+            )
+        }
+        NavBar(vm, Modifier.align(Alignment.BottomCenter))
 
         if (vm.queueOpen) QueueSheet(vm)
         if (vm.sleepOpen) SleepSheet(vm)
@@ -285,7 +318,7 @@ private fun TopBar(vm: AppViewModel) {
         Modifier
             .fillMaxWidth()
             .height(D.top)
-            .padding(horizontal = 14.dp),
+            .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -337,78 +370,141 @@ private fun TopBar(vm: AppViewModel) {
 /* ── deck ───────────────────────────────────────────────────────────────── */
 
 @Composable
-private fun Deck(vm: AppViewModel) {
+private fun Deck(vm: AppViewModel, modifier: Modifier = Modifier) {
     val t = vm.engine.current ?: return
     val mc = LocalMc.current
-    val dur = if (vm.engine.duration > 0) vm.engine.duration else t.duration
-    val fraction = if (dur > 0) (vm.engine.position / dur).toFloat().coerceIn(0f, 1f) else 0f
     val error = vm.engine.error
+    var moreOpen by remember(t.id) { mutableStateOf(false) }
 
-    Column(Modifier.fillMaxWidth().background(mc.bg2)) {
-        Box(Modifier.fillMaxWidth().height(1.dp).background(mc.line2))
+    Box(
+        modifier
+            .fillMaxWidth()
+            .height(D.deck)
+            .glass(RoundedCornerShape(18.dp)),
+    ) {
         Row(
-            Modifier
-                .fillMaxWidth()
-                .height(D.deck)
-                .padding(horizontal = 12.dp),
+            Modifier.fillMaxSize().padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Art(t.id, 46.dp, modifier = Modifier.clickable { vm.playerOpen = true })
-            Column(
+            Row(
                 Modifier
                     .weight(1f)
-                    .clickable { if (error != null) vm.engine.retry() else vm.playerOpen = true },
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable {
+                        if (error != null) vm.engine.retry() else vm.playerOpen = true
+                    }
+                    .padding(horizontal = 2.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text(
-                    t.title,
-                    style = McType.bodySm.copy(fontWeight = FontWeight.Medium),
-                    color = mc.fg,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (error != null) {
+                Art(t.id, 34.dp)
+                Column(Modifier.weight(1f)) {
                     Text(
-                        error,
-                        style = McType.mono10,
-                        color = mc.err,
+                        t.title,
+                        style = McType.bodySm.copy(fontSize = 13.sp, fontWeight = FontWeight.Medium),
+                        color = mc.fg,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                } else {
-                    ArtistCredits(t, McType.mono10, mc.dim)
+                    Text(
+                        error ?: t.artist,
+                        style = McType.mono9,
+                        color = if (error != null) mc.err else mc.dim,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
-            IconBtn(
-                AppIcons.Heart,
-                { vm.toggleLike(t) },
-                size = 38.dp,
-                tint = if (t.liked) mc.accent else mc.dim,
-                contentDescription = "Like",
-            )
-            IconBtn(
-                if (vm.engine.playing) AppIcons.Pause else AppIcons.Play,
-                { vm.engine.toggle() },
-                size = 48.dp,
-                tint = mc.fg,
-                contentDescription = "Play or pause",
-            )
-            IconBtn(AppIcons.SkipForward, { vm.engine.next() }, size = 38.dp, contentDescription = "Next")
-        }
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(7.dp)
-                .clip(RoundedCornerShape(99.dp))
-                .background(mc.line)
-                .clickable { vm.playerOpen = true },
-        ) {
-            Box(
-                Modifier
-                    .fillMaxWidth(fraction)
-                    .height(7.dp)
-                    .background(mc.accent),
-            )
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(0.dp),
+            ) {
+                IconBtn(
+                    AppIcons.SkipBack,
+                    { vm.engine.prev() },
+                    size = 38.dp,
+                    tint = mc.fg,
+                    contentDescription = "Previous track",
+                )
+                Box(
+                    Modifier
+                        .size(38.dp)
+                        .shadow(
+                            10.dp,
+                            CircleShape,
+                            ambientColor = mc.accent.copy(alpha = 0.28f),
+                            spotColor = mc.accent.copy(alpha = 0.28f),
+                        )
+                        .clip(CircleShape)
+                        .background(mc.accent)
+                        .clickable { vm.engine.toggle() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        if (vm.engine.playing) AppIcons.Pause else AppIcons.Play,
+                        if (vm.engine.playing) "Pause" else "Play",
+                        Modifier.size(21.dp),
+                        tint = mc.accentFg,
+                    )
+                }
+                IconBtn(
+                    AppIcons.SkipForward,
+                    { vm.engine.next() },
+                    size = 38.dp,
+                    tint = mc.fg,
+                    contentDescription = "Next track",
+                )
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(0.dp),
+            ) {
+                IconBtn(
+                    AppIcons.ListMusic,
+                    { vm.queueOpen = true },
+                    size = 38.dp,
+                    tint = mc.dim,
+                    contentDescription = "Queue",
+                )
+                Box {
+                    IconBtn(
+                        AppIcons.MoreHorizontal,
+                        { moreOpen = true },
+                        size = 38.dp,
+                        tint = mc.dim,
+                        contentDescription = "More player actions",
+                    )
+                    DropdownMenu(
+                        expanded = moreOpen,
+                        onDismissRequest = { moreOpen = false },
+                        containerColor = mc.bg2,
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Open player", style = McType.bodySm, color = mc.fg) },
+                            leadingIcon = { Icon(AppIcons.ChevronRight, null, Modifier.size(18.dp), tint = mc.dim) },
+                            onClick = { moreOpen = false; vm.playerOpen = true },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Queue", style = McType.bodySm, color = mc.fg) },
+                            leadingIcon = { Icon(AppIcons.ListMusic, null, Modifier.size(18.dp), tint = mc.dim) },
+                            onClick = { moreOpen = false; vm.queueOpen = true },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Sleep timer", style = McType.bodySm, color = mc.fg) },
+                            leadingIcon = { Icon(AppIcons.Clock, null, Modifier.size(18.dp), tint = mc.dim) },
+                            onClick = { moreOpen = false; vm.sleepOpen = true },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Track info", style = McType.bodySm, color = mc.fg) },
+                            leadingIcon = { Icon(AppIcons.Info, null, Modifier.size(18.dp), tint = mc.dim) },
+                            onClick = { moreOpen = false; vm.openInfo(t) },
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -418,29 +514,29 @@ private fun Deck(vm: AppViewModel) {
 private data class NavItem(val route: Route, val label: String, val icon: ImageVector)
 
 @Composable
-private fun NavBar(vm: AppViewModel) {
+private fun NavBar(vm: AppViewModel, modifier: Modifier = Modifier) {
     val mc = LocalMc.current
-    val items = buildList {
-        add(NavItem(Route.Home, "Home", AppIcons.Home))
-        add(NavItem(Route.Search, "Search", AppIcons.Search))
-        add(NavItem(Route.Library, "Library", AppIcons.Library))
-        add(NavItem(Route.Downloads, "Downloads", AppIcons.Download))
-        add(NavItem(Route.Settings, "Settings", AppIcons.Settings))
-        if (vm.me?.isAdmin == true) add(NavItem(Route.Admin, "Admin", AppIcons.Users))
-    }
+    val items = listOf(
+        NavItem(Route.Home, "Home", AppIcons.Home),
+        NavItem(Route.Search, "Search", AppIcons.Search),
+        NavItem(Route.Library, "Library", AppIcons.Library),
+        NavItem(Route.Downloads, "Downloads", AppIcons.Download),
+        NavItem(Route.Settings, "Settings", AppIcons.Settings),
+    )
 
-    Column(
-        Modifier
+    Box(
+        modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(topStart = D.r3, topEnd = D.r3))
-            .background(mc.bg2),
+            .navigationBarsPadding()
+            .padding(horizontal = 10.dp, vertical = 10.dp),
     ) {
-        Box(Modifier.fillMaxWidth().height(1.dp).background(mc.line2))
         Row(
             Modifier
                 .fillMaxWidth()
                 .height(D.tab)
-                .navigationBarsPadding(),
+                .glass(RoundedCornerShape(29.dp))
+                .padding(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             items.forEach { item ->
                 val active = isActive(vm.route, item.route)
@@ -453,20 +549,17 @@ private fun NavBar(vm: AppViewModel) {
                     Modifier
                         .weight(1f)
                         .fillMaxHeight()
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(if (active) mc.glassStrong else Color.Transparent)
                         .clickable { vm.navigate(item.route, push = false) },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    Icon(
-                        item.icon,
-                        null,
-                        Modifier.size(25.dp),
-                        tint = tint,
-                    )
-                    Spacer(Modifier.height(5.dp))
+                    Icon(item.icon, null, Modifier.size(20.dp), tint = tint)
+                    Spacer(Modifier.height(2.dp))
                     Text(
-                        item.label,
-                        style = McType.labelSm.copy(fontSize = 11.sp),
+                        item.label.uppercase(),
+                        style = McType.mono9.copy(fontSize = 9.sp, letterSpacing = 0.06.em),
                         color = if (active) mc.accent else mc.dim2,
                         maxLines = 1,
                         overflow = TextOverflow.Clip,

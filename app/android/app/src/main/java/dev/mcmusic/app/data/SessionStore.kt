@@ -75,7 +75,7 @@ class SessionStore(context: Context) {
         }
 
     var theme: String
-        get() = prefs.getString("theme", "ink") ?: "ink"
+        get() = prefs.getString("theme", "dusk") ?: "dusk"
         set(value) {
             prefs.edit().putString("theme", value).apply()
         }
@@ -97,6 +97,19 @@ class SessionStore(context: Context) {
         get() = prefs.getFloat("volume", 0.8f)
         set(value) {
             prefs.edit().putFloat("volume", value).apply()
+        }
+
+    /** Graphics quality is deliberately local to this install, never synced. */
+    var gfxLevel: Int
+        get() = prefs.getInt("gfx_level", -1)
+        set(value) {
+            prefs.edit().putInt("gfx_level", value).apply()
+        }
+
+    var gfxAuto: Boolean
+        get() = prefs.getBoolean("gfx_auto", true)
+        set(value) {
+            prefs.edit().putBoolean("gfx_auto", value).apply()
         }
 
     var deviceHash: String?

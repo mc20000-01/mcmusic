@@ -76,7 +76,7 @@ export function hasIcon(name) {
  */
 export function icon(name, opts = {}) {
   const {
-    size = 18, cls = "", stroke = 1.8, title = "", filled = false, opacity = null,
+    size = 18, cls = "", stroke = 1.75, title = "", filled = false, opacity = null,
   } = opts;
 
   const key = hasIcon(name) ? name : FALLBACK_ICON;
@@ -118,15 +118,15 @@ export function setIcon(el, name, opts = {}) {
 /** The repeat control has three states; this keeps name/opacity logic in one place. */
 export function repeatIcon(state) {
   const name = state === "one" ? "repeat-1" : "repeat";
-  return icon(name, { size: 17, opacity: state === "off" ? 0.45 : 1,
+  return icon(name, { size: 18, opacity: state === "off" ? 0.45 : 1,
                       title: `Repeat: ${state}` });
 }
 
 export function volumeIcon(muted, level) {
-  if (muted) return icon("volume-x", { size: 17, title: "Muted" });
-  if (level <= 0.01) return icon("volume-x", { size: 17, title: "Volume 0" });
-  if (level < 0.5) return icon("volume-1", { size: 17, title: "Volume low" });
-  return icon("volume-2", { size: 17, title: "Volume" });
+  if (muted) return icon("volume-x", { size: 18, title: "Muted" });
+  if (level <= 0.01) return icon("volume-x", { size: 18, title: "Volume 0" });
+  if (level < 0.5) return icon("volume-1", { size: 18, title: "Volume low" });
+  return icon("volume-2", { size: 18, title: "Volume" });
 }
 
 export { PATHS as ICON_PATHS };

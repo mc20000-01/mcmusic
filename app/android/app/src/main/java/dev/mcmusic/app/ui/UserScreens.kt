@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,6 +25,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -33,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
@@ -40,15 +44,20 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
 import dev.mcmusic.app.AppViewModel
 import dev.mcmusic.app.Route
 import dev.mcmusic.app.data.InviteCode
 import dev.mcmusic.app.data.RequestRow
 import dev.mcmusic.app.ui.theme.D
 import dev.mcmusic.app.ui.theme.LocalMc
+import dev.mcmusic.app.ui.theme.McAccents
 import dev.mcmusic.app.ui.theme.McThemes
 import dev.mcmusic.app.ui.theme.McType
-import dev.mcmusic.app.ui.theme.paletteFor
+import dev.mcmusic.app.ui.theme.previewFor
+import dev.mcmusic.app.ui.theme.themeLabel
 
 /* ── playlists ──────────────────────────────────────────────────────────── */
 
@@ -57,7 +66,7 @@ fun PlaylistsScreen(vm: AppViewModel) {
     val mc = LocalMc.current
     Column(Modifier.fillMaxSize()) {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+            Modifier.fillMaxWidth().padding(horizontal = D.gutter, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("Playlists", style = McType.h1Small, color = mc.fg)
@@ -81,7 +90,7 @@ fun PlaylistsScreen(vm: AppViewModel) {
         } else {
             LazyColumn(
                 Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = 24.dp),
+                contentPadding = PaddingValues(start = D.gutter, end = D.gutter, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 items(vm.playlists.chunked(2)) { row ->
@@ -161,7 +170,7 @@ fun PlaylistScreen(vm: AppViewModel, id: Int) {
     }
 
     if (tracks.isEmpty()) {
-        Column(Modifier.fillMaxSize().padding(14.dp)) {
+        Column(Modifier.fillMaxSize().padding(D.gutter)) {
             Text(vm.playlistName.ifBlank { "Playlist" }, style = McType.h1Small, color = mc.fg)
             EmptyState(
                 "Empty playlist",
@@ -174,7 +183,7 @@ fun PlaylistScreen(vm: AppViewModel, id: Int) {
 
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 28.dp),
+        contentPadding = PaddingValues(start = D.gutter, end = D.gutter, top = 10.dp, bottom = 24.dp),
     ) {
         item {
             Hero(
@@ -223,7 +232,7 @@ fun RequestsScreen(vm: AppViewModel) {
     val mc = LocalMc.current
     var url by remember { mutableStateOf("") }
     Column(Modifier.fillMaxSize()) {
-        Column(Modifier.padding(horizontal = 14.dp)) {
+        Column(Modifier.padding(horizontal = D.gutter)) {
             Text(
                 "Request songs",
                 style = McType.h1Small,
@@ -255,7 +264,7 @@ fun RequestsScreen(vm: AppViewModel) {
         } else {
             LazyColumn(
                 Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = 24.dp),
+                contentPadding = PaddingValues(start = D.gutter, end = D.gutter, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 items(vm.requests, key = { it.id }) { request ->
@@ -354,6 +363,58 @@ private fun RequestRowView(vm: AppViewModel, request: RequestRow) {
 /* ── settings ───────────────────────────────────────────────────────────── */
 
 @Composable
+private fun GraphicsQuality(vm: AppViewModel) {
+    val mc = LocalMc.current
+    val labels = listOf("Off", "Low", "Medium", "High", "Max")
+    val blurbs = listOf(
+        "Solid tints only. No blur or filters.",
+        "Light static blur on floating controls only.",
+        "Standard glass on floating controls; solid panels.",
+        "Full glass on floating controls and cards.",
+        "High plus real glass refraction where supported.",
+    )
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "Graphics quality",
+                    style = McType.bodySm.copy(fontSize = 14.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium),
+                    color = mc.fg,
+                )
+                Text(
+                    "This device only. Auto starts at a safe level and lowers it when frames are slow.",
+                    style = McType.bodyXs,
+                    color = mc.fg.copy(alpha = 0.62f),
+                )
+            }
+            Text("Auto", style = McType.bodyXs, color = mc.fg.copy(alpha = 0.62f))
+            Spacer(Modifier.width(6.dp))
+            SwitchPill(vm.gfxAuto) { vm.updateGfxAuto(it) }
+        }
+        Slider(
+            value = vm.gfxLevel.toFloat(),
+            onValueChange = { vm.updateGfxLevel(it.roundToInt()) },
+            valueRange = 0f..4f,
+            steps = 3,
+        )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            labels.forEach { label ->
+                Text(
+                    label,
+                    style = McType.mono9,
+                    color = mc.fg.copy(alpha = 0.55f),
+                )
+            }
+        }
+        Text(blurbs[vm.gfxLevel.coerceIn(0, 4)], style = McType.bodyXs, color = mc.fg.copy(alpha = 0.62f))
+        Text("Current: — ms/frame", style = McType.mono9, color = mc.fg.copy(alpha = 0.55f))
+    }
+}
+
+@Composable
 fun SettingsScreen(vm: AppViewModel) {
     val mc = LocalMc.current
     var passwordOpen by remember { mutableStateOf(false) }
@@ -400,15 +461,10 @@ fun SettingsScreen(vm: AppViewModel) {
 
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 30.dp),
+        contentPadding = PaddingValues(start = D.gutter, end = D.gutter, top = 10.dp, bottom = 24.dp),
     ) {
         item {
-            Text(
-                "Settings",
-                style = McType.h1Small,
-                color = mc.fg,
-                modifier = Modifier.padding(bottom = 16.dp),
-            )
+            SectionHead("Settings", "Saved to your account")
         }
 
         /* appearance */
@@ -417,99 +473,86 @@ fun SettingsScreen(vm: AppViewModel) {
                 Text(
                     "Theme",
                     style = McType.mono9,
-                    color = mc.dim2,
-                    modifier = Modifier.padding(start = 16.dp, top = 12.dp),
+                    color = mc.fg.copy(alpha = 0.55f),
+                    modifier = Modifier.padding(start = 16.dp, top = 14.dp),
                 )
-                LazyRow(
+                Column(
                     Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    items(McThemes) { key ->
-                        val palette = paletteFor(key)
-                        val selected = vm.settings.theme == key
-                        Column(
-                            Modifier
-                                .width(74.dp)
-                                .clip(RoundedCornerShape(D.r2))
-                                .border(
-                                    1.dp,
-                                    if (selected) mc.accent else mc.line2,
-                                    RoundedCornerShape(D.r2),
-                                )
-                                .clickable { vm.setSetting { it.copy(theme = key) } },
-                        ) {
-                            Box(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .height(36.dp)
-                                    .background(palette.bg),
-                            ) {
-                                Box(
-                                    Modifier
-                                        .align(Alignment.BottomStart)
-                                        .fillMaxWidth()
-                                        .height(4.dp)
-                                        .background(palette.accent),
+                    McThemes.chunked(3).forEach { row ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            row.forEach { key ->
+                                ThemeCard(
+                                    key = key,
+                                    selected = vm.settings.theme == key,
+                                    onClick = { vm.setSetting { it.copy(theme = key) } },
                                 )
                             }
-                            Text(
-                                key.replaceFirstChar { it.uppercase() },
-                                style = McType.mono9,
-                                color = if (selected) mc.fg else mc.dim,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(mc.bg)
-                                    .padding(vertical = 4.dp),
+                            repeat(3 - row.size) { Spacer(Modifier.width(88.dp)) }
+                        }
+                    }
+                }
+
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Text(
+                        "Accent colour",
+                        style = McType.bodySm.copy(fontSize = 14.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium),
+                        color = mc.fg,
+                    )
+                    Text(
+                        "Pick a colour for controls and focus",
+                        style = McType.bodyXs,
+                        color = mc.fg.copy(alpha = 0.62f),
+                    )
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(top = 8.dp, bottom = 2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        McAccents.forEach { hex ->
+                            val selected = vm.settings.accent.equals(hex, ignoreCase = true)
+                            Box(
+                                Modifier
+                                    .size(24.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(android.graphics.Color.parseColor(hex)))
+                                    .border(
+                                        2.dp,
+                                        if (selected) mc.fg else Color.Transparent,
+                                        CircleShape,
+                                    )
+                                    .clickable { vm.setSetting { it.copy(accent = hex) } },
                             )
                         }
                     }
                 }
-                Box(Modifier.fillMaxWidth().height(1.dp).background(mc.line))
-                Text(
-                    "Accent colour",
-                    style = McType.mono9,
-                    color = mc.dim2,
-                    modifier = Modifier.padding(start = 16.dp, top = 12.dp),
-                )
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    listOf(
-                        "#6366f1", "#3b82f6", "#8b5cf6", "#ec4899",
-                        "#f97316", "#eab308", "#14b8a6", "#ef4444",
-                    ).forEach { hex ->
-                        val selected = vm.settings.accent.equals(hex, ignoreCase = true)
-                        Box(
-                            Modifier
-                                .size(24.dp)
-                                .clip(CircleShape)
-                                .background(Color(android.graphics.Color.parseColor(hex)))
-                                .border(
-                                    2.dp,
-                                    if (selected) mc.fg else Color.Transparent,
-                                    CircleShape,
-                                )
-                                .clickable { vm.setSetting { it.copy(accent = hex) } },
-                        )
-                    }
-                }
-                Box(Modifier.fillMaxWidth().height(1.dp).background(mc.line))
+
                 SettingRow(
                     "Density",
-                    "Compact rows in song lists",
+                    "Tighter rows, same information",
                 ) {
                     Seg(
-                        options = listOf("comfy" to "Comfy", "compact" to "Compact"),
+                        options = listOf("comfy" to "Comfortable", "compact" to "Compact"),
                         selected = vm.settings.density,
                         onSelect = { value -> vm.setSetting { it.copy(density = value) } },
                     )
                 }
-                SettingRow("Show cover art", last = true) {
+                GraphicsQuality(vm)
+
+                SettingRow(
+                    "Real glass",
+                    "Uses extra GPU. Falls back to simple blur when unsupported",
+                ) {
+                    Seg(
+                        options = listOf("auto" to "Auto", "on" to "On", "off" to "Off"),
+                        selected = vm.settings.realGlass,
+                        onSelect = { value -> vm.setSetting { it.copy(realGlass = value) } },
+                    )
+                }
+                SettingRow("Cover art", "Hide artwork to load faster") {
                     SwitchPill(vm.settings.covers) { value ->
                         vm.setSetting { it.copy(covers = value) }
                     }
@@ -520,38 +563,51 @@ fun SettingsScreen(vm: AppViewModel) {
         /* playback */
         item {
             Panel("Playback") {
-                SettingRow("Autoplay", "Keep playing similar songs when the queue runs out") {
+                SettingRow("Autoplay", "Keep similar tracks playing after the queue") {
                     SwitchPill(vm.settings.autoplay) { value ->
                         vm.setSetting { it.copy(autoplay = value) }
                     }
                 }
-                SettingRow("Hide explicit songs", "Uses the server's explicit flag") {
+                SettingRow("Hide explicit tracks", "Skip tracks marked explicit") {
                     SwitchPill(vm.settings.hideExplicit) { value ->
                         vm.setSetting { it.copy(hideExplicit = value) }
                     }
                 }
-                SettingRow("Remember volume", last = true) {
+                SettingRow("Show YouTube stats", "Show likes beside tracks") {
+                    SwitchPill(vm.settings.ytStats) { value ->
+                        vm.setSetting { it.copy(ytStats = value) }
+                    }
+                }
+                SettingRow("Remember volume") {
                     SwitchPill(vm.settings.rememberVolume) { value ->
                         vm.setSetting { it.copy(rememberVolume = value) }
+                    }
+                }
+                SettingRow("Private session", "Don’t record plays for recommendations") {
+                    SwitchPill(vm.settings.privateSession) { value ->
+                        vm.setSetting { it.copy(privateSession = value) }
                     }
                 }
             }
         }
 
-        /* privacy */
+        /* offline */
         item {
-            Panel("Privacy") {
+            Panel("Offline and updates") {
                 SettingRow(
-                    "Private session",
-                    "Plays are not recorded, so recommendations stay untouched",
+                    "Prefetch queued audio",
+                    "Cache the next tracks for gapless, offline playback",
                 ) {
-                    SwitchPill(vm.settings.privateSession) { value ->
-                        vm.setSetting { it.copy(privateSession = value) }
+                    SwitchPill(vm.settings.prefetch) { value ->
+                        vm.setSetting { it.copy(prefetch = value) }
                     }
                 }
-                SettingRow("Show YouTube stats", "Like counts next to songs", last = true) {
-                    SwitchPill(vm.settings.ytStats) { value ->
-                        vm.setSetting { it.copy(ytStats = value) }
+                SettingRow(
+                    "Offline audio",
+                    "Keep downloaded tracks on this phone",
+                ) {
+                    SwitchPill(vm.settings.offlineAudio) { value ->
+                        vm.setSetting { it.copy(offlineAudio = value) }
                     }
                 }
             }
@@ -559,6 +615,7 @@ fun SettingsScreen(vm: AppViewModel) {
 
         /* listen along */
         item {
+            Spacer(Modifier.height(2.dp))
             val role = vm.roomRole
             val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
             Panel("Listen along") {
@@ -798,6 +855,72 @@ fun SettingsScreen(vm: AppViewModel) {
     }
 }
 
+@Composable
+private fun ThemeCard(key: String, selected: Boolean, onClick: () -> Unit) {
+    val mc = LocalMc.current
+    val preview = previewFor(key)
+    Column(
+        Modifier
+            .width(88.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .border(
+                if (selected) 2.dp else 1.dp,
+                if (selected) mc.accent else mc.line2,
+                RoundedCornerShape(14.dp),
+            )
+            .clickable(onClick = onClick),
+    ) {
+        Box(Modifier.fillMaxWidth().height(46.dp)) {
+            if (preview.split) {
+                Row(Modifier.fillMaxSize()) {
+                    Box(Modifier.weight(1f).fillMaxHeight().background(preview.bg))
+                    Box(Modifier.weight(1f).fillMaxHeight().background(preview.surface))
+                }
+            } else {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                *arrayOf(
+                                    0f to preview.bg,
+                                    0.46f to preview.bg,
+                                    0.54f to preview.surface,
+                                    0.72f to preview.surface,
+                                    0.82f to preview.accent,
+                                    1f to preview.accent,
+                                ),
+                            ),
+                        ),
+                )
+            }
+            if (selected) {
+                Box(
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(5.dp)
+                        .size(16.dp)
+                        .clip(CircleShape)
+                        .background(mc.accent),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(AppIcons.Check, null, Modifier.size(10.dp), tint = mc.accentFg)
+                }
+            }
+        }
+        Text(
+            themeLabel(key),
+            style = McType.mono9.copy(fontSize = 10.sp, letterSpacing = 0.06.em),
+            color = if (selected) mc.fg else mc.dim,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(mc.bg)
+                .padding(vertical = 5.dp),
+        )
+    }
+}
+
 /* ── admin ──────────────────────────────────────────────────────────────── */
 
 @Composable
@@ -812,7 +935,7 @@ fun AdminScreen(vm: AppViewModel) {
     var chGuild by remember { mutableStateOf("") }
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 30.dp),
+        contentPadding = PaddingValues(start = D.gutter, end = D.gutter, top = 10.dp, bottom = 24.dp),
     ) {
         item {
             Row(
@@ -865,7 +988,7 @@ fun AdminScreen(vm: AppViewModel) {
         item {
             Panel("Friend codes") {
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+                    Modifier.fillMaxWidth().padding(horizontal = D.gutter, vertical = 10.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Box(Modifier.weight(1f)) {
@@ -875,10 +998,10 @@ fun AdminScreen(vm: AppViewModel) {
                         McField(invHours, { v -> invHours = v.filter(Char::isDigit) }, "Hours (0 = never)")
                     }
                 }
-                Box(Modifier.fillMaxWidth().padding(horizontal = 14.dp)) {
+                Box(Modifier.fillMaxWidth().padding(horizontal = D.gutter)) {
                     McField(invNote, { invNote = it }, "Note (optional)")
                 }
-                Row(Modifier.padding(14.dp)) {
+                Row(Modifier.padding(D.gutter)) {
                     McButton(
                         "Generate",
                         {
@@ -1061,7 +1184,7 @@ fun AdminScreen(vm: AppViewModel) {
                 }
                 Box(Modifier.fillMaxWidth().height(1.dp).background(mc.line))
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
+                    Modifier.fillMaxWidth().padding(horizontal = D.gutter, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Box(Modifier.weight(1f)) {
@@ -1071,10 +1194,10 @@ fun AdminScreen(vm: AppViewModel) {
                         McField(chChannel, { chChannel = it }, "Channel ID")
                     }
                 }
-                Box(Modifier.fillMaxWidth().padding(horizontal = 14.dp)) {
+                Box(Modifier.fillMaxWidth().padding(horizontal = D.gutter)) {
                     McField(chGuild, { chGuild = it }, "Server / guild ID (optional)")
                 }
-                Row(Modifier.padding(14.dp)) {
+                Row(Modifier.padding(D.gutter)) {
                     McButton(
                         "Bind channel",
                         {
