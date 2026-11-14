@@ -93,7 +93,10 @@
   .sfield { max-width: none; }
   .sfield input { font-size: 16px; padding: 7px 10px 7px 30px; }
   #topactions { gap: 0; }
-  #content { padding: 14px 14px calc(22px + env(safe-area-inset-bottom, 0px)); }
+  #topactions #logout { display: none; }
+  #content {
+    padding: 14px 14px calc(78px + 54px + 24px + env(safe-area-inset-bottom, 0px));
+  }
 
   /* deck sits above the tab bar */
   #deck {
@@ -395,6 +398,41 @@ body.is-mobile { -webkit-tap-highlight-color: transparent; }
   .sheet { border-radius: 24px 24px 0 0; }
   .sheet::before { background: var(--glass-strong); }
   #drawer { border-radius: 24px 24px 0 0; }
+}
+
+/* A title can never push a transport control off screen. The text column is
+   the only shrinkable child; every button keeps its intrinsic width. */
+@media (max-width: 860px) {
+  #deck { overflow: hidden; }
+  .deck-now, .deck-meta { min-width: 0; overflow: hidden; }
+  .deck-meta b,
+  .deck-meta small {
+    display: block;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .deck-center, .deck-controls, .deck-right { min-width: 0; }
+  .deck-controls .iconbtn, .deck-right .iconbtn { flex: 0 0 auto; }
+}
+
+@media (max-width: 480px) {
+  #deck {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 3px;
+    padding-right: 6px;
+  }
+  .deck-now { grid-column: 1; grid-row: 1; }
+  .deck-now .art { flex: 0 0 34px; }
+  .deck-center { grid-column: 2; grid-row: 1; }
+  .deck-right { grid-column: 3; grid-row: 1; }
+  /* Queue is still in the "..." menu and the tab-level player sheet. */
+  .deck-right #btn-queue { display: none; }
+  .deck-controls #btn-prev { display: none; }
+  .deck-controls .iconbtn { width: 32px; height: 32px; }
+  .deck-controls .iconbtn.play { width: 38px; height: 38px; }
 }
 
 /* Safe area on installed mobile chrome. */

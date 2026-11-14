@@ -47,13 +47,29 @@ class Repo(private val api: Api, private val store: SessionStore) {
 
     suspend fun roturStatus(): JSONObject = api.get("auth/rotur/status")
 
+    suspend fun discordStatus(): JSONObject = api.get("auth/discord/status")
+
     suspend fun unlinkRotur() {
         api.post("auth/rotur/unlink")
     }
 
-    /** Publish "Listening to …" as the Rotur status (needs account:profile). */
-    suspend fun pushRoturActivity(status: String): Boolean =
-        api.post("auth/rotur/live", JSONObject().put("status", status)).optBoolean("ok")
+    suspend fun unlinkDiscord() {
+        api.post("auth/discord/unlink")
+    }
+
+    /** Stream the current track as a Rotur activity (needs account:profile). */
+    suspend fun pushRoturActivity(
+        trackId: Int?,
+        position: Double,
+        playing: Boolean,
+    ): Boolean {
+        val body = JSONObject().put("playing", playing)
+        if (playing && trackId != null) {
+            body.put("track_id", trackId)
+            body.put("position", position)
+        }
+        return api.post("auth/rotur/activity", body).optBoolean("ok")
+    }
 
     /** Ask the server to download liked songs, Faves, or one playlist. */
     suspend fun downloadCollection(kind: String, id: Int? = null): Int {

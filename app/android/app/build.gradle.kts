@@ -12,8 +12,8 @@ android {
         applicationId = "dev.mcmusic.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 23
-        versionName = "2.3"
+        versionCode = 25
+        versionName = "2.5"
         // Host running the mcmusic server. Editable on the login screen.
         buildConfigField("String", "DEFAULT_SERVER", "\"https://mcmusic.sdisk.us\"")
     }

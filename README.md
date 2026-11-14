@@ -36,10 +36,25 @@ Configuration is environment-only. The names that matter:
 - `PUBLIC_URL`, `MUSIC_DIR`, `DATA_DIR`
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`
 - `ROTUR_APP`, `ROTUR_SECRET`, `INVITE_CODE`
-- `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_ADMIN_TOKEN`
+- `DISCORD_CLIENT_ID` (or existing `DISCORD_APPLICATION_ID`), `DISCORD_CLIENT_SECRET`, `DISCORD_REDIRECT_URI`
+- `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_ADMIN_TOKEN`, `MCMUSIC_BOT_TOKEN`
 
 Nothing under `data/` (database, cookies, session key) or `mcmusic.env` is in
 this repository, and `.gitignore` keeps it that way.
+
+### Discord account linking
+
+Create an application in the Discord Developer Portal, then add its OAuth2
+client ID and client secret to `mcmusic.env` (the ID is also accepted as
+`DISCORD_APPLICATION_ID`). Register this exact redirect URI under OAuth2:
+
+```
+<PUBLIC_URL>/api/auth/discord/callback
+```
+
+`DISCORD_CLIENT_SECRET` is the only required value that cannot be derived from
+the bot token. The bot itself also needs **Message Content Intent** enabled
+under Bot → Privileged Gateway Intents, otherwise Discord refuses the login.
 
 ## Builds
 

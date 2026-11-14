@@ -23,7 +23,8 @@
 #deck::before { background: var(--accent); }
 
 #deck::before {
-  background: repeating-linear-gradient(90deg, var(--accent) 0 8px, transparent 8px 16px);
+  background: var(--accent);
+  opacity: 0.22;
 }
 
 ::selection { background: var(--accent); color: var(--accent-fg); }

@@ -474,6 +474,12 @@ def main():
         bot.run(DISCORD_BOT_TOKEN)
     except KeyboardInterrupt:
         pass
+    except discord.errors.PrivilegedIntentsRequired:
+        print(
+            "[discord] login refused: enable Message Content Intent under "
+            "Bot -> Privileged Gateway Intents in the Discord Developer Portal.",
+            flush=True,
+        )
 
 
 if __name__ == "__main__":

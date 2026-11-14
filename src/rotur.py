@@ -15,11 +15,16 @@ resulting session is our own signed cookie, and tokens stay server-side.
 import base64
 import hashlib
 import secrets
+import threading
 import time
+from typing import Optional
+
+import rotur_activity
+from music_activity.state import PlayerState, Track
 
 import requests
 from flask import (
-    session, redirect, request, jsonify, current_app, Response, url_for,
+    session, redirect, request, jsonify, current_app, has_app_context, Response, url_for,
 )
 
 from config import (
@@ -42,6 +47,22 @@ PENDING_KEY = "rotur_pending"
 # code is supplied, so a restart (or a second worker) does not lose the flow.
 # Only the random handle rides in the browser session cookie.
 _PENDING_TTL = 900
+
+# The activity socket carries the rich state. Presence only needs to be set
+# when it changes or after a long gap; doing a PUT for every 3 s update invites
+# rate limits and adds latency to the activity itself.
+_PRESENCE_LOCK = threading.Lock()
+_PRESENCE_LAST: dict[int, tuple[str, float]] = {}
+
+
+def _presence_due(uid, presence):
+    now = time.time()
+    with _PRESENCE_LOCK:
+        last = _PRESENCE_LAST.get(uid)
+        if last and last[0] == presence and now - last[1] < 60:
+            return False
+        _PRESENCE_LAST[uid] = (presence, now)
+        return True
 
 
 # --------------------------------------------------------------------------- helpers
@@ -468,31 +489,105 @@ def _live_token(uid):
     return new_token, ""
 
 
-def push_live_status(uid, status, presence="online"):
-    """PUT /v2/status/live with the stored Rotur token (account:profile)."""
-    token, problem = _live_token(uid)
-    if not token:
-        return False, problem
+def _token_provider(uid):
+    # The RoturSink resolves its token on a background thread. Flask's request
+    # context (and therefore _db()) is not available there, so carry the real
+    # app object into that thread instead of letting every first connect fail
+    # with "Working outside of application context".
+    app = current_app._get_current_object() if has_app_context() else None
+
+    def get():
+        if app is None:
+            token, _problem = _live_token(uid)
+            return token
+        with app.app_context():
+            token, _problem = _live_token(uid)
+            return token
+
+    return get
+
+
+def _set_presence(uid, token, presence="online"):
+    """Keep the account online while its rich activity is on the socket."""
     if presence not in ("online", "idle", "dnd", "invisible"):
         presence = "online"
     try:
         resp = requests.put(
             f"{ROTUR_BASE_URL}/v2/status/live",
-            json={"status": (status or "")[:128], "presence": presence},
+            json={"presence": presence},
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
             timeout=15,
         )
+        if resp.status_code >= 400:
+            return False, f"Rotur returned {resp.status_code}: {resp.text[:120]}"
     except requests.RequestException as e:
         return False, str(e)
-    if resp.status_code >= 400:
-        return False, f"Rotur returned {resp.status_code}: {resp.text[:120]}"
     return True, ""
+
+
+def listening_activity(track, position=0.0, room_url="", playing=True, cover_url=""):
+    """Build the sink-agnostic player state for a Rotur listening activity."""
+    title = str(track["title"] or "Unknown track")[:128]
+    artist = str(track["artist"] or "")[:128]
+    album = str(track["album"] or "")[:128]
+    duration = float(track["duration"] or 0)
+    t = Track(
+        id=str(track["id"]),
+        title=title,
+        artist=artist,
+        album=album,
+        duration=duration,
+        cover_url=cover_url or None,
+        url=room_url or None,
+    )
+    return PlayerState(
+        track=t,
+        playing=bool(playing),
+        position=max(0.0, float(position or 0)),
+        extra=room_url or "",
+    )
+
+
+def push_activity(uid, state: PlayerState, presence="online"):
+    """Stream a rich activity over Rotur's status WebSocket."""
+    token, problem = _live_token(uid)
+    if not token:
+        return False, problem
+    if _presence_due(uid, presence):
+        _set_presence(uid, token, presence)
+    try:
+        rotur_activity.publish(uid, state, _token_provider(uid))
+    except Exception as e:  # noqa: BLE001 - surface a useful API error
+        return False, f"Could not start Rotur activity: {e}"
+    return True, ""
+
+
+def clear_activity(uid):
+    """Remove the activity when playback pauses or the setting is turned off."""
+    rotur_activity.clear(uid, _token_provider(uid))
+    return True, ""
+
+
+def close_activity(uid):
+    """Close the socket on logout/unlink; closing removes the activity."""
+    rotur_activity.close(uid)
+    _PRESENCE_LAST.pop(uid, None)
+    return True, ""
+
+
+def push_live_status(uid, status, presence="online"):
+    """Compatibility shim for older callers; status strings are not activities."""
+    token, problem = _live_token(uid)
+    if not token:
+        return False, problem
+    return _set_presence(uid, token, presence)
 
 
 def unlink_route():
     uid = _auth_uid()
     if uid is None:
         return jsonify(error="login required"), 401
+    close_activity(uid)
     c = _db()
     c.execute("update users set rotur_id=NULL where id=?", (uid,))
     clear_rotur_session(c, uid)

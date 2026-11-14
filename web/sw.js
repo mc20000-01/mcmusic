@@ -8,7 +8,7 @@
      JSON shapes never outlive the app that wrote them; media survives updates
    ========================================================================== */
 
-const SHELL = "mcmusic-shell-v12";
+const SHELL = "mcmusic-shell-v14";
 const API = "mcmusic-api-v2";
 const MEDIA = "mcmusic-media-v1";
 const MEDIA_MAX = 400;                        // tracks + artwork kept offline

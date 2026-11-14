@@ -6,6 +6,7 @@ by id, personal API tokens) are gone.
 """
 from flask import Blueprint, request, jsonify, session, current_app
 from werkzeug.security import generate_password_hash, check_password_hash
+import json
 import time
 
 from config import (
@@ -18,6 +19,7 @@ from auth import (
     create_reset, reset_user, consume_reset,
 )
 import mailer
+import discord_link
 from database import _db
 import rotur
 
@@ -102,6 +104,9 @@ def login():
 
 @bp.post("/api/logout")
 def logout():
+    uid = _auth_uid()
+    if uid is not None:
+        rotur.close_activity(uid)
     session.clear()
     return jsonify(ok=True)
 
@@ -253,21 +258,85 @@ def rotur_status():
     return rotur.status_route()
 
 
+@bp.post("/api/auth/rotur/activity")
 @bp.post("/api/auth/rotur/live")
 @login_required
-def rotur_live():
-    """Publish "Listening to …" as the account's Rotur status."""
+def rotur_activity():
+    """Stream the current track as a Rotur rich activity.
+
+    /live stays as an alias for existing clients; it is no longer a status
+    string writer. Activities go out over the Rotur status WebSocket.
+    """
+    uid = session["uid"]
     d = request.get_json(silent=True) or {}
-    ok, err = rotur.push_live_status(
-        session["uid"], str(d.get("status", ""))[:128], str(d.get("presence", "online")),
+    playing = bool(d.get("playing", True))
+    tid = d.get("track_id")
+    if not playing or tid in (None, ""):
+        rotur.clear_activity(uid)
+        return jsonify(ok=True, activity=None)
+    try:
+        tid = int(tid)
+    except (TypeError, ValueError):
+        return jsonify(error="track_id must be a number"), 400
+    row = _db().execute("select * from tracks where id=?", (tid,)).fetchone()
+    if not row:
+        return jsonify(error="no such track"), 404
+
+    settings = {}
+    sr = _db().execute("select data from settings where user_id=?", (uid,)).fetchone()
+    if sr and sr["data"]:
+        try:
+            settings = json.loads(sr["data"])
+        except ValueError:
+            settings = {}
+    room = ""
+    if settings.get("show_room_url"):
+        from routes.system_routes import room_url
+        room = room_url(uid)
+
+    activity = rotur.listening_activity(
+        row, float(d.get("position", 0) or 0), room,
     )
-    return jsonify(ok=ok, error=err or None), (200 if ok else 502)
+    ok, err = rotur.push_activity(
+        uid, activity, str(d.get("presence", "online")),
+    )
+    return jsonify(
+        ok=ok,
+        error=err or None,
+        activity={
+            "type": "listening",
+            "details": activity.track.title,
+            "state": activity.track.artist,
+        },
+    ), (200 if ok else 502)
 
 
 @bp.post("/api/auth/rotur/unlink")
 @login_required
 def rotur_unlink():
     return rotur.unlink_route()
+
+
+# --------------------------------------------------------------------------- Discord link
+@bp.get("/api/auth/discord/authorize")
+def discord_authorize():
+    return discord_link.authorize_route()
+
+
+@bp.get("/api/auth/discord/callback")
+def discord_callback():
+    return discord_link.callback_route()
+
+
+@bp.get("/api/auth/discord/status")
+def discord_status():
+    return jsonify(discord_link.status_route())
+
+
+@bp.post("/api/auth/discord/unlink")
+@login_required
+def discord_unlink():
+    return jsonify(discord_link.unlink_route())
 
 
 # --------------------------------------------------------------------------- bot login handoff

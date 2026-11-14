@@ -605,14 +605,13 @@ private fun QueueSheet(vm: AppViewModel) {
         if (draggingIndex == null) order = upcoming
     }
 
-    fun remove(track: Track) {
-        val at = engine.queue.indexOfFirst { it.id == track.id }
-        if (at >= 0) engine.removeAt(at)
+    // Use queue positions, not track ids: the same track may appear twice.
+    fun removeQueuedAt(upcomingIndex: Int) {
+        engine.removeAt(engine.index + 1 + upcomingIndex)
     }
 
-    fun jump(track: Track) {
-        val at = engine.queue.indexOfFirst { it.id == track.id }
-        if (at >= 0) engine.jumpTo(at)
+    fun jumpTo(upcomingIndex: Int) {
+        engine.jumpTo(engine.index + 1 + upcomingIndex)
         vm.queueOpen = false
     }
 
@@ -655,7 +654,7 @@ private fun QueueSheet(vm: AppViewModel) {
             state = listState,
             modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp),
         ) {
-            itemsIndexed(order, key = { _, t -> t.id }) { i, track ->
+            itemsIndexed(order, key = { i, t -> "${t.id}:$i" }) { i, track ->
                 val isDragging = draggingIndex == i
                 Box(
                     Modifier
@@ -701,8 +700,8 @@ private fun QueueSheet(vm: AppViewModel) {
                 ) {
                     DismissibleQueueRow(
                         track = track,
-                        onClick = { jump(track) },
-                        onRemove = { remove(track) },
+                        onClick = { jumpTo(i) },
+                        onRemove = { removeQueuedAt(i) },
                     )
                 }
             }

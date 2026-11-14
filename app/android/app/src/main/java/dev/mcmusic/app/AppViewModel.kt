@@ -171,6 +171,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         private set
     var roturStatus by mutableStateOf<JSONObject?>(null)
         private set
+    var discordStatus by mutableStateOf<JSONObject?>(null)
+        private set
 
     /* ── listen-along room ──────────────────────────────────────────────── */
     var roomRole by mutableStateOf<String?>(null)   // "host" or "guest"
@@ -299,13 +301,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private fun installRoturHook() {
         if (roturHookSet) return
         roturHookSet = true
-        engine.onTrackChanged = { t ->
-            if (t != null && settings.roturActivity) {
-                viewModelScope.launch {
-                    runCatching { repo.pushRoturActivity(roturStatus(t)) }
-                }
-            }
-        }
+        engine.onTrackChanged = { t -> pushRotur(t, engine.playing) }
+        engine.onPlayStateChanged = { playing -> pushRotur(engine.current, playing) }
     }
 
     private var commandLoopRunning = false
@@ -480,6 +477,17 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun unlinkDiscord() {
+        viewModelScope.launch {
+            runCatching { repo.unlinkDiscord() }
+                .onSuccess {
+                    discordStatus = runCatching { repo.discordStatus() }.getOrNull()
+                    toast("Discord unlinked")
+                }
+                .onFailure { toast(it.message ?: "Could not unlink Discord") }
+        }
+    }
+
     /* ── settings ───────────────────────────────────────────────────────── */
 
     suspend fun lyrics(id: Int): String =
@@ -537,19 +545,21 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         store.gfxAuto = on
     }
 
-    /** What goes in the Rotur status, with the room invite when it is enabled. */
-    private fun roturStatus(t: Track): String {
-        val head = "Listening to ${t.title}" + if (t.artist.isNotBlank()) " — ${t.artist}" else ""
-        val room = if (settings.showRoomUrl && settings.roomUrl.isNotBlank()) " · ${settings.roomUrl}" else ""
-        return (head + room).take(128)
+    private fun pushRotur(t: Track?, playing: Boolean, force: Boolean = false) {
+        if (!settings.roturActivity && !force) return
+        viewModelScope.launch {
+            runCatching {
+                repo.pushRoturActivity(if (t != null && playing) t.id else null, engine.position, playing && t != null)
+            }.onFailure {
+                if (force) toast(it.message ?: "Rotur activity failed")
+            }
+        }
     }
 
     /** Re-publish now so flipping the toggle shows up without waiting for a track change. */
     fun setShowRoomUrl(on: Boolean) {
         setSetting { it.copy(showRoomUrl = on) }
-        val t = engine.current ?: return
-        if (!settings.roturActivity) return
-        viewModelScope.launch { runCatching { repo.pushRoturActivity(roturStatus(t)) } }
+        pushRotur(engine.current, settings.roturActivity && engine.playing, force = true)
     }
 
     fun applySettings(next: Settings) {
@@ -625,6 +635,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     Route.Settings -> {
                         loadSettings()
                         roturStatus = runCatching { repo.roturStatus() }.getOrNull()
+                        discordStatus = runCatching { repo.discordStatus() }.getOrNull()
                         devices = runCatching { repo.devices() }.getOrDefault(devices)
                     }
                     Route.Downloads -> {
@@ -1295,15 +1306,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setRoturActivity(on: Boolean) {
         setSetting { it.copy(roturActivity = on) }
-        if (!on) return
-        val t = engine.current ?: return
-        viewModelScope.launch {
-            runCatching {
-                repo.pushRoturActivity(
-                    "Listening to ${t.title}${if (t.artist.isNotBlank()) " — ${t.artist}" else ""}"
-                )
-            }.onFailure { toast("Rotur: ${it.message}") }
-        }
+        pushRotur(engine.current, on && engine.playing, force = true)
     }
 
     /* ── offline downloads ──────────────────────────────────────────────── */

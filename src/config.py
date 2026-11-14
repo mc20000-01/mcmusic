@@ -44,6 +44,19 @@ DISCORD_BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "")
 DISCORD_GUILD_ID = os.environ.get("DISCORD_GUILD_ID", "")
 DISCORD_ADMIN_TOKEN = os.environ.get("DISCORD_ADMIN_TOKEN", "")
 
+# Discord account linking (OAuth2). Register <public-url>/api/auth/discord/callback
+# in the Discord developer portal. The secret stays on the server.
+# The bot deployment already has DISCORD_APPLICATION_ID; accept it as the
+# OAuth client id too, so only the client secret needs to be added.
+DISCORD_CLIENT_ID = (
+    os.environ.get("DISCORD_CLIENT_ID", "")
+    or os.environ.get("DISCORD_APPLICATION_ID", "")
+    or os.environ.get("DISCORD_APP_ID", "")
+)
+DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET", "")
+DISCORD_REDIRECT_URI = os.environ.get("DISCORD_REDIRECT_URI", "")
+DISCORD_SCOPE = os.environ.get("DISCORD_SCOPE", "identify")
+
 # OriginChats: any REST chat bridge exposing the documented message contract.
 ORIGINCHATS_BASE = os.environ.get("ORIGINCHATS_BASE", "").rstrip("/")
 ORIGINCHATS_TOKEN = os.environ.get("ORIGINCHATS_TOKEN", "")
