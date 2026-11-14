@@ -1,4 +1,7 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@file:OptIn(
+    androidx.compose.material3.ExperimentalMaterial3Api::class,
+    androidx.compose.foundation.ExperimentalFoundationApi::class,
+)
 
 package dev.mcmusic.app.ui
 
@@ -6,11 +9,18 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -51,9 +61,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -521,12 +534,20 @@ fun TrackRow(
     modifier: Modifier = Modifier,
 ) {
     val mc = LocalMc.current
+    val haptics = LocalHapticFeedback.current
     Row(
         modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(D.r2))
             .background(if (isCurrent) mc.surface else Color.Transparent)
-            .clickable(onClick = onClick)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClickLabel = "Track options",
+                onLongClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onMore()
+                },
+            )
             .padding(horizontal = 6.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -650,16 +671,40 @@ fun Tile(
     coverId: Int?,
     onClick: () -> Unit,
     onPlay: (() -> Unit)? = null,
+    onLongPress: (() -> Unit)? = null,
     round: Boolean = false,
     width: Dp = 138.dp,
     fillWidth: Boolean = false,
 ) {
     val mc = LocalMc.current
+    val haptics = LocalHapticFeedback.current
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(
+        targetValue = if (pressed) 0.955f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "tile press",
+    )
     Column(
         Modifier
             .then(if (fillWidth) Modifier.fillMaxWidth() else Modifier.width(width))
+            .graphicsLayer {
+                scaleX = pressScale
+                scaleY = pressScale
+            }
             .clip(RoundedCornerShape(D.r3))
-            .clickable(onClick = onClick)
+            .combinedClickable(
+                interactionSource = interaction,
+                indication = LocalIndication.current,
+                onClick = onClick,
+                onLongClickLabel = "More options",
+                onLongClick = onLongPress?.let {
+                    {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        it()
+                    }
+                },
+            )
             .padding(0.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -709,6 +754,7 @@ fun AlbumTile(
     a: AlbumRef,
     onClick: () -> Unit,
     onPlay: () -> Unit,
+    onLongPress: (() -> Unit)? = null,
     fillWidth: Boolean = false,
 ) {
     Tile(
@@ -718,6 +764,7 @@ fun AlbumTile(
         coverId = a.coverId,
         onClick = onClick,
         onPlay = onPlay,
+        onLongPress = onLongPress,
         fillWidth = fillWidth,
     )
 }
@@ -727,6 +774,7 @@ fun ArtistTile(
     a: ArtistRef,
     onClick: () -> Unit,
     onPlay: () -> Unit,
+    onLongPress: (() -> Unit)? = null,
     fillWidth: Boolean = false,
 ) {
     Tile(
@@ -735,6 +783,7 @@ fun ArtistTile(
         coverId = a.coverId,
         onClick = onClick,
         onPlay = onPlay,
+        onLongPress = onLongPress,
         round = true,
         fillWidth = fillWidth,
     )
@@ -745,6 +794,7 @@ fun PlaylistTile(
     p: PlaylistRef,
     onClick: () -> Unit,
     onPlay: () -> Unit,
+    onLongPress: (() -> Unit)? = null,
     fillWidth: Boolean = false,
 ) {
     Tile(
@@ -753,6 +803,7 @@ fun PlaylistTile(
         coverId = p.coverId,
         onClick = onClick,
         onPlay = onPlay,
+        onLongPress = onLongPress,
         fillWidth = fillWidth,
     )
 }

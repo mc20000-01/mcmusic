@@ -176,6 +176,56 @@ class Repo(private val api: Api, private val store: SessionStore) {
         api.post("requests/$id/$action")
     }
 
+    /* ── control channels + admin extras ──────────────────────────────── */
+    suspend fun channels(): Pair<Boolean, List<ChannelRef>> {
+        val o = api.get("channels")
+        return o.optBoolean("configured") to ChannelRef.list(o.array("channels"))
+    }
+
+    suspend fun bindChannel(
+        platform: String,
+        channelId: String,
+        guildId: String,
+        mode: String,
+    ): ChannelRef = ChannelRef.from(
+        api.post(
+            "channels",
+            JSONObject()
+                .put("platform", platform)
+                .put("channel_id", channelId)
+                .put("guild_id", guildId)
+                .put("mode", mode),
+        ).getJSONObject("channel")
+    )
+
+    suspend fun unbindChannel(id: Int) {
+        api.delete("channels/$id")
+    }
+
+    suspend fun adminDevices(): List<AdminDeviceRef> {
+        val arr = api.get("admin/devices").array("devices")
+        return (0 until arr.length()).mapNotNull { i ->
+            arr.optJSONObject(i)?.let(AdminDeviceRef::from)
+        }
+    }
+
+    suspend fun enrichStatus(): EnrichStatus {
+        val o = api.get("admin/enrich")
+        return EnrichStatus(
+            total = o.optInt("total"),
+            linked = o.optInt("linked"),
+            fetched = o.optInt("fetched"),
+        )
+    }
+
+    suspend fun enrichStart(force: Boolean = false) {
+        api.post("admin/enrich", JSONObject().put("force", force))
+    }
+
+    suspend fun lyricsStatus(): LyricsStatus = LyricsStatus.from(api.get("admin/lyrics"))
+
+    suspend fun lyricsStart(): LyricsStatus = LyricsStatus.from(api.post("admin/lyrics"))
+
     /* ── listen-along rooms ────────────────────────────────────────────── */
     suspend fun createRoom(): String = api.post("rooms", JSONObject()).optString("code")
 

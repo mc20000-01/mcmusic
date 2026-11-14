@@ -1,8 +1,11 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package dev.mcmusic.app.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +31,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.mcmusic.app.AppViewModel
@@ -163,6 +168,7 @@ fun HomeScreen(vm: AppViewModel) {
                                 coverId = track.id,
                                 onClick = { vm.playList(list, list.indexOf(track)) },
                                 onPlay = { vm.playList(list, list.indexOf(track)) },
+                                onLongPress = { vm.openTrackMenu(track) },
                             )
                         }
                     }
@@ -179,6 +185,9 @@ fun HomeScreen(vm: AppViewModel) {
                                 album,
                                 onClick = { vm.navigate(Route.Album(album.album)) },
                                 onPlay = { vm.playAlbum(album.album) },
+                                onLongPress = {
+                                    vm.openCollectionMenu("album", album.album, album.artist, album.coverId)
+                                },
                             )
                         }
                     }
@@ -191,6 +200,7 @@ fun HomeScreen(vm: AppViewModel) {
 @Composable
 private fun QuickPicks(vm: AppViewModel, picks: List<Track>) {
     val mc = LocalMc.current
+    val haptics = LocalHapticFeedback.current
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         picks.chunked(2).forEach { row ->
             Row(
@@ -204,7 +214,14 @@ private fun QuickPicks(vm: AppViewModel, picks: List<Track>) {
                             .clip(RoundedCornerShape(D.r2))
                             .background(mc.bg2)
                             .border(1.dp, mc.line, RoundedCornerShape(D.r2))
-                            .clickable { vm.playList(picks, picks.indexOf(track)) }
+                            .combinedClickable(
+                                onClick = { vm.playList(picks, picks.indexOf(track)) },
+                                onLongClickLabel = "Track options",
+                                onLongClick = {
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    vm.openTrackMenu(track)
+                                },
+                            )
                             .padding(6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -261,6 +278,9 @@ fun SearchScreen(vm: AppViewModel) {
                                         artist,
                                         onClick = { vm.navigate(Route.Artist(artist.artist)) },
                                         onPlay = { vm.playArtist(artist.artist) },
+                                        onLongPress = {
+                                            vm.openCollectionMenu("artist", artist.artist, "${artist.n} tracks", artist.coverId)
+                                        },
                                     )
                                 }
                             }
@@ -276,6 +296,9 @@ fun SearchScreen(vm: AppViewModel) {
                                         album,
                                         onClick = { vm.navigate(Route.Album(album.album)) },
                                         onPlay = { vm.playAlbum(album.album) },
+                                        onLongPress = {
+                                            vm.openCollectionMenu("album", album.album, album.artist, album.coverId)
+                                        },
                                     )
                                 }
                             }
@@ -361,6 +384,9 @@ fun LibraryScreen(vm: AppViewModel) {
                     album,
                     onClick = { vm.navigate(Route.Album(album.album)) },
                     onPlay = { vm.playAlbum(album.album) },
+                    onLongPress = {
+                        vm.openCollectionMenu("album", album.album, album.artist, album.coverId)
+                    },
                     fillWidth = true,
                 )
             }
@@ -369,6 +395,9 @@ fun LibraryScreen(vm: AppViewModel) {
                     artist,
                     onClick = { vm.navigate(Route.Artist(artist.artist)) },
                     onPlay = { vm.playArtist(artist.artist) },
+                    onLongPress = {
+                        vm.openCollectionMenu("artist", artist.artist, "${artist.n} tracks", artist.coverId)
+                    },
                     fillWidth = true,
                 )
             }
@@ -377,6 +406,12 @@ fun LibraryScreen(vm: AppViewModel) {
                     playlist,
                     onClick = { vm.navigate(Route.Playlist(playlist.id, playlist.name)) },
                     onPlay = { vm.playPlaylist(playlist.id) },
+                    onLongPress = {
+                        vm.openCollectionMenu(
+                            "playlist", playlist.name, "${playlist.n} tracks",
+                            playlist.coverId, playlist.id,
+                        )
+                    },
                     fillWidth = true,
                 )
             }
@@ -556,6 +591,9 @@ fun CollectionScreen(
                                 album,
                                 onClick = { vm.navigate(Route.Album(album.album)) },
                                 onPlay = { vm.playAlbum(album.album) },
+                                onLongPress = {
+                                    vm.openCollectionMenu("album", album.album, album.artist, album.coverId)
+                                },
                             )
                         }
                     }

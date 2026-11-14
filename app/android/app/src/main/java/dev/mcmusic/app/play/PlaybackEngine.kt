@@ -199,7 +199,7 @@ class PlaybackEngine(private val app: McMusicApp) {
     fun removeAt(at: Int): Boolean {
         if (at !in queue.indices) return false
         val list = queue.toMutableList()
-        val gone = list.removeAt(at)
+        list.removeAt(at)
         if (at < index) index -= 1
         queue = list
         if (at == index) {
@@ -212,13 +212,56 @@ class PlaybackEngine(private val app: McMusicApp) {
             }
         }
         publish(force = true)
-        return gone != null
+        return true
     }
 
     fun clearUpcoming() {
         if (index < 0) return
         queue = queue.take(index + 1)
         publish(force = true)
+    }
+
+    /** Move a queued track, keeping the playing item selected. Used by drag-reorder. */
+    fun move(from: Int, to: Int): Boolean {
+        if (from !in queue.indices || to !in queue.indices || from == to) return false
+        val list = queue.toMutableList()
+        val item = list.removeAt(from)
+        list.add(to, item)
+        queue = list
+        index = when {
+            index == from -> to
+            from < index && to >= index -> index - 1
+            from > index && to <= index -> index + 1
+            else -> index
+        }
+        publish(force = true)
+        return true
+    }
+
+    /** Append a whole album, artist or playlist. */
+    fun addAll(tracks: List<Track>, next: Boolean = false) {
+        if (tracks.isEmpty()) return
+        if (queue.isEmpty()) {
+            play(tracks, 0)
+            return
+        }
+        val at = if (next) (index + 1).coerceIn(0, queue.size) else queue.size
+        queue = queue.toMutableList().apply { addAll(at, tracks) }
+        publish(force = true)
+    }
+
+    /** Replace everything after the current track, e.g. after drag-reorder. */
+    fun setUpcoming(tracks: List<Track>) {
+        if (index < 0) return
+        queue = queue.take(index + 1) + tracks
+        publish(force = true)
+    }
+
+    /** Jump to an existing queue entry without rebuilding the queue. */
+    fun jumpTo(at: Int) {
+        if (at !in queue.indices || at == index) return
+        index = at
+        loadCurrent()
     }
 
     /* ── transport ──────────────────────────────────────────────────────── */

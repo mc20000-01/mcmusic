@@ -122,7 +122,17 @@ fun PlayerOverlay(vm: AppViewModel) {
                 contentAlignment = Alignment.Center,
             ) {
                 val artSize = if (maxWidth < 320.dp) maxWidth else 320.dp
-                Art(t.id, artSize, modifier = Modifier.clip(RoundedCornerShape(D.r3)))
+                Art(
+                    t.id,
+                    artSize,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(D.r3))
+                        .combinedClickable(
+                            onClick = {},
+                            onLongClickLabel = "Track options",
+                            onLongClick = { tick(); vm.openTrackMenu(t) },
+                        ),
+                )
             }
 
             Spacer(Modifier.height(22.dp))
@@ -267,7 +277,7 @@ fun PlayerOverlay(vm: AppViewModel) {
                     modifier = Modifier.padding(bottom = 8.dp),
                 )
                 Text(
-                    "Hold a track to drop it from the queue.",
+                    "Tap to jump · open Queue to reorder or swipe tracks away.",
                     style = McType.mono10,
                     color = mc.dim2,
                     modifier = Modifier.padding(bottom = 10.dp),
@@ -280,13 +290,11 @@ fun PlayerOverlay(vm: AppViewModel) {
                             .combinedClickable(
                                 onClick = {
                                     tick()
-                                    engine.removeAt(engine.index + 1 + i)
-                                    engine.add(track, next = true)
+                                    engine.jumpTo(engine.queue.indexOfFirst { it.id == track.id })
                                 },
                                 onLongClick = {
                                     tick()
-                                    engine.removeAt(engine.index + 1 + i)
-                                    vm.toast("Removed ${track.title}")
+                                    vm.queueOpen = true
                                 },
                             )
                             .padding(vertical = 5.dp),
