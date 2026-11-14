@@ -133,6 +133,17 @@ html[data-gfx] .trow {
   contain-intrinsic-size: 48px;
 }
 
+/* A sheet/menu covers the page; stop paying for its background blur. */
+html[data-gfx] body:has(.sheet) :is(#rail, #deck, #main, .panel, .toast),
+html[data-gfx] body:has(.menu) :is(#rail, #deck, #main, .panel) {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+html[data-gfx-paused] :is(.vinyl, .login-eq i, .rail-net .dot) {
+  animation-play-state: paused !important;
+}
+
 .gfx-row {
   display: grid;
   gap: 6px;
