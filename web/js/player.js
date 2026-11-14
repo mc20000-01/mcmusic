@@ -48,6 +48,7 @@ export const Player = {
       this._paint(true);
       this._publish(true);
       this._mediaState("playing");
+      this._emit("playing");
     });
     el.addEventListener("pause", () => {
       this.playing = false;
@@ -55,6 +56,7 @@ export const Player = {
       this._publish(true);
       this.save();
       this._mediaState("paused");
+      this._emit("paused");
     });
     el.addEventListener("timeupdate", () => {
       if (!this.seeking) this._paint();
@@ -229,6 +231,7 @@ export const Player = {
     const max = this.el.duration || this.duration || 0;
     this.el.currentTime = Math.max(0, Math.min(seconds, max ? max - 0.05 : 0));
     this._paint();
+    this._emit("seek");
     this._publish(true);
   },
 

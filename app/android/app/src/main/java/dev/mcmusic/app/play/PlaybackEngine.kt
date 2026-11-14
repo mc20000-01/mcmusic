@@ -89,6 +89,7 @@ class PlaybackEngine(private val app: McMusicApp) {
     }
 
     var onTrackChanged: ((Track?) -> Unit)? = null
+    var onPlayStateChanged: ((Boolean) -> Unit)? = null
 
     private var reported = false
     private var lastPublish = 0L
@@ -105,6 +106,7 @@ class PlaybackEngine(private val app: McMusicApp) {
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 playing = isPlaying
+                onPlayStateChanged?.invoke(isPlaying)
                 val t = current
                 if (t != null) {
                     // Foreground service + platform MediaSession: audio keeps

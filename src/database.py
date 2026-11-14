@@ -181,6 +181,17 @@ create table if not exists channel_links(
   created real,
   primary key(platform, platform_user)
 );
+create table if not exists discord_links(
+  user_id integer primary key references users(id) on delete cascade,
+  discord_id text unique,
+  discord_username text,
+  access_token text,
+  refresh_token text,
+  expires_at real,
+  created real,
+  updated real
+);
+create index if not exists discord_links_id on discord_links(discord_id);
 create table if not exists music_channels(
   id integer primary key,
   platform text,

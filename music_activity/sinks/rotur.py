@@ -69,6 +69,16 @@ class RoturSink:
             raise RoturFatal("the 'websockets' package is not installed")
         self._thread = daemon_thread("rotur-activity", self._run)
 
+    @property
+    def running(self) -> bool:
+        """True while the reconnect loop is still alive and usable."""
+        return (
+            self._thread is not None
+            and self._thread.is_alive()
+            and not self._fatal.is_set()
+            and not self._stop.is_set()
+        )
+
     def publish(self, state: PlayerState) -> None:
         self._last = state
         self._put(("publish", state))

@@ -1201,7 +1201,7 @@ async function settings(container) {
   rot.appendChild(racts);
   p4.appendChild(rot);
   p4.appendChild(
-    row("Share as Rotur activity", "Puts what you're playing in your Rotur status",
+    row("Share as Rotur activity", "Shows what you're playing on your Rotur profile",
       toggle(s.rotur_activity, (v) => app()?.setPref("rotur_activity", v)))
   );
   p4.appendChild(
@@ -1223,11 +1223,59 @@ async function settings(container) {
       })())
   );
   p4.appendChild(
-    row("Show room link in status", "Adds the listen-along link to your Rotur status",
+    row("Show room link", "Adds the listen-along link to the activity",
       toggle(s.show_room_url, (v) => app()?.setPref("show_room_url", v)))
   );
 
   container.appendChild(p4);
+
+  /* discord */
+  const dc = Auth.discord || {};
+  const pDc = document.createElement("div");
+  pDc.className = "panel";
+  pDc.appendChild(Object.assign(document.createElement("h2"), { textContent: "Discord" }));
+  const dRow = document.createElement("div");
+  dRow.className = "prow";
+  const dText = document.createElement("div");
+  const dB = document.createElement("b");
+  dB.textContent = "Discord account";
+  const dS = document.createElement("small");
+  dS.textContent = !dc.configured
+    ? `Discord linking needs ${(dc.missing?.length ? dc.missing : ["DISCORD_CLIENT_SECRET"]).join(" and ")} in the server environment`
+    : dc.linked
+      ? `Linked as ${dc.discord_username || dc.discord_id}`
+      : "Not linked — control channels can still use /login";
+  dText.appendChild(dB);
+  dText.appendChild(dS);
+  dRow.appendChild(dText);
+  const dActs = document.createElement("div");
+  dActs.style.cssText = "display:flex;gap:6px";
+  if (dc.linked) {
+    const un = document.createElement("button");
+    un.className = "btn ghost sm";
+    un.textContent = "Unlink";
+    un.onclick = async () => {
+      if (!confirm("Unlink this Discord account?")) return;
+      try {
+        await Auth.unlinkDiscord();
+        toast("Discord account unlinked");
+        app()?.draw();
+      } catch (e) {
+        toast(e.message);
+      }
+    };
+    dActs.appendChild(un);
+  } else {
+    const link = document.createElement("button");
+    link.className = "btn solid sm";
+    link.textContent = dc.configured ? "Link" : "Unavailable";
+    link.disabled = !dc.configured;
+    link.onclick = () => Auth.discordLogin("/");
+    dActs.appendChild(link);
+  }
+  dRow.appendChild(dActs);
+  pDc.appendChild(dRow);
+  container.appendChild(pDc);
 
   /* account */
   const pAcct = document.createElement("div");

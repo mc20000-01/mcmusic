@@ -689,8 +689,13 @@ fun SettingsScreen(vm: AppViewModel) {
             }
         }
 
-        /* rotur */
+        /* rotur + discord */
         item {
+            val discord = vm.discordStatus
+            val discordLinked = discord?.optBoolean("linked") ?: false
+            val discordConfigured = discord?.optBoolean("configured") ?: false
+            val discordName = discord?.optString("discord_username").orEmpty()
+                .ifBlank { discord?.optString("discord_id").orEmpty() }
             val status = vm.roturStatus
             val linked = status?.optBoolean("linked") ?: false
             val configured = status?.optBoolean("configured") ?: false
@@ -766,16 +771,33 @@ fun SettingsScreen(vm: AppViewModel) {
                 }
                 SettingRow(
                     "Share as Rotur activity",
-                    "Puts what you're playing in your Rotur status",
+                    "Shows what you're playing on your Rotur profile",
                 ) {
                     SwitchPill(vm.settings.roturActivity) { vm.setRoturActivity(it) }
                 }
                 SettingRow(
                     "Show room link in status",
-                    "Adds the listen-along link to your Rotur status",
+                    "Adds the listen-along link to the activity",
                     last = true,
                 ) {
                     SwitchPill(vm.settings.showRoomUrl) { vm.setShowRoomUrl(it) }
+                }
+            }
+            Panel("Discord") {
+                SettingRow(
+                    "Discord account",
+                    when {
+                        !discordConfigured -> "Discord linking needs DISCORD_CLIENT_SECRET on the server"
+                        discordLinked -> "Linked as ${discordName.ifBlank { "your Discord account" }}"
+                        else -> "Link from the web app Settings"
+                    },
+                    last = true,
+                ) {
+                    if (discordLinked) {
+                        McButton("Unlink", { vm.unlinkDiscord() }, small = true, ghost = true)
+                    } else {
+                        StatusChip("web", mc.dim2)
+                    }
                 }
             }
         }

@@ -763,6 +763,7 @@ class App {
 
     const logout = document.createElement("button");
     logout.className = "iconbtn";
+    logout.id = "logout";
     logout.setAttribute("aria-label", "Sign out");
     logout.textContent = "Logout";
     logout.onclick = () => this.logout();
@@ -934,6 +935,7 @@ class App {
     moreBtn.setAttribute("aria-label", "More player actions");
     moreBtn.appendChild(icon("more-horizontal", { size: 18 }));
     moreBtn.onclick = () => menu(moreBtn, [
+      { label: "Queue", iconName: "list-music", fn: () => this.toggleDrawer(true) },
       { label: "Devices", iconName: "cast", fn: () => this.deviceMenu(moreBtn) },
       { label: "Lyrics", iconName: "text", fn: () => this.openLyrics() },
       { label: "Video", iconName: "tv-2", fn: () => this.openVideo() },
@@ -1282,9 +1284,9 @@ class App {
   async setPref(key, value) {
     this.set[key] = value;
     if (key === "show_room_url" || key === "rotur_activity") {
-      // Re-publish the current track so the status reflects the toggle at once.
-      this._roturTid = null;
-      this._paintDeck();
+      // Re-publish the current track so the activity reflects the toggle at once.
+      const playing = !!this.set.rotur_activity && !Player.el?.paused;
+      this._pushRoturActivity(Player.current(), playing, true);
     }
     this._applyTheme();
     if (key === "real_glass") RealGlass.setMode(this.set.real_glass || "auto");
@@ -1384,6 +1386,10 @@ class App {
         toast(e.detail.detail.message, { iconName: "radio" });
       }
       if (this._pendingApply && !Player.playing) this.applyUpdate();
+      const kind = e.detail?.kind;
+      if (["track", "playing", "paused", "seek", "restored"].includes(kind)) {
+        this._pushRoturActivity(e.detail?.track || Player.current(), !Player.el?.paused);
+      }
     });
 
     window.addEventListener("mcmusic:like", (e) => {
@@ -1461,17 +1467,6 @@ class App {
       remoteDisplay.hidden = true;
     }
 
-    if (like) {
-      this._roturTid = t.id;
-      const roomUrl = this.set?.show_room_url ? (this.set.room_url || "") : "";
-      const line = `Listening to ${t.title}${t.artist ? " — " + t.artist : ""}` +
-        (roomUrl ? ` · ${roomUrl}` : "");
-      api("auth/rotur/live", "POST", {
-        status: line.slice(0, 128),
-        presence: "online",
-      }).catch(() => {});
-    }
-
     holder.replaceChildren();
     const img = document.createElement("img");
     if (document.body.dataset.covers !== "off") img.src = `/api/tracks/${t.id}/cover`;
@@ -1490,6 +1485,26 @@ class App {
       like.dataset.like = t.id;
     }
     document.title = `${t.title} · ${t.artist || "mcmusic"}`;
+  }
+
+  /** Push the current track as a Rotur rich activity, or clear it on pause. */
+  _pushRoturActivity(t, playing, force = false) {
+    if (!this.set?.rotur_activity && !force) return;
+    const body = t && playing
+      ? {
+          track_id: t.id,
+          position: Math.max(0, Number(Player.el?.currentTime) || 0),
+          playing: true,
+          presence: "online",
+        }
+      : { playing: false };
+    api("auth/rotur/activity", "POST", body).catch((e) => {
+      // Do not fail silently: the settings toggle is useless if the account
+      // is not linked or the server cannot open the Rotur socket.
+      toast(`Rotur activity: ${e?.message || "could not publish"}`, {
+        iconName: "triangle-alert",
+      });
+    });
   }
 
   _paintControls() {
