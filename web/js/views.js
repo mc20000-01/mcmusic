@@ -78,6 +78,34 @@ function downloadAllButton(tracks, label = "Download") {
   return b;
 }
 
+/** Queue a collection on the server for download, not just this browser. */
+function queueServerButton(kind, id, label = "Queue on server") {
+  const b = document.createElement("button");
+  b.className = "btn";
+  b.type = "button";
+  b.appendChild(icon("download", { size: 12 }));
+  const span = document.createElement("span");
+  span.textContent = label;
+  b.appendChild(span);
+  b.onclick = async () => {
+    b.disabled = true;
+    try {
+      const body = { kind };
+      if (id != null) body.id = Number(id);
+      const r = await api("download/collection", "POST", body);
+      toast(
+        r.queued
+          ? `Queued ${r.queued} download${r.queued === 1 ? "" : "s"}`
+          : "Nothing new to download"
+      );
+    } catch (e) {
+      toast(e.message);
+    }
+    b.disabled = false;
+  };
+  return b;
+}
+
 /* ── home ───────────────────────────────────────────────────────────────── */
 async function home(container) {
   const d = await api("home");
@@ -413,22 +441,9 @@ async function likes(container) {
   const d = await api("likes");
   const tracks = d.tracks || [];
   if (!tracks.length) {
-    const dlLiked = document.createElement("button");
-  dlLiked.className = "btn";
-  dlLiked.appendChild(icon("download", { size: 12 }));
-  const dlLikedLabel = document.createElement("span");
-  dlLikedLabel.textContent = "Download all";
-  dlLiked.appendChild(dlLikedLabel);
-  dlLiked.onclick = async () => {
-    try {
-      const r = await api("download/collection", "POST", { kind: "likes" });
-      toast(`Queued ${r.queued} download${r.queued === 1 ? "" : "s"}`);
-    } catch (e) {
-      toast(e.message);
-    }
-  };
-
-  container.appendChild(heading("Liked songs", null, [dlLiked]));
+    container.appendChild(
+      heading("Liked songs", null, [queueServerButton("likes")])
+    );
     container.appendChild(
       empty("Nothing liked yet", "Tap the heart on any track.", {
         iconName: "heart",
@@ -443,7 +458,11 @@ async function likes(container) {
       kicker: "Collection",
       title: "Liked songs",
       sub: [`${tracks.length} tracks`, fmtTotal(sumDur(tracks))],
-      actions: [...playButtons(tracks, { shuffle: true }), downloadAllButton(tracks)],
+      actions: [
+        ...playButtons(tracks, { shuffle: true }),
+        downloadAllButton(tracks),
+        queueServerButton("likes"),
+      ],
     })
   );
   container.appendChild(trackList(tracks, { ytStats: app()?.set?.yt_stats }));
@@ -581,6 +600,7 @@ async function playlist(container, id) {
       actions: [
         ...(tracks.length ? playButtons(tracks) : []),
         tracks.length ? downloadAllButton(tracks) : null,
+        tracks.length ? dlPl : null,
         rename,
         del,
       ].filter(Boolean),

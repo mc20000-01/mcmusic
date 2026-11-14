@@ -49,8 +49,12 @@ fun LoginScreen(vm: AppViewModel) {
     var password by remember { mutableStateOf("") }
     var invite by remember { mutableStateOf("") }
     var mode by remember { mutableStateOf("in") }
+    var resetEmail by remember { mutableStateOf("") }
+    var resetToken by remember { mutableStateOf("") }
+    var resetPw by remember { mutableStateOf("") }
 
     val signingUp = mode == "up"
+    val resetting = mode == "reset"
 
     Box(
         Modifier
@@ -87,53 +91,116 @@ fun LoginScreen(vm: AppViewModel) {
                 color = mc.dim2,
             )
 
-            Seg(
-                options = listOf("in" to "Log in", "up" to "Sign up"),
-                selected = mode,
-                onSelect = { mode = it },
-                modifier = Modifier.align(Alignment.CenterHorizontally),
-            )
-
-            McField(username, { username = it }, "Username")
-            McField(
-                password,
-                { password = it },
-                "Password",
-                password = true,
-                keyboardType = KeyboardType.Password,
-            )
-            if (signingUp) {
-                McField(invite, { invite = it }, "Invite code")
-            }
-
-            if (vm.loginError != null) {
-                Text(vm.loginError.orEmpty(), style = McType.bodyXs, color = mc.err)
-            }
-
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(40.dp)
-                    .clip(RoundedCornerShape(D.r2))
-                    .background(mc.accent)
-                    .clickable(enabled = !vm.busy) {
-                        vm.login(server, username, password, signingUp, invite)
-                    },
-                contentAlignment = Alignment.Center,
-            ) {
-                if (vm.busy) {
-                    CircularProgressIndicator(
-                        Modifier.size(16.dp),
-                        color = mc.accentFg,
-                        strokeWidth = 2.dp,
-                    )
-                } else {
-                    Text(
-                        if (signingUp) "Create account" else "Log in",
-                        style = McType.label,
-                        color = mc.accentFg,
-                    )
+            if (resetting) {
+                Text("Reset your password", style = McType.h3, color = mc.fg)
+                Text(
+                    "Enter the address on your account and we'll mail a one-time link. You can open it in a browser, or paste it below.",
+                    style = McType.bodyXs,
+                    color = mc.dim2,
+                )
+                McField(
+                    resetEmail,
+                    { resetEmail = it },
+                    "you@example.com",
+                    keyboardType = KeyboardType.Email,
+                )
+                McButton(
+                    if (vm.resetBusy) "Sending…" else "Send reset link",
+                    { vm.requestReset(resetEmail) },
+                    solid = true,
+                    enabled = !vm.resetBusy && resetEmail.isNotBlank(),
+                )
+                Box(Modifier.fillMaxWidth().height(1.dp).background(mc.line))
+                McField(resetToken, { resetToken = it }, "Paste the reset link or token")
+                McField(
+                    resetPw,
+                    { resetPw = it },
+                    "New password (6+ characters)",
+                    password = true,
+                    keyboardType = KeyboardType.Password,
+                )
+                McButton(
+                    "Set new password",
+                    { vm.resetPassword(resetToken, resetPw) { mode = "in" } },
+                    enabled = !vm.resetBusy && resetToken.isNotBlank() && resetPw.length >= 6,
+                )
+                vm.resetNotice?.let { note ->
+                    Text(note, style = McType.bodyXs, color = mc.accent)
                 }
+                Text(
+                    "Back to log in",
+                    style = McType.labelSm,
+                    color = mc.accent,
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .clickable {
+                            vm.clearResetNotice()
+                            mode = "in"
+                        }
+                        .padding(vertical = 4.dp),
+                )
+            } else {
+                Seg(
+                    options = listOf("in" to "Log in", "up" to "Sign up"),
+                    selected = mode,
+                    onSelect = { mode = it },
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                )
+
+                McField(username, { username = it }, "Username")
+                McField(
+                    password,
+                    { password = it },
+                    "Password",
+                    password = true,
+                    keyboardType = KeyboardType.Password,
+                )
+                if (signingUp) {
+                    McField(invite, { invite = it }, "Invite code")
+                }
+
+                if (vm.loginError != null) {
+                    Text(vm.loginError.orEmpty(), style = McType.bodyXs, color = mc.err)
+                }
+
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(40.dp)
+                        .clip(RoundedCornerShape(D.r2))
+                        .background(mc.accent)
+                        .clickable(enabled = !vm.busy) {
+                            vm.login(server, username, password, signingUp, invite)
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (vm.busy) {
+                        CircularProgressIndicator(
+                            Modifier.size(16.dp),
+                            color = mc.accentFg,
+                            strokeWidth = 2.dp,
+                        )
+                    } else {
+                        Text(
+                            if (signingUp) "Create account" else "Log in",
+                            style = McType.label,
+                            color = mc.accentFg,
+                        )
+                    }
+                }
+
+                Text(
+                    "Forgot password?",
+                    style = McType.labelSm,
+                    color = mc.dim,
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .clickable {
+                            vm.clearResetNotice()
+                            mode = "reset"
+                        }
+                        .padding(vertical = 2.dp),
+                )
             }
 
             Box(Modifier.fillMaxWidth().height(1.dp).background(mc.line))

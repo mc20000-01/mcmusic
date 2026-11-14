@@ -16,6 +16,7 @@ import dev.mcmusic.app.data.HomeData
 import dev.mcmusic.app.data.Me
 import dev.mcmusic.app.data.PlaylistRef
 import dev.mcmusic.app.data.RequestRow
+import dev.mcmusic.app.data.RoomState
 import dev.mcmusic.app.data.SearchData
 import dev.mcmusic.app.data.DeviceRef
 import dev.mcmusic.app.data.InviteCode
@@ -26,6 +27,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONObject
+import kotlin.math.abs
 
 sealed interface Route {
     data object Home : Route
@@ -125,6 +127,30 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     var roturStatus by mutableStateOf<JSONObject?>(null)
         private set
 
+    /* ── listen-along room ──────────────────────────────────────────────── */
+    var roomRole by mutableStateOf<String?>(null)   // "host" or "guest"
+        private set
+    var roomCode by mutableStateOf("")
+        private set
+    var roomHostName by mutableStateOf("")
+        private set
+    var roomState by mutableStateOf<RoomState?>(null)
+        private set
+    var roomJoinCode by mutableStateOf("")
+        private set
+
+    /* ── account recovery ───────────────────────────────────────────────── */
+    var resetBusy by mutableStateOf(false)
+        private set
+    var resetNotice by mutableStateOf<String?>(null)
+        private set
+
+    /* ── admin request log ──────────────────────────────────────────────── */
+    var requestLog by mutableStateOf<String?>(null)
+        private set
+    var requestLogTitle by mutableStateOf("")
+        private set
+
     /* ── overlays ───────────────────────────────────────────────────────── */
     var queueOpen by mutableStateOf(false)
     var menuTrack by mutableStateOf<Track?>(null)
@@ -140,6 +166,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     var playerOpen by mutableStateOf(false)
 
     private var searchJob: Job? = null
+    private var roomJob: Job? = null
 
     init {
         mc.viewModel = this
@@ -152,10 +179,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             if (store.cookieJar.hasSession() || me != null) {
                 runCatching { repo.me() }.onSuccess { fresh ->
                     me = fresh
-                    store.cachedMe = """
-                        {"id":${fresh.id},"username":"${fresh.username}","is_admin":${fresh.isAdmin},
-                         "rotur_id":${fresh.roturId?.let { "\"$it\"" } ?: "null"},"rotur_linked":${fresh.roturLinked}}
-                    """.trimIndent()
+                    cacheMe(fresh)
                 }.onFailure {
                     me = null
                     store.cachedMe = null
@@ -262,13 +286,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 val user = if (register) repo.register(username.trim(), password, invite.trim())
                 else repo.login(username.trim(), password)
                 me = user
-                store.cachedMe = JSONObject()
-                    .put("id", user.id)
-                    .put("username", user.username)
-                    .put("is_admin", user.isAdmin)
-                    .put("rotur_id", user.roturId ?: JSONObject.NULL)
-                    .put("rotur_linked", user.roturLinked)
-                    .toString()
+                cacheMe(user)
                 loadSettings()
                 refreshDownloads()
                 route = Route.Home
@@ -287,6 +305,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun logout() {
         val user = me ?: return
+        leaveRoom(announce = false)
         viewModelScope.launch {
             engine.pause()
             runCatching { repo.logout() }
@@ -306,6 +325,17 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private fun cacheMe(u: Me) {
+        store.cachedMe = JSONObject()
+            .put("id", u.id)
+            .put("username", u.username)
+            .put("is_admin", u.isAdmin)
+            .put("rotur_id", u.roturId ?: JSONObject.NULL)
+            .put("rotur_linked", u.roturLinked)
+            .put("email", u.email ?: JSONObject.NULL)
+            .toString()
+    }
+
     fun changePassword(old: String, new: String, onDone: () -> Unit) {
         viewModelScope.launch {
             runCatching { repo.changePassword(old, new) }
@@ -315,6 +345,63 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 .onFailure { toast(it.message ?: "Could not change password") }
         }
+    }
+
+    /** The address one-time reset links go to; also shown in Settings → Account. */
+    fun setEmail(email: String, onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            runCatching { repo.setEmail(email.trim()) }
+                .onSuccess { fresh ->
+                    me = fresh
+                    cacheMe(fresh)
+                    onDone()
+                    toast("Email saved — reset links go there")
+                }
+                .onFailure { toast(it.message ?: "Could not save email") }
+        }
+    }
+
+    fun requestReset(email: String) {
+        if (resetBusy) return
+        resetBusy = true
+        resetNotice = null
+        viewModelScope.launch {
+            runCatching { repo.requestPasswordReset(email.trim()) }
+                .onSuccess {
+                    resetNotice = "If that address is on an account, a reset link is on its way. Open it on any device to choose a new password."
+                }
+                .onFailure { resetNotice = it.message ?: "Could not send the link" }
+            resetBusy = false
+        }
+    }
+
+    /** Spend a reset token or full link pasted from the email. */
+    fun resetPassword(tokenOrLink: String, password: String, onDone: () -> Unit) {
+        val token = tokenOrLink.substringAfter("token=", tokenOrLink)
+            .substringBefore("&").trim()
+        if (token.isBlank()) {
+            resetNotice = "Paste the link or token from the email"
+            return
+        }
+        if (password.length < 6) {
+            resetNotice = "Password must be 6+ characters"
+            return
+        }
+        if (resetBusy) return
+        resetBusy = true
+        viewModelScope.launch {
+            runCatching { repo.resetPassword(token, password) }
+                .onSuccess {
+                    resetNotice = "Password changed — sign in with the new one"
+                    onDone()
+                }
+                .onFailure { resetNotice = it.message ?: "Could not reset the password" }
+            resetBusy = false
+        }
+    }
+
+    fun clearResetNotice() {
+        resetNotice = null
     }
 
     fun unlinkRotur() {
@@ -709,6 +796,52 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun openRequestLog(row: RequestRow) {
+        requestLogTitle = row.url
+        requestLog = "Loading…"
+        viewModelScope.launch {
+            requestLog = runCatching { repo.adminRequestLog(row.id) }
+                .getOrElse { row.log.ifBlank { it.message ?: "No log output" } }
+        }
+    }
+
+    fun closeRequestLog() {
+        requestLog = null
+    }
+
+    fun cancelRequest(row: RequestRow) {
+        viewModelScope.launch {
+            runCatching { repo.adminCancelRequest(row.id) }
+                .onSuccess {
+                    toast("Request cancelled")
+                    loadRoute()
+                }
+                .onFailure { toast(it.message ?: "Could not cancel") }
+        }
+    }
+
+    fun retryRequest(row: RequestRow) {
+        viewModelScope.launch {
+            runCatching { repo.adminRetryRequest(row.id) }
+                .onSuccess {
+                    toast("Request queued again")
+                    loadRoute()
+                }
+                .onFailure { toast(it.message ?: "Could not retry") }
+        }
+    }
+
+    fun deleteRequest(row: RequestRow) {
+        viewModelScope.launch {
+            runCatching { repo.adminDeleteRequest(row.id) }
+                .onSuccess {
+                    toast("Request removed")
+                    loadRoute()
+                }
+                .onFailure { toast(it.message ?: "Could not delete") }
+        }
+    }
+
     /* ── admin ──────────────────────────────────────────────────────────── */
 
     fun rescan() {
@@ -804,6 +937,109 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 .onFailure { toast(it.message ?: "Could not switch device") }
         }
     }
+
+    /* ── listen-along rooms ─────────────────────────────────────────────── */
+
+    fun onRoomJoinCodeChange(value: String) {
+        roomJoinCode = value
+    }
+
+    /** Open this account's permanent room and publish playback as the host. */
+    fun startRoom() {
+        viewModelScope.launch {
+            runCatching { repo.createRoom() }
+                .onSuccess { code ->
+                    roomJob?.cancel()
+                    roomRole = "host"
+                    roomCode = code
+                    roomHostName = me?.username.orEmpty()
+                    roomState = null
+                    toast("Room started — share code $code")
+                    roomJob = viewModelScope.launch {
+                        while (true) {
+                            val t = engine.current
+                            runCatching {
+                                repo.pushRoomState(code, t?.id, engine.position, engine.playing)
+                            }
+                            delay(2_000)
+                        }
+                    }
+                }
+                .onFailure { toast(it.message ?: "Could not start the room") }
+        }
+    }
+
+    /** Join a host's room. Accepts a bare code, #room=CODE or a full invite link. */
+    fun joinRoom(raw: String = roomJoinCode) {
+        val code = raw.trim()
+            .substringAfter("#room=", raw.trim())
+            .substringBefore("&").trim()
+        if (code.isBlank()) {
+            toast("Enter the room code")
+            return
+        }
+        viewModelScope.launch {
+            runCatching { repo.roomState(code) }
+                .onSuccess { state ->
+                    if (state.hostId == me?.id) {
+                        toast("That is your own room")
+                        return@onSuccess
+                    }
+                    roomJob?.cancel()
+                    roomRole = "guest"
+                    roomCode = code
+                    roomHostName = state.hostName
+                    roomState = state
+                    roomJoinCode = ""
+                    toast("Listening with ${state.hostName}")
+                    followRoom(code)
+                }
+                .onFailure { toast("Could not join: ${it.message ?: "room not found"}") }
+        }
+    }
+
+    private fun followRoom(code: String) {
+        roomJob = viewModelScope.launch {
+            while (roomRole == "guest") {
+                val state = runCatching { repo.roomState(code) }.getOrNull()
+                if (state == null) {
+                    toast("Listen-along ended")
+                    leaveRoom(announce = false)
+                    break
+                }
+                roomState = state
+                roomHostName = state.hostName
+                val t = state.track
+                if (t != null) {
+                    if (engine.current?.id != t.id) engine.play(listOf(t), 0)
+                    val drift = state.pos +
+                        if (state.playing) (state.serverNow - state.stateTs).coerceAtLeast(0.0) else 0.0
+                    if (abs(engine.position - drift) > 1.5) engine.seekTo(drift)
+                    if (state.playing && !engine.playing) engine.toggle()
+                    if (!state.playing && engine.playing) engine.pause()
+                }
+                delay(2_000)
+            }
+        }
+    }
+
+    fun leaveRoom(announce: Boolean = true) {
+        val wasHost = roomRole == "host"
+        val code = roomCode
+        roomJob?.cancel()
+        roomJob = null
+        roomRole = null
+        roomCode = ""
+        roomHostName = ""
+        roomState = null
+        if (wasHost && code.isNotBlank()) {
+            viewModelScope.launch { runCatching { repo.closeRoom(code) } }
+        }
+        if (announce) toast(if (wasHost) "Room ended" else "Left the listen-along")
+    }
+
+    fun roomLink(): String =
+        if (roomCode.isBlank()) "" else "${api.baseUrl}/#room=$roomCode"
 
     /** Pause/play/seek another device of this account. */
     fun remote(device: DeviceRef, action: String) {

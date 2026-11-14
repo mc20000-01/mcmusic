@@ -5,7 +5,9 @@ it. The website reads this through /api/builds so a new build shows up without
 touching the front end, and the email endpoint uses the same table so the
 attachment always matches what the download button serves.
 """
+import hashlib
 import os
+import re
 import time
 from datetime import datetime, timezone
 
@@ -57,21 +59,51 @@ def _stamp(path):
     return when.strftime("%d %b %Y")
 
 
+_DIGESTS = {}
+
+
+def _digest(path):
+    """Short content hash for the download URL.
+
+    A value cache means /api/builds does not re-read a 13 MB APK on every
+    page load, while a replaced file always gets a new URL — so neither the
+    browser nor an edge cache can keep serving yesterday's bytes.
+    """
+    st = os.stat(path)
+    key = (path, st.st_size, int(st.st_mtime))
+    hit = _DIGESTS.get(key)
+    if hit:
+        return hit
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            h.update(chunk)
+    out = h.hexdigest()[:16]
+    _DIGESTS.clear()
+    _DIGESTS[key] = out
+    return out
+
+
 def _pick(spec):
-    """The concrete file for a build: the stable name if it exists, else the
-    newest file with the right extension."""
+    """The concrete file for a build: the newest matching file.
+
+    The stable name is preferred on a tie, but a fresh named copy still wins
+    if publish_apps.sh managed to write it after mainbuild.apk.
+    """
     stable = os.path.join(spec["dir"], spec["latest"])
-    if os.path.isfile(stable):
-        return stable
     if not os.path.isdir(spec["dir"]):
-        return None
+        return stable if os.path.isfile(stable) else None
     found = [
         os.path.join(spec["dir"], f)
         for f in os.listdir(spec["dir"])
         if f.endswith(spec["pattern"])
     ]
-    found.sort(key=os.path.getmtime)
-    return found[-1] if found else None
+    if os.path.isfile(stable):
+        found.append(stable)
+    if not found:
+        return None
+    found.sort(key=os.path.getmtime, reverse=True)
+    return found[0]
 
 
 def _named(spec, path):
@@ -108,6 +140,8 @@ def describe(kind):
     served = os.path.join(spec["dir"], file)
     if not os.path.isfile(served):
         served = path
+    digest = _digest(served)
+    match = re.search(r"mcmusic-([^/]+)\.[A-Za-z0-9]+$", file)
     return {
         "kind": kind,
         "label": spec["label"],
@@ -116,7 +150,8 @@ def describe(kind):
         "note": spec["note"],
         "available": True,
         "file": file,
-        "url": f"/apps/{os.path.basename(spec['dir'])}/{os.path.basename(served)}?v={int(os.path.getmtime(served))}",
+        "version": match.group(1) if match else None,
+        "url": f"/apps/{os.path.basename(spec['dir'])}/{os.path.basename(served)}?v={digest}",
         "bytes": os.path.getsize(path),
         "built": _stamp(path),
         "mimetype": f"{spec['maintype']}/{spec['subtype']}",

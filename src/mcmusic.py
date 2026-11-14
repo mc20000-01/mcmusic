@@ -163,6 +163,16 @@ def _api_headers(resp):
         resp.headers["Access-Control-Expose-Headers"] = (
             "Retry-After, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset")
         resp.headers["Vary"] = "Origin"
+    # Cloudflare and several other edges ignore Cache-Control on binaries and
+    # keep serving an old APK for hours. CDN-Cache-Control/Cloudflare-CDN-Cache-Control
+    # are the headers those edges actually honour, and builds.py adds a content
+    # hash to the URL as a second line of defence.
+    if request.path.startswith("/apps/") or request.path == "/api/builds":
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        resp.headers["CDN-Cache-Control"] = "no-store"
+        resp.headers["Cloudflare-CDN-Cache-Control"] = "no-store"
+        resp.headers["Pragma"] = "no-cache"
+        resp.headers["Expires"] = "0"
     if request.path.startswith("/api/"):
         if getattr(g, "rl_limit", None):
             resp.headers["X-RateLimit-Limit"] = str(g.rl_limit)
@@ -415,7 +425,11 @@ def get_app():
     if not spec or not spec.get("available"):
         return jsonify(error="no Android build is published yet"), 404
     resp = redirect(PUBLIC_URL.rstrip("/") + spec["url"], code=302)
-    resp.headers["Cache-Control"] = "no-store"
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["CDN-Cache-Control"] = "no-store"
+    resp.headers["Cloudflare-CDN-Cache-Control"] = "no-store"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
     return resp
 
 

@@ -36,6 +36,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -302,14 +303,42 @@ private fun RequestRowView(vm: AppViewModel, request: RequestRow) {
             style = McType.mono9,
             color = mc.dim2,
         )
-        if (vm.requestsAdmin && request.status in listOf("pending", "failed")) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                McButton("Approve", { vm.actRequest(request.id, "approve") }, small = true)
-                McButton(
-                    "Reject",
-                    { vm.actRequest(request.id, "reject") },
-                    small = true,
-                    ghost = true,
+        if (vm.requestsAdmin) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                when (request.status) {
+                    "pending", "failed" -> {
+                        McButton("Approve", { vm.actRequest(request.id, "approve") }, small = true)
+                        McButton(
+                            "Reject",
+                            { vm.actRequest(request.id, "reject") },
+                            small = true,
+                            ghost = true,
+                        )
+                    }
+                    "approved", "running" -> {
+                        McButton(
+                            "Cancel",
+                            { vm.cancelRequest(request) },
+                            small = true,
+                            danger = true,
+                        )
+                    }
+                }
+                Spacer(Modifier.weight(1f))
+                McButton("Log", { vm.openRequestLog(request) }, small = true, ghost = true)
+                if (request.status in listOf("failed", "done", "cancelled", "rejected")) {
+                    McButton("Retry", { vm.retryRequest(request) }, small = true, ghost = true)
+                }
+                IconBtn(
+                    AppIcons.Trash,
+                    { vm.deleteRequest(request) },
+                    size = 30.dp,
+                    tint = mc.err,
+                    contentDescription = "Delete request",
                 )
             }
         }
@@ -322,6 +351,32 @@ private fun RequestRowView(vm: AppViewModel, request: RequestRow) {
 fun SettingsScreen(vm: AppViewModel) {
     val mc = LocalMc.current
     var passwordOpen by remember { mutableStateOf(false) }
+    var emailOpen by remember { mutableStateOf(false) }
+    var emailValue by remember { mutableStateOf("") }
+
+    if (emailOpen) {
+        McSheet(onDismiss = { emailOpen = false }, title = "Account email") {
+            Text(
+                "One-time password reset links are mailed here. It is never shown to other accounts.",
+                style = McType.bodyXs,
+                color = mc.dim2,
+            )
+            Spacer(Modifier.height(10.dp))
+            McField(
+                emailValue,
+                { emailValue = it },
+                "you@example.com",
+                keyboardType = KeyboardType.Email,
+            )
+            Spacer(Modifier.height(12.dp))
+            McButton(
+                "Save",
+                { vm.setEmail(emailValue) { emailOpen = false } },
+                solid = true,
+                enabled = emailValue.contains("@") && emailValue.contains("."),
+            )
+        }
+    }
 
     if (passwordOpen) {
         var old by remember { mutableStateOf("") }
@@ -496,6 +551,81 @@ fun SettingsScreen(vm: AppViewModel) {
             }
         }
 
+        /* listen along */
+        item {
+            val role = vm.roomRole
+            val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+            Panel("Listen along") {
+                if (role == null) {
+                    SettingRow(
+                        "Start a room",
+                        "Share what you're playing; guests hear the same track and you keep control",
+                    ) {
+                        McButton(
+                            "Start",
+                            { vm.startRoom() },
+                            small = true,
+                            solid = true,
+                            leading = AppIcons.Users,
+                        )
+                    }
+                    Box(Modifier.padding(horizontal = 16.dp)) {
+                        McField(
+                            vm.roomJoinCode,
+                            vm::onRoomJoinCodeChange,
+                            "Room code or invite link",
+                        )
+                    }
+                    Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                        McButton(
+                            "Join a room",
+                            { vm.joinRoom() },
+                            small = true,
+                            enabled = vm.roomJoinCode.isNotBlank(),
+                        )
+                    }
+                } else {
+                    val st = vm.roomState
+                    SettingRow(
+                        if (role == "host") "Hosting · ${vm.roomCode}" else "Listening with ${vm.roomHostName}",
+                        when {
+                            st?.track != null -> "${st.track.title} · ${st.track.artist}"
+                            st?.hostAway == true -> "Host is away"
+                            role == "host" -> "Share the link so friends can follow"
+                            else -> "Waiting for the first track"
+                        },
+                    ) {
+                        McButton(
+                            "Copy link",
+                            { clipboard.setText(AnnotatedString(vm.roomLink())) },
+                            small = true,
+                            ghost = true,
+                            leading = AppIcons.Link,
+                        )
+                    }
+                    Row(
+                        Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        McButton(
+                            if (role == "host") "End room" else "Leave",
+                            { vm.leaveRoom() },
+                            small = true,
+                            danger = true,
+                        )
+                        if (role == "host") {
+                            McButton(
+                                "Copy link",
+                                { clipboard.setText(AnnotatedString(vm.roomLink())) },
+                                small = true,
+                                ghost = true,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         /* rotur */
         item {
             val status = vm.roturStatus
@@ -577,20 +707,6 @@ fun SettingsScreen(vm: AppViewModel) {
                 ) {
                     SwitchPill(vm.settings.roturActivity) { vm.setRoturActivity(it) }
                 }
-                val roomUrl = vm.settings.roomUrl
-                val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
-                SettingRow(
-                    "Room link",
-                    roomUrl.ifBlank { "Start a room on the web to get a link" },
-                ) {
-                    McButton(
-                        "Copy",
-                        { clipboard.setText(AnnotatedString(roomUrl)) },
-                        small = true,
-                        ghost = true,
-                        enabled = roomUrl.isNotBlank(),
-                    )
-                }
                 SettingRow(
                     "Show room link in status",
                     "Adds the listen-along link to your Rotur status",
@@ -609,6 +725,20 @@ fun SettingsScreen(vm: AppViewModel) {
                     if (vm.me?.isAdmin == true) "Admin" else "Member",
                 ) {
                     McButton("Change password", { passwordOpen = true }, small = true, ghost = true)
+                }
+                SettingRow(
+                    "Email",
+                    vm.me?.email ?: "Not set — needed for password resets",
+                ) {
+                    McButton(
+                        if (vm.me?.email != null) "Change" else "Add",
+                        {
+                            emailValue = vm.me?.email.orEmpty()
+                            emailOpen = true
+                        },
+                        small = true,
+                        ghost = true,
+                    )
                 }
                 SettingRow("Session", "Signed in with the mcmusic session cookie") {
                     McButton("Log out", { vm.logout() }, small = true, danger = true)
@@ -636,7 +766,11 @@ fun SettingsScreen(vm: AppViewModel) {
         item {
             Panel("About") {
                 SettingRow("mcmusic for Android", "Native client · no WebView") {
-                    Text("1.0", style = McType.mono9, color = mc.dim2)
+                    Text(
+                        dev.mcmusic.app.BuildConfig.VERSION_NAME,
+                        style = McType.mono9,
+                        color = mc.dim2,
+                    )
                 }
                 SettingRow("API", vm.api.baseUrl, last = true) {
                     Text(vm.api.baseUrl, style = McType.mono9, color = mc.dim2, maxLines = 1)

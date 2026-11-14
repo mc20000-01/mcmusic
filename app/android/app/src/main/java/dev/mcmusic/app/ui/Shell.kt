@@ -44,9 +44,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -123,6 +125,7 @@ fun Shell(vm: AppViewModel) {
                 .statusBarsPadding(),
         ) {
             TopBar(vm)
+            RoomBanner(vm)
             Box(Modifier.weight(1f)) {
                 ArtistNav.go = { name -> vm.navigate(Route.Artist(name)) }
                 AnimatedContent(
@@ -160,6 +163,87 @@ fun Shell(vm: AppViewModel) {
         vm.infoTrack?.let { InfoSheet(vm, it) }
         vm.addToPlaylistTrack?.let { AddToPlaylistSheet(vm, it) }
         if (vm.createPlaylistOpen) CreatePlaylistSheet(vm)
+        if (vm.requestLog != null) RequestLogSheet(vm)
+    }
+}
+
+/* ── listen-along banner ────────────────────────────────────────────────── */
+
+@Composable
+private fun RoomBanner(vm: AppViewModel) {
+    val role = vm.roomRole ?: return
+    val mc = LocalMc.current
+    val clipboard = LocalClipboardManager.current
+    val st = vm.roomState
+    val track = st?.track
+    val detail = when {
+        role == "host" -> "Sharing your playback · code ${vm.roomCode}"
+        track != null -> "${track.title}${if (track.artist.isNotBlank()) " · ${track.artist}" else ""}"
+        st?.hostAway == true -> "Host is away"
+        else -> "Waiting for ${vm.roomHostName.ifBlank { "the host" }}"
+    }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 5.dp)
+            .clip(RoundedCornerShape(D.r2))
+            .background(mc.bg2)
+            .border(1.dp, mc.line2, RoundedCornerShape(D.r2))
+            .padding(horizontal = 10.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(AppIcons.Users, null, Modifier.size(15.dp), tint = mc.accent)
+        Column(Modifier.weight(1f)) {
+            Text(
+                if (role == "host") "Hosting listen-along" else "Listening with ${vm.roomHostName}",
+                style = McType.labelSm,
+                color = mc.fg,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                detail,
+                style = McType.mono9,
+                color = mc.dim2,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (role == "host") {
+            IconBtn(
+                AppIcons.Link,
+                { clipboard.setText(AnnotatedString(vm.roomLink())) },
+                size = 28.dp,
+                contentDescription = "Copy room link",
+            )
+        }
+        McButton(if (role == "host") "End" else "Leave", { vm.leaveRoom() }, small = true, ghost = true)
+    }
+}
+
+/* ── download log (admin) ───────────────────────────────────────────────── */
+
+@Composable
+private fun RequestLogSheet(vm: AppViewModel) {
+    val mc = LocalMc.current
+    McSheet(onDismiss = vm::closeRequestLog, title = vm.requestLogTitle.ifBlank { "Request log" }) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(320.dp)
+                .clip(RoundedCornerShape(D.r2))
+                .background(mc.bg)
+                .border(1.dp, mc.line, RoundedCornerShape(D.r2))
+                .padding(10.dp)
+                .verticalScroll(rememberScrollState()),
+        ) {
+            Text(
+                vm.requestLog.orEmpty(),
+                style = McType.mono10,
+                color = mc.dim,
+            )
+        }
     }
 }
 
