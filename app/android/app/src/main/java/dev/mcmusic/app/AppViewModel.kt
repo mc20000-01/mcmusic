@@ -42,6 +42,7 @@ import okhttp3.Request
 import org.json.JSONObject
 import java.io.File
 import java.io.IOException
+import java.security.MessageDigest
 import kotlin.math.abs
 
 sealed interface Route {
@@ -91,6 +92,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     var updateChecking by mutableStateOf(false)
         private set
     var updateDownloading by mutableStateOf(false)
+        private set
+    var updateVerifying by mutableStateOf(false)
         private set
     var updateProgress by mutableStateOf(0)
         private set
@@ -1344,13 +1347,24 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             runCatching { UpdateChecker.latest() }
                 .onSuccess { latest ->
-                    if (latest != null && latest.isNewerThan(BuildConfig.VERSION_NAME)) {
+                    val latestVersion = latest?.version
+                    val newer = latest?.isNewerThan(BuildConfig.VERSION_NAME) == true
+                    val skipped = latestVersion != null && store.skippedUpdateVersion == latestVersion
+                    if (latest != null && newer && (manual || !skipped)) {
                         updateInfo = latest
                         updateDialogOpen = true
                         if (manual) toast("mcmusic ${latest.version} is available")
                     } else {
                         updateInfo = null
-                        if (manual) toast("You're on the latest version")
+                        if (manual) {
+                            toast(
+                                when {
+                                    latestVersion == null -> "No GitHub release found"
+                                    newer && skipped -> "You skipped $latestVersion — the next release will still be offered"
+                                    else -> "You're on the latest version"
+                                }
+                            )
+                        }
                     }
                 }
                 .onFailure { if (manual) toast(it.message ?: "Could not check for updates") }
@@ -1360,6 +1374,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun dismissUpdate() {
         if (!updateDownloading) updateDialogOpen = false
+    }
+
+    /** Hide this release from automatic prompts, but still offer the next one. */
+    fun skipUpdate() {
+        if (updateDownloading) return
+        val version = updateInfo?.version ?: return
+        store.skippedUpdateVersion = version
+        updateInfo = null
+        updateDialogOpen = false
+        toast("Skipped $version — the next release will still be offered")
     }
 
     fun installUpdate() {
@@ -1383,42 +1407,80 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         updateDownloading = true
+        updateVerifying = false
         updateProgress = 0
         viewModelScope.launch {
             runCatching {
                 withContext(Dispatchers.IO) {
+                    if (!info.url.startsWith("https://")) {
+                        throw IOException("Update URL is not secure")
+                    }
                     val dir = File(context.cacheDir, "updates").apply { mkdirs() }
+                    // Remove old downloads so a failed retry cannot install a stale APK.
+                    dir.listFiles()?.forEach { it.delete() }
                     val apk = File(dir, "mcmusic-${info.version}.apk")
-                    val request = Request.Builder()
-                        .url(info.url)
-                        .header("User-Agent", "mcmusic-android")
-                        .build()
-                    UpdateChecker.client.newCall(request).execute().use { response ->
-                        if (!response.isSuccessful) {
-                            throw IOException("Download failed (${response.code})")
-                        }
-                        val body = response.body ?: throw IOException("Download failed")
-                        val total = body.contentLength()
-                        body.byteStream().use { input ->
-                            apk.outputStream().use { output ->
-                                val buffer = ByteArray(16 * 1024)
-                                var done = 0L
-                                while (true) {
-                                    val n = input.read(buffer)
-                                    if (n <= 0) break
-                                    output.write(buffer, 0, n)
-                                    done += n
-                                    if (total > 0) {
-                                        updateProgress = ((done * 100) / total).toInt().coerceIn(0, 100)
+                    val temp = File(dir, "${apk.name}.part")
+                    try {
+                        val request = Request.Builder()
+                            .url(info.url)
+                            .header("User-Agent", "mcmusic-android")
+                            .build()
+                        UpdateChecker.client.newCall(request).execute().use { response ->
+                            if (!response.isSuccessful) {
+                                throw IOException("Download failed (${response.code})")
+                            }
+                            val body = response.body ?: throw IOException("Download failed")
+                            val total = if (body.contentLength() > 0) body.contentLength() else info.size
+                            val digest = MessageDigest.getInstance("SHA-256")
+                            var done = 0L
+                            body.byteStream().use { input ->
+                                temp.outputStream().use { output ->
+                                    val buffer = ByteArray(16 * 1024)
+                                    while (true) {
+                                        val n = input.read(buffer)
+                                        if (n <= 0) break
+                                        output.write(buffer, 0, n)
+                                        digest.update(buffer, 0, n)
+                                        done += n
+                                        if (total > 0) {
+                                            updateProgress = ((done * 100) / total).toInt().coerceIn(0, 100)
+                                        }
                                     }
                                 }
                             }
+                            if (info.size > 0 && done != info.size) {
+                                throw IOException("Download incomplete — expected ${info.size} bytes, got $done")
+                            }
+                            updateProgress = 100
+                            updateVerifying = true
+                            val actual = digest.digest().joinToString("") {
+                                "%02x".format(it.toInt() and 0xff)
+                            }
+                            if (!info.checksum.isNullOrBlank() &&
+                                !actual.equals(info.checksum, ignoreCase = true)
+                            ) {
+                                throw IOException("Download checksum did not match the release")
+                            }
+                            val archive = context.packageManager
+                                .getPackageArchiveInfo(temp.absolutePath, 0)
+                            if (archive?.packageName != context.packageName) {
+                                throw IOException("Downloaded file is not a mcmusic APK")
+                            }
                         }
+                        if (!temp.renameTo(apk)) {
+                            temp.copyTo(apk, overwrite = true)
+                            temp.delete()
+                        }
+                        apk
+                    } catch (t: Throwable) {
+                        temp.delete()
+                        throw t
                     }
-                    apk
                 }
             }.onSuccess { apk ->
+                store.skippedUpdateVersion = null
                 updateDownloading = false
+                updateVerifying = false
                 updateProgress = 100
                 updateDialogOpen = false
                 val uri = FileProvider.getUriForFile(
@@ -1434,6 +1496,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     .onFailure { toast("Open the downloaded APK from Files to install") }
             }.onFailure { error ->
                 updateDownloading = false
+                updateVerifying = false
                 updateProgress = 0
                 toast(error.message ?: "Could not download the update")
             }

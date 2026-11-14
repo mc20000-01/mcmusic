@@ -14,6 +14,8 @@ data class UpdateInfo(
     val url: String,
     val notes: String,
     val size: Long,
+    /** GitHub's `sha256:…` digest for this asset, when the API provides it. */
+    val checksum: String? = null,
 ) {
     /** True only when [version] is newer than [current], never on a downgrade. */
     fun isNewerThan(current: String): Boolean {
@@ -68,11 +70,15 @@ object UpdateChecker {
                 if (!name.endsWith(".apk", ignoreCase = true)) continue
                 val version = Regex("""mcmusic-([0-9][^/]*)\.apk""")
                     .find(name)?.groupValues?.getOrNull(1) ?: continue
+                val digest = asset.optString("digest").trim()
+                val checksum = digest.substringAfter(':', digest).lowercase()
+                    .takeIf { it.length == 64 && it.all { c -> c in '0'..'9' || c in 'a'..'f' } }
                 val candidate = UpdateInfo(
                     version = version,
                     url = asset.optString("browser_download_url"),
                     notes = release.optString("body"),
                     size = asset.optLong("size"),
+                    checksum = checksum,
                 )
                 if (best == null || candidate.isNewerThan(best.version)) best = candidate
             }

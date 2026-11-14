@@ -105,6 +105,13 @@ class SessionStore(context: Context) {
             prefs.edit().putString("device_hash", value).apply()
         }
 
+    /** A release the listener explicitly skipped; the next version still prompts. */
+    var skippedUpdateVersion: String?
+        get() = prefs.getString("skipped_update_version", null)
+        set(value) {
+            prefs.edit().putString("skipped_update_version", value).apply()
+        }
+
     fun clearSession() {
         cookieJar.clear()
         cachedMe = null
