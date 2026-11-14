@@ -5,6 +5,8 @@ package dev.mcmusic.app.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -102,7 +104,7 @@ fun HomeScreen(vm: AppViewModel) {
 
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 28.dp),
+        contentPadding = PaddingValues(start = D.gutter, end = D.gutter, top = 10.dp, bottom = 24.dp),
     ) {
         item {
             Row(
@@ -202,43 +204,43 @@ private fun QuickPicks(vm: AppViewModel, picks: List<Track>) {
     val mc = LocalMc.current
     val haptics = LocalHapticFeedback.current
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        picks.chunked(2).forEach { row ->
+        picks.forEach { track ->
             Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(D.r2))
+                    .background(mc.glass)
+                    .border(1.dp, mc.glassBorder, RoundedCornerShape(D.r2))
+                    .combinedClickable(
+                        onClick = { vm.playList(picks, picks.indexOf(track)) },
+                        onLongClickLabel = "Track options",
+                        onLongClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            vm.openTrackMenu(track)
+                        },
+                    )
+                    .padding(7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(9.dp),
             ) {
-                row.forEach { track ->
-                    Row(
-                        Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(D.r2))
-                            .background(mc.bg2)
-                            .border(1.dp, mc.line, RoundedCornerShape(D.r2))
-                            .combinedClickable(
-                                onClick = { vm.playList(picks, picks.indexOf(track)) },
-                                onLongClickLabel = "Track options",
-                                onLongClick = {
-                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    vm.openTrackMenu(track)
-                                },
-                            )
-                            .padding(6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Art(track.id, 34.dp)
-                        Text(
-                            track.title,
-                            style = McType.bodySm,
-                            color = mc.fg,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Icon(AppIcons.Play, null, Modifier.size(12.dp), tint = mc.accent)
-                    }
+                Art(track.id, 36.dp)
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        track.title,
+                        style = McType.bodySm.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium),
+                        color = mc.fg,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        track.artist,
+                        style = McType.mono9,
+                        color = mc.dim,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
-                if (row.size == 1) Spacer(Modifier.weight(1f))
+                Icon(AppIcons.Play, null, Modifier.size(16.dp), tint = mc.accent)
             }
         }
     }
@@ -267,7 +269,7 @@ fun SearchScreen(vm: AppViewModel) {
             val tracks = if (vm.settings.hideExplicit) data.tracks.filter { !it.explicit } else data.tracks
             LazyColumn(
                 Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 28.dp),
+                contentPadding = PaddingValues(start = D.gutter, end = D.gutter, top = 8.dp, bottom = 24.dp),
             ) {
                 if (data.artists.isNotEmpty()) {
                     item {
@@ -336,7 +338,7 @@ fun SearchScreen(vm: AppViewModel) {
 fun LibraryScreen(vm: AppViewModel) {
     val mc = LocalMc.current
     Column(Modifier.fillMaxSize()) {
-        Column(Modifier.padding(horizontal = 14.dp)) {
+        Column(Modifier.padding(horizontal = D.gutter)) {
             Row(
                 Modifier.fillMaxWidth().padding(bottom = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -345,17 +347,21 @@ fun LibraryScreen(vm: AppViewModel) {
                 Spacer(Modifier.weight(1f))
                 IconBtn(AppIcons.Refresh, { vm.refresh() }, contentDescription = "Refresh")
             }
-            Seg(
-                options = listOf(
-                    "songs" to "Songs",
-                    "albums" to "Albums",
-                    "artists" to "Artists",
-                    "playlists" to "Playlists",
-                    "liked" to "Liked",
-                ),
-                selected = vm.libraryTab,
-                onSelect = { vm.selectLibraryTab(it) },
-            )
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            ) {
+                Seg(
+                    options = listOf(
+                        "songs" to "Songs",
+                        "albums" to "Albums",
+                        "artists" to "Artists",
+                        "playlists" to "Playlists",
+                        "liked" to "Liked",
+                    ),
+                    selected = vm.libraryTab,
+                    onSelect = { vm.selectLibraryTab(it) },
+                )
+            }
             if (vm.libraryTab == "songs") {
                 Row(
                     Modifier.fillMaxWidth().padding(top = 10.dp),
@@ -426,7 +432,7 @@ fun LibraryScreen(vm: AppViewModel) {
                 } else {
                     LazyColumn(
                         Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 24.dp),
+                        contentPadding = PaddingValues(start = D.gutter, end = D.gutter, bottom = 24.dp),
                     ) {
                         itemsIndexed(list, key = { _, t -> t.id }) { index, track ->
                             TrackRow(
@@ -453,7 +459,7 @@ fun LibraryScreen(vm: AppViewModel) {
                 } else {
                     LazyColumn(
                         Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 24.dp),
+                        contentPadding = PaddingValues(start = D.gutter, end = D.gutter, bottom = 24.dp),
                     ) {
                         itemsIndexed(sorted, key = { _, t -> t.id }) { index, track ->
                             TrackRow(
@@ -484,7 +490,7 @@ fun <T> GridList(
     }
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = 24.dp),
+        contentPadding = PaddingValues(start = D.gutter, end = D.gutter, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         items(values.chunked(2)) { row ->
@@ -534,7 +540,7 @@ fun CollectionScreen(
     }
 
     if (tracks.isEmpty() && vm.collectionTitle == name) {
-        Column(Modifier.fillMaxSize().padding(14.dp)) {
+        Column(Modifier.fillMaxSize().padding(D.gutter)) {
             Text(name, style = McType.h1Small, color = mc.fg)
             EmptyState("No tracks here", "This $kicker has no playable tracks.", icon = AppIcons.Disc)
         }
@@ -547,7 +553,7 @@ fun CollectionScreen(
 
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 28.dp),
+        contentPadding = PaddingValues(start = D.gutter, end = D.gutter, top = 10.dp, bottom = 24.dp),
     ) {
         item {
             Hero(
@@ -619,7 +625,7 @@ fun LikesScreen(vm: AppViewModel) {
     val playable = if (vm.settings.hideExplicit) tracks.filter { !it.explicit } else tracks
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 28.dp),
+        contentPadding = PaddingValues(start = D.gutter, end = D.gutter, top = 10.dp, bottom = 24.dp),
     ) {
         item {
             Hero(

@@ -6,6 +6,8 @@
 
 import { api, flushOutbox, pendingWrites } from "./api.js";
 import { Auth } from "./auth.js";
+import { RealGlass } from "./glass.js";
+import { Gfx, GFX_LEVELS } from "./gfx.js";
 import * as cache from "./cache.js";
 import { icon } from "./icons.js";
 import { RoturLink } from "./rotur.js";
@@ -774,8 +776,10 @@ function now(container) {
   const cover = document.createElement("div");
   cover.className = "now-art";
   const img = document.createElement("img");
-  img.src = `/api/tracks/${t.id}/cover`;
+  if (document.body?.dataset.covers !== "off") img.src = `/api/tracks/${t.id}/cover`;
   img.alt = "";
+  img.loading = "lazy";
+  img.decoding = "async";
   img.onerror = () => {
     img.remove();
     cover.appendChild(icon("disc-3", { size: 42 }));
@@ -940,12 +944,12 @@ async function downloadsBody(container) {
 
 /* ── settings ───────────────────────────────────────────────────────────── */
 const THEMES = [
-  ["dusk", "Night", "repeating-linear-gradient(135deg,#151022 0 7px,#a06bff 7px 14px)"],
-  ["paper", "Paper", "linear-gradient(135deg,#fbf7ee,#b4531f)"],
-  ["ink", "Ink", "linear-gradient(135deg,#121214,#d7d7de)"],
-  ["tide", "Tide", "linear-gradient(135deg,#18262c,#6fb3c4)"],
-  ["copper", "Copper", "linear-gradient(135deg,#2b1a16,#e08a5f)"],
-  ["auto", "Auto", "repeating-linear-gradient(135deg,#151022 0 7px,#fbf7ee 7px 14px)"],
+  ["dusk", "Night"],
+  ["paper", "Paper"],
+  ["ink", "Ink"],
+  ["tide", "Tide"],
+  ["copper", "Copper"],
+  ["auto", "Auto"],
 ];
 
 const ACCENTS = ["#a06bff", "#7c5cff", "#c77dff", "#63c98d", "#e3bd52", "#e4627e", "#6fb3c4", "#f2ecff"];
@@ -955,7 +959,7 @@ async function settings(container) {
   const s = state?.set || {};
   const me = state?.me;
 
-  container.appendChild(heading("Settings", "Preferences sync to your account"));
+  container.appendChild(heading("Settings", "Saved to your account"));
 
   /* appearance */
   const p1 = document.createElement("div");
@@ -964,12 +968,13 @@ async function settings(container) {
 
   const themes = document.createElement("div");
   themes.className = "themes";
-  THEMES.forEach(([key, label, grad]) => {
+  THEMES.forEach(([key, label]) => {
     const card = document.createElement("button");
     card.className = `theme-card${s.theme === key ? " sel" : ""}`;
     card.type = "button";
+    card.setAttribute("aria-label", `${label} theme`);
     const swatch = document.createElement("i");
-    swatch.style.background = grad;
+    swatch.className = `swatch-preview th-${key}`;
     const span = document.createElement("span");
     span.textContent = label;
     card.appendChild(swatch);
@@ -984,16 +989,40 @@ async function settings(container) {
   p1.appendChild(themes);
 
   p1.appendChild(
-    row("Accent colour", "Overrides the palette accent", accentPicker(s.accent, (v) => app()?.setPref("accent", v)))
+    row("Accent colour", "Pick a colour for controls and focus", accentPicker(s.accent, (v) => app()?.setPref("accent", v)))
   );
 
   p1.appendChild(
-    row("Density", "Row height in track lists", segmented(
+    row("Density", "Tighter rows, same information", segmented(
       [["comfy", "Comfortable"], ["compact", "Compact"]],
       s.density,
       (v) => app()?.setPref("density", v)
     ))
   );
+
+  p1.appendChild(gfxControl());
+
+  const glassMode = s.real_glass || "auto";
+  const glassRow = row(
+    "Real glass",
+    glassMode === "on" && !RealGlass.supported
+      ? "Not supported on this browser"
+      : "Uses extra GPU. Falls back to simple blur if your browser can't do it.",
+    segmented(
+      [["auto", "Auto"], ["on", "On"], ["off", "Off"]],
+      glassMode,
+      async (v) => {
+        await app()?.setPref("real_glass", v);
+        const hint = glassRow.querySelector("small");
+        if (hint) {
+          hint.textContent = v === "on" && !RealGlass.supported
+            ? "Not supported on this browser"
+            : "Uses extra GPU. Falls back to simple blur if your browser can't do it.";
+        }
+      }
+    )
+  );
+  p1.appendChild(glassRow);
 
   p1.appendChild(row("Cover art", "Hide artwork to load faster", toggle(s.covers, (v) => app()?.setPref("covers", v))));
   container.appendChild(p1);
@@ -1002,14 +1031,14 @@ async function settings(container) {
   const p2 = document.createElement("div");
   p2.className = "panel";
   p2.appendChild(Object.assign(document.createElement("h2"), { textContent: "Playback" }));
-  p2.appendChild(row("Autoplay", "Continue with similar tracks when the queue ends",
+  p2.appendChild(row("Autoplay", "Keep similar tracks playing after the queue",
     toggle(s.autoplay, (v) => app()?.setPref("autoplay", v))));
-  p2.appendChild(row("Hide explicit tracks", "Based on YouTube age restriction and titles",
+  p2.appendChild(row("Hide explicit tracks", "Skip tracks marked explicit",
     toggle(s.hide_explicit, async (v) => {
       await app()?.setPref("hide_explicit", v);
       app()?.draw();
     })));
-  p2.appendChild(row("Show YouTube stats", "Like counts beside tracks",
+  p2.appendChild(row("Show YouTube stats", "Show likes beside tracks",
     toggle(s.yt_stats, async (v) => {
       await app()?.setPref("yt_stats", v);
       app()?.draw();
@@ -1314,6 +1343,103 @@ async function settings(container) {
       })()));
     });
   container.appendChild(p6);
+}
+
+function gfxControl() {
+  const wrap = document.createElement("div");
+  wrap.className = "gfx-row";
+
+  const head = document.createElement("div");
+  head.className = "gfx-head";
+  const title = document.createElement("div");
+  const b = document.createElement("b");
+  b.textContent = "Graphics quality";
+  const device = document.createElement("small");
+  device.textContent = "This device only. Auto starts at a safe level and lowers it if frames get slow.";
+  title.appendChild(b);
+  title.appendChild(device);
+  head.appendChild(title);
+
+  const autoLabel = document.createElement("label");
+  autoLabel.className = "gfx-auto";
+  const auto = document.createElement("input");
+  auto.type = "checkbox";
+  const autoText = document.createElement("span");
+  autoText.textContent = "Auto";
+  autoLabel.appendChild(auto);
+  autoLabel.appendChild(autoText);
+  head.appendChild(autoLabel);
+  wrap.appendChild(head);
+
+  const slider = document.createElement("input");
+  slider.type = "range";
+  slider.className = "gfx-range";
+  slider.min = "0";
+  slider.max = String(Gfx.state.manualMax);
+  slider.step = "1";
+  slider.setAttribute("aria-label", "Graphics quality");
+  wrap.appendChild(slider);
+
+  const scale = document.createElement("div");
+  scale.className = "gfx-scale";
+  GFX_LEVELS.forEach((level) => {
+    const span = document.createElement("span");
+    span.textContent = level.label;
+    scale.appendChild(span);
+  });
+  wrap.appendChild(scale);
+
+  const desc = document.createElement("p");
+  desc.className = "gfx-desc";
+  wrap.appendChild(desc);
+
+  const readout = document.createElement("div");
+  readout.className = "gfx-readout mono";
+  wrap.appendChild(readout);
+
+  const warning = document.createElement("p");
+  warning.className = "gfx-warning";
+  wrap.appendChild(warning);
+
+  const sync = () => {
+    const state = Gfx.state;
+    slider.max = String(state.manualMax);
+    slider.value = String(state.level);
+    slider.disabled = false;
+    auto.checked = state.auto;
+    const level = GFX_LEVELS[state.level] || GFX_LEVELS[0];
+    desc.textContent = state.auto
+      ? `${level.label}: ${level.blurb}`
+      : level.blurb;
+    readout.textContent = state.frameMs == null
+      ? "Current: — ms/frame"
+      : `Current: ~${state.frameMs.toFixed(1)} ms/frame`;
+    warning.hidden = !state.software;
+    warning.textContent = state.software
+      ? "Software rendering detected. Graphics are set to Off. Enable GPU acceleration in your browser for better quality."
+      : "";
+  };
+
+  slider.oninput = () => {
+    Gfx.setLevel(Number(slider.value));
+    sync();
+  };
+  auto.onchange = () => {
+    Gfx.setAuto(auto.checked);
+    sync();
+  };
+
+  const onGfx = () => {
+    if (!readout.isConnected) {
+      window.removeEventListener("mc:gfx", onGfx);
+      return;
+    }
+    sync();
+  };
+  window.addEventListener("mc:gfx", onGfx);
+  sync();
+  Gfx.activity();
+  return wrap;
 }
 
 function row(label, hint, control) {

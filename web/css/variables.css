@@ -139,4 +139,119 @@
 /* accent override written by JS (settings) */
 :root {
   --accent-current: var(--accent);
+
+  /* ── Liquid Glass layer ────────────────────────────────────────────
+     These are the only glass, radius and text tokens components use. */
+  --t1: var(--fg);
+  --t2: color-mix(in srgb, var(--fg) 68%, transparent);
+  --t3: color-mix(in srgb, var(--fg) 55%, transparent);
+  --hero: var(--accent);
+  --tint: var(--bg);
+  --glass: rgba(255, 255, 255, 0.14);
+  --glass-strong: rgba(255, 255, 255, 0.22);
+  --glass-border: rgba(255, 255, 255, 0.18);
+  --glass-highlight: rgba(255, 255, 255, 0.25);
+  --glass-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  --glass-blur: blur(24px) saturate(180%);
+  --glass-small-blur: blur(16px) saturate(160%);
+
+  /* Content-first geometry: cards are 22-24, controls are circles/pills. */
+  --r-1: 8px;
+  --r-2: 12px;
+  --r-3: 22px;
+  --r-4: 24px;
+  --tab-h: 62px;
+  --deck-h: 92px;
+  --top-h: 60px;
+  --block: 0 8px 24px rgba(0, 0, 0, 0.25);
+  --font-mono: var(--font-ui);
+}
+
+/* Paper is the one light palette; glass flips to a dark tint so text stays
+   legible without introducing a second set of component rules. */
+[data-theme="paper"] {
+  --glass: rgba(255, 255, 255, 0.38);
+  --glass-strong: rgba(255, 255, 255, 0.6);
+  --glass-border: rgba(36, 29, 20, 0.16);
+  --glass-highlight: rgba(255, 255, 255, 0.7);
+  --glass-shadow: 0 8px 24px rgba(36, 29, 20, 0.16);
+}
+
+/* ── optional real glass ──────────────────────────────────────────────────
+   Only consumed under html.glass-real. Everything above remains the base. */
+:root {
+  color-scheme: dark;
+  --glass-real-blur: 18px;
+  --glass-real-soft-blur: 20px;
+  --glass-real-fill: color-mix(in srgb, var(--bg-2) 86%, transparent);
+  --glass-real-border: color-mix(in srgb, var(--glass-border) 58%, var(--glass-highlight) 42%);
+  --glass-real-adjust: brightness(0.94) contrast(1.06) saturate(180%);
+  --glass-real-edge-top: rgba(255, 255, 255, 0.55);
+  --glass-real-edge-bottom: rgba(255, 255, 255, 0.14);
+}
+
+@supports (color: light-dark(white, black)) {
+  :root {
+    --glass-real-edge-top: light-dark(rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.55));
+    --glass-real-edge-bottom: light-dark(rgba(36, 29, 20, 0.16), rgba(255, 255, 255, 0.12));
+  }
+}
+
+[data-theme="paper"] {
+  color-scheme: light;
+  --glass-real-fill: color-mix(in srgb, var(--bg-2) 88%, transparent);
+  --glass-real-adjust: brightness(1.04) contrast(0.98) saturate(180%);
+}
+
+/* ── graphics quality profiles (local to this device) ────────────────────
+   Level 3 intentionally keeps the original glass values. Level 4 adds the
+   real-glass layer on top; the other levels only change tokens. */
+:root {
+  --gfx-panel-fill: var(--glass);
+  --gfx-top-blur: var(--glass-small-blur);
+  --gfx-hero-opacity: 1;
+  --gfx-shadow: var(--glass-shadow);
+  --gfx-transition: 220ms;
+}
+
+html[data-gfx="0"] {
+  --glass: var(--surface);
+  --glass-strong: var(--surface-2);
+  --glass-blur: none;
+  --glass-small-blur: none;
+  --gfx-panel-fill: var(--surface);
+  --gfx-top-blur: none;
+  --gfx-hero-opacity: 0;
+  --gfx-transition: 120ms;
+}
+
+html[data-gfx="1"] {
+  --glass: var(--surface);
+  --glass-strong: var(--surface-2);
+  --glass-blur: blur(10px);
+  --glass-small-blur: none;
+  --glass-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  --gfx-panel-fill: var(--surface);
+  --gfx-top-blur: blur(10px);
+  --gfx-hero-opacity: 0;
+  --gfx-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  --gfx-transition: 150ms;
+}
+
+html[data-gfx="2"] {
+  --glass-blur: blur(18px) saturate(160%);
+  --glass-small-blur: none;
+  --gfx-panel-fill: var(--surface);
+  --gfx-top-blur: blur(18px) saturate(160%);
+  --gfx-hero-opacity: 1;
+  --gfx-transition: 200ms;
+}
+
+html[data-gfx="3"],
+html[data-gfx="4"] {
+  --gfx-panel-fill: var(--glass);
+  --gfx-top-blur: var(--glass-small-blur);
+  --gfx-hero-opacity: 1;
+  --gfx-shadow: var(--glass-shadow);
+  --gfx-transition: 220ms;
 }

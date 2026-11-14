@@ -253,6 +253,7 @@ DEFAULT_SETTINGS = {
     "autoplay": True, "hide_explicit": False, "private": False, "yt_stats": True,
     "remember_volume": True, "volume": 0.8, "prefetch": True, "offline_audio": True,
     "rotur_activity": False, "show_room_url": False,
+    "real_glass": "auto",
 }
 
 
@@ -451,6 +452,7 @@ INDEX_SHELL = """<!doctype html><html lang="en" data-theme="dusk">
 <link rel="stylesheet" href="/static/css/components.css">
 <link rel="stylesheet" href="/static/css/theme.css">
 <link rel="stylesheet" href="/static/css/mobile.css">
+<link rel="stylesheet" href="/static/css/gfx.css">
 </head><body>
 <div id="app"></div>
 <div id="toasts" aria-live="polite"></div>

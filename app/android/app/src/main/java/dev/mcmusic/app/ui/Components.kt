@@ -10,6 +10,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
@@ -35,6 +36,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -53,12 +55,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
@@ -74,6 +78,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import dev.mcmusic.app.data.AlbumRef
 import dev.mcmusic.app.data.ArtistRef
 import dev.mcmusic.app.data.PlaylistRef
@@ -81,7 +87,12 @@ import dev.mcmusic.app.data.Track
 import dev.mcmusic.app.ui.theme.D
 import dev.mcmusic.app.ui.theme.LocalMc
 import dev.mcmusic.app.ui.theme.McType
+import dev.mcmusic.app.ui.theme.glass
 import kotlinx.coroutines.delay
+
+data class ListPrefs(val covers: Boolean = true, val compact: Boolean = false)
+
+val LocalListPrefs = staticCompositionLocalOf { ListPrefs() }
 
 /* ── buttons ────────────────────────────────────────────────────────────── */
 
@@ -98,13 +109,17 @@ fun McButton(
     leading: ImageVector? = null,
 ) {
     val mc = LocalMc.current
-    val shape = RoundedCornerShape(D.r2)
-    val bg = if (solid) mc.accent else Color.Transparent
-    val borderColor = when {
+    val shape = RoundedCornerShape(99.dp)
+    val bg = when {
         solid -> mc.accent
         ghost -> Color.Transparent
+        else -> mc.glass
+    }
+    val borderColor = when {
+        solid -> Color.Transparent
+        ghost -> Color.Transparent
         danger -> mc.err.copy(alpha = 0.45f)
-        else -> mc.line2
+        else -> mc.glassBorder
     }
     val fg = when {
         solid -> mc.accentFg
@@ -150,14 +165,19 @@ fun IconBtn(
     Box(
         modifier
             .size(size)
-            .clip(RoundedCornerShape(D.r2))
+            .clip(CircleShape)
+            .background(if (active) mc.accentSoft else Color.Transparent)
+            .then(
+                if (active) Modifier.border(1.dp, mc.accent.copy(alpha = 0.35f), CircleShape)
+                else Modifier
+            )
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             icon,
             contentDescription,
-            Modifier.size(size * 0.55f),
+            Modifier.size(minOf(size * 0.6f, 24.dp)),
             tint = tint ?: if (active) mc.accent else mc.dim,
         )
     }
@@ -210,30 +230,30 @@ fun McField(
     trailing: (@Composable () -> Unit)? = null,
 ) {
     val mc = LocalMc.current
-    val shape = RoundedCornerShape(D.r2)
+    val shape = RoundedCornerShape(16.dp)
     BasicTextField(
         value = value,
         onValueChange = onValueChange,
         singleLine = true,
-        textStyle = McType.bodySm.copy(color = mc.fg),
+        textStyle = McType.body.copy(fontSize = 15.sp, color = mc.fg),
         cursorBrush = SolidColor(mc.accent),
         visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         modifier = modifier
             .fillMaxWidth()
-            .height(38.dp)
+            .height(40.dp)
             .clip(shape)
-            .background(mc.bg2)
-            .border(1.dp, mc.line2, shape)
-            .padding(horizontal = 11.dp),
+            .background(mc.glass)
+            .border(1.dp, mc.glassBorder, shape)
+            .padding(horizontal = 12.dp),
         decorationBox = { inner ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 if (leading != null) {
-                    Icon(leading, null, Modifier.size(15.dp), tint = LocalMc.current.dim2)
+                    Icon(leading, null, Modifier.size(18.dp), tint = LocalMc.current.dim2)
                 }
                 Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                     if (value.isEmpty()) {
-                        Text(placeholder, style = McType.bodySm, color = mc.dim2, maxLines = 1)
+                        Text(placeholder, style = McType.body.copy(fontSize = 15.sp), color = mc.dim2, maxLines = 1)
                     }
                     inner()
                 }
@@ -246,17 +266,24 @@ fun McField(
 @Composable
 fun SwitchPill(checked: Boolean, onChange: (Boolean) -> Unit) {
     val mc = LocalMc.current
+    val knob by animateDpAsState(
+        targetValue = if (checked) 18.dp else 2.dp,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow,
+        ),
+        label = "switch knob",
+    )
     Box(
         Modifier
             .size(width = 38.dp, height = 20.dp)
             .clip(CircleShape)
             .background(if (checked) mc.accent else mc.line2)
             .clickable { onChange(!checked) },
-        contentAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart,
     ) {
         Box(
             Modifier
-                .padding(horizontal = 2.dp)
+                .offset(x = knob)
                 .size(16.dp)
                 .clip(CircleShape)
                 .background(if (checked) mc.accentFg else mc.fg)
@@ -274,9 +301,9 @@ fun Seg(
     val mc = LocalMc.current
     Row(
         modifier
-            .clip(RoundedCornerShape(D.r2))
-            .background(mc.bg2)
-            .border(1.dp, mc.line, RoundedCornerShape(D.r2))
+            .clip(RoundedCornerShape(99.dp))
+            .background(mc.glass)
+            .border(1.dp, mc.glassBorder, RoundedCornerShape(99.dp))
             .padding(2.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
@@ -284,7 +311,7 @@ fun Seg(
             val on = key == selected
             Box(
                 Modifier
-                    .clip(RoundedCornerShape(D.r1))
+                    .clip(RoundedCornerShape(99.dp))
                     .background(if (on) mc.accent else Color.Transparent)
                     .clickable { onSelect(key) }
                     .padding(horizontal = 12.dp, vertical = 5.dp),
@@ -314,7 +341,7 @@ fun SectionHead(text: String, meta: String? = null, actions: @Composable RowScop
     ) {
         Text(text, style = McType.h1Small, color = mc.fg)
         if (meta != null) {
-            Text(meta, style = McType.mono9, color = mc.dim2)
+            Text(meta, style = McType.bodyXs, color = mc.fg.copy(alpha = 0.62f))
         }
         Spacer(Modifier.weight(1f))
         actions()
@@ -327,21 +354,18 @@ fun Panel(title: String? = null, content: @Composable ColumnScope.() -> Unit) {
     Column(
         Modifier
             .fillMaxWidth()
-            .padding(bottom = 16.dp)
-            .clip(RoundedCornerShape(D.r3))
-            .background(mc.bg2)
-            .border(1.dp, mc.line, RoundedCornerShape(D.r3)),
+            .padding(bottom = 26.dp)
+            .glass(RoundedCornerShape(D.r3)),
     ) {
         if (title != null) {
             Text(
                 title.uppercase(),
-                style = McType.mono9,
-                color = mc.dim2,
+                style = McType.mono10.copy(fontSize = 11.sp, letterSpacing = 0.12.em),
+                color = mc.fg.copy(alpha = 0.55f),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 8.dp),
             )
-            Box(Modifier.fillMaxWidth().height(1.dp).background(mc.line))
         }
         content()
     }
@@ -358,19 +382,22 @@ fun SettingRow(
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         Column(Modifier.weight(1f)) {
-            Text(title, style = McType.bodySm.copy(fontWeight = FontWeight.Medium), color = mc.fg)
+            Text(
+                title,
+                style = McType.bodySm.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium),
+                color = mc.fg,
+            )
             if (subtitle != null) {
-                Text(subtitle, style = McType.bodyXs, color = mc.dim2)
+                Text(subtitle, style = McType.bodyXs, color = mc.fg.copy(alpha = 0.62f))
             }
         }
         trailing()
     }
-    if (!last) Box(Modifier.fillMaxWidth().height(1.dp).background(mc.line))
 }
 
 @Composable
@@ -385,7 +412,9 @@ fun EmptyState(
     Column(
         Modifier
             .fillMaxWidth()
-            .padding(vertical = 40.dp, horizontal = 20.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .glass(RoundedCornerShape(16.dp))
+            .padding(vertical = 38.dp, horizontal = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
@@ -407,9 +436,7 @@ fun Notice(text: String, actionLabel: String? = null, onAction: (() -> Unit)? = 
         Modifier
             .fillMaxWidth()
             .padding(bottom = 14.dp)
-            .clip(RoundedCornerShape(D.r2))
-            .background(mc.bg2)
-            .border(1.dp, mc.line2, RoundedCornerShape(D.r2))
+            .glass(RoundedCornerShape(D.r2))
             .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -440,9 +467,9 @@ fun ProgressBar(
     ) {
         Text(
             fmtTime(position),
-            style = McType.mono10,
+            style = McType.mono9,
             color = mc.dim,
-            modifier = Modifier.width(38.dp),
+            modifier = Modifier.width(28.dp),
         )
         Canvas(
             Modifier
@@ -460,7 +487,7 @@ fun ProgressBar(
                 },
         ) {
             val cy = size.height / 2f
-            val groove = 7.dp.toPx()
+            val groove = 3.dp.toPx()
             val radius = CornerRadius(groove / 2f, groove / 2f)
             drawRoundRect(
                 color = mc.line,
@@ -478,15 +505,15 @@ fun ProgressBar(
             }
             drawCircle(
                 color = mc.fg,
-                radius = 8.dp.toPx(),
+                radius = 5.dp.toPx(),
                 center = Offset(size.width * fraction, cy),
             )
         }
         Text(
             fmtTime(duration),
-            style = McType.mono10,
+            style = McType.mono9,
             color = mc.dim,
-            modifier = Modifier.width(38.dp),
+            modifier = Modifier.width(28.dp),
         )
     }
 }
@@ -534,12 +561,13 @@ fun TrackRow(
     modifier: Modifier = Modifier,
 ) {
     val mc = LocalMc.current
+    val prefs = LocalListPrefs.current
     val haptics = LocalHapticFeedback.current
     Row(
         modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(D.r2))
-            .background(if (isCurrent) mc.surface else Color.Transparent)
+            .background(if (isCurrent) mc.glassStrong else Color.Transparent)
             .combinedClickable(
                 onClick = onClick,
                 onLongClickLabel = "Track options",
@@ -548,7 +576,7 @@ fun TrackRow(
                     onMore()
                 },
             )
-            .padding(horizontal = 6.dp, vertical = 5.dp),
+            .padding(horizontal = 6.dp, vertical = if (prefs.compact) 3.dp else 5.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -558,7 +586,7 @@ fun TrackRow(
             color = if (isCurrent) mc.accent else mc.dim2,
             modifier = Modifier.width(24.dp),
         )
-        Art(track.id, 34.dp)
+        if (prefs.covers) Art(track.id, if (prefs.compact) 30.dp else 34.dp)
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
@@ -823,10 +851,17 @@ fun Hero(
     Column(
         Modifier
             .fillMaxWidth()
-            .padding(bottom = 18.dp),
+            .clip(RoundedCornerShape(D.r3))
+            .background(
+                Brush.radialGradient(
+                    listOf(mc.accent.copy(alpha = 0.24f), Color.Transparent),
+                ),
+            )
+            .padding(18.dp)
+            .padding(bottom = 2.dp),
     ) {
         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Art(coverId, 128.dp, round = round)
+            Art(coverId, 144.dp, round = round)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(kicker.uppercase(), style = McType.kicker, color = mc.accent)
                 Text(title, style = McType.h1Small, color = mc.fg, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -839,22 +874,13 @@ fun Hero(
                 }
             }
         }
-        if (true) {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(top = 14.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                content = actions,
-            )
-        }
-        Box(
+        Row(
             Modifier
                 .fillMaxWidth()
-                .padding(top = 18.dp)
-                .height(1.dp)
-                .background(mc.line)
+                .padding(top = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            content = actions,
         )
     }
 }
@@ -941,11 +967,10 @@ fun ToastHost(message: String?, onDismiss: () -> Unit, modifier: Modifier = Modi
         Box(
             Modifier
                 .padding(horizontal = 24.dp)
-                .clip(RoundedCornerShape(D.r2))
-                .background(mc.fg)
-                .padding(horizontal = 14.dp, vertical = 9.dp),
+                .glass(RoundedCornerShape(18.dp))
+                .padding(horizontal = 16.dp, vertical = 10.dp),
         ) {
-            Text(message.orEmpty(), style = McType.bodySm, color = mc.bg, maxLines = 3)
+            Text(message.orEmpty(), style = McType.bodySm, color = mc.fg, maxLines = 3)
         }
     }
 }

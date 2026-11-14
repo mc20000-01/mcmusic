@@ -597,9 +597,9 @@ class TrackList(QWidget):
             current = track.id == self.current_id
             hovered = i == self._hover
             if hovered or current:
-                p.setPen(QPen(C("line2"), 1) if current else Qt.PenStyle.NoPen)
-                p.setBrush(C("surface" if current else "bg2"))
-                p.drawRoundedRect(row.adjusted(0, 1, 0, -1), 4, 4)
+                p.setPen(Qt.PenStyle.NoPen)
+                p.setBrush(C("glass_strong" if current else "glass"))
+                p.drawRoundedRect(row.adjusted(0, 1, 0, -1), 14, 14)
 
             p.setFont(num_font)
             p.setPen(QPen(C("accent" if current else "dim2")))
@@ -660,7 +660,7 @@ class TrackList(QWidget):
 
     def _paint_cover(self, p: QPainter, track: Track, rect: QRectF) -> None:
         path = QPainterPath()
-        path.addRoundedRect(rect, 4, 4)
+        path.addRoundedRect(rect, 8, 8)
         p.save()
         p.setClipPath(path)
         p.setPen(Qt.PenStyle.NoPen)
@@ -773,7 +773,7 @@ class Tile(QAbstractButton):
         self.setFixedSize(self._width, self._width + 58)
 
     def _art_rect(self) -> QRectF:
-        return QRectF(10, 10, self._width - 20, self._width - 20)
+        return QRectF(0, 0, self._width, self._width)
 
     def _play_rect(self) -> QRectF:
         art = self._art_rect()
@@ -787,17 +787,13 @@ class Tile(QAbstractButton):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
-        rect = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
-        p.setPen(QPen(C("line2" if self._hover else "line"), 1))
-        p.setBrush(C("surface" if self._hover else "bg2"))
-        p.drawRoundedRect(rect, 7, 7)
-
+        # Lists and tiles are unboxed; only the artwork carries the surface.
         art = self._art_rect()
         path = QPainterPath()
         if self.round_:
             path.addEllipse(art)
         else:
-            path.addRoundedRect(art, 4, 4)
+            path.addRoundedRect(art, 10, 10)
         p.save()
         p.setClipPath(path)
         p.setPen(Qt.PenStyle.NoPen)
@@ -1164,9 +1160,9 @@ class Panel(QWidget):
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        p.setPen(QPen(C("line"), 1))
-        p.setBrush(C("bg2"))
-        p.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 7, 7)
+        p.setPen(QPen(C("glass_border"), 1))
+        p.setBrush(C("glass"))
+        p.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 22, 22)
 
 
 class SettingRow(QWidget):
@@ -1578,9 +1574,9 @@ class SearchField(QWidget):
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        p.setPen(QPen(C("accent" if self._focused else "line"), 1))
-        p.setBrush(C("bg2"))
-        p.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 4, 4)
+        p.setPen(QPen(C("glass_highlight" if self._focused else "glass_border"), 1))
+        p.setBrush(C("glass"))
+        p.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 16, 16)
         p.end()
         super().paintEvent(_event)
 
@@ -1783,11 +1779,11 @@ class Toast(QWidget):
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(C("fg"))
-        p.drawRoundedRect(QRectF(self.rect()), 4, 4)
+        p.setPen(QPen(C("glass_border"), 1))
+        p.setBrush(C("glass_strong"))
+        p.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 16, 16)
         p.setFont(self._font)
-        p.setPen(QPen(C("bg")))
+        p.setPen(QPen(C("fg")))
         p.drawText(QRectF(14, 0, self.width() - 28, self.height()),
                    int(Qt.AlignmentFlag.AlignCenter),
                    QFontMetrics(self._font).elidedText(

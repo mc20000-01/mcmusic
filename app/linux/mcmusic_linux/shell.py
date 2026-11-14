@@ -6,7 +6,7 @@ from dataclasses import replace
 from typing import Any, Callable, Optional, Sequence
 
 from shiboken6 import isValid
-from PySide6.QtCore import QPoint, QRectF, QSize, Qt, QTimer, Signal
+from PySide6.QtCore import QPoint, QPointF, QRectF, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -201,11 +201,11 @@ class Rail(QWidget):
         self._pl_buttons: list[PlaylistNavButton] = []
         self._online = OnlineDot(5)
         self._net_label = Txt("ONLINE", size=8, family="mono", token="dim2", spacing=1.4)
-        self.setFixedWidth(232)
+        self.setFixedWidth(252)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 18, 12, 12)
+        layout.setContentsMargins(22, 18, 22, 14)
         layout.setSpacing(0)
 
         brand = QWidget()
@@ -346,8 +346,14 @@ class Rail(QWidget):
 
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
-        p.fillRect(self.rect(), theme.pal().q("bg2"))
-        p.fillRect(self.width() - 1, 0, 1, self.height(), theme.pal().q("line"))
+        p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        palette = theme.pal()
+        card = QRectF(self.rect()).adjusted(8, 12, -8, -12)
+        p.setPen(QPen(palette.glass_border, 1))
+        p.setBrush(palette.glass)
+        p.drawRoundedRect(card, 28, 28)
+        p.setPen(QPen(palette.glass_highlight, 1))
+        p.drawLine(card.topLeft() + QPointF(20, 1), card.topRight() + QPointF(-20, 1))
 
 
 class TopBar(QWidget):
@@ -375,19 +381,18 @@ class TopBar(QWidget):
         line.addWidget(self.user)
 
     def paintEvent(self, _event) -> None:
-        p = QPainter(self)
-        p.fillRect(self.rect(), theme.pal().q("bg"))
-        p.fillRect(0, self.height() - 1, self.width(), 1, theme.pal().q("line"))
+        # The shell gradient shows through; no attached masthead bar.
+        pass
 
 
 class Deck(QWidget):
     def __init__(self, window: "McWindow"):
         super().__init__()
-        self.setFixedHeight(86)
+        self.setFixedHeight(76)
         grid = QGridLayout(self)
-        grid.setContentsMargins(20, 9, 20, 9)
+        grid.setContentsMargins(26, 6, 26, 10)
         grid.setHorizontalSpacing(18)
-        grid.setVerticalSpacing(4)
+        grid.setVerticalSpacing(3)
         grid.setColumnStretch(0, 1)
         grid.setColumnStretch(1, 2)
         grid.setColumnStretch(2, 1)
@@ -476,17 +481,14 @@ class Deck(QWidget):
 
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         palette = theme.pal()
-        p.fillRect(self.rect(), palette.q("bg2"))
-        p.fillRect(0, 0, self.width(), 1, palette.q("line2"))
-        grad = QLinearGradient(0, 0, self.width() * 0.7, 0)
-        accent = palette.q("accent")
-        accent.setAlpha(110)
-        grad.setColorAt(0, accent)
-        clear = QColor(accent)
-        clear.setAlpha(0)
-        grad.setColorAt(1, clear)
-        p.fillRect(0, 0, int(self.width() * 0.7), 2, grad)
+        card = QRectF(self.rect()).adjusted(12, 2, -12, -8)
+        p.setPen(QPen(palette.glass_border, 1))
+        p.setBrush(palette.glass)
+        p.drawRoundedRect(card, 20, 20)
+        p.setPen(QPen(palette.glass_highlight, 1))
+        p.drawLine(card.topLeft() + QPointF(18, 1), card.topRight() + QPointF(-18, 1))
 
 
 class QueueRow(QWidget):
@@ -934,6 +936,20 @@ class McWindow(QMainWindow):
             self.show_login()
 
     # ── construction ────────────────────────────────────────────────────
+    def paintEvent(self, _event) -> None:
+        """The window itself is the artwork-derived tint behind glass panes."""
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        palette = theme.pal()
+        p.fillRect(self.rect(), palette.q("bg"))
+        grad = QLinearGradient(0, 0, 0, self.height())
+        tint = palette.q("accent")
+        tint.setAlpha(46)
+        grad.setColorAt(0, tint)
+        grad.setColorAt(0.55, palette.q("bg"))
+        grad.setColorAt(1, palette.q("bg"))
+        p.fillRect(self.rect(), grad)
+
     def _build_pages(self) -> None:
         self.stack = QStackedWidget()
         self.setCentralWidget(self.stack)

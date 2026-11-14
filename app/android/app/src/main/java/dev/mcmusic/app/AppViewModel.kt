@@ -1,6 +1,8 @@
 package dev.mcmusic.app
 
+import android.app.ActivityManager
 import android.app.Application
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -106,6 +108,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     var theme by mutableStateOf(store.theme)
         private set
     var accent by mutableStateOf(store.accent)
+        private set
+    var gfxAuto by mutableStateOf(store.gfxAuto)
+        private set
+    var gfxLevel by mutableStateOf(if (store.gfxLevel >= 0) store.gfxLevel else detectedGfx())
         private set
 
     /* ── router ─────────────────────────────────────────────────────────── */
@@ -481,7 +487,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     suspend fun loadSettings() {
         runCatching { repo.settings() }.onSuccess { s ->
-            // The native client ships with ink + violet. Only let the server
+            // The native client ships with Night + violet. Only let the server
             // palette win once the listener has actually chosen one here.
             val chosen = store.themeChosen
             val nextTheme = if (chosen) s.theme else store.theme
@@ -497,6 +503,38 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setSetting(transform: (Settings) -> Settings) {
         applySettings(transform(settings))
+    }
+
+    /* ── local graphics quality ─────────────────────────────────────────── */
+
+    private fun detectedGfx(): Int {
+        val app = getApplication<Application>()
+        val am = app.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+        val power = app.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
+        if (power?.isPowerSaveMode == true) return 1
+        val lowRam = am?.isLowRamDevice == true
+        val memoryClass = am?.memoryClass ?: 256
+        return when {
+            lowRam || memoryClass < 128 -> 1
+            Build.VERSION.SDK_INT >= 33 && memoryClass >= 256 -> 3
+            else -> 2
+        }
+    }
+
+    fun updateGfxLevel(level: Int) {
+        gfxAuto = false
+        gfxLevel = level.coerceIn(0, 4)
+        store.gfxAuto = false
+        store.gfxLevel = gfxLevel
+    }
+
+    fun updateGfxAuto(on: Boolean) {
+        gfxAuto = on
+        if (on) {
+            gfxLevel = detectedGfx()
+            store.gfxLevel = gfxLevel
+        }
+        store.gfxAuto = on
     }
 
     /** What goes in the Rotur status, with the room invite when it is enabled. */

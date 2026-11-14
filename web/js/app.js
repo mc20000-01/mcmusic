@@ -13,6 +13,8 @@ import { Auth } from "./auth.js";
 import { Mobile } from "./mobile.js";
 import { Player, deviceHash, deviceName } from "./player.js";
 import { Views, hasView, renderSearch } from "./views.js";
+import { RealGlass } from "./glass.js";
+import { Gfx } from "./gfx.js";
 import {
   toast, sheet, closeSheet, empty, art, menu, progressBar, toggleLike,
 } from "./ui.js";
@@ -33,6 +35,7 @@ const DEFAULTS = {
   volume: 0.8,
   prefetch: true,
   offline_audio: true,
+  real_glass: "auto",
 };
 
 const NAV = [
@@ -133,6 +136,9 @@ class App {
 
     const stored = (await cache.get(cache.K.settings)) || {};
     Object.assign(this.set, stored);
+    RealGlass.init(this.set.real_glass || "auto");
+    Gfx.setNotifier((text) => toast(text, { iconName: "gauge" }));
+    Gfx.init();
     this._applyTheme();
 
     Player.device = deviceHash();
@@ -171,6 +177,7 @@ class App {
       const server = await api("settings");
       Object.assign(this.set, server);
       await cache.set(cache.K.settings, this.set);
+      RealGlass.setMode(this.set.real_glass || "auto");
       this._applyTheme();
     } catch (e) { /* offline: keep local */ }
 
@@ -768,6 +775,13 @@ class App {
     const content = document.createElement("div");
     content.id = "content";
     content.setAttribute("role", "main");
+    let scrollFade = 0;
+    content.addEventListener("scroll", () => {
+      Gfx.activity();
+      content.classList.add("is-scrolling");
+      clearTimeout(scrollFade);
+      scrollFade = setTimeout(() => content.classList.remove("is-scrolling"), 700);
+    }, { passive: true });
 
     main.appendChild(top);
     main.appendChild(content);
@@ -797,7 +811,7 @@ class App {
     likeBtn.className = "iconbtn";
     likeBtn.id = "deck-like";
     likeBtn.setAttribute("aria-label", "Like");
-    likeBtn.appendChild(icon("heart", { size: 16 }));
+    likeBtn.appendChild(icon("heart", { size: 18 }));
     likeBtn.onclick = () => {
       const t = Player.current();
       if (t) toggleLike(t);
@@ -815,7 +829,7 @@ class App {
     shuffle.className = "iconbtn";
     shuffle.id = "btn-shuffle";
     shuffle.setAttribute("aria-label", "Shuffle");
-    shuffle.appendChild(icon("shuffle", { size: 16 }));
+    shuffle.appendChild(icon("shuffle", { size: 18 }));
     shuffle.onclick = () => this.toggleShuffle();
 
     const prev = document.createElement("button");
@@ -828,7 +842,7 @@ class App {
     play.className = "iconbtn play";
     play.id = "btn-play";
     play.setAttribute("aria-label", "Play or pause");
-    play.appendChild(icon("play", { size: 17, filled: true }));
+    play.appendChild(icon("play", { size: 18, filled: true }));
     play.onclick = () => Player.toggle();
 
     const next = document.createElement("button");
@@ -861,21 +875,21 @@ class App {
     right.className = "deck-right";
 
     const devices = document.createElement("button");
-    devices.className = "iconbtn hide-m dim";
+    devices.className = "iconbtn hide-m deck-secondary dim";
     devices.id = "btn-devices";
     devices.setAttribute("aria-label", "Devices");
-    devices.appendChild(icon("cast", { size: 16 }));
+    devices.appendChild(icon("cast", { size: 18 }));
     devices.onclick = (e) => this.deviceMenu(e.currentTarget);
 
     const queueBtn = document.createElement("button");
     queueBtn.className = "iconbtn";
     queueBtn.id = "btn-queue";
     queueBtn.setAttribute("aria-label", "Queue");
-    queueBtn.appendChild(icon("list-music", { size: 16 }));
+    queueBtn.appendChild(icon("list-music", { size: 18 }));
     queueBtn.onclick = () => this.toggleDrawer();
 
     const volIcon = document.createElement("button");
-    volIcon.className = "iconbtn hide-m";
+    volIcon.className = "iconbtn hide-m deck-volume-icon";
     volIcon.setAttribute("aria-label", "Mute");
     volIcon.appendChild(volumeIcon(false, this.set.volume));
     volIcon.onclick = () => Player.toggleMute();
@@ -883,6 +897,7 @@ class App {
     const vol = document.createElement("input");
     vol.type = "range";
     vol.id = "vol";
+    vol.className = "deck-volume";
     vol.min = "0";
     vol.max = "100";
     vol.value = String(Math.round(this.set.volume * 100));
@@ -899,26 +914,44 @@ class App {
       setTimeout(() => volIcon.replaceChildren(volumeIcon(Player.muted, Player.volume)), 0);
     });
 
-    right.appendChild(devices);
-    right.appendChild(queueBtn);
-    right.appendChild(volIcon);
     const lyricsBtn = document.createElement("button");
-    lyricsBtn.className = "iconbtn hide-m";
+    lyricsBtn.className = "iconbtn hide-m deck-secondary";
     lyricsBtn.id = "btn-lyrics";
     lyricsBtn.textContent = "Aa";
     lyricsBtn.setAttribute("aria-label", "Lyrics");
     lyricsBtn.onclick = () => this.openLyrics();
 
     const videoBtn = document.createElement("button");
-    videoBtn.className = "iconbtn hide-m";
+    videoBtn.className = "iconbtn hide-m deck-secondary";
     videoBtn.id = "btn-video";
     videoBtn.textContent = "YT";
     videoBtn.setAttribute("aria-label", "Video");
     videoBtn.onclick = () => this.openVideo();
 
+    const moreBtn = document.createElement("button");
+    moreBtn.className = "iconbtn deck-more";
+    moreBtn.id = "btn-deck-more";
+    moreBtn.setAttribute("aria-label", "More player actions");
+    moreBtn.appendChild(icon("more-horizontal", { size: 18 }));
+    moreBtn.onclick = () => menu(moreBtn, [
+      { label: "Devices", iconName: "cast", fn: () => this.deviceMenu(moreBtn) },
+      { label: "Lyrics", iconName: "text", fn: () => this.openLyrics() },
+      { label: "Video", iconName: "tv-2", fn: () => this.openVideo() },
+      "-",
+      {
+        label: Player.muted ? "Unmute" : "Mute",
+        iconName: "volume-x",
+        fn: () => Player.toggleMute(),
+      },
+    ]);
+
+    right.appendChild(queueBtn);
+    right.appendChild(volIcon);
     right.appendChild(vol);
     right.appendChild(lyricsBtn);
+    right.appendChild(devices);
     right.appendChild(videoBtn);
+    right.appendChild(moreBtn);
 
     deck.appendChild(now);
     deck.appendChild(center);
@@ -1112,11 +1145,32 @@ class App {
   }
 
   draw() {
+    Gfx.activity();
+    // Resolve when the view has either painted or has taken too long; a slow
+    // network must not hold the old View Transition snapshot on screen.
+    const render = () => new Promise((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        resolve();
+      };
+      const timeout = setTimeout(finish, 650);
+      this._drawInner(finish);
+    });
+    return Gfx.transition(render);
+  }
+
+  _drawInner(finish) {
     clearInterval(this.timer);
     this.timer = null;
 
     const host = document.getElementById("content");
-    if (!host) return;
+    if (!host) {
+      finish();
+      return;
+    }
 
     // Each draw gets its own content node. A slow view from an earlier draw
     // (home, waiting on /api/home) then paints into a node nobody can see
@@ -1177,7 +1231,9 @@ class App {
           })
         );
       }
-    });
+    }).catch((e) => {
+      console.warn("view draw failed", e);
+    }).finally(finish);
   }
 
   async refreshSide() {
@@ -1231,6 +1287,7 @@ class App {
       this._paintDeck();
     }
     this._applyTheme();
+    if (key === "real_glass") RealGlass.setMode(this.set.real_glass || "auto");
 
     Player.hideExplicit = !!this.set.hide_explicit;
     Player.private = !!this.set.private;
@@ -1262,6 +1319,9 @@ class App {
 
     document.body.dataset.density = s.density === "compact" ? "compact" : "comfy";
     document.body.dataset.covers = s.covers ? "on" : "off";
+    if (!s.covers) {
+      document.querySelectorAll('img[src*="/cover"]').forEach((img) => img.removeAttribute("src"));
+    }
 
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) {
@@ -1347,6 +1407,8 @@ class App {
       holder.replaceChildren(icon("disc-3", { size: 16 }));
       like?.classList.remove("liked");
       document.title = "mcmusic";
+      root.style.removeProperty("--hero");
+      root.style.removeProperty("--tint");
       // Hide any remote display
       const remoteDisplay = document.getElementById("remote-display");
       if (remoteDisplay) remoteDisplay.hidden = true;
@@ -1412,13 +1474,16 @@ class App {
 
     holder.replaceChildren();
     const img = document.createElement("img");
-    img.src = `/api/tracks/${t.id}/cover`;
+    if (document.body.dataset.covers !== "off") img.src = `/api/tracks/${t.id}/cover`;
     img.alt = "";
+    img.decoding = "async";
     img.onerror = () => {
       img.remove();
       holder.appendChild(icon("disc-3", { size: 16 }));
     };
+    img.onload = () => ambientTint(img);
     holder.appendChild(img);
+    if (img.complete) ambientTint(img);
 
     if (like) {
       like.classList.toggle("liked", !!t.liked);
@@ -2183,6 +2248,30 @@ class App {
           break;
       }
     });
+  }
+}
+
+/* Pull the page tint from the current cover. Covers are served same-origin,
+   but a tainted/remote image simply leaves the token fallback in place. */
+function ambientTint(img) {
+  try {
+    if (!img || !img.complete || !img.naturalWidth) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 16;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return;
+    ctx.drawImage(img, 0, 0, 16, 16);
+    const data = ctx.getImageData(0, 0, 16, 16).data;
+    let r = 0, g = 0, b = 0, n = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      r += data[i]; g += data[i + 1]; b += data[i + 2]; n += 1;
+    }
+    if (!n) return;
+    r = Math.round(r / n); g = Math.round(g / n); b = Math.round(b / n);
+    root.style.setProperty("--hero", `rgb(${r}, ${g}, ${b})`);
+    root.style.setProperty("--tint", `rgb(${Math.round(r * 0.3)}, ${Math.round(g * 0.3)}, ${Math.round(b * 0.3)})`);
+  } catch {
+    /* cross-origin cover: keep the palette-derived fallback */
   }
 }
 
