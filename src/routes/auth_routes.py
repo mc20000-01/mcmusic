@@ -1,0 +1,439 @@
+"""API route registration — auth endpoints.
+
+Password auth exists for the first-run bootstrap account only. Everything else
+goes through RoturLink. Legacy flows (6-digit codes, raw Rotur-id login, claim
+by id, personal API tokens) are gone.
+"""
+from flask import Blueprint, request, jsonify, session, current_app
+from werkzeug.security import generate_password_hash, check_password_hash
+import time
+
+from config import (
+    INVITE_CODE, ROTUR_CALLBACK_PATH, ROTUR_APP, BOT_TOKEN, RESET_TTL, PUBLIC_URL,
+)
+from auth import (
+    _auth_uid, login_required, is_bot_request, me_dict,
+    validate_username, validate_password, create_user, authenticate_user,
+    create_ticket, validate_email, email_taken, set_email,
+    create_reset, reset_user, consume_reset,
+)
+import mailer
+from database import _db
+import rotur
+
+bp = Blueprint("auth_api", __name__)
+
+
+@bp.post("/api/register")
+def register():
+    d = request.get_json(silent=True) or {}
+    name = str(d.get("username", "")).strip()
+    pw = str(d.get("password", ""))
+    code = str(d.get("invite", "")).strip()
+
+    c = _db()
+    bootstrap = c.execute("select count(*) n from users").fetchone()["n"] == 0
+
+    invite = None
+    if bootstrap:
+        # First account on a fresh server: no invite exists yet, so allow it.
+        pass
+    elif INVITE_CODE:
+        if code != INVITE_CODE:
+            return jsonify(error="bad invite code"), 403
+    else:
+        if not code:
+            return jsonify(error="invite code required"), 403
+        invite = _db().execute(
+            "select id, code, max_uses, uses, expires, active, for_user, created_by "
+            "from invite_codes where code=? and active=1", (code,)
+        ).fetchone()
+        if not invite:
+            return jsonify(error="bad invite code"), 403
+        if invite["uses"] >= invite["max_uses"]:
+            return jsonify(error="invite code used up"), 403
+        if invite["expires"] and time.time() > invite["expires"]:
+            return jsonify(error="invite code expired"), 403
+        if invite["for_user"] and invite["for_user"] != name:
+            return jsonify(error="this invite is for another username"), 403
+
+    if not validate_username(name):
+        return jsonify(error="username: 3-32 chars, letters/numbers/._-"), 400
+    if not validate_password(pw):
+        return jsonify(error="password must be 6+ chars"), 400
+    if c.execute("select 1 from users where username=?", (name,)).fetchone():
+        return jsonify(error="username taken"), 409
+
+    email = validate_email(d.get("email", ""))
+    if email and email_taken(c, email):
+        return jsonify(error="email already in use"), 409
+
+    uid = create_user(c, name, pw)
+    if email:
+        set_email(c, uid, email)
+    if invite:
+        c.execute("update invite_codes set uses=uses+1 where id=?", (invite["id"],))
+        c.execute(
+            "update users set invite_code=?, invited_by=? where id=?",
+            (invite["code"], invite["created_by"], uid),
+        )
+        c.commit()
+    elif code:
+        # Server-wide INVITE_CODE: still record what the person typed.
+        c.execute("update users set invite_code=? where id=?", (code[:64], uid))
+        c.commit()
+
+    session.permanent = True
+    session["uid"] = uid
+    return jsonify(me_dict(c.execute("select * from users where id=?", (uid,)).fetchone()))
+
+
+@bp.post("/api/login")
+def login():
+    d = request.get_json(silent=True) or {}
+    u = authenticate_user(_db(), str(d.get("username", "")), str(d.get("password", "")))
+    if not u:
+        time.sleep(0.5)
+        return jsonify(error="wrong username or password"), 401
+    session.permanent = True
+    session["uid"] = u["id"]
+    return jsonify(me_dict(u))
+
+
+@bp.post("/api/logout")
+def logout():
+    session.clear()
+    return jsonify(ok=True)
+
+
+@bp.get("/api/me")
+def me():
+    uid = _auth_uid()
+    if uid is None:
+        return jsonify(error="not logged in"), 401
+    u = _db().execute("select * from users where id=?", (uid,)).fetchone()
+    if not u:
+        session.clear()
+        return jsonify(error="not logged in"), 401
+    return jsonify(me_dict(u))
+
+
+@bp.post("/api/password")
+@login_required
+def change_password():
+    d = request.get_json(silent=True) or {}
+    uid = _auth_uid()
+    u = _db().execute("select * from users where id=?", (uid,)).fetchone()
+    if not u or not u["pw"] or not check_password_hash(u["pw"], str(d.get("old", ""))):
+        return jsonify(error="current password is wrong"), 403
+    new = str(d.get("new", ""))
+    if not validate_password(new):
+        return jsonify(error="new password must be 6+ chars"), 400
+    _db().execute("update users set pw=? where id=?", (generate_password_hash(new), uid))
+    _db().commit()
+    return jsonify(ok=True)
+
+
+# --------------------------------------------------------------------------- email resets
+@bp.post("/api/auth/email")
+@login_required
+def set_own_email():
+    """Attach or change the address that reset links are sent to."""
+    d = request.get_json(silent=True) or {}
+    email = validate_email(d.get("email", ""))
+    if not email:
+        return jsonify(error="enter a valid email address"), 400
+    uid = _auth_uid()
+    c = _db()
+    if email_taken(c, email, uid=uid):
+        return jsonify(error="email already in use"), 409
+    set_email(c, uid, email)
+    return jsonify(me_dict(c.execute("select * from users where id=?", (uid,)).fetchone()))
+
+
+def _reset_link(token):
+    base = PUBLIC_URL or request.url_root.rstrip("/")
+    return f"{base}/reset?token={token}"
+
+
+@bp.post("/api/auth/reset/request")
+def request_reset():
+    """Mail a one-time reset link. Always answers the same way, so the endpoint
+    cannot be used to find out which addresses have accounts."""
+    d = request.get_json(silent=True) or {}
+    email = validate_email(d.get("email", ""))
+    out = {"ok": True, "mail": mailer.configured()}
+    if not email:
+        return jsonify(out)
+
+    c = _db()
+    u = c.execute(
+        "select * from users where lower(email)=lower(?)", (email,)
+    ).fetchone()
+    if not u:
+        return jsonify(out)
+
+    link = _reset_link(create_reset(c, u["id"], RESET_TTL))
+    try:
+        mailer.send(
+            u["email"],
+            "Reset your mcmusic password",
+            "Someone asked to reset the password for your mcmusic account.\n\n"
+            f"{link}\n\n"
+            f"The link works once and expires in {max(1, RESET_TTL // 60)} minutes.\n"
+            "If this wasn't you, ignore this message — your password is unchanged.\n",
+        )
+    except mailer.MailError as e:
+        current_app.logger.warning("reset mail failed: %s", e)
+        out["mail"] = False
+    return jsonify(out)
+
+
+@bp.post("/api/auth/reset/check")
+def check_reset():
+    """Say whether a link can still be spent, so the form can say so up front."""
+    d = request.get_json(silent=True) or {}
+    if reset_user(_db(), str(d.get("token", ""))):
+        return jsonify(ok=True)
+    return jsonify(error="this reset link is invalid or has expired"), 400
+
+
+@bp.post("/api/auth/reset/confirm")
+def confirm_reset():
+    """Spend a reset token, set the new password, and mail a confirmation."""
+    d = request.get_json(silent=True) or {}
+    token = str(d.get("token", ""))
+    pw = str(d.get("password", ""))
+    if not validate_password(pw):
+        return jsonify(error="password must be 6+ chars"), 400
+
+    c = _db()
+    u = reset_user(c, token)
+    if not u:
+        return jsonify(error="this reset link is invalid or has expired"), 400
+
+    c.execute("update users set pw=? where id=?", (generate_password_hash(pw), u["id"]))
+    c.commit()
+    consume_reset(c, token)
+
+    try:
+        if u["email" if "email" in u.keys() else "username"]:
+            mailer.send(
+                u["email"] if "email" in u.keys() else None,
+                "Your mcmusic password was changed",
+                "The password for your mcmusic account was just reset from a "
+                "one-time link.\n\nIf this wasn't you, use \"Forgot password?\" "
+                "on the sign-in screen to take the account back.\n",
+            )
+    except mailer.MailError as e:
+        current_app.logger.warning("reset confirmation mail failed: %s", e)
+
+    session.clear()
+    return jsonify(ok=True)
+
+
+# --------------------------------------------------------------------------- RoturLink
+@bp.get("/api/auth/rotur/authorize")
+def rotur_authorize():
+    return rotur.authorize_route()
+
+
+@bp.get(ROTUR_CALLBACK_PATH)
+def rotur_callback():
+    return rotur.callback_route()
+
+
+@bp.post("/api/auth/rotur/claim")
+def rotur_claim():
+    return rotur.claim_route()
+
+
+@bp.get("/api/auth/rotur/status")
+def rotur_status():
+    return rotur.status_route()
+
+
+@bp.post("/api/auth/rotur/live")
+@login_required
+def rotur_live():
+    """Publish "Listening to …" as the account's Rotur status."""
+    d = request.get_json(silent=True) or {}
+    ok, err = rotur.push_live_status(
+        session["uid"], str(d.get("status", ""))[:128], str(d.get("presence", "online")),
+    )
+    return jsonify(ok=ok, error=err or None), (200 if ok else 502)
+
+
+@bp.post("/api/auth/rotur/unlink")
+@login_required
+def rotur_unlink():
+    return rotur.unlink_route()
+
+
+# --------------------------------------------------------------------------- bot login handoff
+@bp.post("/api/bot/rotur-ticket")
+def bot_rotur_ticket():
+    """Mint a single-use RoturLink URL for a chat user. Bot credential only."""
+    if not is_bot_request():
+        return jsonify(error="bot credential required"), 403
+    d = request.get_json(silent=True) or {}
+    platform = str(d.get("platform", "discord")).strip()[:32]
+    platform_user = str(d.get("platform_user", "")).strip()[:64]
+    if not platform_user:
+        return jsonify(error="platform_user required"), 400
+    c = _db()
+    existing = c.execute(
+        "select user_id from channel_links where platform=? and platform_user=?",
+        (platform, platform_user),
+    ).fetchone()
+    code = create_ticket(c, "login", platform, platform_user,
+                         user_id=existing["user_id"] if existing else None)
+    base = request.url_root.rstrip("/")
+    return jsonify(
+        url=f"{base}/api/auth/rotur/authorize?t={code}",
+        code=code,
+        expires_in=600,
+        already_linked=bool(existing),
+    )
+
+
+
+
+# --------------------------------------------------------------------------- builds
+
+@bp.get("/api/builds")
+def list_builds():
+    """What we ship, what exists right now, and how big it is."""
+    import builds
+    return jsonify(builds=builds.all_builds())
+
+
+# A small in-memory brake so the public form can't be used to post 13 MB at
+# strangers. Two sends per address per hour, one per address every 30 seconds.
+_SENT = {}
+
+
+def _too_soon(email):
+    now = time.time()
+    last = _SENT.get(email)
+    if last and now - last < 30:
+        return True
+    recent = [t for t in _SENT.values() if now - t < 3600]
+    if len(recent) >= 40:
+        return True
+    return False
+
+
+def _send_build(kind, email):
+    import builds
+
+    spec = builds.describe(kind)
+    if spec is None:
+        return jsonify(error="unknown build"), 404
+    if not spec.get("available"):
+        return jsonify(error=f"{spec['label']} isn't built yet"), 409
+    if _too_soon(email):
+        return jsonify(error="That address was just sent a build. Give it a minute."), 429
+
+    path, filename, mimetype = builds.attachment(kind)
+    url = PUBLIC_URL.rstrip("/") + spec["url"]
+
+    # Gmail, Outlook, and most large providers reject .apk attachments outright
+    # (including inside a zip), so a message that "sends" fine is dropped before
+    # it reaches the inbox. The link and a renamed copy both get through.
+    blocked = filename.lower().endswith(".apk")
+    attach_name = f"{filename}.bin" if blocked else filename
+    size_mb = spec["bytes"] / 1048576
+
+    if blocked:
+        why_text = (
+            "Why the attachment ends in .bin: Gmail and several other mail\n"
+            "providers refuse .apk attachments before they ever reach you. The\n"
+            f"attached file is the real APK — rename it back to {filename}\n"
+            "after downloading and it installs normally. The link is faster."
+        )
+        why_html = (
+            "Gmail blocks .apk attachments, so the attached copy is named "
+            f"<b style='color:#b9b0cc'>{attach_name}</b>. It is the same file — "
+            f"rename it to {filename} and it installs. The button above is faster."
+        )
+    else:
+        why_text = f"Attached: {filename}"
+        why_html = "The build is attached to this message."
+
+    subject = f"Your {spec['label']} build of mcmusic"
+    text = f"""Hi,
+
+The {spec['label']} build of mcmusic you asked for is ready.
+
+  {spec['name']}
+  {spec['note']}
+  Built {spec['built']} · {size_mb:.1f} MB
+
+The quickest way to get it onto your phone is this link — tap it on the device:
+
+  {url}
+
+Android will ask once to allow installs from this source. It updates over the
+copy you already have; nothing is wiped.
+
+{why_text}
+
+If you didn't ask for this, ignore the message — no account was created and
+nothing was charged.
+
+— mcmusic
+"""
+
+    html = f"""<!doctype html>
+<html><body style="margin:0;padding:0;background:#08060d;">
+<div style="max-width:520px;margin:0 auto;padding:36px 24px;
+  font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#f2ecff;">
+  <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#8a7fa3;">
+    mcmusic
+  </div>
+  <h1 style="margin:10px 0 6px;font-size:24px;font-weight:600;color:#f2ecff;">
+    {spec['name']}
+  </h1>
+  <p style="margin:0 0 22px;font-size:13px;line-height:1.6;color:#b9b0cc;">
+    {spec['note']} &middot; built {spec['built']} &middot; {size_mb:.1f} MB
+  </p>
+  <a href="{url}" style="display:inline-block;padding:13px 22px;border-radius:10px;
+    background:#a06bff;color:#0b0616;font-weight:600;font-size:14px;
+    text-decoration:none;">Download the {spec['label']} build</a>
+  <p style="margin:18px 0 0;font-size:12px;line-height:1.6;color:#8a7fa3;">
+    Or paste this into the phone:<br>
+    <a href="{url}" style="color:#a06bff;word-break:break-all;">{url}</a>
+  </p>
+  <p style="margin:26px 0 0;font-size:11px;line-height:1.7;color:#6f6685;">
+    {why_html}
+  </p>
+</div>
+</body></html>
+"""
+
+    try:
+        mailer.send_with_attachment(
+            email, subject, text,
+            attachment_path=path,
+            attachment_name=attach_name,
+            mimetype=mimetype,
+            html=html,
+        )
+    except mailer.MailError as e:
+        return jsonify(error=str(e)), 500
+    _SENT[email] = time.time()
+    return jsonify(ok=True, build=kind, file=attach_name, bytes=spec["bytes"], url=url)
+
+
+@bp.post("/api/apk-email")
+@bp.post("/api/auth/apk-email")
+@bp.post("/api/builds/email")
+def request_apk_email():
+    """Mail a build to an address. Public on purpose: someone who hasn't made an
+    account yet is exactly who wants the app."""
+    d = request.get_json(silent=True) or {}
+    email = validate_email(str(d.get("email") or "").strip())
+    if not email:
+        return jsonify(error="That doesn't look like an email address"), 400
+    return _send_build(str(d.get("build") or "android").strip(), email)

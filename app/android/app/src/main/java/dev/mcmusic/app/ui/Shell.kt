@@ -1,0 +1,664 @@
+package dev.mcmusic.app.ui
+
+import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
+import dev.mcmusic.app.AppViewModel
+import dev.mcmusic.app.R
+import dev.mcmusic.app.Route
+import dev.mcmusic.app.data.Track
+import dev.mcmusic.app.ui.theme.D
+import dev.mcmusic.app.ui.theme.LocalMc
+import dev.mcmusic.app.ui.theme.McType
+
+@Composable
+fun AppRoot(vm: AppViewModel) {
+    val mc = LocalMc.current
+
+    BackHandler {
+        when {
+            vm.playerOpen -> vm.playerOpen = false
+            vm.queueOpen -> vm.queueOpen = false
+            vm.addToPlaylistTrack != null -> vm.closeAddToPlaylist()
+            vm.infoTrack != null -> vm.closeInfo()
+            vm.menuTrack != null -> vm.closeTrackMenu()
+            vm.createPlaylistOpen -> vm.createPlaylistOpen = false
+            vm.stack.isNotEmpty() -> vm.back()
+            vm.route != Route.Home -> vm.navigate(Route.Home, push = false)
+        }
+    }
+
+    Box(Modifier.fillMaxSize().background(mc.bg)) {
+        when {
+            !vm.checked -> Splash()
+            vm.me == null -> LoginScreen(vm)
+            else -> Shell(vm)
+        }
+        if (vm.me != null && vm.playerOpen) PlayerOverlay(vm)
+        ToastHost(
+            message = vm.toastText,
+            onDismiss = vm::clearToast,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = if (vm.me == null) 44.dp else 180.dp),
+        )
+    }
+}
+
+@Composable
+private fun Splash() {
+    val mc = LocalMc.current
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Icon(
+                painterResource(R.drawable.ic_logo),
+                contentDescription = null,
+                modifier = Modifier.size(52.dp),
+                tint = mc.accent,
+            )
+            Text("mcmusic", style = McType.h2, color = mc.fg)
+            CircularProgressIndicator(Modifier.size(18.dp), color = mc.accent, strokeWidth = 2.dp)
+        }
+    }
+}
+
+@Composable
+fun Shell(vm: AppViewModel) {
+    val mc = LocalMc.current
+    Box(Modifier.fillMaxSize()) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .background(mc.bg)
+                .statusBarsPadding(),
+        ) {
+            TopBar(vm)
+            Box(Modifier.weight(1f)) {
+                ArtistNav.go = { name -> vm.navigate(Route.Artist(name)) }
+                AnimatedContent(
+                    targetState = vm.route,
+                    transitionSpec = {
+                        (fadeIn(tween(220)) + slideInHorizontally(tween(240)) { it / 14 })
+                            .togetherWith(fadeOut(tween(120)))
+                    },
+                    label = "screen",
+                ) { r ->
+                    when (r) {
+                        Route.Home -> HomeScreen(vm)
+                        Route.Search -> SearchScreen(vm)
+                        Route.Library -> LibraryScreen(vm)
+                        is Route.Album -> CollectionScreen(vm, r.name, "Album", false)
+                        is Route.Artist -> CollectionScreen(vm, r.name, "Artist", true)
+                        Route.Likes -> LikesScreen(vm)
+                        Route.Playlists -> PlaylistsScreen(vm)
+                        is Route.Playlist -> PlaylistScreen(vm, r.id)
+                        Route.Requests -> RequestsScreen(vm)
+                        Route.Downloads -> DownloadsScreen(vm)
+                        Route.Settings -> SettingsScreen(vm)
+                        Route.Admin -> AdminScreen(vm)
+                        Route.NowPlaying -> NowPlayingScreen(vm)
+                    }
+                }
+            }
+            Deck(vm)
+            NavBar(vm)
+        }
+
+        if (vm.queueOpen) QueueSheet(vm)
+        if (vm.sleepOpen) SleepSheet(vm)
+        vm.menuTrack?.let { MenuSheet(vm, it) }
+        vm.infoTrack?.let { InfoSheet(vm, it) }
+        vm.addToPlaylistTrack?.let { AddToPlaylistSheet(vm, it) }
+        if (vm.createPlaylistOpen) CreatePlaylistSheet(vm)
+    }
+}
+
+/* ── masthead ───────────────────────────────────────────────────────────── */
+
+@Composable
+private fun TopBar(vm: AppViewModel) {
+    val mc = LocalMc.current
+    val width = LocalConfiguration.current.screenWidthDp
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(D.top)
+            .padding(horizontal = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        if (vm.stack.isNotEmpty()) {
+            IconBtn(AppIcons.ChevronLeft, { vm.back() }, contentDescription = "Back")
+        }
+        Box(Modifier.weight(1f)) {
+            McField(
+                value = vm.searchQuery,
+                onValueChange = vm::onSearchChange,
+                placeholder = "Search songs, albums, artists",
+                leading = AppIcons.Search,
+                trailing = if (vm.searchQuery.isNotEmpty()) {
+                    { IconBtn(AppIcons.Close, { vm.onSearchChange("") }, size = 24.dp) }
+                } else null,
+            )
+        }
+        Row(
+            Modifier
+                .clip(RoundedCornerShape(D.r2))
+                .clickable { vm.navigate(Route.Settings) }
+                .padding(horizontal = 4.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
+            Box(
+                Modifier.size(24.dp).clip(CircleShape).background(mc.accent),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    vm.me?.username?.take(1)?.uppercase() ?: "?",
+                    style = McType.mono9.copy(fontWeight = FontWeight.Bold),
+                    color = mc.accentFg,
+                )
+            }
+            if (width >= 400) {
+                Text(
+                    vm.me?.username.orEmpty(),
+                    style = McType.bodyXs,
+                    color = mc.dim,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+/* ── deck ───────────────────────────────────────────────────────────────── */
+
+@Composable
+private fun Deck(vm: AppViewModel) {
+    val t = vm.engine.current ?: return
+    val mc = LocalMc.current
+    val dur = if (vm.engine.duration > 0) vm.engine.duration else t.duration
+    val fraction = if (dur > 0) (vm.engine.position / dur).toFloat().coerceIn(0f, 1f) else 0f
+    val error = vm.engine.error
+
+    Column(Modifier.fillMaxWidth().background(mc.bg2)) {
+        Box(Modifier.fillMaxWidth().height(1.dp).background(mc.line2))
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .height(D.deck)
+                .padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Art(t.id, 46.dp, modifier = Modifier.clickable { vm.playerOpen = true })
+            Column(
+                Modifier
+                    .weight(1f)
+                    .clickable { if (error != null) vm.engine.retry() else vm.playerOpen = true },
+            ) {
+                Text(
+                    t.title,
+                    style = McType.bodySm.copy(fontWeight = FontWeight.Medium),
+                    color = mc.fg,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (error != null) {
+                    Text(
+                        error,
+                        style = McType.mono10,
+                        color = mc.err,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                } else {
+                    ArtistCredits(t, McType.mono10, mc.dim)
+                }
+            }
+            IconBtn(
+                AppIcons.Heart,
+                { vm.toggleLike(t) },
+                size = 38.dp,
+                tint = if (t.liked) mc.accent else mc.dim,
+                contentDescription = "Like",
+            )
+            IconBtn(
+                if (vm.engine.playing) AppIcons.Pause else AppIcons.Play,
+                { vm.engine.toggle() },
+                size = 48.dp,
+                tint = mc.fg,
+                contentDescription = "Play or pause",
+            )
+            IconBtn(AppIcons.SkipForward, { vm.engine.next() }, size = 38.dp, contentDescription = "Next")
+        }
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(7.dp)
+                .clip(RoundedCornerShape(99.dp))
+                .background(mc.line)
+                .clickable { vm.playerOpen = true },
+        ) {
+            Box(
+                Modifier
+                    .fillMaxWidth(fraction)
+                    .height(7.dp)
+                    .background(mc.accent),
+            )
+        }
+    }
+}
+
+/* ── tab bar ────────────────────────────────────────────────────────────── */
+
+private data class NavItem(val route: Route, val label: String, val icon: ImageVector)
+
+@Composable
+private fun NavBar(vm: AppViewModel) {
+    val mc = LocalMc.current
+    val items = buildList {
+        add(NavItem(Route.Home, "Home", AppIcons.Home))
+        add(NavItem(Route.Search, "Search", AppIcons.Search))
+        add(NavItem(Route.Library, "Library", AppIcons.Library))
+        add(NavItem(Route.Downloads, "Downloads", AppIcons.Download))
+        add(NavItem(Route.Settings, "Settings", AppIcons.Settings))
+        if (vm.me?.isAdmin == true) add(NavItem(Route.Admin, "Admin", AppIcons.Users))
+    }
+
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(topStart = D.r3, topEnd = D.r3))
+            .background(mc.bg2),
+    ) {
+        Box(Modifier.fillMaxWidth().height(1.dp).background(mc.line2))
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .height(D.tab)
+                .navigationBarsPadding(),
+        ) {
+            items.forEach { item ->
+                val active = isActive(vm.route, item.route)
+                val tint by animateColorAsState(
+                    targetValue = if (active) mc.accent else mc.dim,
+                    animationSpec = tween(220),
+                    label = "nav tint",
+                )
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clickable { vm.navigate(item.route, push = false) },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Icon(
+                        item.icon,
+                        null,
+                        Modifier.size(25.dp),
+                        tint = tint,
+                    )
+                    Spacer(Modifier.height(5.dp))
+                    Text(
+                        item.label,
+                        style = McType.labelSm.copy(fontSize = 11.sp),
+                        color = if (active) mc.accent else mc.dim2,
+                        maxLines = 1,
+                        overflow = TextOverflow.Clip,
+                    )
+                }
+            }
+        }
+    }
+}
+
+
+private fun isActive(current: Route, item: Route): Boolean = when (item) {
+    Route.Home -> current == Route.Home
+    Route.Search -> current == Route.Search
+    Route.Library -> current is Route.Library || current is Route.Album || current is Route.Artist
+    Route.Likes -> current == Route.Likes
+    Route.Downloads -> current == Route.Downloads
+    Route.Playlists -> current == Route.Playlists || current is Route.Playlist
+    Route.Requests -> current == Route.Requests
+    Route.Settings -> current == Route.Settings
+    Route.Admin -> current == Route.Admin
+    else -> false
+}
+
+/* ── queue sheet ────────────────────────────────────────────────────────── */
+
+@Composable
+private fun QueueSheet(vm: AppViewModel) {
+    val mc = LocalMc.current
+    val engine = vm.engine
+    val current = engine.current
+    McSheet(onDismiss = { vm.queueOpen = false }, title = "Queue") {
+        if (current == null) {
+            Text("Queue is empty", style = McType.bodySm, color = mc.dim)
+            return@McSheet
+        }
+        Text("NOW PLAYING", style = McType.mono9, color = mc.dim2)
+        QueueRow(current)
+        val upcoming = engine.queue.drop(engine.index + 1)
+        Row(
+            Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Next up (${upcoming.size})", style = McType.mono9, color = mc.dim2)
+            Spacer(Modifier.weight(1f))
+            if (upcoming.isNotEmpty()) {
+                McButton("Clear next", { engine.clearUpcoming() }, small = true, ghost = true)
+            }
+        }
+        Column(Modifier.verticalScroll(rememberScrollState())) {
+            upcoming.take(60).forEachIndexed { i, track ->
+                QueueRow(track) { engine.removeAt(engine.index + 1 + i) }
+            }
+            if (upcoming.isEmpty()) {
+                Text("Nothing queued", style = McType.bodyXs, color = mc.dim2)
+            }
+        }
+    }
+}
+
+@Composable
+private fun QueueRow(t: Track, onRemove: (() -> Unit)? = null) {    val mc = LocalMc.current
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Art(t.id, 34.dp)
+        Column(Modifier.weight(1f)) {
+            Text(t.title, style = McType.bodySm, color = mc.fg, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            ArtistCredits(t, McType.mono10, mc.dim)
+        }
+        if (onRemove != null) {
+            IconBtn(AppIcons.Close, onRemove, size = 28.dp)
+        }
+    }
+}
+
+/* ── sleep timer ────────────────────────────────────────────────────────── */
+
+@Composable
+private fun SleepSheet(vm: AppViewModel) {
+    val mc = LocalMc.current
+    val left = vm.engine.sleepLeft
+    McSheet(onDismiss = { vm.sleepOpen = false }, title = "Sleep timer") {
+        Text(
+            if (left != null) "Playback pauses in $left minute${if (left == 1) "" else "s"}."
+            else "Stop the music after a while, without reaching for the phone.",
+            style = McType.bodySm,
+            color = if (left != null) mc.accent else mc.dim,
+        )
+        Row(
+            Modifier.fillMaxWidth().padding(top = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            listOf(15, 30, 60).forEach { minutes ->
+                McButton(
+                    "${minutes}m",
+                    { vm.engine.setSleep(minutes); vm.sleepOpen = false },
+                    small = true,
+                    ghost = true,
+                )
+            }
+        }
+        if (left != null) {
+            Spacer(Modifier.height(10.dp))
+            McButton(
+                "Turn it off",
+                { vm.engine.setSleep(0); vm.sleepOpen = false },
+                small = true,
+                ghost = true,
+            )
+        }
+    }
+}
+
+/* ── track menu ─────────────────────────────────────────────────────────── */
+
+@Composable
+private fun MenuSheet(vm: AppViewModel, t: Track) {
+    McSheet(onDismiss = vm::closeTrackMenu, title = t.title) {
+        Column(Modifier.verticalScroll(rememberScrollState())) {
+            MenuRow(AppIcons.ListMusic, "Play next") {
+                vm.closeTrackMenu()
+                vm.queueNext(t)
+            }
+            MenuRow(AppIcons.Plus, "Add to queue") {
+                vm.closeTrackMenu()
+                vm.queueAdd(t)
+            }
+            MenuRow(AppIcons.FolderPlus, "Add to playlist…") {
+                vm.closeTrackMenu()
+                vm.openAddToPlaylist(t)
+            }
+            MenuRow(AppIcons.Radio, "Start radio") {
+                vm.closeTrackMenu()
+                vm.startRadio(t)
+            }
+            MenuRow(
+                AppIcons.Clock,
+                vm.engine.sleepLeft?.let { "Sleep timer · ${it} min left" } ?: "Sleep timer",
+            ) {
+                vm.closeTrackMenu()
+                vm.sleepOpen = true
+            }
+            if (t.album.isNotBlank()) {
+                MenuRow(AppIcons.Disc, "Go to album") {
+                    vm.closeTrackMenu()
+                    vm.navigate(Route.Album(t.album))
+                }
+            }
+            if (t.artist.isNotBlank()) {
+                MenuRow(AppIcons.Users, "Go to artist") {
+                    vm.closeTrackMenu()
+                    vm.navigate(Route.Artist(t.artist))
+                }
+            }
+            MenuRow(
+                AppIcons.Heart,
+                if (t.liked) "Remove from liked" else "Like",
+            ) {
+                vm.closeTrackMenu()
+                vm.toggleLike(t)
+            }
+            MenuRow(AppIcons.Info, "Track info") {
+                vm.closeTrackMenu()
+                vm.openInfo(t)
+            }
+            if (vm.isDownloaded(t.id)) {
+                MenuRow(AppIcons.Trash, "Remove download") {
+                    vm.closeTrackMenu()
+                    vm.removeDownload(t.id)
+                }
+            } else {
+                MenuRow(AppIcons.Download, "Download for offline") {
+                    vm.closeTrackMenu()
+                    vm.downloadTrack(t)
+                }
+            }
+            vm.menuPlaylistId?.let { pid ->
+                MenuRow(AppIcons.Trash, "Remove from playlist", danger = true) {
+                    vm.closeTrackMenu()
+                    vm.removeFromPlaylist(pid, t)
+                }
+            }
+            if (vm.me?.isAdmin == true) {
+                MenuRow(
+                    AppIcons.Alert,
+                    if (t.explicit) "Mark as clean" else "Mark as explicit",
+                ) {
+                    vm.closeTrackMenu()
+                    vm.toggleExplicit(t)
+                }
+            }
+        }
+    }
+}
+
+/* ── track info ─────────────────────────────────────────────────────────── */
+
+@Composable
+private fun InfoSheet(vm: AppViewModel, t: Track) {
+    val mc = LocalMc.current
+    val context = LocalContext.current
+    McSheet(onDismiss = vm::closeInfo, title = "Track info") {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Art(t.id, 64.dp)
+            Column {
+                Text(t.title, style = McType.bodySm.copy(fontWeight = FontWeight.Medium), color = mc.fg)
+                Text(
+                    listOfNotNull(t.artist.ifBlank { null }, t.album.ifBlank { null }).joinToString(" · "),
+                    style = McType.bodyXs,
+                    color = mc.dim2,
+                )
+            }
+        }
+        Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            kv("Length", fmtTime(t.duration))
+            kv("Track", if (t.trackNo > 0) t.trackNo.toString() else "—")
+            kv("Year", t.year.ifBlank { "—" })
+            kv("Genre", t.genre.ifBlank { "—" })
+            kv("Explicit", if (t.explicit) "Yes" else "No")
+            t.ytChannel?.let { kv("Channel", it) }
+            t.ytLikes?.let { kv("YT likes", fmtCount(it)) }
+            t.ytViews?.let { kv("YT views", fmtCount(it)) }
+            t.ytDate?.let { kv("Uploaded", it) }
+        }
+        if (t.ytId != null) {
+            Spacer(Modifier.height(14.dp))
+            McButton(
+                "Open on YouTube",
+                {
+                    runCatching {
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/watch?v=${t.ytId}"))
+                        )
+                    }
+                },
+                small = true,
+                leading = AppIcons.ArrowUpRight,
+            )
+        }
+    }
+}
+
+@Composable
+private fun kv(key: String, value: String) {
+    val mc = LocalMc.current
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(key.uppercase(), style = McType.mono9, color = mc.dim2, modifier = Modifier.width(96.dp))
+        Text(value, style = McType.bodySm, color = mc.fg)
+    }
+}
+
+/* ── add to playlist / create playlist ──────────────────────────────────── */
+
+@Composable
+private fun AddToPlaylistSheet(vm: AppViewModel, t: Track) {
+    val mc = LocalMc.current
+    var name by remember { mutableStateOf("") }
+    McSheet(onDismiss = vm::closeAddToPlaylist, title = "Add to playlist") {
+        Column(Modifier.verticalScroll(rememberScrollState())) {
+            vm.playlists.forEach { p ->
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(D.r2))
+                        .clickable { vm.addToPlaylist(p.id, t) }
+                        .padding(vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Art(p.coverId, 34.dp)
+                    Column(Modifier.weight(1f)) {
+                        Text(p.name, style = McType.bodySm, color = mc.fg)
+                        Text("${p.n} tracks", style = McType.mono10, color = mc.dim2)
+                    }
+                }
+            }
+            if (vm.playlists.isEmpty()) {
+                Text("No playlists yet — name one below.", style = McType.bodyXs, color = mc.dim2)
+            }
+            Spacer(Modifier.height(14.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f)) {
+                    McField(name, { name = it }, "New playlist name")
+                }
+                McButton("Create", { vm.createPlaylist(name, t) }, small = true, enabled = name.isNotBlank())
+            }
+        }
+    }
+}
+
+@Composable
+private fun CreatePlaylistSheet(vm: AppViewModel) {
+    var name by remember { mutableStateOf("") }
+    McSheet(onDismiss = { vm.createPlaylistOpen = false }, title = "New playlist") {
+        McField(name, { name = it }, "Playlist name")
+        Spacer(Modifier.height(12.dp))
+        McButton(
+            "Create",
+            { vm.createPlaylist(name) },
+            solid = true,
+            enabled = name.isNotBlank(),
+        )
+    }
+}

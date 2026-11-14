@@ -1,0 +1,131 @@
+# ============================================================================
+# mcmusic — what never leaves this machine
+#
+# The repo is public. Anything that identifies the operator, opens a door, or
+# only exists at runtime stays out. Release binaries are uploaded to GitHub
+# Releases by scripts/release.sh, not committed.
+# ============================================================================
+
+# --- secrets, credentials, local config -------------------------------------
+mcmusic.env
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.jks
+*.keystore
+secrets/
+secret.key
+cookies.txt
+auth.json
+config.local.*
+*.local.toml
+*.local.yaml
+*.local.yml
+
+# --- server / runtime state -------------------------------------------------
+data/
+logs/
+*.log
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.pid
+*.sock
+cache/
+tmp/
+temp/
+backups/
+
+# --- the music library itself -----------------------------------------------
+music/
+music_activity/state.json
+*.mp3
+*.m4a
+*.flac
+*.opus
+*.ogg
+*.wav
+*.aac
+*.webm
+
+# --- Python -----------------------------------------------------------------
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Node -------------------------------------------------------------------
+node_modules/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# --- Android toolchain, local paths, build output ---------------------------
+app/android/.toolchain/
+app/android/.gradle/
+app/android/.kotlin/
+app/android/local.properties
+app/android/build/
+app/android/app/build/
+app/android/.idea/
+app/android/*.iml
+app/android/captures/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+
+# --- desktop build output ---------------------------------------------------
+app/linux/build/
+app/linux/dist/
+app/linux/*.egg-info/
+app/macos/build/
+app/macos/dist/
+app/windows/build/
+app/windows/dist/
+app/windows/*.spec
+
+# --- published binaries -----------------------------------------------------
+# Built by scripts/publish_apps.sh and attached to GitHub Releases.
+apps/
+web/apps/
+dist/
+release/
+*.AppImage
+*.deb
+*.rpm
+*.dmg
+*.exe
+*.msi
+*.zip
+
+# --- internal notes and host-specific deploy units --------------------------
+agent-*.md
+deploy/
+*.service
+
+# --- editor / OS ------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.code-workspace

@@ -1,0 +1,45 @@
+/* ==========================================================================
+   mcmusic — decorative theme accents
+   Tokens live in variables.css only. This file never redefines them, so a
+   palette change cannot drift between two files.
+   ========================================================================== */
+
+:root {
+  --accent-current: var(--accent);
+}
+
+/* hero wash intensity per theme */
+[data-theme="paper"] .hero::before {
+  background: linear-gradient(180deg, var(--accent-soft), transparent 72%);
+}
+
+[data-theme="ink"] .hero::before { opacity: 0.7; }
+
+/* light theme needs a touch more contrast on hairlines */
+[data-theme="paper"] .trow.now { box-shadow: inset 2px 0 0 var(--accent); }
+
+/* accent-driven details */
+.rnav.on::before,
+#deck::before { background: var(--accent); }
+
+#deck::before {
+  background: repeating-linear-gradient(90deg, var(--accent) 0 8px, transparent 8px 16px);
+}
+
+::selection { background: var(--accent); color: var(--accent-fg); }
+
+/* theme preview swatches (settings) */
+.th-dusk    { background: repeating-linear-gradient(135deg, #151022 0 7px, #a06bff 7px 14px); }
+.th-paper   { background: linear-gradient(135deg, #fbf7ee, #b4531f); }
+.th-ink     { background: linear-gradient(135deg, #121214, #d7d7de); }
+.th-tide    { background: linear-gradient(135deg, #18262c, #6fb3c4); }
+.th-copper  { background: linear-gradient(135deg, #2b1a16, #e08a5f); }
+
+/* keep the focus ring visible on light surfaces */
+[data-theme="paper"] :focus-visible { outline-color: var(--accent); }
+
+/* print grain is lighter on paper */
+[data-theme="paper"] body { opacity: 1; }
+
+/* the app icon accent in the masthead */
+#brand em { color: var(--accent); }

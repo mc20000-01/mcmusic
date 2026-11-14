@@ -1,0 +1,57 @@
+{
+  "name": "mcmusic",
+  "short_name": "mcmusic",
+  "description": "A small, self-hosted music room for your library, your network, your rules.",
+  "id": "/v1794628915",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone"
+  ],
+  "background_color": "#08060d",
+  "theme_color": "#08060d",
+  "orientation": "any",
+  "categories": [
+    "music",
+    "entertainment"
+  ],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Search",
+      "url": "/#search"
+    },
+    {
+      "name": "Liked songs",
+      "url": "/#likes"
+    }
+  ],
+  "build": 1794549540
+}

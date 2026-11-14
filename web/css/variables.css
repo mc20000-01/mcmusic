@@ -1,0 +1,142 @@
+/* ==========================================================================
+   mcmusic — design tokens
+   One source of truth. theme.css only adds decorative accents on top of these.
+   Identity: warm ink, cream type, violet accent, hairline "ledger" surfaces.
+   ========================================================================== */
+
+:root {
+  /* palette — night: black ink, violet accent (the default) */
+  --bg:          #08060d;
+  --bg-2:        #0d0a15;
+  --surface:     #151022;
+  --surface-2:   #1d1630;
+  --fg:          #f2ecff;
+  --dim:         #a89ec6;
+  --dim-2:       #726a8c;
+  --line:        #1f1832;
+  --line-2:      #332a4d;
+  --accent:      #a06bff;
+  --accent-fg:   #0b0616;
+  --accent-soft: rgba(160, 107, 255, 0.16);
+  --ok:          #63c98d;
+  --warn:        #e3bd52;
+  --err:         #e4627e;
+  --scrim:       rgba(5, 3, 9, 0.76);
+
+  /* surfaces that are always dark (console, overlay) */
+  --ink:         #050309;
+
+  /* layout — flows from a phone up to an ultrawide panel */
+  --rail:        clamp(196px, 13.5vw, 296px);
+  --deck-h:      clamp(76px, 4.6vh, 104px);
+  --top-h:       clamp(54px, 3.2vh, 72px);
+  --tab-h:       58px;
+  --maxw:        clamp(1000px, 93vw, 2360px);
+  --gutter:      clamp(14px, 2.4vw, 64px);
+
+  /* geometry — soft blocks, not pills */
+  --r-1:         4px;
+  --r-2:         9px;
+  --r-3:         14px;
+  --r-4:         20px;
+
+  /* type */
+  --font-ui:     "Inter", "SF Pro Text", system-ui, -apple-system, "Segoe UI",
+                 Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Inter", "SF Pro Display", system-ui, -apple-system,
+                 "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono:   ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas,
+                 "Liberation Mono", monospace;
+
+  --t-xs:        0.6875rem;
+  --t-sm:        0.8125rem;
+  --t-md:        0.9375rem;
+  --t-lg:        1.125rem;
+  --t-xl:        1.5rem;
+  --t-2xl:       2rem;
+  --t-3xl:       2.75rem;
+
+  /* motion */
+  --ease:        cubic-bezier(0.22, 0.61, 0.36, 1);
+  --fast:        130ms var(--ease);
+  --base:        220ms var(--ease);
+
+  /* depth: printed offset, never a blur */
+  --block:       3px 3px 0 var(--line-2);
+
+  --z-top:       10;
+  --z-drawer:    40;
+  --z-sheet:     60;
+  --z-toast:     70;
+}
+
+/* — paper: warm light — */
+[data-theme="paper"] {
+  --bg:          #f4efe4;
+  --bg-2:        #ece4d5;
+  --surface:     #fbf7ee;
+  --surface-2:   #efe7d8;
+  --fg:          #241d14;
+  --dim:         #6d6151;
+  --dim-2:       #8d8069;
+  --line:        #dcd1bd;
+  --line-2:      #bfb098;
+  --accent:      #b4531f;
+  --accent-fg:   #fff8ef;
+  --accent-soft: rgba(180, 83, 31, 0.12);
+  --scrim:       rgba(40, 32, 20, 0.34);
+  --ink:         #1b1610;
+}
+
+/* — ink: near-black, high contrast — */
+[data-theme="ink"] {
+  --bg:          #050505;
+  --bg-2:        #0b0b0c;
+  --surface:     #121214;
+  --surface-2:   #191a1d;
+  --fg:          #f5f5f5;
+  --dim:         #8f8f96;
+  --dim-2:       #64646b;
+  --line:        #212126;
+  --line-2:      #34343b;
+  --accent:      #d7d7de;
+  --accent-fg:   #0a0a0a;
+  --accent-soft: rgba(215, 215, 222, 0.1);
+}
+
+/* — tide: cool linen blue-grey — */
+[data-theme="tide"] {
+  --bg:          #0e161a;
+  --bg-2:        #131e23;
+  --surface:     #18262c;
+  --surface-2:   #1f3038;
+  --fg:          #e4eef1;
+  --dim:         #8ba3ab;
+  --dim-2:       #647e87;
+  --line:        #23363d;
+  --line-2:      #33505a;
+  --accent:      #6fb3c4;
+  --accent-fg:   #06171c;
+  --accent-soft: rgba(111, 179, 196, 0.14);
+}
+
+/* — copper: deep red-brown — */
+[data-theme="copper"] {
+  --bg:          #1a0f0d;
+  --bg-2:        #221412;
+  --surface:     #2b1a16;
+  --surface-2:   #37211c;
+  --fg:          #f6e7df;
+  --dim:         #b2928a;
+  --dim-2:       #856a63;
+  --line:        #3a241f;
+  --line-2:      #553229;
+  --accent:      #e08a5f;
+  --accent-fg:   #1c0d08;
+  --accent-soft: rgba(224, 138, 95, 0.14);
+}
+
+/* accent override written by JS (settings) */
+:root {
+  --accent-current: var(--accent);
+}

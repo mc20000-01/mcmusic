@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=mcmusic
+GenericName=Music Player
+Comment=Your library, your room, your rules
+Exec=mcmusic-desktop %U
+TryExec=mcmusic-desktop
+Icon=mcmusic
+Terminal=false
+Categories=AudioVideo;Audio;Player;Qt;
+Keywords=music;player;stream;library;mcmusic;
+StartupNotify=true
+StartupWMClass=mcmusic

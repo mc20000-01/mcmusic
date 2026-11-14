@@ -1,0 +1,8 @@
+Flask>=3.1
+gunicorn>=23
+mutagen>=1.47
+requests>=2.32
+yt-dlp>=2025.1
+discord.py>=2.4
+pypresence>=4.3
+websockets>=13

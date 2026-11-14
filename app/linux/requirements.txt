@@ -1,0 +1,4 @@
+# Use the full PySide6 distribution: PySide6-Essentials does not ship
+# QtMultimedia, which the native player needs.
+PySide6>=6.6
+requests>=2.31

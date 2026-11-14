@@ -1,0 +1,294 @@
+/* ==========================================================================
+   mcmusic — iOS-style mobile framework
+   Bottom tab bar, safe-area insets, keyboard-anchored search, sheet gestures.
+   ========================================================================== */
+
+/* — tab bar (rendered once by app.js, never appended twice) — */
+#tabbar {
+  display: none;
+}
+
+@media (max-width: 860px) {
+
+  :root { --deck-h: 68px; }
+
+  #app {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "main"
+      "deck"
+      "rail";
+  }
+
+  /* rail becomes the tab bar */
+  #rail {
+    grid-area: rail;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 0;
+    padding: 0 4px calc(2px + env(safe-area-inset-bottom, 0px));
+    border-right: 0;
+    border-top: 1px solid var(--line-2);
+    background: color-mix(in srgb, var(--bg-2) 94%, transparent);
+    backdrop-filter: blur(18px) saturate(1.2);
+    -webkit-backdrop-filter: blur(18px) saturate(1.2);
+    overflow: visible;
+    height: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px));
+    padding-top: 2px;
+  }
+
+  #brand, #railfoot, .rsep, .rail-label, #railplaylists { display: none; }
+
+  #railnav {
+    display: flex;
+    flex: 1;
+    align-items: stretch;
+    gap: 0;
+    grid-auto-flow: column;
+  }
+
+  .rnav {
+    flex: 1;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    padding: 4px 2px;
+    font-size: 9px;
+    font-family: var(--font-mono);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-align: center;
+    min-width: 0;
+    border-radius: 0;
+    background: transparent !important;
+  }
+
+  .rnav svg { width: 20px; height: 20px; }
+
+  .rnav.on { color: var(--accent); }
+  .rnav.on::before { display: none; }
+
+  .rnav .nav-badge {
+    position: absolute;
+    top: 3px;
+    right: 50%;
+    transform: translateX(14px);
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  /* masthead */
+  #top {
+    height: 52px;
+    padding: 0 14px;
+    padding-top: env(safe-area-inset-top, 0px);
+    height: calc(52px + env(safe-area-inset-top, 0px));
+    gap: 6px;
+    position: sticky;
+    top: 0;
+  }
+
+  .sfield { max-width: none; }
+  .sfield input { font-size: 16px; padding: 7px 10px 7px 30px; }
+  #topactions { gap: 0; }
+  #content { padding: 14px 14px calc(22px + env(safe-area-inset-bottom, 0px)); }
+
+  /* deck sits above the tab bar */
+  #deck {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 10px;
+    padding: 6px 12px 7px;
+    border-top: 1px solid var(--line-2);
+  }
+
+  .deck-now { grid-column: 1; grid-row: 1; }
+  .deck-now .art { width: 38px; height: 38px; }
+  .deck-center { grid-column: 1 / -1; grid-row: 2; gap: 2px; }
+  .deck-controls { gap: 2px; justify-content: center; }
+  .deck-controls .iconbtn { width: 30px; height: 30px; }
+  .deck-controls .iconbtn.play { width: 36px; height: 36px; }
+  .deck-controls .iconbtn svg { width: 15px; height: 15px; }
+  .deck-controls .iconbtn.play svg { width: 17px; height: 17px; }
+  .deck-right { grid-column: 2; grid-row: 1; }
+  .deck-right #vol, .deck-right .hide-m { display: none; }
+
+  /* progress stays on the deck on mobile */
+  .prog { grid-template-columns: auto minmax(0, 1fr) auto; gap: 7px; }
+  .prog-time { font-size: 9px; min-width: 28px; }
+  .prog-hit { height: 14px; }
+  .prog-groove { height: 3px; }
+  .prog-knob { width: 10px; height: 10px; opacity: 1; }
+
+  /* full player */
+  .now-top {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    gap: 18px;
+    text-align: center;
+  }
+
+  .now-art { width: min(72vw, 300px); height: auto; aspect-ratio: 1; }
+
+  .now-meta { justify-items: center; width: 100%; }
+  .now-meta h1 { font-size: 1.6rem; }
+  .now-controls { justify-content: center; gap: 10px; margin-top: 14px; }
+  .now-controls .iconbtn { width: 40px; height: 40px; }
+  .now-controls .iconbtn.play { width: 56px; height: 56px; }
+  .now-controls .iconbtn.play svg { width: 22px; height: 22px; }
+
+  .now .prog { margin-top: 4px; }
+  .now .prog-hit { height: 22px; }
+
+  /* hero stacks */
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    padding-bottom: 18px;
+  }
+
+  .hero::before { left: -14px; right: -14px; top: -14px; }
+
+  .hero-art { width: 128px; height: 128px; }
+  .hero-info h1 { font-size: 1.55rem; }
+  .hero-actions .btn { flex: 1; justify-content: center; }
+
+  .grid { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 10px; }
+  .shelf-track { grid-auto-columns: 132px; }
+  .quick { grid-template-columns: 1fr; }
+  .big { font-size: var(--t-xl); }
+
+  /* rows collapse to cover · title · like · menu */
+  .trow {
+    grid-template-columns: 24px 34px minmax(0, 1fr) 30px 30px;
+    gap: 8px;
+    padding: 5px 6px;
+  }
+
+  .trow .album, .trow .likes, .trow .dur { display: none; }
+  .trow .iconbtn { width: 30px; height: 30px; }
+  .trow .idx { font-size: 9px; }
+  .trow .art { width: 34px; height: 34px; }
+
+  /* sheets become bottom sheets */
+  .sheet {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    transform: none;
+    width: 100%;
+    max-height: 86dvh;
+    border-radius: var(--r-4) var(--r-4) 0 0;
+    border-bottom: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    animation: sheet-up 240ms var(--ease);
+  }
+
+  .sheet::before {
+    content: "";
+    width: 34px;
+    height: 3px;
+    border-radius: 99px;
+    background: var(--line-2);
+    margin: 7px auto 0;
+    flex: none;
+  }
+
+  .sheet-h { padding-top: 8px; }
+
+  @keyframes sheet-up {
+    from { transform: translateY(100%); }
+    to   { transform: none; }
+  }
+
+  #drawer {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-height: 78dvh;
+    border-left: 0;
+    border-top: 1px solid var(--line-2);
+    border-radius: var(--r-4) var(--r-4) 0 0;
+    transform: translateY(101%);
+    box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.45);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  #drawer.open { transform: none; }
+
+  #toasts { bottom: calc(var(--deck-h) + var(--tab-h) + 20px); }
+
+  .menu {
+    left: 8px !important;
+    right: 8px;
+    width: auto;
+    min-width: 0;
+    max-height: 54dvh;
+  }
+}
+
+/* — keyboard anchoring — */
+/* --kb is the height the software keyboard covers, set from visualViewport. */
+body.kb-open #rail { transform: translateY(110%); transition: transform 180ms var(--ease); }
+
+/* Keep the transport row while typing: the deck floats just above the keyboard
+   rather than being hidden, so playback stays reachable from search. */
+body.kb-open #deck {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: var(--kb, 0px);
+  transition: bottom 180ms var(--ease);
+}
+
+body.kb-open #content { padding-bottom: calc(var(--kb, 0px) + var(--deck-h) + 12px); }
+body.kb-open #toasts { bottom: calc(var(--kb, 0px) + var(--deck-h) + 16px); }
+
+@media (max-width: 860px) {
+  #top {
+    transition: transform 180ms var(--ease);
+  }
+
+  body.kb-open #top {
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: calc(var(--z-top) + 2);
+  }
+
+  body.kb-open .sfield { max-width: none; }
+
+  /* keep the active input above the keyboard */
+  input:focus, textarea:focus, select:focus {
+    scroll-margin-bottom: calc(var(--kb, 0px) + 18px);
+  }
+}
+
+/* — standalone (installed) chrome — */
+body.standalone #top { padding-top: env(safe-area-inset-top, 0px); }
+
+/* runtime flag set by mobile.js once the compact layout is active */
+body.is-mobile { -webkit-tap-highlight-color: transparent; }
+
+/* — touch — */
+@media (hover: none) {
+  .iconbtn { width: 38px; height: 38px; }
+  .btn { min-height: 36px; }
+  .rnav { -webkit-touch-callout: none; }
+}
+
+/* horizontal overscroll shouldn't bounce the page */
+#content, .shelf-track { overscroll-behavior-x: contain; }
+
+/* — landscape phones: keep the tab bar compact — */
+@media (max-width: 860px) and (orientation: landscape) {
+  #app { grid-template-rows: minmax(0, 1fr) auto auto; }
+  :root { --deck-h: 58px; --tab-h: 48px; }
+  .rnav svg { width: 17px; height: 17px; }
+  .rnav span { display: none; }
+  .now-top { grid-template-columns: 160px minmax(0, 1fr); justify-items: start; text-align: left; }
+  .now-art { width: 160px; height: 160px; }
+}

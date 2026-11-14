@@ -1,0 +1,73 @@
+# mcmusic
+
+A self-hosted music room. Your library, your playlists, your rules — streamed
+from a server you own, with one speaker at a time and every other signed-in
+device acting as a remote.
+
+No feed. No algorithm. Only the records you put here.
+
+## What is in here
+
+| Path | What it is |
+| --- | --- |
+| `src/` | Flask server: library, playlists, lyrics, requests, devices, playback |
+| `web/` | The PWA — vanilla ES modules, no build step, offline-capable |
+| `app/android/` | Native Android client (Kotlin + Compose + Media3) |
+| `app/linux/` | Qt 6 desktop client, shared with the macOS and Windows launch scripts |
+| `app/3ds/` | Nintendo 3DS homebrew scaffold (pairing and library browsing) |
+| `music_activity/` | Bridges playback into Rotur/Discord/OriginChats presence |
+| `scripts/` | Publish builds, cut a GitHub Release |
+| `docs/` | Roadmap, platform notes, design research |
+
+The clients all talk to the same server API. There is no sync service in the
+middle and no account anywhere else: one `data/mcmusic.db` is the truth.
+
+## Running it
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt        # Flask, gunicorn, mutagen, …
+cp mcmusic.env.example mcmusic.env               # then edit it
+.venv/bin/python -m src.mcmusic                  # or: gunicorn mcmusic:app
+```
+
+Configuration is environment-only. The names that matter:
+
+- `PUBLIC_URL`, `MUSIC_DIR`, `DATA_DIR`
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`
+- `ROTUR_APP`, `ROTUR_SECRET`, `INVITE_CODE`
+- `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_ADMIN_TOKEN`
+
+Nothing under `data/` (database, cookies, session key) or `mcmusic.env` is in
+this repository, and `.gitignore` keeps it that way.
+
+## Builds
+
+```bash
+# Android (sideload; signed with the debug key)
+cd app/android
+JAVA_HOME=$PWD/.toolchain/jdk PATH=$PWD/.toolchain/jdk/bin:$PATH \
+  .toolchain/gradle/bin/gradle -p . assembleDebug
+
+# Publish stable names into apps/ (ignored by git)
+./scripts/publish_apps.sh
+
+# Create/refresh the GitHub Release with every published file
+./scripts/release.sh
+```
+
+`https://<your-server>/get` redirects to the newest Android build, and
+`/api/builds` is the list the website and the email form read.
+
+## A note on email
+
+Gmail and several other providers reject `.apk` attachments outright — even
+inside a zip — and drop the message before it reaches the inbox. The build
+email therefore always includes a download button and a direct link, and the
+attached copy is named `….apk.bin`. It is the real APK; rename it after
+downloading, or just use the link.
+
+## License
+
+Not chosen yet. Treat the code as all rights reserved until a LICENSE file is
+added.
