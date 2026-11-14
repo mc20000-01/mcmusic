@@ -114,6 +114,17 @@ release/
 *.msi
 *.zip
 
+# --- repo-root build snapshots ----------------------------------------------
+# scripts/collect_builds.sh keeps exactly one current copy of each artifact
+# here so the newest APK/deb is visible without digging through Releases.
+!builds/
+!builds/*.apk
+!builds/*.deb
+!builds/*.AppImage
+!builds/*.zip
+!builds/SHA256SUMS
+!builds/README.md
+
 # --- internal notes and host-specific deploy units --------------------------
 agent-*.md
 deploy/
