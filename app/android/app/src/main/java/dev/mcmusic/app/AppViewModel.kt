@@ -1032,6 +1032,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         roomCode = ""
         roomHostName = ""
         roomState = null
+        // A guest follows the host; leaving their room should stop the music,
+        // same as the web client. The host keeps playing.
+        if (!wasHost) engine.pause()
         if (wasHost && code.isNotBlank()) {
             viewModelScope.launch { runCatching { repo.closeRoom(code) } }
         }
