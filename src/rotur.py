@@ -539,7 +539,7 @@ def _set_presence(uid, token, presence="online"):
     return True, ""
 
 
-def listening_activity(track, position=0.0, room_url="", playing=True, cover_url=""):
+def listening_activity(track, position=0.0, room_url="", playing=True, cover_url="", profile_url=""):
     """Build the sink-agnostic player state for a Rotur listening activity."""
     title = str(track["title"] or "Unknown track")[:128]
     artist = str(track["artist"] or "")[:128]
@@ -552,7 +552,7 @@ def listening_activity(track, position=0.0, room_url="", playing=True, cover_url
         album=album,
         duration=duration,
         cover_url=cover_url or None,
-        url=room_url or None,
+        url=profile_url or room_url or None,
     )
     return PlayerState(
         track=t,

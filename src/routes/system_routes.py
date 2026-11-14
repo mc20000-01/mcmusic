@@ -1,5 +1,9 @@
 """API route registration — listen-along rooms, download requests, devices, admin."""
-from flask import Blueprint, request, jsonify, session
+from flask import (
+    Blueprint, request, jsonify, session, Response, send_file, current_app,
+)
+from html import escape
+from urllib.parse import quote
 import os, secrets, threading, time, shlex, subprocess, shutil, math
 from collections import defaultdict
 
@@ -72,6 +76,100 @@ def room_url(uid: int) -> str:
     """Absolute listen-along invite link for an account."""
     base = PUBLIC_URL or request.url_root.rstrip("/")
     return f"{base}/#room={personal_room_code(uid)}"
+
+
+def _public_account(username):
+    """Resolve a username to its account and current playback, without auth."""
+    c = _db()
+    account = c.execute(
+        "select id, username from users where username=? collate nocase",
+        (username,),
+    ).fetchone()
+    if not account:
+        return None, None
+    playback = c.execute(
+        """select p.track_id, p.position, p.playing, p.updated,
+                  t.title, t.artist, t.album
+             from playback p left join tracks t on t.id=p.track_id
+            where p.user_id=? limit 1""",
+        (account["id"],),
+    ).fetchone()
+    return account, playback
+
+
+@bp.get("/u/<username>")
+def public_profile(username):
+    """A no-login profile card suitable for a Discord/Rotur status link."""
+    account, now = _public_account(username)
+    if not account:
+        return Response("<h1>Profile not found</h1>", status=404, mimetype="text/html")
+
+    base = PUBLIC_URL or request.url_root.rstrip("/")
+    name = account["username"]
+    profile_url = f"{base}/u/{quote(name)}"
+    cover_url = f"{base}/u/{quote(name)}/cover.png"
+    track = now["title"] if now and now["title"] else ""
+    artist = now["artist"] if now and now["artist"] else ""
+    album = now["album"] if now and now["album"] else ""
+    listening = bool(now and now["playing"] and track)
+    if track:
+        detail = f"{track} — {artist}" if artist else track
+        state = "Listening now" if listening else "Paused"
+    else:
+        detail = "Nothing playing right now"
+        state = "mcmusic"
+    title = f"{name} · mcmusic"
+    desc = f"{state}: {detail}" if track else detail
+
+    page = f"""<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="refresh" content="30">
+<title>{escape(title)}</title>
+<link rel="canonical" href="{escape(profile_url)}">
+<meta property="og:type" content="profile">
+<meta property="og:title" content="{escape(title)}">
+<meta property="og:description" content="{escape(desc)}">
+<meta property="og:url" content="{escape(profile_url)}">
+<meta property="og:image" content="{escape(cover_url)}">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+:root{{color-scheme:dark;--bg:#08060d;--panel:#15101f;--line:#2c2440;--fg:#f2ecff;--dim:#a99bbd;--accent:#a06bff}}
+*{{box-sizing:border-box}}body{{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 0,#2b1850 0,var(--bg) 55%);color:var(--fg);font:15px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;display:grid;place-items:center;padding:24px}}
+a{{color:inherit}}.card{{width:min(100%,430px);background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:18px;box-shadow:0 24px 80px #0008}}
+img{{width:100%;aspect-ratio:1;object-fit:cover;border-radius:15px;display:block;background:#241b31}}
+.kicker{{margin:18px 0 4px;color:var(--accent);font-size:11px;letter-spacing:.14em;text-transform:uppercase}}
+h1{{margin:0;font-size:27px;line-height:1.1;letter-spacing:-.03em}}
+.state{{color:var(--dim);font-size:12px;margin-top:8px}}.track{{font-size:16px;margin-top:14px;font-weight:600}}
+.meta{{color:var(--dim);font-size:12px;margin-top:3px}}.foot{{display:flex;justify-content:space-between;gap:12px;margin-top:20px;padding-top:14px;border-top:1px solid var(--line);font-size:12px;color:var(--dim)}}
+.btn{{color:var(--accent);text-decoration:none;font-weight:600}}@media(max-width:380px){{body{{padding:12px}}.card{{padding:12px;border-radius:18px}}}}
+</style></head><body><main class="card">
+<img src="{escape(cover_url)}" alt="">
+<p class="kicker">mcmusic profile</p>
+<h1>{escape(name)}</h1>
+<p class="state">{escape(state)}</p>
+<p class="track">{escape(track) if track else 'Nothing playing'}</p>
+<p class="meta">{escape(artist)}{(' · ' + escape(album)) if album else ''}</p>
+<div class="foot"><span>{escape(profile_url)}</span><a class="btn" href="{escape(base)}">Open mcmusic</a></div>
+</main></body></html>"""
+    return Response(page, mimetype="text/html", headers={"Cache-Control": "no-store"})
+
+
+@bp.get("/u/<username>/cover.png")
+def public_cover(username):
+    """The current track cover, public for status embeds; fallback is the app icon."""
+    account, now = _public_account(username)
+    if not account:
+        return Response(status=404)
+    if now and now["track_id"]:
+        from routes.library_routes import _track_path, read_cover
+        p = _track_path(now["track_id"])
+        art = read_cover(p) if p else None
+        if art:
+            return Response(art[0], mimetype=art[1], headers={"Cache-Control": "public, max-age=60"})
+    fallback = os.path.join(current_app.static_folder or "", "icon-512.png")
+    if os.path.isfile(fallback):
+        return send_file(fallback, mimetype="image/png", max_age=300)
+    return Response(status=404)
 
 
 @bp.post("/api/rooms")
