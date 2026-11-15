@@ -407,9 +407,9 @@ class Deck(QWidget):
         meta = QVBoxLayout()
         meta.setContentsMargins(0, 0, 0, 0)
         meta.setSpacing(1)
-        self.title = Txt("Nothing playing", size=13, token="fg", weight=QFont.Weight.Medium)
+        self.title = Txt("Nothing playing right now", size=13, token="fg", weight=QFont.Weight.Medium)
         self.title.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
-        self.artist = Txt("Pick a track from your library", size=10, family="mono",
+        self.artist = Txt("Pick a song from your library", size=10, family="mono",
                           token="dim", spacing=0.3)
         self.artist.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         meta.addWidget(self.title)
@@ -725,7 +725,7 @@ class NowPlayingOverlay(QWidget):
         body.addLayout(art_row)
         body.addSpacing(20)
 
-        self.title = Txt("Nothing playing", size=27, family="display", token="fg",
+        self.title = Txt("Nothing playing right now", size=27, family="display", token="fg",
                          wrap=True, align=Qt.AlignmentFlag.AlignHCenter)
         body.addWidget(self.title)
         body.addSpacing(4)
@@ -819,8 +819,8 @@ class NowPlayingOverlay(QWidget):
         player = self.window.player
         track = player.current
         if track is None:
-            self.title.setText("Nothing playing")
-            self.artist.setText("Pick a track from your library")
+            self.title.setText("Nothing playing right now")
+            self.artist.setText("Pick a song from your library")
             self.art.set_cover(None)
             self.more.setEnabled(False)
             self.like.setVisible(False)
@@ -1306,8 +1306,8 @@ class McWindow(QMainWindow):
         player = self.player
         track = player.current
         if track is None:
-            self.deck.title.setText("Nothing playing")
-            self.deck.artist.setText("Pick a track from your library")
+            self.deck.title.setText("Nothing playing right now")
+            self.deck.artist.setText("Pick a song from your library")
             self.deck.like.setVisible(False)
             self.deck.art.set_cover(None)
         else:

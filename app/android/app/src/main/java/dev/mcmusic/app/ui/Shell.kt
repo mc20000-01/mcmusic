@@ -329,7 +329,7 @@ private fun TopBar(vm: AppViewModel) {
             McField(
                 value = vm.searchQuery,
                 onValueChange = vm::onSearchChange,
-                placeholder = "Search songs, albums, artists",
+                placeholder = "Search for songs, albums, or artists",
                 leading = AppIcons.Search,
                 trailing = if (vm.searchQuery.isNotEmpty()) {
                     { IconBtn(AppIcons.Close, { vm.onSearchChange("") }, size = 24.dp) }

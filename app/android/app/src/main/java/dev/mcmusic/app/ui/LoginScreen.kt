@@ -59,37 +59,67 @@ fun LoginScreen(vm: AppViewModel) {
     Box(
         Modifier
             .fillMaxSize()
-            .background(mc.bg)
+            .background(
+                androidx.compose.ui.graphics.Brush.verticalGradient(
+                    listOf(
+                        mc.accent.copy(alpha = 0.18f),
+                        mc.bg.copy(alpha = 0.98f),
+                        mc.bg,
+                    )
+                )
+            )
             .systemBarsPadding()
             .imePadding(),
         contentAlignment = Alignment.Center,
     ) {
         Column(
             Modifier
-                .widthIn(max = 380.dp)
+                .widthIn(max = 400.dp)
                 .fillMaxWidth()
-                .padding(horizontal = 22.dp)
+                .padding(horizontal = 20.dp, vertical = 16.dp)
                 .verticalScroll(rememberScrollState())
-                .clip(RoundedCornerShape(D.r4))
-                .background(mc.bg2)
-                .border(1.dp, mc.line2, RoundedCornerShape(D.r4))
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+                .clip(RoundedCornerShape(28.dp))
+                .background(mc.bg2.copy(alpha = 0.92f))
+                .border(1.dp, mc.glassBorder, RoundedCornerShape(28.dp))
+                .padding(26.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                androidx.compose.material3.Icon(
-                    androidx.compose.ui.res.painterResource(dev.mcmusic.app.R.drawable.ic_logo),
-                    contentDescription = null,
-                    modifier = Modifier.size(34.dp),
-                    tint = mc.accent,
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(
+                        Modifier
+                            .size(42.dp)
+                            .clip(CircleShape)
+                            .background(mc.accentSoft),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        androidx.compose.material3.Icon(
+                            androidx.compose.ui.res.painterResource(dev.mcmusic.app.R.drawable.ic_logo),
+                            contentDescription = null,
+                            modifier = Modifier.size(22.dp),
+                            tint = mc.accent,
+                        )
+                    }
+                    Column {
+                        Text("mcmusic", style = McType.h2, color = mc.fg)
+                        Text("Your music, your space", style = McType.bodyXs, color = mc.dim)
+                    }
+                }
+                Text(
+                    if (resetting) "Let’s get you back in" else if (signingUp) "Create your account" else "Welcome back",
+                    style = McType.h3.copy(fontWeight = FontWeight.SemiBold),
+                    color = mc.fg,
                 )
-                Text("mcmusic", style = McType.h2, color = mc.fg)
+                Text(
+                    when {
+                        resetting -> "Enter your email and we’ll help you set a new password."
+                        signingUp -> "A few details and you’ll be ready to start listening."
+                        else -> "Sign in to pick up your playlists, likes, and listening right where you left off."
+                    },
+                    style = McType.bodySm,
+                    color = mc.dim,
+                )
             }
-            Text(
-                "Your music, on your terms.",
-                style = McType.bodySm,
-                color = mc.dim2,
-            )
 
             if (resetting) {
                 Text("Reset your password", style = McType.h3, color = mc.fg)
@@ -141,7 +171,7 @@ fun LoginScreen(vm: AppViewModel) {
                 )
             } else {
                 Seg(
-                    options = listOf("in" to "Log in", "up" to "Sign up"),
+                    options = listOf("in" to "Sign in", "up" to "Create account"),
                     selected = mode,
                     onSelect = { mode = it },
                     modifier = Modifier.align(Alignment.CenterHorizontally),
@@ -182,7 +212,7 @@ fun LoginScreen(vm: AppViewModel) {
                         )
                     } else {
                         Text(
-                            if (signingUp) "Create account" else "Log in",
+                            if (signingUp) "Create account" else "Sign in",
                             style = McType.label,
                             color = mc.accentFg,
                         )
@@ -204,6 +234,12 @@ fun LoginScreen(vm: AppViewModel) {
             }
 
             Box(Modifier.fillMaxWidth().height(1.dp).background(mc.line))
+
+            Text(
+                "Sign in to your mcmusic account. This app uses the same server as the web player, so your music stays in sync.",
+                style = McType.bodyXs,
+                color = mc.dim,
+            )
 
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("Server", style = McType.mono9, color = mc.dim2)

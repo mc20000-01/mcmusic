@@ -72,7 +72,7 @@ function downloadAllButton(tracks, label = "Download") {
     span.textContent = label;
     b.disabled = false;
     toast(
-      done ? `${done} of ${list.length} tracks available offline` : "Nothing could be downloaded",
+      done ? `${done} of ${list.length} songs saved for offline listening` : "Couldn’t download those songs right now",
       { iconName: done ? "check" : "triangle-alert" }
     );
     if (app()?.view === "downloads") app()?.draw();
@@ -117,9 +117,9 @@ async function home(container) {
   if (!sections.length && !albums.length) {
     container.appendChild(
       empty(
-        "Your library is empty",
-        "Request a YouTube playlist and the tracks will land here.",
-        { iconName: "library", action: { label: "Request music", fn: () => app()?.navTo("requests") } }
+        "Your library is waiting for its first song",
+        "Add music by requesting a YouTube video or playlist, and it’ll show up here once it’s ready.",
+        { iconName: "library", action: { label: "Add some music", fn: () => app()?.navTo("requests") } }
       )
     );
     return;
@@ -138,12 +138,13 @@ async function home(container) {
   const leadCopy = document.createElement("div");
   const h = document.createElement("h1");
   h.className = "big";
-  h.textContent = `${greet}, ${app()?.me?.username || "listener"}`;
+  const name = app()?.me?.username || "there";
+  h.textContent = `${greet}, ${name}`;
   const sub = document.createElement("p");
   sub.className = "home-sub";
-  const bits = [`${allTracks.length} ${allTracks.length === 1 ? "track" : "tracks"}`];
+  const bits = [`${allTracks.length} ${allTracks.length === 1 ? "song" : "songs"}`];
   if (albums.length) bits.push(`${albums.length} ${albums.length === 1 ? "album" : "albums"}`);
-  sub.textContent = `${bits.join(" · ")} on your shelf. Here’s what’s been on repeat.`;
+  sub.textContent = `You’ve got ${bits.join(" and ")} in your library. Ready to press play?`;
   leadCopy.appendChild(h);
   leadCopy.appendChild(sub);
   const shuffle = document.createElement("button");
@@ -151,7 +152,7 @@ async function home(container) {
   shuffle.type = "button";
   shuffle.appendChild(icon("shuffle", { size: 13 }));
   const shuffleLabel = document.createElement("span");
-  shuffleLabel.textContent = "Shuffle everything";
+  shuffleLabel.textContent = "Shuffle all songs";
   shuffle.appendChild(shuffleLabel);
   shuffle.onclick = () => {
     const list = [...allTracks];
@@ -165,13 +166,30 @@ async function home(container) {
   lead.appendChild(shuffle);
   container.appendChild(lead);
 
+  const summary = document.createElement("div");
+  summary.className = "home-summary";
+  [
+    ["music", `${allTracks.length} songs`],
+    ["disc-3", `${albums.length} albums`],
+    ["list-music", `${sections.length} mixes`],
+  ].forEach(([ic, label]) => {
+    const chip = document.createElement("span");
+    chip.className = "home-chip";
+    chip.appendChild(icon(ic, { size: 13 }));
+    const t = document.createElement("span");
+    t.textContent = label;
+    chip.appendChild(t);
+    summary.appendChild(chip);
+  });
+  container.appendChild(summary);
+
   const hideEx = !!app()?.set?.hide_explicit;
   const first = sections.find((s) => (s.tracks || []).length);
   if (first) {
     const picks = first.tracks.slice(0, 6);
     const quickLabel = document.createElement("div");
     quickLabel.className = "quick-label";
-    quickLabel.textContent = "Jump back in";
+    quickLabel.textContent = "Pick up where you left off";
     container.appendChild(quickLabel);
     const quick = document.createElement("div");
     quick.className = "quick";
@@ -229,7 +247,7 @@ export async function renderSearch(box, q) {
   const query = (q || "").trim();
   if (!query) {
     box.replaceChildren(
-      empty("Search your library", "Songs, albums and artists.", { iconName: "search" })
+      empty("Find something to play", "Search by song, album, or artist.", { iconName: "search" })
     );
     return;
   }
@@ -244,7 +262,7 @@ export async function renderSearch(box, q) {
 
     if (!tracks.length && !(d.albums || []).length && !(d.artists || []).length) {
       box.replaceChildren(
-        empty("Nothing found", `No results for “${query}”.`, { iconName: "search" })
+        empty("No matches", `We couldn’t find anything for “${query}”. Try a different name or spelling.`, { iconName: "search" })
       );
       return;
     }
@@ -286,7 +304,7 @@ async function library(container) {
     tabs.appendChild(b);
   });
 
-  container.appendChild(heading("Your library", null, [tabs]));
+  container.appendChild(heading("Your library", "Everything in your collection, in one place", [tabs]));
 
   if (state?.lib === "albums") {
     const d = await api("albums");
@@ -336,7 +354,10 @@ async function library(container) {
     out.replaceChildren(
       list.length
         ? trackList(list, { ytStats: app()?.set?.yt_stats })
-        : empty("No songs yet", "Request a playlist to get started.", { iconName: "music" })
+        : empty("No songs in your library yet", "Add some music and it’ll show up here, ready to play.", {
+            iconName: "music",
+            action: { label: "Add music", fn: () => app()?.navTo("requests") },
+          })
     );
   };
 
@@ -447,9 +468,9 @@ async function likes(container) {
       heading("Liked songs", null, [queueServerButton("likes")])
     );
     container.appendChild(
-      empty("Nothing liked yet", "Tap the heart on any track.", {
+      empty("No liked songs yet", "Tap the heart on any song to save it here for later.", {
         iconName: "heart",
-        action: { label: "Browse library", fn: () => app()?.navTo("library") },
+        action: { label: "Browse your library", fn: () => app()?.navTo("library") },
       })
     );
     return;
@@ -487,9 +508,9 @@ async function playlists(container) {
 
   if (!pls.length) {
     container.appendChild(
-      empty("No playlists yet", "Create one, then add tracks from any row menu.", {
+      empty("No playlists yet", "Make a playlist for a mood, a road trip, or anything you like — then add songs from any track menu.", {
         iconName: "folder-plus",
-        action: { label: "Create playlist", fn: newPlaylist },
+        action: { label: "Create your first playlist", fn: newPlaylist },
       })
     );
     return;
@@ -611,9 +632,9 @@ async function playlist(container, id) {
 
   if (!tracks.length) {
     container.appendChild(
-      empty("Empty playlist", "Use “Add to playlist” from any track menu.", {
+      empty("This playlist is empty", "Find a song you love, open its menu, and choose “Add to playlist”.", {
         iconName: "folder-plus",
-        action: { label: "Browse library", fn: () => app()?.navTo("library") },
+        action: { label: "Browse your library", fn: () => app()?.navTo("library") },
       })
     );
     return;
@@ -643,7 +664,7 @@ async function playlist(container, id) {
 /* ── requests ───────────────────────────────────────────────────────────── */
 async function requests(container, embedded = false) {
   const input = document.createElement("input");
-  input.placeholder = "Paste a YouTube video or playlist link";
+  input.placeholder = "Paste a YouTube video or playlist link…";
 
   const list = document.createElement("div");
 
@@ -653,7 +674,7 @@ async function requests(container, embedded = false) {
     try {
       const r = await api("requests", "POST", { url });
       input.value = "";
-      toast(r.status === "pending" ? "Sent for approval" : "Download queued", {
+      toast(r.status === "pending" ? "Request sent — it’ll be reviewed soon" : "Got it — your music will start downloading", {
         iconName: "download",
       });
       paint();
@@ -680,7 +701,7 @@ async function requests(container, embedded = false) {
   bar.appendChild(btn);
   input.style.flex = "1";
 
-  if (!embedded) container.appendChild(heading("Request music", "Downloads run in the background"));
+  if (!embedded) container.appendChild(heading("Add music", "Paste a link and we’ll download it in the background"));
   container.appendChild(bar);
   container.appendChild(list);
 
@@ -696,7 +717,7 @@ async function requests(container, embedded = false) {
     list.replaceChildren();
 
     if (!(r.requests || []).length) {
-      list.appendChild(empty("No requests yet", "Paste a link above to start.", { iconName: "download" }));
+      list.appendChild(empty("No requests yet", "Paste a YouTube link above and we’ll take it from here.", { iconName: "download" }));
       return;
     }
 
@@ -757,11 +778,11 @@ async function requests(container, embedded = false) {
 function now(container) {
   const t = player()?.current();
   if (!t) {
-    container.appendChild(heading("Player"));
+    container.appendChild(heading("Now playing"));
     container.appendChild(
-      empty("Nothing playing", "Pick a track from your library.", {
+      empty("Nothing’s playing right now", "Pick a song from your library and it’ll show up here.", {
         iconName: "disc-3",
-        action: { label: "Browse library", fn: () => app()?.navTo("library") },
+        action: { label: "Browse your library", fn: () => app()?.navTo("library") },
       })
     );
     return;
@@ -856,7 +877,7 @@ async function downloads(container) {
     tabs.appendChild(b);
   });
 
-  container.appendChild(heading("Downloads", "Kept on this device · requested from the server", [tabs]));
+  container.appendChild(heading("Downloads", "Music saved on this device and requests from the server", [tabs]));
 
   const body = document.createElement("div");
   container.appendChild(body);
@@ -896,13 +917,13 @@ async function downloadsBody(container) {
     app()?.draw();
   };
 
-  container.appendChild(heading("Offline", `${list.length} downloaded · ${fmtBytes(total)}`, [keep, clear]));
+  container.appendChild(heading("Saved on this device", `${list.length} song${list.length === 1 ? "" : "s"} · ${fmtBytes(total)}`, [keep, clear]));
 
   if (!list.length) {
     container.appendChild(
-      empty("Nothing downloaded", "Use the ⋮ menu on any track to keep a copy on this device.", {
+      empty("No offline music yet", "Open the ⋮ menu on any song to save a copy to this device for listening without internet.", {
         iconName: "download",
-        action: { label: "Browse library", fn: () => app()?.navTo("library") },
+        action: { label: "Browse your library", fn: () => app()?.navTo("library") },
       })
     );
     return;
@@ -959,7 +980,7 @@ async function settings(container) {
   const s = state?.set || {};
   const me = state?.me;
 
-  container.appendChild(heading("Settings", "Saved to your account"));
+  container.appendChild(heading("Settings", "Personalise how mcmusic looks and sounds"));
 
   /* appearance */
   const p1 = document.createElement("div");
@@ -1140,7 +1161,7 @@ async function settings(container) {
   syncBtn.onclick = async () => {
     syncBtn.disabled = true;
     const sent = await flushOutbox();
-    toast(sent ? `Synced ${sent} change${sent === 1 ? "" : "s"}` : "Nothing to sync",
+    toast(sent ? `All caught up — synced ${sent} change${sent === 1 ? "" : "s"}` : "Everything’s already in sync",
       { iconName: sent ? "check" : "info" });
     refreshQuietly();
   };

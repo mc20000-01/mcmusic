@@ -206,11 +206,11 @@ class App {
 
     // Writes made offline are queued by api.js and replayed on reconnect.
     window.addEventListener("mc:queued", () => {
-      toast("Saved offline — will sync when you reconnect", { iconName: "wifi-off" });
+      toast("Saved for now — we’ll sync it when you’re back online", { iconName: "wifi-off" });
     });
     window.addEventListener("mc:synced", (e) => {
       const n = e.detail?.count || 0;
-      if (n) toast(`Synced ${n} offline change${n === 1 ? "" : "s"}`, { iconName: "check" });
+      if (n) toast(`All caught up — synced ${n} change${n === 1 ? "" : "s"}`, { iconName: "check" });
     });
     window.addEventListener("mc:syncfail", () => {
       toast("An offline change was rejected", { iconName: "triangle-alert" });
@@ -225,7 +225,7 @@ class App {
     this._maybeJoinRoomFromHash();
 
     if (Player.queue.length) {
-      toast(`Resumed: ${Player.current()?.title || "last track"}`, {
+      toast(`Picking up where you left off: ${Player.current()?.title || "your last track"}`, {
         iconName: "disc-3",
         action: { label: "Play", fn: () => Player.toggle() },
         duration: 6000,
@@ -347,9 +347,9 @@ class App {
     const welcome = document.createElement("div");
     welcome.className = "login-welcome";
     const welcomeTitle = document.createElement("h2");
-    welcomeTitle.textContent = "Welcome back.";
+    welcomeTitle.textContent = "Welcome back";
     const welcomeCopy = document.createElement("p");
-    welcomeCopy.textContent = "Sign in to pick up where you left off.";
+    welcomeCopy.textContent = "Sign in to pick up right where you left off.";
     welcome.appendChild(welcomeTitle);
     welcome.appendChild(welcomeCopy);
     card.appendChild(welcome);
@@ -360,10 +360,10 @@ class App {
     tabs.className = "seg";
     tabs.style.width = "100%";
     const inBtn = document.createElement("button");
-    inBtn.textContent = "Log in";
+    inBtn.textContent = "Sign in";
     inBtn.className = "on";
     const upBtn = document.createElement("button");
-    upBtn.textContent = "Create account";
+    upBtn.textContent = "Create an account";
     inBtn.onclick = () => setMode("in");
     upBtn.onclick = () => setMode("up");
     inBtn.style.flex = "1";
@@ -377,7 +377,7 @@ class App {
     ul.textContent = "Username";
     const userInput = document.createElement("input");
     userInput.autocomplete = "username";
-    userInput.placeholder = "you";
+    userInput.placeholder = "Your username";
     user.appendChild(ul);
     user.appendChild(userInput);
 
@@ -388,7 +388,7 @@ class App {
     const passInput = document.createElement("input");
     passInput.type = "password";
     passInput.autocomplete = "current-password";
-    passInput.placeholder = "••••••";
+    passInput.placeholder = "Your password";
     pass.appendChild(pl);
     pass.appendChild(passInput);
 
@@ -405,7 +405,7 @@ class App {
     const submit = document.createElement("button");
     submit.className = "btn solid";
     submit.style.width = "100%";
-    submit.textContent = "Log in";
+    submit.textContent = "Sign in";
 
     const divider = document.createElement("div");
     divider.className = "login-divider";
@@ -415,26 +415,26 @@ class App {
     rotur.className = "rotur-btn";
     rotur.appendChild(icon("link", { size: 15 }));
     const roturLabel = document.createElement("span");
-    roturLabel.textContent = "Sign in with Rotur";
+    roturLabel.textContent = "Continue with Rotur";
     rotur.appendChild(roturLabel);
     rotur.onclick = () => Auth.roturLogin("/");
 
     const note = document.createElement("p");
     note.className = "login-note";
     note.textContent = Auth.rotur.configured
-      ? "RoturLink opens the official Rotur page. No password is shared with mcmusic."
-      : "Rotur sign-in isn’t set up on this server yet — use your account below.";
+      ? "You’ll sign in on the official Rotur page. mcmusic never sees your Rotur password."
+      : "Rotur sign-in isn’t available on this server right now — you can use your account below instead.";
     const noteText = note.textContent;
 
     function setMode(next) {
       mode = next;
       inBtn.classList.toggle("on", next === "in");
       upBtn.classList.toggle("on", next === "up");
-      submit.textContent = next === "in" ? "Log in" : "Create account";
-      welcomeTitle.textContent = next === "in" ? "Welcome back." : "Make yourself at home.";
+      submit.textContent = next === "in" ? "Sign in" : "Create account";
+      welcomeTitle.textContent = next === "in" ? "Welcome back" : "Create your account";
       welcomeCopy.textContent = next === "in"
-        ? "Sign in to pick up where you left off."
-        : "One invite code and you're in.";
+        ? "Sign in to pick up right where you left off."
+        : "It only takes a moment — you’ll be listening in no time.";
       passInput.autocomplete = next === "in" ? "current-password" : "new-password";
       invite.hidden = !(next === "up" && CONFIG.inviteCode);
     }
@@ -463,7 +463,7 @@ class App {
     forgot.type = "button";
     forgot.className = "btn ghost sm";
     forgot.style.width = "100%";
-    forgot.textContent = "Forgot your password?";
+    forgot.textContent = "Forgot password?";
 
     const resetBox = document.createElement("div");
     resetBox.hidden = true;
@@ -499,7 +499,9 @@ class App {
       rotur.hidden = true;
       forgot.hidden = true;
       resetBox.hidden = false;
-      note.textContent = "If that address is on an account, we'll email a one-time link.";
+      welcomeTitle.textContent = "Reset your password";
+      welcomeCopy.textContent = "Enter the email on your account and we’ll send a one-time reset link.";
+      note.textContent = "If that address is on file, you’ll get an email in a minute or two.";
       setTimeout(() => rEmail.focus(), 40);
     };
 
@@ -514,6 +516,7 @@ class App {
       forgot.hidden = false;
       resetBox.hidden = true;
       note.textContent = noteText;
+      setMode(mode);
     };
 
     rSend.onclick = async () => {
@@ -521,8 +524,8 @@ class App {
       try {
         const r = await Auth.requestReset(rEmail.value.trim());
         note.textContent = r.mail === false
-          ? "Mail is not configured on this server — ask the admin to set SMTP_HOST."
-          : "If that address is on an account, a reset link is on its way.";
+          ? "Email isn’t set up on this server yet. Ask an admin to configure SMTP so reset links can be sent."
+          : "If that address is on file, check your inbox for a reset link shortly.";
       } catch (e) {
         toast(e.message || "Could not send the reset link", { iconName: "triangle-alert" });
       } finally {
@@ -716,7 +719,7 @@ class App {
     const q = document.createElement("input");
     q.id = "q";
     q.type = "search";
-    q.placeholder = "Search songs, albums, artists   ( / )";
+    q.placeholder = "Search for songs, albums, or artists   ( / )";
     q.autocomplete = "off";
     q.enterKeyHint = "search";
     q.oninput = (e) => this.onSearch(e.target.value);
@@ -802,10 +805,10 @@ class App {
     meta.className = "deck-meta";
     const title = document.createElement("b");
     title.id = "deck-title";
-    title.textContent = "Nothing playing";
+    title.textContent = "Nothing playing right now";
     const sub = document.createElement("small");
     sub.id = "deck-sub";
-    sub.textContent = "Choose a track";
+    sub.textContent = "Pick a song to get started";
     meta.appendChild(title);
     meta.appendChild(sub);
     const likeBtn = document.createElement("button");
@@ -1408,8 +1411,8 @@ class App {
     if (!title || !holder) return;
 
     if (!t) {
-      title.textContent = "Nothing playing";
-      sub.textContent = "Choose a track";
+      title.textContent = "Nothing playing right now";
+      sub.textContent = "Pick a song to get started";
       holder.replaceChildren(icon("disc-3", { size: 16 }));
       like?.classList.remove("liked");
       document.title = "mcmusic";

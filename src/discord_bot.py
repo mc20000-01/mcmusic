@@ -99,8 +99,8 @@ def dashboard_embed(state: dict) -> discord.Embed:
             f"`{clock(state['duration'])}`"
         )
     else:
-        title = "Nothing playing"
-        desc = "Queue something with `/addtoqueue`."
+        title = "Nothing playing right now"
+        desc = "Queue something with `/addtoqueue` to get things started."
 
     embed = discord.Embed(title=title[:256], description=desc, colour=0xD98A3D)
     queue = state.get("queue") or []
@@ -420,7 +420,7 @@ async def np_cmd(interaction: discord.Interaction):
         return
     pb = ctx.get("playback")
     if not pb or not pb.get("track"):
-        await interaction.followup.send("Nothing playing. Try `/addtoqueue`.")
+        await interaction.followup.send("Nothing’s playing right now. Try `/addtoqueue` to line something up.")
         return
     t = pb["track"]
     state_word = "playing" if pb["playing"] else "paused"

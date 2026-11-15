@@ -116,7 +116,7 @@ def public_profile(username):
         detail = f"{track} — {artist}" if artist else track
         state = "Listening now" if listening else "Paused"
     else:
-        detail = "Nothing playing right now"
+        detail = "Nothing playing at the moment"
         state = "mcmusic"
     title = f"{name} · mcmusic"
     desc = f"{state}: {detail}" if track else detail
@@ -147,7 +147,7 @@ h1{{margin:0;font-size:27px;line-height:1.1;letter-spacing:-.03em}}
 <p class="kicker">mcmusic profile</p>
 <h1>{escape(name)}</h1>
 <p class="state">{escape(state)}</p>
-<p class="track">{escape(track) if track else 'Nothing playing'}</p>
+<p class="track">{escape(track) if track else 'Nothing playing right now'}</p>
 <p class="meta">{escape(artist)}{(' · ' + escape(album)) if album else ''}</p>
 <div class="foot"><span>{escape(profile_url)}</span><a class="btn" href="{escape(base)}">Open mcmusic</a></div>
 </main></body></html>"""
