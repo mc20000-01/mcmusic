@@ -136,6 +136,42 @@
   --accent-soft: rgba(224, 138, 95, 0.14);
 }
 
+/* — forest: calm deep greens — */
+[data-theme="forest"] {
+  --bg:          #0b1410;
+  --bg-2:        #101d16;
+  --surface:     #15261d;
+  --surface-2:   #1c3126;
+  --fg:          #e7f3ec;
+  --dim:         #95b2a2;
+  --dim-2:       #6d8a7a;
+  --line:        #1e3328;
+  --line-2:      #2f4d3d;
+  --accent:      #6fcf97;
+  --accent-fg:   #07130d;
+  --accent-soft: rgba(111, 207, 151, 0.15);
+  --scrim:       rgba(6, 13, 10, 0.76);
+  --ink:         #050a07;
+}
+
+/* — rose: warm dusty plum — */
+[data-theme="rose"] {
+  --bg:          #171015;
+  --bg-2:        #1f151b;
+  --surface:     #2a1b23;
+  --surface-2:   #35222d;
+  --fg:          #f7ebf1;
+  --dim:         #c2a6b4;
+  --dim-2:       #937786;
+  --line:        #352430;
+  --line-2:      #523646;
+  --accent:      #e58ab2;
+  --accent-fg:   #1a0a12;
+  --accent-soft: rgba(229, 138, 178, 0.15);
+  --scrim:       rgba(14, 8, 11, 0.76);
+  --ink:         #0b0608;
+}
+
 /* accent override written by JS (settings) */
 :root {
   --accent-current: var(--accent);

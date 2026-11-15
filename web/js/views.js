@@ -970,10 +970,12 @@ const THEMES = [
   ["ink", "Ink"],
   ["tide", "Tide"],
   ["copper", "Copper"],
+  ["forest", "Forest"],
+  ["rose", "Rose"],
   ["auto", "Auto"],
 ];
 
-const ACCENTS = ["#a06bff", "#7c5cff", "#c77dff", "#63c98d", "#e3bd52", "#e4627e", "#6fb3c4", "#f2ecff"];
+const ACCENTS = ["#a06bff", "#7c5cff", "#c77dff", "#6fcf97", "#63c98d", "#e3bd52", "#e58ab2", "#e4627e", "#6fb3c4", "#f2ecff"];
 
 async function settings(container) {
   const state = app();
