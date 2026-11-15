@@ -37,6 +37,8 @@
 .th-ink    { --sw-bg: #0b0b0c; --sw-surface: #1d1d22; --sw-accent: #d7d7de; }
 .th-tide   { --sw-bg: #0e161a; --sw-surface: #1f3038; --sw-accent: #6fb3c4; }
 .th-copper { --sw-bg: #1a0f0d; --sw-surface: #37211c; --sw-accent: #e08a5f; }
+.th-forest { --sw-bg: #0b1410; --sw-surface: #1c3126; --sw-accent: #6fcf97; }
+.th-rose   { --sw-bg: #171015; --sw-surface: #35222d; --sw-accent: #e58ab2; }
 .th-auto {
   --sw-bg: #0b0b0c;
   --sw-surface: #f4efe4;

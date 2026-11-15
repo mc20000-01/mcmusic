@@ -105,7 +105,25 @@ private val copper = McColors(
     scrim = Color(0xCC120807), ink = c("#0d0706"),
 )
 
-val McThemes = listOf("dusk", "paper", "ink", "tide", "copper", "auto")
+private val forest = McColors(
+    bg = c("#0b1410"), bg2 = c("#101d16"), surface = c("#15261d"), surface2 = c("#1c3126"),
+    fg = c("#e7f3ec"), dim = c("#95b2a2"), dim2 = c("#6d8a7a"),
+    line = c("#1e3328"), line2 = c("#2f4d3d"),
+    accent = c("#6fcf97"), accentFg = c("#07130d"), accentSoft = c("#6fcf97").copy(alpha = 0.15f),
+    ok = c("#7fdca5"), warn = c("#e0c46b"), err = c("#e07a7a"),
+    scrim = Color(0xC4060D0A), ink = c("#050a07"),
+)
+
+private val rose = McColors(
+    bg = c("#171015"), bg2 = c("#1f151b"), surface = c("#2a1b23"), surface2 = c("#35222d"),
+    fg = c("#f7ebf1"), dim = c("#c2a6b4"), dim2 = c("#937786"),
+    line = c("#352430"), line2 = c("#523646"),
+    accent = c("#e58ab2"), accentFg = c("#1a0a12"), accentSoft = c("#e58ab2").copy(alpha = 0.15f),
+    ok = c("#7fdca5"), warn = c("#e6c76f"), err = c("#ef8a8a"),
+    scrim = Color(0xC40E080B), ink = c("#0b0608"),
+)
+
+val McThemes = listOf("dusk", "paper", "ink", "tide", "copper", "forest", "rose", "auto")
 
 fun themeLabel(key: String): String = when (key) {
     "dusk" -> "Night"
@@ -113,13 +131,15 @@ fun themeLabel(key: String): String = when (key) {
     "ink" -> "Ink"
     "tide" -> "Tide"
     "copper" -> "Copper"
+    "forest" -> "Forest"
+    "rose" -> "Rose"
     "auto" -> "Auto"
     else -> key.replaceFirstChar { it.uppercase() }
 }
 
 val McAccents = listOf(
-    "#a06bff", "#7c5cff", "#c77dff", "#63c98d",
-    "#e3bd52", "#e4627e", "#6fb3c4", "#f2ecff",
+    "#a06bff", "#7c5cff", "#c77dff", "#6fcf97",
+    "#63c98d", "#e3bd52", "#e58ab2", "#e4627e", "#6fb3c4", "#f2ecff",
 )
 
 @Immutable
@@ -136,6 +156,8 @@ fun previewFor(key: String): ThemePreview = when (key) {
     "ink" -> ThemePreview(ink.bg, ink.surface, ink.accent)
     "tide" -> ThemePreview(tide.bg, tide.surface, tide.accent)
     "copper" -> ThemePreview(copper.bg, copper.surface, copper.accent)
+    "forest" -> ThemePreview(forest.bg, forest.surface, forest.accent)
+    "rose" -> ThemePreview(rose.bg, rose.surface, rose.accent)
     else -> ThemePreview(ink.bg2, paper.bg, dusk.accent, split = true)
 }
 
@@ -145,6 +167,8 @@ private val palettes = mapOf(
     "ink" to ink,
     "tide" to tide,
     "copper" to copper,
+    "forest" to forest,
+    "rose" to rose,
     "dark" to dusk,
     "light" to paper,
     "amoled" to ink,
