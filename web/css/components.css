@@ -8,19 +8,18 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 9px 16px;
+  gap: 8px;
+  padding: 10px 17px;
   border: 1px solid var(--line-2);
-  border-radius: var(--r-2);
+  border-radius: 999px;
   background: transparent;
   color: var(--fg);
-  font-family: var(--font-mono);
-  font-size: 10px;
+  font-family: var(--font-ui);
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   transition: transform var(--fast), background var(--fast), border-color var(--fast),
-              box-shadow var(--fast);
+              box-shadow var(--fast), color var(--fast);
   white-space: nowrap;
 }
 
@@ -44,20 +43,20 @@
 .btn.ghost { border-color: transparent; color: var(--dim); }
 .btn.ghost:hover { color: var(--fg); border-color: transparent; background: var(--surface); }
 
-.btn.sm { padding: 6px 11px; font-size: 9px; }
+.btn.sm { padding: 6px 12px; font-size: 12px; font-weight: 600; }
 
 .btn.danger { color: var(--err); border-color: color-mix(in srgb, var(--err) 40%, var(--line)); }
 .btn.danger:hover { background: color-mix(in srgb, var(--err) 12%, transparent); }
 
 /* — icon buttons — */
 .iconbtn {
-  width: 32px; height: 32px;
+  width: 34px; height: 34px;
   display: inline-grid;
   place-items: center;
-  border-radius: var(--r-2);
+  border-radius: 999px;
   color: var(--dim);
   flex: none;
-  transition: color var(--fast), background var(--fast), opacity var(--fast);
+  transition: color var(--fast), background var(--fast), opacity var(--fast), transform var(--fast);
 }
 
 .iconbtn svg { width: 17px; height: 17px; }
@@ -143,16 +142,16 @@
   display: grid;
   gap: 8px;
   padding: 10px;
-  background: var(--bg-2);
+  background: color-mix(in srgb, var(--bg-2) 92%, transparent);
   border: 1px solid var(--line);
-  border-radius: var(--r-3);
+  border-radius: 18px;
   text-align: left;
-  transition: border-color var(--fast), background var(--fast), transform var(--fast);
+  transition: border-color var(--fast), background var(--fast), transform var(--fast), box-shadow var(--fast);
   min-width: 0;
   position: relative;
 }
 
-.tile:hover { border-color: var(--line-2); background: var(--surface); transform: translateY(-2px); }
+.tile:hover { border-color: var(--line-2); background: var(--surface); transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0,0,0,0.12); }
 
 .tile-wrap { position: relative; }
 
@@ -211,7 +210,7 @@
   margin-bottom: 12px;
 }
 
-.shelf-h h2 { font-size: var(--t-lg); flex: none; }
+.shelf-h h2 { font-size: var(--t-lg); flex: none; letter-spacing: -0.02em; }
 
 .shelf-h .mono { color: var(--dim-2); letter-spacing: 0.12em; margin-left: auto; }
 
@@ -313,15 +312,17 @@
   justify-content: space-between;
   gap: 18px;
   flex-wrap: wrap;
-  margin: 0 auto 22px;
+  margin: 0 auto 26px;
+  padding: 4px 0 2px;
 }
 
-.home-lead .big { margin-bottom: 2px; }
+.home-lead .big { margin-bottom: 4px; }
 
 .home-sub {
-  max-width: 58ch;
-  font-size: var(--t-sm);
-  color: var(--dim-2);
+  max-width: 60ch;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--dim);
 }
 
 .quick-label {
@@ -330,15 +331,37 @@
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--dim-2);
-  margin: 0 0 9px;
+  margin: 0 0 10px;
 }
+
+.home-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -4px 0 22px;
+}
+
+.home-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: var(--glass);
+  color: var(--t2);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.home-chip svg { width: 13px; height: 13px; color: var(--accent); }
 
 /* — quick picks — */
 .quick {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(clamp(240px, 18vw, 420px), 1fr));
-  gap: 8px;
-  margin-bottom: 26px;
+  gap: 10px;
+  margin-bottom: 30px;
 }
 
 .qk {
@@ -373,15 +396,15 @@
   display: grid;
   grid-template-columns: 26px 36px minmax(0, 2.2fr) minmax(0, 1.1fr) 58px 32px 32px 42px;
   align-items: center;
-  gap: 10px;
-  padding: 7px 8px;
-  border-radius: var(--r-2);
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 14px;
   text-align: left;
   border: 1px solid transparent;
-  transition: background var(--fast), border-color var(--fast);
+  transition: background var(--fast), border-color var(--fast), transform var(--fast);
 }
 
-.trow:hover { background: var(--bg-2); }
+.trow:hover { background: var(--bg-2); transform: translateX(1px); }
 .trow.now { background: var(--surface); border-color: var(--line-2); }
 
 .idx {
@@ -697,16 +720,19 @@ input[type="range"]::-moz-range-thumb {
   pointer-events: auto;
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 9px 14px;
-  background: var(--fg);
+  gap: 10px;
+  padding: 11px 15px;
+  background: color-mix(in srgb, var(--fg) 92%, var(--bg));
   color: var(--bg);
-  border-radius: var(--r-2);
-  font-size: var(--t-sm);
+  border: 1px solid color-mix(in srgb, var(--bg) 18%, transparent);
+  border-radius: 999px;
+  font-size: 13px;
   font-weight: 500;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
-  animation: toast-in 180ms var(--ease);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  animation: toast-in 200ms var(--ease);
   max-width: 100%;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .toast svg { width: 15px; height: 15px; flex: none; }
@@ -1030,7 +1056,8 @@ input[type="color"] {
   padding: clamp(18px, 4vw, 48px);
   overflow-y: auto;
   background:
-    radial-gradient(120% 80% at 50% -10%, var(--accent-soft), transparent 60%),
+    radial-gradient(100% 70% at 20% 0%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 55%),
+    radial-gradient(90% 60% at 90% 10%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 50%),
     var(--bg);
 }
 
@@ -1047,12 +1074,14 @@ input[type="color"] {
 .login-card {
   width: 100%;
   display: grid;
-  gap: 14px;
-  padding: 28px;
-  background: var(--bg-2);
-  border: 1px solid var(--line-2);
-  border-radius: var(--r-4);
-  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.4);
+  gap: 16px;
+  padding: 30px;
+  background: color-mix(in srgb, var(--bg-2) 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--fg) 12%, transparent);
+  border-radius: 28px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35), inset 0 1px 0 var(--glass-highlight);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
 }
 
 /* the reset screen has no welcome mat, so keep its card phone-sized */
@@ -1074,6 +1103,15 @@ input[type="color"] {
   letter-spacing: -0.03em;
 }
 
+.brand-tagline {
+  display: block;
+  margin: 2px 0 0;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
 .login-aside h2 {
   max-width: 16ch;
   font-size: clamp(2rem, 3.4vw, 3.2rem);
@@ -1081,16 +1119,18 @@ input[type="color"] {
   letter-spacing: -0.035em;
 }
 
+.login-aside-lead,
 .login-aside-sub {
-  max-width: 44ch;
-  font-size: var(--t-md);
+  max-width: 46ch;
+  font-size: 16px;
+  line-height: 1.6;
   color: var(--dim);
 }
 
 .login-features {
   display: grid;
-  gap: 12px;
-  margin-top: 2px;
+  gap: 14px;
+  margin-top: 4px;
 }
 
 .login-feature {
@@ -1201,13 +1241,15 @@ input[type="color"] {
 
 .login-welcome h2 {
   font-family: var(--font-display);
-  font-size: 1.35rem;
-  letter-spacing: -0.02em;
+  font-size: 1.55rem;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
 }
 
 .login-welcome p {
-  font-size: var(--t-xs);
-  color: var(--dim-2);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--dim);
 }
 
 .login-brand {
@@ -1548,11 +1590,12 @@ table.admin .url {
 .tile-play { background: var(--t1); color: var(--bg); box-shadow: var(--glass-shadow); }
 
 .qk {
-  background: transparent;
-  border: 0;
-  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg-2) 70%, transparent);
+  border: 1px solid transparent;
+  border-radius: 16px;
+  transition: background var(--fast), border-color var(--fast), transform var(--fast);
 }
-.qk:hover { background: var(--glass); border-color: transparent; }
+.qk:hover { background: var(--glass); border-color: var(--glass-border); transform: translateY(-1px); }
 
 .tracks { gap: 0; }
 .trow {
@@ -1742,10 +1785,12 @@ html[data-gfx="4"].has-view-transitions::view-transition-new(root) {
 
 .stat, .req, .empty {
   border: 1px solid var(--glass-border);
-  border-radius: 16px;
+  border-radius: 20px;
   background: var(--glass);
   box-shadow: inset 0 1px 0 var(--glass-highlight);
 }
+
+.empty { padding: 36px 24px; }
 
 .prow b, .field label, .hero-sub, .now-sub, .tile small, .qk small { color: var(--t2); }
 .prow small, .field label, .rail-label, .drawer-label { color: var(--t3); }

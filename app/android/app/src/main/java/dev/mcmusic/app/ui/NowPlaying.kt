@@ -109,10 +109,10 @@ fun PlayerOverlay(vm: AppViewModel) {
             if (t == null) {
                 Spacer(Modifier.height(80.dp))
                 EmptyState(
-                    "Nothing playing",
-                    "Pick a track from your library to start.",
+                    "Nothing playing right now",
+                    "Pick a song from your library to get started.",
                     icon = AppIcons.Disc,
-                    actionLabel = "Browse library",
+                    actionLabel = "Browse your library",
                     onAction = {
                         vm.playerOpen = false
                         vm.navigate(Route.Library, push = false)
@@ -294,10 +294,10 @@ fun NowPlayingScreen(vm: AppViewModel) {
         val t = vm.engine.current
         if (t == null) {
             EmptyState(
-                "Nothing playing",
-                "Pick a track from your library.",
+                "Nothing playing right now",
+                "Pick a song from your library and it’ll show up here.",
                 icon = AppIcons.Disc,
-                actionLabel = "Browse library",
+                actionLabel = "Browse your library",
                 onAction = { vm.navigate(Route.Library, push = false) },
             )
             return@Column

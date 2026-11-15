@@ -310,10 +310,10 @@ class HomeScreen(Screen):
 
         if not home.sections and not home.albums:
             self.add(EmptyState(
-                "Your library is empty",
-                "Ask an admin to scan the music folder or add tracks from Requests.",
+                "Your library is waiting for its first song",
+                "Ask an admin to scan the music folder, or add something yourself from Requests.",
                 icon="disc-3",
-                action=("Open requests", lambda: self.window.navigate(("requests",))),
+                action=("Add music", lambda: self.window.navigate(("requests",))),
             ))
         self.reset_scroll()
 
@@ -331,7 +331,7 @@ class SearchScreen(Screen):
         self._debounce.setInterval(260)
         self._debounce.timeout.connect(self._search)
 
-        self.head = PageHead("Search", "Find something", "")
+        self.head = PageHead("Search", "Find something to play", "")
         self.add(self.head, 16)
         self.results = QWidget()
         self.rlayout = QVBoxLayout(self.results)

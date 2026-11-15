@@ -382,7 +382,7 @@ static void draw_ui(C3D_RenderTarget *top, C3D_RenderTarget *bottom) {
                       C2D_Color32(0x2a, 0x24, 0x38, 0xff));
 
     if (!g_track_count) {
-        text_at("No tracks yet.", 16.0f, 56.0f, 0.55f,
+        text_at("No songs here yet.", 16.0f, 56.0f, 0.55f,
                 C2D_Color32(0xd8, 0xd4, 0xe2, 0xff));
     } else {
         if (g_selected < g_scroll) g_scroll = g_selected;

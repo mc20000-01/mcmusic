@@ -439,7 +439,7 @@ export function playButtons(tracks, opts = {}) {
   shuffle.className = "btn";
   shuffle.appendChild(icon("shuffle", { size: 12 }));
   const sl = document.createElement("span");
-  sl.textContent = "Shuffle";
+  sl.textContent = "Shuffle play";
   shuffle.appendChild(sl);
   shuffle.onclick = () => window.Player?.play(tracks, 0, { shuffle: true });
 
@@ -454,7 +454,7 @@ export function trackList(tracks, opts = {}) {
   const wrap = document.createElement("div");
   wrap.className = "tracks";
   if (!visible.length) {
-    wrap.appendChild(empty("No tracks here", "Try a different filter."));
+    wrap.appendChild(empty("No songs to show", "Try changing a filter or checking back later."));
     return wrap;
   }
   visible.forEach((t, i) => wrap.appendChild(trackRow(t, i, visible, opts)));

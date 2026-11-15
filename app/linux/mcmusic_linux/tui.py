@@ -650,15 +650,15 @@ def fetch(client: Client, view: str, arg: Any = None) -> tuple[str, list[Row]]:
 
     if view == "album":
         tracks = client.album(str(arg))
-        return str(arg), [track_row(t) for t in tracks] or [Row("empty", "No tracks")]
+        return str(arg), [track_row(t) for t in tracks] or [Row("empty", "No songs here yet")]
 
     if view == "artist":
         tracks = client.artist(str(arg))
-        return str(arg), [track_row(t) for t in tracks] or [Row("empty", "No tracks")]
+        return str(arg), [track_row(t) for t in tracks] or [Row("empty", "No songs here yet")]
 
     if view == "playlist":
         name, tracks = client.playlist(int(arg))
-        return name, [track_row(t) for t in tracks] or [Row("empty", "No tracks")]
+        return name, [track_row(t) for t in tracks] or [Row("empty", "No songs in this playlist yet")]
 
     raise ApiError("unknown view")
 

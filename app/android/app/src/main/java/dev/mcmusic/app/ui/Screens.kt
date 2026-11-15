@@ -69,10 +69,10 @@ fun HomeScreen(vm: AppViewModel) {
     }
     if (home.sections.isEmpty() && home.albums.isEmpty()) {
         EmptyState(
-            "Your library is empty",
-            "Request a YouTube playlist and the tracks will land here.",
+            "Your library is waiting for its first song",
+            "Add music by requesting a YouTube video or playlist, and it’ll show up here once it’s ready.",
             icon = AppIcons.Library,
-            actionLabel = "Request music",
+            actionLabel = "Add music",
             onAction = { vm.navigate(Route.Requests) },
         )
         return
@@ -542,7 +542,7 @@ fun CollectionScreen(
     if (tracks.isEmpty() && vm.collectionTitle == name) {
         Column(Modifier.fillMaxSize().padding(D.gutter)) {
             Text(name, style = McType.h1Small, color = mc.fg)
-            EmptyState("No tracks here", "This $kicker has no playable tracks.", icon = AppIcons.Disc)
+            EmptyState("No songs here yet", "There’s nothing to play in this ${kicker.lowercase()} right now.", icon = AppIcons.Disc)
         }
         return
     }

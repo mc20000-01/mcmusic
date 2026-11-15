@@ -412,19 +412,33 @@ fun EmptyState(
     Column(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp)
-            .glass(RoundedCornerShape(16.dp))
-            .padding(vertical = 38.dp, horizontal = 20.dp),
+            .padding(horizontal = 16.dp, vertical = 16.dp)
+            .glass(RoundedCornerShape(24.dp))
+            .padding(vertical = 44.dp, horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Icon(icon, null, Modifier.size(26.dp), tint = mc.dim2)
-        Text(title, style = McType.h3, color = mc.fg)
+        Box(
+            Modifier
+                .size(52.dp)
+                .clip(CircleShape)
+                .background(mc.accentSoft),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, null, Modifier.size(24.dp), tint = mc.accent)
+        }
+        Text(title, style = McType.h3.copy(fontWeight = FontWeight.SemiBold), color = mc.fg)
         if (hint != null) {
-            Text(hint, style = McType.bodySm, color = mc.dim2)
+            Text(
+                hint,
+                style = McType.bodySm,
+                color = mc.dim,
+                modifier = Modifier.widthIn(max = 320.dp),
+            )
         }
         if (actionLabel != null && onAction != null) {
-            McButton(actionLabel, onAction)
+            Spacer(Modifier.height(2.dp))
+            McButton(actionLabel, onAction, solid = true)
         }
     }
 }

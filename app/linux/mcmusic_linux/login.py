@@ -81,7 +81,7 @@ class LoginPage(QWidget):
         form.addLayout(brand)
         form.addWidget(Txt("Your library, your room, your rules.", size=13, token="dim2"))
 
-        self.seg = Segmented([("in", "Log in"), ("up", "Sign up")], "in")
+        self.seg = Segmented([("in", "Sign in"), ("up", "Create account")], "in")
         self.seg.changed.connect(self._set_mode)
         form.addWidget(self.seg, 0, Qt.AlignmentFlag.AlignHCenter)
 
@@ -97,7 +97,7 @@ class LoginPage(QWidget):
         self.error.setVisible(False)
         form.addWidget(self.error)
 
-        self.submit = McButton("Log in", solid=True)
+        self.submit = McButton("Sign in", solid=True)
         self.submit.setFixedHeight(38)
         self.submit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.submit.setMinimumWidth(0)
@@ -151,7 +151,7 @@ class LoginPage(QWidget):
     def _set_mode(self, mode: str) -> None:
         self._mode = mode
         self.invite.setVisible(mode == "up")
-        self.submit.set_text("Create account" if mode == "up" else "Log in")
+        self.submit.set_text("Create account" if mode == "up" else "Sign in")
         self._show_error("")
 
     def _show_error(self, message: str) -> None:
@@ -162,7 +162,7 @@ class LoginPage(QWidget):
         self._busy = busy
         self.submit.setEnabled(not busy)
         self.submit.set_text(
-            "Please wait…" if busy else ("Create account" if self._mode == "up" else "Log in")
+            "Please wait…" if busy else ("Create account" if self._mode == "up" else "Sign in")
         )
 
     def _submit(self) -> None:
