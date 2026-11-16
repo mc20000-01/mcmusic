@@ -19,7 +19,9 @@ concurrency:
 
 jobs:
   build:
+    name: Build and publish
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     # Secrets are not allowed inside a step's `if:`, so expose the optional
     # signing key as an environment variable first.
     env:
@@ -89,7 +91,7 @@ jobs:
       - name: Upload workflow artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: mcmusic-builds
+          name: mcmusic-builds-${{ github.sha }}
           path: builds/
           if-no-files-found: error
 
@@ -100,23 +102,35 @@ jobs:
           set -euo pipefail
           android=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/android/app/build.gradle.kts | head -1)
           android=${android:-dev}
+          desktop=$(grep -oP '^version\s*=\s*"\K[^"]+' app/linux/pyproject.toml | head -1 || echo "")
           sha=$(git rev-parse --short=12 HEAD)
           notes=$(mktemp)
           {
             echo "## mcmusic latest"
             echo
-            echo "Built automatically from \`${sha}\` on every push to \`main\`."
+            echo "Built automatically from \`${sha}\` on \`main\`."
             echo
-            echo "| Build | File |"
-            echo "| --- | --- |"
+            echo "### Builds"
+            echo "| Artifact | Size | SHA256 |"
+            echo "| --- | ---: | --- |"
             for f in builds/*; do
               [ -f "$f" ] || continue
-              echo "| ${f##*/} | \`$(basename "$f")\` |"
+              base=$(basename "$f")
+              [ "$base" = "SHA256SUMS" ] && continue
+              size=$(du -h "$f" | cut -f1)
+              sum=$(sha256sum "$f" | cut -d' ' -f1)
+              echo "| \`$base\` | $size | \`${sum:0:16}…\` |"
             done
             echo
-            echo "Android version: ${android}. Installs over the current copy."
-            echo "Linux deb: \`sudo apt install ./file.deb\`. AppImage: \`chmod +x\`."
-            echo "Checksums are in \`SHA256SUMS\`."
+            echo "### Notes"
+            echo "- Android version: \`${android}\` (installs over the current copy when signatures match)."
+            [ -n "$desktop" ] && echo "- Desktop package version: \`${desktop}\`."
+            echo "- Linux deb: \`sudo apt install ./file.deb\`. AppImage: \`chmod +x\` then run."
+            echo "- Full checksums: \`SHA256SUMS\`."
+            echo
+            echo "### Recent changes"
+            git log -n 8 --pretty=format:'- %s (`%h`)' || true
+            echo
           } > "$notes"
 
           if gh release view latest >/dev/null 2>&1; then
@@ -126,6 +140,28 @@ jobs:
               --notes-file "$notes" --latest
           fi
           gh release upload latest builds/* --clobber
+
+      - name: Build summary
+        if: always()
+        run: |
+          {
+            echo "## Build summary"
+            echo
+            echo "- Commit: \`$(git rev-parse --short=12 HEAD)\`"
+            echo "- Android version: \`$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/android/app/build.gradle.kts | head -1 || echo dev)\`"
+            echo
+            echo "### Artifacts"
+            if ls builds/* >/dev/null 2>&1; then
+              echo '| File | Size |'
+              echo '| --- | ---: |'
+              for f in builds/*; do
+                [ -f "$f" ] || continue
+                echo "| \`$(basename "$f")\` | $(du -h "$f" | cut -f1) |"
+              done
+            else
+              echo "_No build artifacts found._"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Refresh builds folder in the repo
         run: |

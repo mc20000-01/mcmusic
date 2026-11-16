@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches-ignore: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web-checks:
+    name: Web checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Syntax-check web JavaScript
+        run: node --check web/js/app.js web/js/ui.js web/js/views.js web/js/player.js web/js/api.js web/js/cache.js web/js/mobile.js web/js/glass.js web/js/gfx.js web/js/icons.js web/js/auth.js web/js/rotur.js
+      - name: Validate service worker is parseable
+        run: node --check web/sw.js
+
+  python-checks:
+    name: Python checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile key Python modules
+        run: |
+          python -m py_compile \
+            src/mcmusic.py \
+            src/config.py \
+            src/auth.py \
+            src/database.py \
+            src/routes/system_routes.py \
+            src/routes/library_routes.py \
+            src/routes/personal_routes.py \
+            src/routes/auth_routes.py \
+            src/routes/channel_routes.py \
+            src/discord_bot.py \
+            src/music_channels.py \
+            src/originchats.py
+
+  android-build:
+    name: Android build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install Android SDK platform and build tools
+        run: |
+          set -euo pipefail
+          sdk="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          sdkmanager="$sdk/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$sdkmanager" ]; then
+            sdkmanager=$(find "$sdk/cmdline-tools" -maxdepth 3 -type f -name sdkmanager | sort | tail -1)
+          fi
+          yes | "$sdkmanager" --licenses >/dev/null || true
+          "$sdkmanager" "platforms;android-34" "build-tools;34.0.0" >/dev/null
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      - name: Build debug APK
+        run: gradle -p app/android assembleDebug --no-daemon --console=plain
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-debug-apk-${{ github.sha }}
+          path: app/android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error

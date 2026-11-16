@@ -291,3 +291,95 @@ html[data-gfx="4"] {
   --gfx-shadow: var(--glass-shadow);
   --gfx-transition: 220ms;
 }
+
+/* ── material / surface styles ────────────────────────────────────────────
+   "glass" keeps the default translucent look. Other styles reshape surfaces
+   while preserving colour themes and readability. */
+html[data-material="glass"] {
+  --surface-style: glass;
+}
+
+html[data-material="solid"] {
+  --surface-style: solid;
+  --glass: var(--surface);
+  --glass-strong: var(--surface-2);
+  --glass-border: var(--line-2);
+  --glass-highlight: color-mix(in srgb, var(--fg) 8%, transparent);
+  --glass-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+  --glass-blur: none;
+  --glass-small-blur: none;
+  --gfx-panel-fill: var(--surface);
+  --gfx-top-blur: none;
+}
+
+html[data-material="plane"] {
+  --surface-style: plane;
+  --glass: color-mix(in srgb, var(--bg-2) 96%, transparent);
+  --glass-strong: color-mix(in srgb, var(--surface) 96%, transparent);
+  --glass-border: color-mix(in srgb, var(--line) 85%, transparent);
+  --glass-highlight: transparent;
+  --glass-shadow: none;
+  --glass-blur: none;
+  --glass-small-blur: none;
+  --block: none;
+  --gfx-panel-fill: var(--bg-2);
+  --gfx-top-blur: none;
+}
+
+html[data-material="metal"] {
+  --surface-style: metal;
+  --glass: color-mix(in srgb, var(--surface) 88%, var(--bg) 12%);
+  --glass-strong: color-mix(in srgb, var(--surface-2) 90%, var(--fg) 4%);
+  --glass-border: color-mix(in srgb, var(--line-2) 70%, var(--fg) 18%);
+  --glass-highlight: color-mix(in srgb, var(--fg) 22%, transparent);
+  --glass-shadow: 0 12px 28px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255,255,255,0.12);
+  --glass-blur: blur(10px) saturate(120%);
+  --glass-small-blur: blur(6px) saturate(110%);
+  --gfx-panel-fill: var(--glass);
+  --gfx-top-blur: blur(8px) saturate(115%);
+}
+
+[data-material="metal"] #rail,
+[data-material="metal"] #deck,
+[data-material="metal"] .panel,
+[data-material="metal"] .sheet,
+[data-material="metal"] .menu,
+[data-material="metal"] .toast,
+[data-material="metal"] .tile,
+[data-material="metal"] .qk,
+[data-material="metal"] .login-card {
+  background-image:
+    linear-gradient(180deg, color-mix(in srgb, var(--fg) 10%, transparent), transparent 38%),
+    linear-gradient(135deg, color-mix(in srgb, var(--fg) 7%, transparent), transparent 45%);
+}
+
+[data-material="solid"] .tile,
+[data-material="solid"] .qk,
+[data-material="solid"] .panel,
+[data-material="solid"] .sheet,
+[data-material="solid"] .menu,
+[data-material="solid"] .toast {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+[data-material="plane"] #rail,
+[data-material="plane"] #deck,
+[data-material="plane"] .panel,
+[data-material="plane"] .sheet,
+[data-material="plane"] .menu,
+[data-material="plane"] .toast,
+[data-material="plane"] .tile,
+[data-material="plane"] .qk,
+[data-material="plane"] .login-card,
+[data-material="plane"] .hero-art {
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+[data-material="plane"] .btn,
+[data-material="plane"] .seg,
+[data-material="plane"] .theme-card {
+  box-shadow: none;
+}

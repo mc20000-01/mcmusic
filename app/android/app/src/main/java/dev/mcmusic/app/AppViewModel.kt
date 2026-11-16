@@ -109,6 +109,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         private set
     var accent by mutableStateOf(store.accent)
         private set
+    var material by mutableStateOf(mc.settings.value.material)
+        private set
     var gfxAuto by mutableStateOf(store.gfxAuto)
         private set
     var gfxLevel by mutableStateOf(if (store.gfxLevel >= 0) store.gfxLevel else detectedGfx())
@@ -504,6 +506,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             mc.settings.value = settings
             theme = nextTheme
             accent = nextAccent
+            material = settings.material
             store.theme = nextTheme
             store.accent = nextAccent
         }
@@ -567,6 +570,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         mc.settings.value = next
         theme = next.theme
         accent = next.accent
+        material = next.material
         store.theme = next.theme
         store.accent = next.accent
         store.themeChosen = true
