@@ -452,6 +452,7 @@ data class Settings(
     val theme: String = "dusk",
     val accent: String = "#a06bff",
     val density: String = "comfy",
+    val material: String = "glass",
     val realGlass: String = "auto",
     val covers: Boolean = true,
     val autoplay: Boolean = true,
@@ -471,6 +472,7 @@ data class Settings(
         .put("theme", theme)
         .put("accent", accent)
         .put("density", density)
+        .put("material", material)
         .put("real_glass", realGlass)
         .put("covers", covers)
         .put("autoplay", autoplay)
@@ -489,6 +491,7 @@ data class Settings(
             theme = o.optString("theme", "dusk"),
             accent = o.optString("accent", "#a06bff"),
             density = o.optString("density", "comfy"),
+            material = o.optString("material", "glass"),
             realGlass = o.optString("real_glass", "auto"),
             covers = o.optBoolean("covers", true),
             autoplay = o.optBoolean("autoplay", true),

@@ -26,6 +26,7 @@ const DEFAULTS = {
   theme: "dusk",
   accent: "#a06bff",
   density: "comfy",
+  material: "glass",
   covers: true,
   autoplay: true,
   hide_explicit: false,
@@ -1317,6 +1318,7 @@ class App {
       : s.theme;
 
     root.dataset.theme = resolved;
+    root.dataset.material = s.material || "glass";
     root.style.setProperty("--accent", s.accent);
     root.style.setProperty("--accent-fg", luminance(s.accent) > 0.6 ? "#0b0616" : "#f2ecff");
     const { r, g, b } = hexToRgb(s.accent);

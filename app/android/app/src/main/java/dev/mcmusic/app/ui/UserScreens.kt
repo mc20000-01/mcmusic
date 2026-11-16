@@ -540,6 +540,21 @@ fun SettingsScreen(vm: AppViewModel) {
                         onSelect = { value -> vm.setSetting { it.copy(density = value) } },
                     )
                 }
+                SettingRow(
+                    "Surface style",
+                    "Choose the feel of panels and chrome",
+                ) {
+                    Seg(
+                        options = listOf(
+                            "glass" to "Glass",
+                            "metal" to "Metal",
+                            "solid" to "Solid",
+                            "plane" to "Plane",
+                        ),
+                        selected = vm.settings.material,
+                        onSelect = { value -> vm.setSetting { it.copy(material = value) } },
+                    )
+                }
                 GraphicsQuality(vm)
 
                 SettingRow(

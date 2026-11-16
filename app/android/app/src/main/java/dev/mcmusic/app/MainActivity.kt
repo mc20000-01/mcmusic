@@ -26,7 +26,7 @@ class MainActivity : ComponentActivity() {
         window.setBackgroundDrawable(ColorDrawable(paletteFor(vm.theme).bg.toArgb()))
         enableEdgeToEdge()
         setContent {
-            McTheme(vm.theme, vm.accent, vm.gfxLevel) {
+            McTheme(vm.theme, vm.accent, vm.gfxLevel, vm.settings.material) {
                 val mc = LocalMc.current
                 val view = LocalView.current
                 SideEffect {

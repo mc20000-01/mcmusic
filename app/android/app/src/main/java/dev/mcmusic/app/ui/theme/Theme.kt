@@ -196,6 +196,7 @@ fun withAccent(base: McColors, accentHex: String?): McColors {
 
 val LocalMc = staticCompositionLocalOf { dusk }
 val LocalGfxLevel = staticCompositionLocalOf { 3 }
+val LocalMaterial = staticCompositionLocalOf { "glass" }
 
 /**
  * One glass layer for every floating surface. The blur is supplied by the
@@ -209,37 +210,70 @@ fun Modifier.glass(
 ): Modifier {
     val mc = LocalMc.current
     val gfx = LocalGfxLevel.current
-    val solid = gfx <= 1
+    val material = LocalMaterial.current
+    val solidPerf = gfx <= 1
     val fill = when {
-        solid && strong -> mc.bg2.copy(alpha = 0.94f)
-        solid -> mc.bg2.copy(alpha = 0.88f)
+        material == "solid" && strong -> mc.surface2
+        material == "solid" -> mc.surface
+        material == "plane" && strong -> mc.surface
+        material == "plane" -> mc.bg2
+        solidPerf && strong -> mc.bg2.copy(alpha = 0.94f)
+        solidPerf -> mc.bg2.copy(alpha = 0.88f)
         strong -> mc.glassStrong
         else -> mc.glass
     }
+    val borderBrush = when (material) {
+        "metal" -> Brush.linearGradient(
+            listOf(
+                mc.glassHighlight.copy(alpha = 0.95f),
+                mc.glassBorder,
+                mc.fg.copy(alpha = 0.14f),
+                mc.glassBorder,
+            )
+        )
+        "plane" -> Brush.linearGradient(listOf(mc.line.copy(alpha = 0.7f), mc.line.copy(alpha = 0.7f)))
+        "solid" -> Brush.linearGradient(listOf(mc.line2, mc.line2))
+        else -> Brush.linearGradient(listOf(mc.glassHighlight, mc.glassBorder))
+    }
+    val highlight = when (material) {
+        "metal" -> Brush.verticalGradient(listOf(mc.glassHighlight.copy(alpha = 0.22f), Color.Transparent))
+        "solid" -> Brush.verticalGradient(listOf(mc.fg.copy(alpha = 0.04f), Color.Transparent))
+        "plane" -> Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent))
+        else -> Brush.verticalGradient(listOf(mc.glassHighlight.copy(alpha = 0.10f), Color.Transparent))
+    }
+    val elevation = when {
+        material == "plane" -> 0.dp
+        material == "solid" -> if (gfx == 0) 0.dp else 3.dp
+        material == "metal" -> if (gfx == 0) 0.dp else 10.dp
+        gfx == 0 -> 0.dp
+        gfx == 1 -> 2.dp
+        else -> 8.dp
+    }
     return this
-        .shadow(if (gfx == 0) 0.dp else if (gfx == 1) 2.dp else 8.dp, shape)
+        .shadow(elevation, shape)
         .clip(shape)
         .background(fill, shape)
-        .background(
-            Brush.verticalGradient(
-                listOf(mc.glassHighlight.copy(alpha = 0.10f), Color.Transparent),
-            ),
-            shape,
-        )
-        .border(
-            1.dp,
-            Brush.linearGradient(listOf(mc.glassHighlight, mc.glassBorder)),
-            shape,
-        )
+        .background(highlight, shape)
+        .border(1.dp, borderBrush, shape)
 }
 
 @Composable
-fun McTheme(theme: String, accent: String?, gfxLevel: Int = 3, content: @Composable () -> Unit) {
+fun McTheme(
+    theme: String,
+    accent: String?,
+    gfxLevel: Int = 3,
+    material: String = "glass",
+    content: @Composable () -> Unit,
+) {
     val systemDark = isSystemInDarkTheme()
     val colors = remember(theme, accent, systemDark) {
         withAccent(paletteFor(theme, systemDark), accent)
     }
-    CompositionLocalProvider(LocalMc provides colors, LocalGfxLevel provides gfxLevel) { content() }
+    CompositionLocalProvider(
+        LocalMc provides colors,
+        LocalGfxLevel provides gfxLevel,
+        LocalMaterial provides material,
+    ) { content() }
 }
 
 /* ── geometry (variables.css) ──────────────────────────────────────────── */

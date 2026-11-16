@@ -254,10 +254,10 @@ def api_docs():
 
 # ---------------------------------------------------------------- settings + version
 DEFAULT_SETTINGS = {
-    "theme": "dusk", "accent": "#a06bff", "density": "comfy", "covers": True,
-    "autoplay": True, "hide_explicit": False, "private": False, "yt_stats": True,
-    "remember_volume": True, "volume": 0.8, "prefetch": True, "offline_audio": True,
-    "rotur_activity": False, "show_room_url": False,
+    "theme": "dusk", "accent": "#a06bff", "density": "comfy", "material": "glass",
+    "covers": True, "autoplay": True, "hide_explicit": False, "private": False,
+    "yt_stats": True, "remember_volume": True, "volume": 0.8, "prefetch": True,
+    "offline_audio": True, "rotur_activity": False, "show_room_url": False,
     "real_glass": "auto",
 }
 
