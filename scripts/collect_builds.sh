@@ -23,11 +23,18 @@ deb_src="apps/linux/mcmusic-desktop_${desktop_version}_all.deb"
 find builds -maxdepth 1 -name 'mcmusic-desktop_*_all.deb' -delete
 find builds -maxdepth 1 -name 'mcmusic-linux-source.zip' -delete
 
-# CI without the original debug keystore must not replace the working APK:
-# a freshly generated key has a different signature and Android refuses the
-# update. In that mode the committed APK is the one that ships.
+# CI without the original debug keystore must not replace an already-working
+# committed APK (a freshly generated key has a different signature and
+# in-place updates can fail). But we must still publish the current-version
+# build so /api/builds, GitHub Releases, and in-app update checks can see it.
 if [ "${MCMUSIC_KEEP_APK:-0}" = "1" ]; then
-  echo "keeping the committed Android APK (MCMUSIC_KEEP_APK=1)"
+  echo "MCMUSIC_KEEP_APK=1: preserving existing committed APKs where present"
+  if [ -f "$apk_src" ]; then
+    cp "$apk_src" "builds/mcmusic-${android_version}.apk"
+    echo "collected builds/mcmusic-${android_version}.apk (current build)"
+  elif [ ! -f "builds/mcmusic-${android_version}.apk" ]; then
+    echo "no Android APK at $apk_src and no committed builds/mcmusic-${android_version}.apk" >&2
+  fi
 else
   find builds -maxdepth 1 -name 'mcmusic-*.apk' -delete
   if [ -f "$apk_src" ]; then
