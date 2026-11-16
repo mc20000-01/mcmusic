@@ -1,5 +1,8 @@
 package dev.mcmusic.app.ui.theme
 
+import android.graphics.RenderEffect
+import android.graphics.Shader
+import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -11,10 +14,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.asComposeRenderEffect
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -199,9 +205,9 @@ val LocalGfxLevel = staticCompositionLocalOf { 3 }
 val LocalMaterial = staticCompositionLocalOf { "glass" }
 
 /**
- * One glass layer for every floating surface. The blur is supplied by the
- * platform where available; every version keeps the same fill, border and
- * top highlight so the hierarchy never changes.
+ * Surface material layer for floating chrome.
+ * "glass" applies real platform blur on Android 12+ with layered highlights
+ * (stronger, more liquid/refraction-like feel) and degrades gracefully.
  */
 @Composable
 fun Modifier.glass(
@@ -212,18 +218,21 @@ fun Modifier.glass(
     val gfx = LocalGfxLevel.current
     val material = LocalMaterial.current
     val solidPerf = gfx <= 1
+    val useRealGlass = material == "glass" && gfx >= 3 && Build.VERSION.SDK_INT >= 31
     val fill = when {
         material == "solid" && strong -> mc.surface2
         material == "solid" -> mc.surface
         material == "plane" && strong -> mc.surface
         material == "plane" -> mc.bg2
+        useRealGlass && strong -> mc.glassStrong.copy(alpha = 0.72f)
+        useRealGlass -> mc.glass.copy(alpha = 0.58f)
         solidPerf && strong -> mc.bg2.copy(alpha = 0.94f)
         solidPerf -> mc.bg2.copy(alpha = 0.88f)
         strong -> mc.glassStrong
         else -> mc.glass
     }
-    val borderBrush = when (material) {
-        "metal" -> Brush.linearGradient(
+    val borderBrush = when {
+        material == "metal" -> Brush.linearGradient(
             listOf(
                 mc.glassHighlight.copy(alpha = 0.95f),
                 mc.glassBorder,
@@ -231,14 +240,28 @@ fun Modifier.glass(
                 mc.glassBorder,
             )
         )
-        "plane" -> Brush.linearGradient(listOf(mc.line.copy(alpha = 0.7f), mc.line.copy(alpha = 0.7f)))
-        "solid" -> Brush.linearGradient(listOf(mc.line2, mc.line2))
+        material == "plane" -> Brush.linearGradient(listOf(mc.line.copy(alpha = 0.7f), mc.line.copy(alpha = 0.7f)))
+        material == "solid" -> Brush.linearGradient(listOf(mc.line2, mc.line2))
+        useRealGlass -> Brush.linearGradient(
+            listOf(
+                mc.glassHighlight.copy(alpha = 0.85f),
+                mc.glassBorder.copy(alpha = 0.75f),
+                mc.accentSoft.copy(alpha = 0.55f),
+            )
+        )
         else -> Brush.linearGradient(listOf(mc.glassHighlight, mc.glassBorder))
     }
-    val highlight = when (material) {
-        "metal" -> Brush.verticalGradient(listOf(mc.glassHighlight.copy(alpha = 0.22f), Color.Transparent))
-        "solid" -> Brush.verticalGradient(listOf(mc.fg.copy(alpha = 0.04f), Color.Transparent))
-        "plane" -> Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent))
+    val highlight = when {
+        material == "metal" -> Brush.verticalGradient(listOf(mc.glassHighlight.copy(alpha = 0.22f), Color.Transparent))
+        material == "solid" -> Brush.verticalGradient(listOf(mc.fg.copy(alpha = 0.04f), Color.Transparent))
+        material == "plane" -> Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent))
+        useRealGlass -> Brush.verticalGradient(
+            listOf(
+                mc.glassHighlight.copy(alpha = 0.30f),
+                Color.Transparent,
+                mc.accentSoft.copy(alpha = 0.08f),
+            )
+        )
         else -> Brush.verticalGradient(listOf(mc.glassHighlight.copy(alpha = 0.10f), Color.Transparent))
     }
     val elevation = when {
@@ -249,12 +272,37 @@ fun Modifier.glass(
         gfx == 1 -> 2.dp
         else -> 8.dp
     }
-    return this
+    var m = this
         .shadow(elevation, shape)
         .clip(shape)
+    if (useRealGlass) {
+        val blur = if (strong) 24f else 18f
+        m = m.graphicsLayer {
+            renderEffect = RenderEffect
+                .createBlurEffect(blur, blur, Shader.TileMode.CLAMP)
+                .asComposeRenderEffect()
+        }
+    }
+    m = m
         .background(fill, shape)
         .background(highlight, shape)
-        .border(1.dp, borderBrush, shape)
+    if (useRealGlass) {
+        m = m.drawWithCache {
+            onDrawWithContent {
+                drawContent()
+                drawRect(
+                    Brush.linearGradient(
+                        listOf(
+                            mc.glassHighlight.copy(alpha = 0.16f),
+                            Color.Transparent,
+                            mc.accentSoft.copy(alpha = 0.12f),
+                        )
+                    )
+                )
+            }
+        }
+    }
+    return m.border(1.dp, borderBrush, shape)
 }
 
 @Composable
