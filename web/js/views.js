@@ -1375,6 +1375,17 @@ async function settings(container) {
     };
     return b;
   })()));
+
+  /* the public embed gallery: copy-paste player cards for a site or README */
+  pAcct.appendChild(row("Embed widgets", "Player cards for a site, README or bio", (() => {
+    const a = document.createElement("a");
+    a.className = "btn ghost sm";
+    a.href = "/embeds";
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.textContent = "Open demo";
+    return a;
+  })()));
   container.appendChild(pAcct);
 
   /* apps — every build we publish, pulled from the server so this list can't

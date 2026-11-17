@@ -74,6 +74,54 @@ JAVA_HOME=$PWD/.toolchain/jdk PATH=$PWD/.toolchain/jdk/bin:$PATH \
 `https://<your-server>/get` redirects to the newest Android build, and
 `/api/builds` is the list the website and the email form read.
 
+## Embeds
+
+Any page can show what one of your users is playing with a single custom
+element. `/embeds` on your server is a live gallery of every widget with copy
+buttons, a theme/accent picker and a starter stylesheet:
+
+```html
+<script src="https://<your-server>/static/embed/widgets.js"
+        data-mcmusic-base="https://<your-server>" defer></script>
+
+<mcmusic-now user="sandisk"></mcmusic-now>
+```
+
+| Tag | Shape |
+| --- | --- |
+| `mcmusic-now` | Cover, title, artist, live progress, listening state |
+| `mcmusic-turntable` | Spinning vinyl that stops when playback pauses |
+| `mcmusic-card` | Larger profile-style card, artwork and username first |
+| `mcmusic-bar` | One-line horizontal bar |
+| `mcmusic-marquee` | Scrolling ticker |
+| `mcmusic-badge` | Inline pill for bios and link-in-bio pages |
+| `mcmusic-now-playing`, `mcmusic-profile`, `mcmusic-ticker` | Aliases of `now`, `card` and `marquee` |
+
+Attributes: `user` (required), `theme` (`dusk`, `paper`, `ink`, `tide`,
+`copper`, `forest`, `rose` or `auto`), `accent` (any CSS colour), `compact`
+(presence) and `refresh` (seconds, minimum 5, default 12). Widgets render in a
+shadow root, so page CSS only reaches the outside: width, margins,
+`--mc-radius`, `--mc-font` and the colour variables.
+
+Colours come from the `theme` and `accent` attributes unless your own CSS
+declares them, in which case the page wins — so a site-wide palette is just:
+
+```css
+mcmusic-now, mcmusic-card, mcmusic-bar {
+  --mc-bg: #101418;    /* card background      */
+  --mc-bg2: #0a0d10;   /* gradient end         */
+  --mc-fg: #f2f4f7;    /* primary text         */
+  --mc-dim: #a9b4bf;   /* secondary text       */
+  --mc-line: #2a343d;  /* borders              */
+  --mc-accent: #7bd6a0; /* dot, progress, links */
+}
+```
+
+The same variables also work as `style="--mc-fg: …"` on an individual tag.
+Widgets poll `/api/public/now/<username>`; `/api/public/listening` lists
+recently active users, and both send `Access-Control-Allow-Origin: *` so an
+embed can live on any domain.
+
 ## A note on email
 
 Gmail and several other providers reject `.apk` attachments outright — even
