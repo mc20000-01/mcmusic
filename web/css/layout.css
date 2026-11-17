@@ -22,8 +22,11 @@
   gap: 1px;
   min-height: 0;
   padding: 18px 12px 12px;
-  background: var(--bg-2);
-  border-right: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg-2) 78%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--glass-border) 55%, var(--line));
+  backdrop-filter: var(--glass-small-blur);
+  -webkit-backdrop-filter: var(--glass-small-blur);
+  box-shadow: inset -1px 0 0 rgba(255,255,255,0.03);
   overflow: hidden;
 }
 
@@ -204,8 +207,11 @@
   gap: 10px;
   height: var(--top-h);
   padding: 0 var(--gutter);
-  border-bottom: 1px solid var(--line);
-  background: var(--bg);
+  border-bottom: 1px solid color-mix(in srgb, var(--glass-border) 55%, var(--line));
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  backdrop-filter: var(--glass-small-blur);
+  -webkit-backdrop-filter: var(--glass-small-blur);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.03) inset;
   z-index: var(--z-top);
 }
 
@@ -293,8 +299,11 @@
   align-items: center;
   gap: 18px;
   padding: 0 max(20px, calc((100vw - var(--maxw)) / 2));
-  background: var(--bg-2);
-  border-top: 1px solid var(--line-2);
+  background: color-mix(in srgb, var(--bg-2) 70%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--glass-border) 55%, var(--line-2));
+  backdrop-filter: var(--glass-small-blur);
+  -webkit-backdrop-filter: var(--glass-small-blur);
+  box-shadow: 0 -1px 0 rgba(255,255,255,0.04) inset, 0 -10px 30px rgba(0,0,0,0.12);
   position: relative;
   z-index: var(--z-top);
 }
@@ -303,9 +312,9 @@
   content: "";
   position: absolute;
   inset: 0 0 auto;
-  height: 2px;
-  background: linear-gradient(90deg, var(--accent), transparent 70%);
-  opacity: 0.5;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 70%, #fff), transparent);
+  opacity: 0.45;
 }
 
 .deck-now {
