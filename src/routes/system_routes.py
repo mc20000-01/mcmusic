@@ -141,10 +141,10 @@ def public_profile(username):
 <meta name="twitter:description" content="{escape(desc)}">
 <meta name="twitter:image" content="{escape(cover_url)}">
 <style>
-:root{{color-scheme:dark;--bg:#08060d;--panel:#15101f;--line:#2c2440;--fg:#f2ecff;--dim:#a99bbd;--accent:#a06bff}}
-*{{box-sizing:border-box}}body{{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 0,#2b1850 0,var(--bg) 55%);color:var(--fg);font:15px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;display:grid;place-items:center;padding:24px}}
+:root{{color-scheme:dark;--bg:#0e0a13;--panel:#1b1325;--line:#3e2b54;--fg:#f2edf7;--dim:#b9abc9;--accent:#b080ea}}
+*{{box-sizing:border-box}}body{{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 0,#241931 0,var(--bg) 55%);color:var(--fg);font:15px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;display:grid;place-items:center;padding:24px}}
 a{{color:inherit}}.card{{width:min(100%,430px);background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:18px;box-shadow:0 24px 80px #0008}}
-img{{width:100%;aspect-ratio:1;object-fit:cover;border-radius:15px;display:block;background:#241b31}}
+img{{width:100%;aspect-ratio:1;object-fit:cover;border-radius:15px;display:block;background:#241931}}
 .kicker{{margin:18px 0 4px;color:var(--accent);font-size:11px;letter-spacing:.14em;text-transform:uppercase}}
 h1{{margin:0;font-size:27px;line-height:1.1;letter-spacing:-.03em}}
 .state{{color:var(--dim);font-size:12px;margin-top:8px}}.track{{font-size:16px;margin-top:14px;font-weight:600}}
@@ -310,9 +310,9 @@ def embed_info():
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>mcmusic embeds & widgets</title>
 <style>
-:root{--bg:#08060d;--bg2:#151022;--panel:#110c1c;--fg:#f2ecff;--dim:#a89ec6;--line:#332a4d;--accent:#a06bff}
-*{box-sizing:border-box}body{margin:0;font:15px/1.55 Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:radial-gradient(1200px 500px at 80% -10%,#2a1558 0,transparent 60%),var(--bg);color:var(--fg)}
-a{color:#c7a8ff}.wrap{max-width:1080px;margin:0 auto;padding:28px 18px 60px}
+:root{--bg:#0e0a13;--bg2:#1b1325;--panel:#1b1325;--fg:#f2edf7;--dim:#b9abc9;--line:#3e2b54;--accent:#b080ea}
+*{box-sizing:border-box}body{margin:0;font:15px/1.55 Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:radial-gradient(1200px 500px at 80% -10%,#241931 0,transparent 60%),var(--bg);color:var(--fg)}
+a{color:#d5c0f5}.wrap{max-width:1080px;margin:0 auto;padding:28px 18px 60px}
 h1{margin:0 0 6px;font-size:34px;letter-spacing:-.02em}h2{margin:26px 0 10px;font-size:20px}p{color:var(--dim);margin:8px 0}
 .hero{padding:18px 0 8px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:14px}
 .card{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid color-mix(in srgb,var(--line) 80%,transparent);border-radius:18px;padding:14px;backdrop-filter:blur(14px);box-shadow:0 12px 30px rgba(0,0,0,.25)}

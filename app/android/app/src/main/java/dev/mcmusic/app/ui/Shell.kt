@@ -388,8 +388,14 @@ private fun Deck(vm: AppViewModel, modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             SwipeToSkip(
-                onPrevious = { vm.engine.prev() },
-                onNext = { vm.engine.next() },
+                onPrevious = {
+                    val i = vm.engine.index
+                    if (i > 0) vm.engine.jumpTo(i - 1)
+                },
+                onNext = {
+                    val i = vm.engine.index
+                    if (i in 0 until vm.engine.queue.lastIndex) vm.engine.jumpTo(i + 1)
+                },
                 compact = true,
                 modifier = Modifier.weight(1f).fillMaxHeight(),
             ) {

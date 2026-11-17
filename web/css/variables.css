@@ -5,26 +5,30 @@
    ========================================================================== */
 
 :root {
-  /* palette — night: black ink, violet accent (the default) */
-  --bg:          #08060d;
-  --bg-2:        #0d0a15;
-  --surface:     #151022;
-  --surface-2:   #1d1630;
-  --fg:          #f2ecff;
-  --dim:         #a89ec6;
-  --dim-2:       #726a8c;
-  --line:        #1f1832;
-  --line-2:      #332a4d;
-  --accent:      #a06bff;
-  --accent-fg:   #0b0616;
-  --accent-soft: rgba(160, 107, 255, 0.16);
-  --ok:          #63c98d;
-  --warn:        #e3bd52;
-  --err:         #e4627e;
-  --scrim:       rgba(5, 3, 9, 0.76);
+  /* palette — night: black ink, violet accent (the default).
+     Every theme uses one HSL ladder: bg 5.5%, bg-2 8%, surface 11%,
+     surface-2 14.5%, line 18%, line-2 25%, dim 73%, dim-2 61%. That keeps
+     the steps even, makes dim/dim-2 legible on every surface, and stops
+     each theme from drifting into its own contrast rules. */
+  --bg:          #0e0a13;
+  --bg-2:        #140e1b;
+  --surface:     #1b1325;
+  --surface-2:   #241931;
+  --fg:          #f2edf7;
+  --dim:         #b9abc9;
+  --dim-2:       #9a8cab;
+  --line:        #2c1f3d;
+  --line-2:      #3e2b54;
+  --accent:      #b080ea;
+  --accent-fg:   #191023;
+  --accent-soft: rgba(176, 128, 234, 0.15);
+  --ok:          #77cfa3;
+  --warn:        #ecc665;
+  --err:         #e8737a;
+  --scrim:       rgba(7, 5, 10, 0.76);
 
   /* surfaces that are always dark (console, overlay) */
-  --ink:         #050309;
+  --ink:         #07050a;
 
   /* layout — flows from a phone up to an ultrawide panel */
   --rail:        clamp(196px, 13.5vw, 296px);
@@ -72,104 +76,107 @@
 
 /* — paper: warm light — */
 [data-theme="paper"] {
-  --bg:          #f4efe4;
-  --bg-2:        #ece4d5;
-  --surface:     #fbf7ee;
-  --surface-2:   #efe7d8;
-  --fg:          #241d14;
-  --dim:         #6d6151;
-  --dim-2:       #8d8069;
-  --line:        #dcd1bd;
-  --line-2:      #bfb098;
-  --accent:      #b4531f;
-  --accent-fg:   #fff8ef;
-  --accent-soft: rgba(180, 83, 31, 0.12);
-  --scrim:       rgba(40, 32, 20, 0.34);
-  --ink:         #1b1610;
+  --bg:          #f2ebe4;
+  --bg-2:        #e8dfd4;
+  --surface:     #faf8f4;
+  --surface-2:   #ebe4db;
+  --fg:          #281f15;
+  --dim:         #5d4f41;
+  --dim-2:       #716356;
+  --line:        #d3c8bb;
+  --line-2:      #baa997;
+  --accent:      #9a4b1d;
+  --accent-fg:   #fbf7f4;
+  --accent-soft: rgba(154, 75, 29, 0.12);
+  --ok:          #28714d;
+  --warn:        #7f5b0c;
+  --err:         #a12129;
+  --scrim:       rgba(33, 26, 18, 0.34);
+  --ink:         #211a12;
 }
 
 /* — ink: near-black, high contrast — */
 [data-theme="ink"] {
-  --bg:          #050505;
-  --bg-2:        #0b0b0c;
-  --surface:     #121214;
-  --surface-2:   #191a1d;
-  --fg:          #f5f5f5;
-  --dim:         #8f8f96;
-  --dim-2:       #64646b;
-  --line:        #212126;
-  --line-2:      #34343b;
-  --accent:      #d7d7de;
-  --accent-fg:   #0a0a0a;
-  --accent-soft: rgba(215, 215, 222, 0.1);
+  --bg:          #0d0d0f;
+  --bg-2:        #131316;
+  --surface:     #1a1a1e;
+  --surface-2:   #232327;
+  --fg:          #ededf7;
+  --dim:         #ababc9;
+  --dim-2:       #8c8cab;
+  --line:        #2b2b31;
+  --line-2:      #3c3c44;
+  --accent:      #dadadd;
+  --accent-fg:   #101023;
+  --accent-soft: rgba(218, 218, 221, 0.15);
 }
 
 /* — tide: cool linen blue-grey — */
 [data-theme="tide"] {
-  --bg:          #0e161a;
-  --bg-2:        #131e23;
-  --surface:     #18262c;
-  --surface-2:   #1f3038;
-  --fg:          #e4eef1;
-  --dim:         #8ba3ab;
-  --dim-2:       #647e87;
-  --line:        #23363d;
-  --line-2:      #33505a;
-  --accent:      #6fb3c4;
-  --accent-fg:   #06171c;
-  --accent-soft: rgba(111, 179, 196, 0.14);
+  --bg:          #0a1012;
+  --bg-2:        #0f181a;
+  --surface:     #142124;
+  --surface-2:   #1b2b2f;
+  --fg:          #edf5f7;
+  --dim:         #abc3c9;
+  --dim-2:       #8ca5ab;
+  --line:        #21353b;
+  --line-2:      #2e4a52;
+  --accent:      #89cee1;
+  --accent-fg:   #101f23;
+  --accent-soft: rgba(137, 206, 225, 0.15);
 }
 
 /* — copper: deep red-brown — */
 [data-theme="copper"] {
-  --bg:          #1a0f0d;
-  --bg-2:        #221412;
-  --surface:     #2b1a16;
-  --surface-2:   #37211c;
-  --fg:          #f6e7df;
-  --dim:         #b2928a;
-  --dim-2:       #856a63;
-  --line:        #3a241f;
-  --line-2:      #553229;
-  --accent:      #e08a5f;
-  --accent-fg:   #1c0d08;
-  --accent-soft: rgba(224, 138, 95, 0.14);
+  --bg:          #130c09;
+  --bg-2:        #1c110d;
+  --surface:     #261812;
+  --surface-2:   #322018;
+  --fg:          #f7f0ed;
+  --dim:         #c9b4ab;
+  --dim-2:       #ab958c;
+  --line:        #3e271d;
+  --line-2:      #573729;
+  --accent:      #eaa07b;
+  --accent-fg:   #231610;
+  --accent-soft: rgba(234, 160, 123, 0.15);
 }
 
 /* — forest: calm deep greens — */
 [data-theme="forest"] {
-  --bg:          #0b1410;
-  --bg-2:        #101d16;
-  --surface:     #15261d;
-  --surface-2:   #1c3126;
-  --fg:          #e7f3ec;
-  --dim:         #95b2a2;
-  --dim-2:       #6d8a7a;
-  --line:        #1e3328;
-  --line-2:      #2f4d3d;
-  --accent:      #6fcf97;
-  --accent-fg:   #07130d;
-  --accent-soft: rgba(111, 207, 151, 0.15);
-  --scrim:       rgba(6, 13, 10, 0.76);
+  --bg:          #0a120e;
+  --bg-2:        #0e1b14;
+  --surface:     #14241b;
+  --surface-2:   #1a3024;
+  --fg:          #edf7f2;
+  --dim:         #abc9b9;
+  --dim-2:       #8cab9a;
+  --line:        #203c2d;
+  --line-2:      #2d533e;
+  --accent:      #79d8a5;
+  --accent-fg:   #102319;
+  --accent-soft: rgba(121, 216, 165, 0.15);
+  --scrim:       rgba(5, 10, 7, 0.76);
   --ink:         #050a07;
 }
 
 /* — rose: warm dusty plum — */
 [data-theme="rose"] {
-  --bg:          #171015;
-  --bg-2:        #1f151b;
-  --surface:     #2a1b23;
-  --surface-2:   #35222d;
-  --fg:          #f7ebf1;
-  --dim:         #c2a6b4;
-  --dim-2:       #937786;
-  --line:        #352430;
-  --line-2:      #523646;
-  --accent:      #e58ab2;
-  --accent-fg:   #1a0a12;
-  --accent-soft: rgba(229, 138, 178, 0.15);
-  --scrim:       rgba(14, 8, 11, 0.76);
-  --ink:         #0b0608;
+  --bg:          #120a0e;
+  --bg-2:        #1b0e14;
+  --surface:     #24141c;
+  --surface-2:   #301a25;
+  --fg:          #f7edf2;
+  --dim:         #c9abba;
+  --dim-2:       #ab8c9c;
+  --line:        #3c202e;
+  --line-2:      #532d40;
+  --accent:      #ea90b8;
+  --accent-fg:   #231019;
+  --accent-soft: rgba(234, 144, 184, 0.15);
+  --scrim:       rgba(10, 5, 8, 0.76);
+  --ink:         #0a0508;
 }
 
 /* accent override written by JS (settings) */
@@ -179,8 +186,8 @@
   /* ── Liquid Glass layer ────────────────────────────────────────────
      These are the only glass, radius and text tokens components use. */
   --t1: var(--fg);
-  --t2: color-mix(in srgb, var(--fg) 68%, transparent);
-  --t3: color-mix(in srgb, var(--fg) 55%, transparent);
+  --t2: var(--dim);
+  --t3: var(--dim-2);
   --hero: var(--accent);
   --tint: var(--bg);
   --glass: rgba(255, 255, 255, 0.10);

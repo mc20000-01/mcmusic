@@ -81,7 +81,7 @@ class SessionStore(context: Context) {
         }
 
     var accent: String
-        get() = prefs.getString("accent", "#a06bff") ?: "#a06bff"
+        get() = prefs.getString("accent", "#b080ea") ?: "#b080ea"
         set(value) {
             prefs.edit().putString("accent", value).apply()
         }

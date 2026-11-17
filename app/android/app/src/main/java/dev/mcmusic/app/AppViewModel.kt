@@ -1537,8 +1537,19 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     setDataAndType(uri, "application/vnd.android.package-archive")
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
-                runCatching { context.startActivity(install) }
-                    .onFailure { toast("Open the downloaded APK from Files to install") }
+                val handedOff = runCatching { context.startActivity(install) }.isSuccess
+                if (handedOff) {
+                    // The package installer owns the screen from here. Stop
+                    // playback and exit so Android is not left with a stale
+                    // foreground app sitting behind the update prompt.
+                    viewModelScope.launch {
+                        delay(600)
+                        runCatching { engine.release() }
+                        android.os.Process.killProcess(android.os.Process.myPid())
+                    }
+                } else {
+                    toast("Open the downloaded APK from Files to install")
+                }
             }.onFailure { error ->
                 updateDownloading = false
                 updateVerifying = false

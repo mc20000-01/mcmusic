@@ -63,70 +63,70 @@ data class McColors(
 private fun c(hex: String) = Color(android.graphics.Color.parseColor(hex))
 
 private val dusk = McColors(
-    bg = c("#08060d"), bg2 = c("#0d0a15"), surface = c("#151022"), surface2 = c("#1d1630"),
-    fg = c("#f2ecff"), dim = c("#a89ec6"), dim2 = c("#726a8c"),
-    line = c("#1f1832"), line2 = c("#332a4d"),
-    accent = c("#a06bff"), accentFg = c("#0b0616"), accentSoft = c("#a06bff").copy(alpha = 0.16f),
-    ok = c("#63c98d"), warn = c("#e3bd52"), err = c("#e4627e"),
-    scrim = Color(0xC408060D), ink = c("#050309"),
+    bg = c("#0e0a13"), bg2 = c("#140e1b"), surface = c("#1b1325"), surface2 = c("#241931"),
+    fg = c("#f2edf7"), dim = c("#b9abc9"), dim2 = c("#9a8cab"),
+    line = c("#2c1f3d"), line2 = c("#3e2b54"),
+    accent = c("#b080ea"), accentFg = c("#191023"), accentSoft = c("#b080ea").copy(alpha = 0.15f),
+    ok = c("#77cfa3"), warn = c("#ecc665"), err = c("#e8737a"),
+    scrim = Color(0xC407050A), ink = c("#07050a"),
 )
 
 private val paper = McColors(
-    bg = c("#f4efe4"), bg2 = c("#ece4d5"), surface = c("#fbf7ee"), surface2 = c("#efe7d8"),
-    fg = c("#241d14"), dim = c("#6d6151"), dim2 = c("#8d8069"),
-    line = c("#dcd1bd"), line2 = c("#bfb098"),
-    accent = c("#b4531f"), accentFg = c("#fff8ef"), accentSoft = c("#b4531f").copy(alpha = 0.12f),
-    ok = c("#5c8a4a"), warn = c("#a97f1f"), err = c("#b04a2c"),
-    scrim = Color(0x57282014), ink = c("#1b1610"),
+    bg = c("#f2ebe4"), bg2 = c("#e8dfd4"), surface = c("#faf8f4"), surface2 = c("#ebe4db"),
+    fg = c("#281f15"), dim = c("#5d4f41"), dim2 = c("#716356"),
+    line = c("#d3c8bb"), line2 = c("#baa997"),
+    accent = c("#9a4b1d"), accentFg = c("#fbf7f4"), accentSoft = c("#9a4b1d").copy(alpha = 0.12f),
+    ok = c("#28714d"), warn = c("#7f5b0c"), err = c("#a12129"),
+    scrim = Color(0x57211A12), ink = c("#211a12"),
     glass = Color.White.copy(alpha = 0.38f),
     glassStrong = Color.White.copy(alpha = 0.60f),
-    glassBorder = c("#241d14").copy(alpha = 0.16f),
+    glassBorder = c("#281f15").copy(alpha = 0.16f),
     glassHighlight = Color.White.copy(alpha = 0.70f),
 )
 
 private val ink = McColors(
-    bg = c("#050505"), bg2 = c("#0b0b0c"), surface = c("#121214"), surface2 = c("#191a1d"),
-    fg = c("#f5f5f5"), dim = c("#8f8f96"), dim2 = c("#64646b"),
-    line = c("#212126"), line2 = c("#34343b"),
-    accent = c("#d7d7de"), accentFg = c("#0a0a0a"), accentSoft = c("#d7d7de").copy(alpha = 0.10f),
-    ok = c("#87a878"), warn = c("#d8b45c"), err = c("#d4735f"),
-    scrim = Color(0xCC0A0A0E), ink = c("#07070a"),
+    bg = c("#0d0d0f"), bg2 = c("#131316"), surface = c("#1a1a1e"), surface2 = c("#232327"),
+    fg = c("#ededf7"), dim = c("#ababc9"), dim2 = c("#8c8cab"),
+    line = c("#2b2b31"), line2 = c("#3c3c44"),
+    accent = c("#dadadd"), accentFg = c("#101023"), accentSoft = c("#dadadd").copy(alpha = 0.15f),
+    ok = c("#77cfa3"), warn = c("#ecc665"), err = c("#e8737a"),
+    scrim = Color(0xC4070708), ink = c("#070708"),
 )
 
 private val tide = McColors(
-    bg = c("#0e161a"), bg2 = c("#131e23"), surface = c("#18262c"), surface2 = c("#1f3038"),
-    fg = c("#e4eef1"), dim = c("#8ba3ab"), dim2 = c("#647e87"),
-    line = c("#23363d"), line2 = c("#33505a"),
-    accent = c("#6fb3c4"), accentFg = c("#06171c"), accentSoft = c("#6fb3c4").copy(alpha = 0.14f),
-    ok = c("#7fa86a"), warn = c("#d9b13d"), err = c("#c9603f"),
-    scrim = Color(0xC4060F13), ink = c("#070d10"),
+    bg = c("#0a1012"), bg2 = c("#0f181a"), surface = c("#142124"), surface2 = c("#1b2b2f"),
+    fg = c("#edf5f7"), dim = c("#abc3c9"), dim2 = c("#8ca5ab"),
+    line = c("#21353b"), line2 = c("#2e4a52"),
+    accent = c("#89cee1"), accentFg = c("#101f23"), accentSoft = c("#89cee1").copy(alpha = 0.15f),
+    ok = c("#77cfa3"), warn = c("#ecc665"), err = c("#e8737a"),
+    scrim = Color(0xC406090A), ink = c("#06090a"),
 )
 
 private val copper = McColors(
-    bg = c("#1a0f0d"), bg2 = c("#221412"), surface = c("#2b1a16"), surface2 = c("#37211c"),
-    fg = c("#f6e7df"), dim = c("#b2928a"), dim2 = c("#856a63"),
-    line = c("#3a241f"), line2 = c("#553229"),
-    accent = c("#e08a5f"), accentFg = c("#1c0d08"), accentSoft = c("#e08a5f").copy(alpha = 0.14f),
-    ok = c("#7fa86a"), warn = c("#d9b13d"), err = c("#c9603f"),
-    scrim = Color(0xCC120807), ink = c("#0d0706"),
+    bg = c("#130c09"), bg2 = c("#1c110d"), surface = c("#261812"), surface2 = c("#322018"),
+    fg = c("#f7f0ed"), dim = c("#c9b4ab"), dim2 = c("#ab958c"),
+    line = c("#3e271d"), line2 = c("#573729"),
+    accent = c("#eaa07b"), accentFg = c("#231610"), accentSoft = c("#eaa07b").copy(alpha = 0.15f),
+    ok = c("#77cfa3"), warn = c("#ecc665"), err = c("#e8737a"),
+    scrim = Color(0xC40A0705), ink = c("#0a0705"),
 )
 
 private val forest = McColors(
-    bg = c("#0b1410"), bg2 = c("#101d16"), surface = c("#15261d"), surface2 = c("#1c3126"),
-    fg = c("#e7f3ec"), dim = c("#95b2a2"), dim2 = c("#6d8a7a"),
-    line = c("#1e3328"), line2 = c("#2f4d3d"),
-    accent = c("#6fcf97"), accentFg = c("#07130d"), accentSoft = c("#6fcf97").copy(alpha = 0.15f),
-    ok = c("#7fdca5"), warn = c("#e0c46b"), err = c("#e07a7a"),
-    scrim = Color(0xC4060D0A), ink = c("#050a07"),
+    bg = c("#0a120e"), bg2 = c("#0e1b14"), surface = c("#14241b"), surface2 = c("#1a3024"),
+    fg = c("#edf7f2"), dim = c("#abc9b9"), dim2 = c("#8cab9a"),
+    line = c("#203c2d"), line2 = c("#2d533e"),
+    accent = c("#79d8a5"), accentFg = c("#102319"), accentSoft = c("#79d8a5").copy(alpha = 0.15f),
+    ok = c("#77cfa3"), warn = c("#ecc665"), err = c("#e8737a"),
+    scrim = Color(0xC4050A07), ink = c("#050a07"),
 )
 
 private val rose = McColors(
-    bg = c("#171015"), bg2 = c("#1f151b"), surface = c("#2a1b23"), surface2 = c("#35222d"),
-    fg = c("#f7ebf1"), dim = c("#c2a6b4"), dim2 = c("#937786"),
-    line = c("#352430"), line2 = c("#523646"),
-    accent = c("#e58ab2"), accentFg = c("#1a0a12"), accentSoft = c("#e58ab2").copy(alpha = 0.15f),
-    ok = c("#7fdca5"), warn = c("#e6c76f"), err = c("#ef8a8a"),
-    scrim = Color(0xC40E080B), ink = c("#0b0608"),
+    bg = c("#120a0e"), bg2 = c("#1b0e14"), surface = c("#24141c"), surface2 = c("#301a25"),
+    fg = c("#f7edf2"), dim = c("#c9abba"), dim2 = c("#ab8c9c"),
+    line = c("#3c202e"), line2 = c("#532d40"),
+    accent = c("#ea90b8"), accentFg = c("#231019"), accentSoft = c("#ea90b8").copy(alpha = 0.15f),
+    ok = c("#77cfa3"), warn = c("#ecc665"), err = c("#e8737a"),
+    scrim = Color(0xC40A0508), ink = c("#0a0508"),
 )
 
 val McThemes = listOf("dusk", "paper", "ink", "tide", "copper", "forest", "rose", "auto")
@@ -144,8 +144,8 @@ fun themeLabel(key: String): String = when (key) {
 }
 
 val McAccents = listOf(
-    "#a06bff", "#7c5cff", "#c77dff", "#6fcf97",
-    "#63c98d", "#e3bd52", "#e58ab2", "#e4627e", "#6fb3c4", "#f2ecff",
+    "#b080ea", "#9a7cf0", "#d29cf0", "#79d8a5",
+    "#77cfa3", "#ecc665", "#ea90b8", "#e8737a", "#89cee1", "#f2edf7",
 )
 
 @Immutable

@@ -30,18 +30,18 @@
 /* theme preview swatches (settings) */
 /* Theme previews are defined once here, from each palette's real bg,
    surface and accent. The card just paints the three bands. */
-.th-dusk   { --sw-bg: #151022; --sw-surface: #241a38; --sw-accent: #a06bff; }
-.th-paper  { --sw-bg: #f4efe4; --sw-surface: #fbf7ee; --sw-accent: #b4531f; }
-.th-ink    { --sw-bg: #0b0b0c; --sw-surface: #1d1d22; --sw-accent: #d7d7de; }
-.th-tide   { --sw-bg: #0e161a; --sw-surface: #1f3038; --sw-accent: #6fb3c4; }
-.th-copper { --sw-bg: #1a0f0d; --sw-surface: #37211c; --sw-accent: #e08a5f; }
-.th-forest { --sw-bg: #0b1410; --sw-surface: #1c3126; --sw-accent: #6fcf97; }
-.th-rose   { --sw-bg: #171015; --sw-surface: #35222d; --sw-accent: #e58ab2; }
+.th-dusk   { --sw-bg: #1b1325; --sw-surface: #241931; --sw-accent: #b080ea; }
+.th-paper  { --sw-bg: #f2ebe4; --sw-surface: #faf8f4; --sw-accent: #9a4b1d; }
+.th-ink    { --sw-bg: #131316; --sw-surface: #232327; --sw-accent: #dadadd; }
+.th-tide   { --sw-bg: #0a1012; --sw-surface: #1b2b2f; --sw-accent: #89cee1; }
+.th-copper { --sw-bg: #130c09; --sw-surface: #322018; --sw-accent: #eaa07b; }
+.th-forest { --sw-bg: #0a120e; --sw-surface: #1a3024; --sw-accent: #79d8a5; }
+.th-rose   { --sw-bg: #120a0e; --sw-surface: #301a25; --sw-accent: #ea90b8; }
 .th-auto {
-  --sw-bg: #0b0b0c;
-  --sw-surface: #f4efe4;
-  --sw-accent: #a06bff;
-  background: linear-gradient(90deg, #0b0b0c 0 50%, #f4efe4 50% 100%);
+  --sw-bg: #0d0d0f;
+  --sw-surface: #f2ebe4;
+  --sw-accent: #b080ea;
+  background: linear-gradient(90deg, #0d0d0f 0 50%, #f2ebe4 50% 100%);
 }
 
 /* keep the focus ring visible on light surfaces */

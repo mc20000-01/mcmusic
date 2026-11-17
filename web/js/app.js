@@ -24,7 +24,7 @@ const root = document.documentElement;
 
 const DEFAULTS = {
   theme: "rose",
-  accent: "#7ee0b0",
+  accent: "#79d8a5",
   density: "comfy",
   material: "plane",
   covers: true,
@@ -1322,7 +1322,7 @@ class App {
     root.dataset.theme = resolved;
     root.dataset.material = s.material || "plane";
     root.style.setProperty("--accent", s.accent);
-    root.style.setProperty("--accent-fg", luminance(s.accent) > 0.6 ? "#0b0616" : "#f2ecff");
+    root.style.setProperty("--accent-fg", luminance(s.accent) > 0.6 ? "#191023" : "#f2edf7");
     const { r, g, b } = hexToRgb(s.accent);
     root.style.setProperty("--accent-soft", `rgba(${r}, ${g}, ${b}, 0.14)`);
 
@@ -1334,7 +1334,7 @@ class App {
 
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) {
-      const bg = getComputedStyle(root).getPropertyValue("--bg").trim() || "#08060d";
+      const bg = getComputedStyle(root).getPropertyValue("--bg").trim() || "#0e0a13";
       meta.setAttribute("content", bg);
     }
   }

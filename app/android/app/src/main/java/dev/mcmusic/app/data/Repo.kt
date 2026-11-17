@@ -450,7 +450,7 @@ class Repo(private val api: Api, private val store: SessionStore) {
 
 data class Settings(
     val theme: String = "dusk",
-    val accent: String = "#a06bff",
+    val accent: String = "#b080ea",
     val density: String = "comfy",
     val material: String = "glass",
     val realGlass: String = "auto",
@@ -489,7 +489,7 @@ data class Settings(
     companion object {
         fun from(o: JSONObject) = Settings(
             theme = o.optString("theme", "dusk"),
-            accent = o.optString("accent", "#a06bff"),
+            accent = o.optString("accent", "#b080ea"),
             density = o.optString("density", "comfy"),
             material = o.optString("material", "glass"),
             realGlass = o.optString("real_glass", "auto"),

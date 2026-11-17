@@ -3,13 +3,13 @@
    ========================================================================== */
 
 :root {
-  --bg: #08060d;
-  --bg-2: #0d0a15;
-  --fg: #f2ecff;
-  --dim: #a89ec6;
-  --line-2: #332a4d;
-  --accent: #a06bff;
-  --accent-fg: #0b0616;
+  --bg: #0e0a13;
+  --bg-2: #140e1b;
+  --fg: #f2edf7;
+  --dim: #b9abc9;
+  --line-2: #3e2b54;
+  --accent: #b080ea;
+  --accent-fg: #191023;
   --font-ui: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-display: "Inter", "SF Pro Display", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -21,7 +21,7 @@ html, body {
   margin: 0;
   min-height: 100%;
   background:
-    radial-gradient(120% 80% at 50% -10%, rgba(160, 107, 255, 0.16), transparent 60%),
+    radial-gradient(120% 80% at 50% -10%, rgba(176, 128, 234, 0.16), transparent 60%),
     var(--bg);
   color: var(--fg);
   font-family: var(--font-ui);
@@ -118,7 +118,7 @@ p b { color: var(--fg); font-weight: 600; }
 .card input[type="text"]:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(160, 107, 255, 0.16);
+  box-shadow: 0 0 0 3px rgba(176, 128, 234, 0.16);
 }
 
 /* submit is a real <button>; give it the same hit affordance as the anchors */

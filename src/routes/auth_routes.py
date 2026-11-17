@@ -256,6 +256,18 @@ def rotur_status():
     return rotur.status_route()
 
 
+@bp.get("/api/auth/rotur/key")
+def rotur_key():
+    """API discovery: the key a client mints a validator for, plus endpoints."""
+    return rotur.key_route()
+
+
+@bp.post("/api/auth/rotur/link")
+def rotur_link():
+    """Link a Rotur identity to the signed-in mcmusic account via a validator."""
+    return rotur.link_route()
+
+
 @bp.post("/api/auth/rotur/activity")
 @bp.post("/api/auth/rotur/live")
 @login_required
@@ -461,26 +473,26 @@ nothing was charged.
 """
 
     html = f"""<!doctype html>
-<html><body style="margin:0;padding:0;background:#08060d;">
+<html><body style="margin:0;padding:0;background:#0e0a13;">
 <div style="max-width:520px;margin:0 auto;padding:36px 24px;
-  font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#f2ecff;">
-  <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#8a7fa3;">
+  font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#f2edf7;">
+  <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#9a8cab;">
     mcmusic
   </div>
-  <h1 style="margin:10px 0 6px;font-size:24px;font-weight:600;color:#f2ecff;">
+  <h1 style="margin:10px 0 6px;font-size:24px;font-weight:600;color:#f2edf7;">
     {spec['name']}
   </h1>
-  <p style="margin:0 0 22px;font-size:13px;line-height:1.6;color:#b9b0cc;">
+  <p style="margin:0 0 22px;font-size:13px;line-height:1.6;color:#b9abc9;">
     {spec['note']} &middot; built {spec['built']} &middot; {size_mb:.1f} MB
   </p>
   <a href="{url}" style="display:inline-block;padding:13px 22px;border-radius:10px;
-    background:#a06bff;color:#0b0616;font-weight:600;font-size:14px;
+    background:#b080ea;color:#191023;font-weight:600;font-size:14px;
     text-decoration:none;">Download the {spec['label']} build</a>
-  <p style="margin:18px 0 0;font-size:12px;line-height:1.6;color:#8a7fa3;">
+  <p style="margin:18px 0 0;font-size:12px;line-height:1.6;color:#9a8cab;">
     Or paste this into the phone:<br>
-    <a href="{url}" style="color:#a06bff;word-break:break-all;">{url}</a>
+    <a href="{url}" style="color:#b080ea;word-break:break-all;">{url}</a>
   </p>
-  <p style="margin:26px 0 0;font-size:11px;line-height:1.7;color:#6f6685;">
+  <p style="margin:26px 0 0;font-size:11px;line-height:1.7;color:#9a8cab;">
     {why_html}
   </p>
 </div>
