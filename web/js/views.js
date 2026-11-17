@@ -1186,6 +1186,26 @@ async function settings(container) {
       return b;
     })()
   ));
+
+  p3.appendChild(row("Devices", "Sync and playback devices can get stuck after updates",
+    (() => {
+      const b = document.createElement("button");
+      b.className = "btn danger sm";
+      b.textContent = "Reset devices";
+      b.onclick = async () => {
+        if (!confirm("Clear all your device records? They will re-register automatically.")) return;
+        try {
+          await api("devices/clear", "POST");
+          toast("Devices cleared", { iconName: "check" });
+          app()?._syncDevices?.();
+          app()?._startHeartbeat?.();
+        } catch (e) {
+          toast(e.message);
+        }
+      };
+      return b;
+    })()
+  ));
   container.appendChild(p3);
 
   /* rotur */

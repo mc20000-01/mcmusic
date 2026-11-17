@@ -1405,71 +1405,54 @@ class App {
   }
 
   _paintDeck() {
-    const t = Player.current();
+    const local = Player.current();
+    const remote = this._remoteState && this._remoteState.device && this._remoteState.device !== deviceHash() && this._remoteState.track
+      ? this._remoteState : null;
+    // Mirror selected/active remote device state in the UI while local audio
+    // remains on this device (or routes through the selected player device).
+    const t = remote?.track || local;
     const title = document.getElementById("deck-title");
     const sub = document.getElementById("deck-sub");
     const holder = document.getElementById("deck-art");
     const like = document.getElementById("deck-like");
-    if (!title || !holder) return;
+    if (!title || !holder || !sub) return;
 
     if (!t) {
       title.textContent = "Nothing playing right now";
       sub.textContent = "Pick a song to get started";
       holder.replaceChildren(icon("disc-3", { size: 16 }));
       like?.classList.remove("liked");
+      like?.removeAttribute("data-like");
       document.title = "mcmusic";
-      root.style.removeProperty("--hero");
-      root.style.removeProperty("--tint");
-      // Hide any remote display
-      const remoteDisplay = document.getElementById("remote-display");
-      if (remoteDisplay) remoteDisplay.hidden = true;
+      document.documentElement.style.removeProperty("--hero");
+      document.documentElement.style.removeProperty("--tint");
       return;
     }
 
     title.textContent = t.title || "Unknown";
     sub.replaceChildren();
-    const deckNames = Array.isArray(t.artists) && t.artists.length
-      ? t.artists
-      : t.artist ? [t.artist] : [];
-    deckNames.forEach((name, i) => {
-      if (i) sub.appendChild(document.createTextNode(" · "));
-      const chip = document.createElement("button");
-      chip.type = "button";
-      chip.className = "artistchip";
-      chip.textContent = name;
-      chip.onclick = (e) => {
-        e.stopPropagation();
-        this.go("artist", name);
-      };
-      sub.appendChild(chip);
-    });
-    if (t.album) sub.appendChild(document.createTextNode(` · ${t.album}`));
-
-    // Show remote status if another device is playing
-    const remoteDisplay = document.getElementById("remote-display");
-    if (this._remoteState && this._remoteState.device && this._remoteState.device !== deviceHash()) {
-      if (remoteDisplay) {
-        remoteDisplay.hidden = false;
-        document.getElementById("remote-label").textContent =
-          `${this._remoteState.playing ? "Playing" : "Paused"} on ${this._remoteState.device_name || "device"}`;
-        document.getElementById("remote-track").textContent =
-          `${this._remoteState.track.title} — ${this._remoteState.track.artist || ""}`.replace(/ — $/, );
-      } else {
-        // Create remote display in the deck
-        const rd = document.createElement("div");
-        rd.id = "remote-display";
-        rd.className = "remote-display";
-        rd.innerHTML = `<small>${this._remoteState.playing ? "Playing" : "Paused"} on ${this._remoteState.device_name || "device"}</small><b>${this._remoteState.track.title || ""}</b>`;
-        // Insert after the like button
-        const likeBtn = document.getElementById("deck-like");
-        if (likeBtn && likeBtn.parentNode) {
-          likeBtn.parentNode.appendChild(rd);
-        } else {
-          now.appendChild(rd);
-        }
-      }
-    } else if (remoteDisplay) {
-      remoteDisplay.hidden = true;
+    const names = Array.isArray(t.artists) && t.artists.length ? t.artists : (t.artist ? [t.artist] : []);
+    if (remote) {
+      const dev = remote.device_name || "selected device";
+      const status = `${remote.playing ? "Playing" : "Paused"} on ${dev} · audio on selected device`;
+      sub.appendChild(document.createTextNode(status));
+      const detail = [names.join(", "), t.album].filter(Boolean).join(" · ");
+      if (detail) sub.appendChild(document.createTextNode(` — ${detail}`));
+    } else {
+      names.forEach((name, i) => {
+        if (i) sub.appendChild(document.createTextNode(" · "));
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "artistchip";
+        chip.textContent = name;
+        chip.onclick = (e) => {
+          e.stopPropagation();
+          this.go("artist", name);
+        };
+        sub.appendChild(chip);
+      });
+      if (t.album) sub.appendChild(document.createTextNode(`${names.length ? " · " : ""}${t.album}`));
+      if (!names.length && !t.album) sub.textContent = "—";
     }
 
     holder.replaceChildren();
@@ -1481,15 +1464,21 @@ class App {
       img.remove();
       holder.appendChild(icon("disc-3", { size: 16 }));
     };
-    img.onload = () => ambientTint(img);
+    if (typeof ambientTint === "function") {
+      img.onload = () => ambientTint(img);
+      if (img.complete) ambientTint(img);
+    }
     holder.appendChild(img);
-    if (img.complete) ambientTint(img);
 
     if (like) {
-      like.classList.toggle("liked", !!t.liked);
-      like.dataset.like = t.id;
+      if (typeof t.liked === "boolean") {
+        like.classList.toggle("liked", !!t.liked);
+        like.replaceChildren(icon("heart", { size: 15, filled: !!t.liked }));
+      }
+      if (t.id != null) like.dataset.like = String(t.id);
     }
-    document.title = `${t.title} · ${t.artist || "mcmusic"}`;
+    const artistText = names.join(", ") || t.artist || "mcmusic";
+    document.title = `${t.title} · ${artistText}`;
   }
 
   /** Push the current track as a Rotur rich activity, or clear it on pause. */
@@ -1637,7 +1626,7 @@ class App {
   /* ── remote commands ──────────────────────────────────────────────────── */
   _startCommandPoll() {
     clearInterval(this._pollTimer);
-    this._pollTimer = setInterval(async () => {
+    const tick = async () => {
       if (!Auth.signedIn || document.hidden) return;
       try {
         const r = await api(`playback?device=${encodeURIComponent(deviceHash())}`);
@@ -1663,7 +1652,9 @@ class App {
           }
         }
       } catch (e) { /* offline */ }
-    }, 4000);
+    };
+    tick();
+    this._pollTimer = setInterval(tick, 2000);
   }
 
   /* ── devices ──────────────────────────────────────────────────────────── */
@@ -1677,13 +1668,13 @@ class App {
         track_id: t ? t.id : null,
         position: Math.round((Player.el?.currentTime || 0) * 10) / 10,
         paused: Player.el?.paused ? 1 : 0,
-      }).catch(() => {});
+      }).then(() => this._syncDevices()).catch(() => {});
     };
     beat();
-    this._heartbeatTimer = setInterval(beat, 30000);
+    this._heartbeatTimer = setInterval(beat, 15000);
     this._syncDevices();
     clearInterval(this._devicesTimer);
-    this._devicesTimer = setInterval(() => this._syncDevices(), 30000);
+    this._devicesTimer = setInterval(() => this._syncDevices(), 15000);
   }
 
   async _syncDevices() {
@@ -1736,6 +1727,21 @@ class App {
       label: "Refresh list",
       iconName: "refresh-cw",
       fn: () => this._syncDevices(),
+    }, {
+      label: "Reset my devices",
+      iconName: "trash-2",
+      danger: true,
+      fn: async () => {
+        if (!confirm("Clear all your device records? Devices will re-register on next heartbeat.")) return;
+        try {
+          await api("devices/clear", "POST");
+          this.devices = [];
+          toast("Devices cleared — this device will re-register shortly", { iconName: "check" });
+          this._startHeartbeat();
+        } catch (e) {
+          toast(e.message);
+        }
+      },
     });
     menu(anchor, items);
   }
