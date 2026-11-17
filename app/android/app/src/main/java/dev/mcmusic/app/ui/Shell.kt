@@ -387,33 +387,40 @@ private fun Deck(vm: AppViewModel, modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Row(
-                Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable {
-                        if (error != null) vm.engine.retry() else vm.playerOpen = true
-                    }
-                    .padding(horizontal = 2.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            SwipeToSkip(
+                onPrevious = { vm.engine.prev() },
+                onNext = { vm.engine.next() },
+                compact = true,
+                modifier = Modifier.weight(1f).fillMaxHeight(),
             ) {
-                Art(t.id, 34.dp)
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        t.title,
-                        style = McType.bodySm.copy(fontSize = 13.sp, fontWeight = FontWeight.Medium),
-                        color = mc.fg,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        error ?: t.artist,
-                        style = McType.mono9,
-                        color = if (error != null) mc.err else mc.dim,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                Row(
+                    Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            if (error != null) vm.engine.retry() else vm.playerOpen = true
+                        }
+                        .padding(horizontal = 2.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Art(t.id, 34.dp)
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            t.title,
+                            style = McType.bodySm.copy(fontSize = 13.sp, fontWeight = FontWeight.Medium),
+                            color = mc.fg,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            error ?: t.artist,
+                            style = McType.mono9,
+                            color = if (error != null) mc.err else mc.dim,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
 
