@@ -64,6 +64,14 @@ class DiscordAvailabilityTest(unittest.TestCase):
         self.assertFalse(usable)
         self.assertIn("not running", why)
 
+    def test_a_stale_socket_is_not_reported_as_an_errno(self):
+        with mock.patch.dict(os.environ, {"DISCORD_APP_ID": "1234567890"}), \
+                mock.patch("pypresence.utils.get_ipc_path", side_effect=ConnectionRefusedError(111, "refused")), \
+                mock.patch.object(discord_activity, "client_running", return_value=True):
+            usable, why = discord_activity.available()
+        self.assertFalse(usable)
+        self.assertIn("not signed in", why)
+
     def test_a_client_at_the_login_screen_is_not_called_missing(self):
         # The IPC socket only appears after signing in; telling the user Discord
         # is not running while it sits on the login screen sends them hunting
