@@ -97,12 +97,15 @@ buttons, a theme/accent picker and a starter stylesheet:
 | `mcmusic-badge` | Inline pill for bios and link-in-bio pages |
 | `mcmusic-now-playing`, `mcmusic-profile`, `mcmusic-ticker` | Aliases of `now`, `card` and `marquee` |
 
-Attributes: `user` (required), `theme` (`dusk`, `paper`, `ink`, `tide`,
-`copper`, `forest`, `rose` or `auto`), `accent` (any CSS colour), `compact`
-(presence), `refresh` (seconds, minimum 5, default 12) and `maxlen` (default
-`0`). Titles, artist lines and badge text longer than `maxlen` characters scroll
-like the ticker instead of being cut off with an ellipsis; leave it at `0` to
-keep them static. Widgets render in a
+Attributes: `user` (required, except with `demo`), `theme` (`dusk`, `paper`,
+`ink`, `tide`, `copper`, `forest`, `rose` or `auto`), `accent` (any CSS colour),
+`compact` (presence), `refresh` (seconds, minimum 5, default 12), `maxlen`
+(default `0`), `speed` (seconds per scroll pass, 3–60, default 18) and `demo`
+(presence). Titles, artist lines and badge text longer than `maxlen` characters
+scroll like the ticker instead of being cut off with an ellipsis; leave it at
+`0` to keep them static, and use `speed` to set how long one pass takes. `demo`
+renders built-in sample data without polling, so a gallery or a draft page works
+before any username is known (a real `user` wins if both are set). Widgets render in a
 shadow root, so page CSS only reaches the outside: width, margins,
 `--mc-radius`, `--mc-font` and the colour variables.
 
