@@ -784,9 +784,16 @@ fun SettingsScreen(vm: AppViewModel) {
                         StatusChip("web only", mc.dim2)
                     }
                 }
+                val roturActivity = status?.optJSONObject("activity")
                 SettingRow(
                     "Share as Rotur activity",
-                    "Shows what you're playing on your Rotur profile",
+                    when {
+                        roturActivity == null -> "Shows what you're playing on your Rotur profile"
+                        roturActivity.optBoolean("ready") ->
+                            "Shows what you're playing on your Rotur profile"
+                        else -> roturActivity.optString("reason")
+                            .ifBlank { "The Rotur activity is unavailable right now" }
+                    },
                 ) {
                     SwitchPill(vm.settings.roturActivity) { vm.setRoturActivity(it) }
                 }

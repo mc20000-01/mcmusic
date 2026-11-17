@@ -45,6 +45,8 @@ export const Auth = {
         rotur_id: rotur.rotur_id || null,
         rotur_username: rotur.rotur_username || null,
         session_valid: !!rotur.session_valid,
+        // server-side activity readiness: configured + a usable session
+        activity: rotur.activity || null,
       };
     }
     if (discord) {

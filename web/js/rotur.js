@@ -27,6 +27,11 @@ export const RoturLink = {
     return !!(Auth.rotur.linked && Auth.rotur.session_valid);
   },
 
+  /** {ready, reason} for the activity sink, as reported by the server. */
+  get activity() {
+    return Auth.rotur.activity || null;
+  },
+
   /** Human-readable state for settings rows. */
   describe() {
     if (!this.configured) return "RoturLink is not configured on this server";

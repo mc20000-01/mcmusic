@@ -443,20 +443,40 @@ def claim_route():
     return redirect("/")
 
 
+def _activity_state(valid_session: bool) -> dict:
+    """Whether the listening activity can publish, and what is missing if not."""
+    if not configured():
+        return {"ready": False, "reason": "Rotur is not configured on this server"}
+    if not ROTUR_TOKEN and not valid_session:
+        return {
+            "ready": False,
+            "reason": "Sign in with Rotur again — the activity needs a live session",
+        }
+    return {"ready": True, "reason": ""}
+
+
 def status_route():
     uid = _auth_uid()
     if uid is None:
-        return jsonify(linked=False, configured=configured())
+        return jsonify(
+            linked=False, configured=configured(), activity=_activity_state(False),
+        )
     c = _db()
     row = c.execute("select rotur_id, rotur_username from users where id=?", (uid,)).fetchone()
     sess = get_rotur_session(c, uid)
+    linked = bool(row and row["rotur_id"])
+    valid = bool(sess and sess["expires_at"] > time.time())
+    # Whether "Share as Rotur activity" can publish at all, so the settings
+    # screen can say why instead of only failing when a track starts.
+    activity = _activity_state(valid)
     return jsonify(
-        linked=bool(row and row["rotur_id"]),
+        linked=linked,
         rotur_id=row["rotur_id"] if row else None,
         rotur_username=row["rotur_username"] if row else None,
         configured=configured(),
         has_tokens=bool(sess),
-        session_valid=bool(sess and sess["expires_at"] > time.time()),
+        session_valid=valid,
+        activity=activity,
     )
 
 
