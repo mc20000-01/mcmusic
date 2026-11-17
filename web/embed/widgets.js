@@ -16,6 +16,10 @@
   const VAR_NAMES = ['--mc-bg','--mc-bg2','--mc-fg','--mc-dim','--mc-line','--mc-accent','--mc-accent-soft'];
   const softOf = (c) => `color-mix(in srgb, ${c} 20%, transparent)`;
 
+  /* One full pass of over-long text; the widgets re-render on every poll, so the
+     offset is carried over to keep the line moving instead of jumping back. */
+  const SLIDE_MS = 18000;
+
   function themeVars(name, accent) {
     const base = (name === 'auto'
       ? (matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? THEMES.paper : THEMES.dusk)
@@ -70,6 +74,13 @@
   .progress > i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--mc-accent),color-mix(in srgb,var(--mc-accent) 45%, #fff))}
   .marquee{overflow:hidden;white-space:nowrap}
   .marquee span{display:inline-block;padding-left:100%;animation:mar 14s linear infinite}
+  /* over-long text: the line is doubled and slides by exactly one copy so the
+     loop is seamless and the start is readable straight away */
+  .slide{overflow:hidden;white-space:nowrap}
+  .slide > span{display:inline-block;animation:slide ${SLIDE_MS/1000}s linear infinite}
+  .slide:hover > span{animation-play-state:paused}
+  .title.slide,.sub.slide,.txt.slide{text-overflow:clip}
+  @keyframes slide{from{transform:translateX(0)}to{transform:translateX(-50%)}}
   @keyframes mar{from{transform:translateX(0)}to{transform:translateX(-100%)}}
   .compact .row{padding:10px;gap:10px}
   .compact .cover{width:54px;height:54px;border-radius:12px}
@@ -83,7 +94,7 @@
     constructor(){ super(); this.attachShadow({mode:'open'}); this._timer=null; this._data=null; this._mine=new Set(); }
     connectedCallback(){ this.render(true); this.start(); }
     disconnectedCallback(){ this.stop(); }
-    static get observedAttributes(){ return ['user','theme','accent','compact','refresh','mode']; }
+    static get observedAttributes(){ return ['user','theme','accent','compact','refresh','maxlen','mode']; }
     attributeChangedCallback(){ this.render(true); this.start(); }
     start(){ this.stop(); const sec = Math.max(5, parseInt(this.getAttribute('refresh')||'12',10)||12); this._timer = setInterval(()=>this.fetch(), sec*1000); this.fetch(); }
     stop(){ if(this._timer){ clearInterval(this._timer); this._timer=null; } }
@@ -111,6 +122,28 @@
         this._mine.add(k);
       }
       if(this.hasAttribute('compact')) this.classList.add('compact'); else this.classList.remove('compact');
+      /* after the renderer has written its markup, not before */
+      queueMicrotask(() => this.applyScrollLimit());
+    }
+    /* `maxlen` characters is the longest run of text shown whole: past that the
+       line scrolls like the ticker instead of ending in an ellipsis. The text is
+       doubled inside the marquee so the loop has something to lead with. */
+    applyScrollLimit(root = this.shadowRoot){
+      const max = parseInt(this.getAttribute('maxlen')||'0', 10) || 0;
+      if(!root || max <= 0 || typeof root.querySelectorAll !== 'function') return;
+      const lines = [...root.querySelectorAll('.title,.sub,.txt')];
+      const key = lines.map(el => String(el.textContent||'').trim()).join('\u0000');
+      const now = Date.now();
+      if(key !== this._slideKey){ this._slideKey = key; this._slideStart = now; }
+      const offset = Math.max(0, now - (this._slideStart || now));
+      for(const el of lines){
+        if(el.classList.contains('slide')) continue;
+        const text = String(el.textContent||'').trim();
+        if(text.length <= max) continue;
+        el.innerHTML = `<span style="animation-delay:-${((offset % SLIDE_MS) / 1000).toFixed(2)}s">`
+          + `${esc(text)} &nbsp; • &nbsp; ${esc(text)} &nbsp; • &nbsp;</span>`;
+        el.classList.add('slide');
+      }
     }
     _stateText(d){
       if(!d || d.error) return !d ? 'Loading…' : d.error;

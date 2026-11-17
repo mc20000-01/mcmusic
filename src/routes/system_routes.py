@@ -423,6 +423,9 @@ footer{margin-top:30px;color:#8f84ab;font-size:13px}
     <div class="field"><span>Refresh every (seconds)</span>
       <input type="number" id="refresh" min="5" max="600" step="1" value="12">
     </div>
+    <div class="field"><span>Scroll text longer than (characters)</span>
+      <input type="number" id="maxlen" min="0" max="200" step="1" value="0" placeholder="0 = never">
+    </div>
     <div class="field"><span>Compact</span>
       <label class="inline"><input type="checkbox" id="compact"> tighter padding and artwork</label>
     </div>
@@ -450,6 +453,7 @@ footer{margin-top:30px;color:#8f84ab;font-size:13px}
       <tr><td><code>accent</code></td><td data-label="Values">any CSS colour</td><td data-label="Default">theme accent</td><td data-label="What it does">Overrides the highlight colour (dot, progress bar, links). Page CSS <code>--mc-accent</code> beats it.</td></tr>
       <tr><td><code>compact</code></td><td data-label="Values">presence</td><td data-label="Default">off</td><td data-label="What it does">Smaller padding and artwork.</td></tr>
       <tr><td><code>refresh</code></td><td data-label="Values">seconds, min <code>5</code></td><td data-label="Default"><code>12</code></td><td data-label="What it does">How often the widget re-polls the public API.</td></tr>
+      <tr><td><code>maxlen</code></td><td data-label="Values">characters, <code>0</code>–<code>200</code></td><td data-label="Default"><code>0</code></td><td data-label="What it does">Longest run of title, artist or badge text shown whole. Past that the line scrolls like the ticker instead of ending in an ellipsis; <code>0</code> never scrolls.</td></tr>
     </tbody>
   </table>
 </section>
@@ -494,6 +498,7 @@ const state = {
   accent: localStorage.getItem('mc-embed-accent') || '',
   compact: localStorage.getItem('mc-embed-compact') === '1',
   refresh: localStorage.getItem('mc-embed-refresh') || '12',
+  maxlen: localStorage.getItem('mc-embed-maxlen') || '0',
 };
 
 function esc(s) {
@@ -504,6 +509,7 @@ function tagFor(w, refresh) {
   const parts = ['user="' + esc(state.user || 'username') + '"', 'theme="' + esc(state.theme) + '"'];
   if (state.accent) parts.push('accent="' + esc(state.accent) + '"');
   if (state.compact) parts.push('compact');
+  if (state.maxlen && state.maxlen !== '0') parts.push('maxlen="' + esc(state.maxlen) + '"');
   parts.push('refresh="' + esc(refresh) + '"');
   return '<' + w.tag + ' ' + parts.join(' ') + '></' + w.tag + '>';
 }
@@ -601,6 +607,7 @@ function renderNote() {
   const user = state.user || 'username';
   el.innerHTML = 'Showing <em>' + esc(user) + '</em> · theme <em>' + esc(state.theme) + '</em>'
     + (state.compact ? ' · compact' : '')
+    + (state.maxlen && state.maxlen !== '0' ? ' · text scrolls past <em>' + esc(state.maxlen) + '</em> chars' : '')
     + (state.accent ? ' · accent <em>' + esc(state.accent) + '</em>' : '')
     + '. Unknown usernames render an “unavailable” state.';
 }
@@ -665,6 +672,7 @@ function syncControls() {
   document.getElementById('accent').disabled = !state.accent;
   document.getElementById('compact').checked = state.compact;
   document.getElementById('refresh').value = state.refresh;
+  document.getElementById('maxlen').value = state.maxlen;
 }
 
 function init() {
@@ -707,6 +715,13 @@ function init() {
     state.refresh = String(n);
     e.target.value = state.refresh;
     localStorage.setItem('mc-embed-refresh', state.refresh);
+    scheduleRender();
+  });
+  document.getElementById('maxlen').addEventListener('change', (e) => {
+    const n = Math.min(200, Math.max(0, parseInt(e.target.value, 10) || 0));
+    state.maxlen = String(n);
+    e.target.value = state.maxlen;
+    localStorage.setItem('mc-embed-maxlen', state.maxlen);
     scheduleRender();
   });
 

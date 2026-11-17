@@ -99,7 +99,10 @@ buttons, a theme/accent picker and a starter stylesheet:
 
 Attributes: `user` (required), `theme` (`dusk`, `paper`, `ink`, `tide`,
 `copper`, `forest`, `rose` or `auto`), `accent` (any CSS colour), `compact`
-(presence) and `refresh` (seconds, minimum 5, default 12). Widgets render in a
+(presence), `refresh` (seconds, minimum 5, default 12) and `maxlen` (default
+`0`). Titles, artist lines and badge text longer than `maxlen` characters scroll
+like the ticker instead of being cut off with an ellipsis; leave it at `0` to
+keep them static. Widgets render in a
 shadow root, so page CSS only reaches the outside: width, margins,
 `--mc-radius`, `--mc-font` and the colour variables.
 
