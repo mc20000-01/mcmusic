@@ -10,6 +10,7 @@ import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -384,11 +385,34 @@ private fun Deck(vm: AppViewModel, modifier: Modifier = Modifier) {
     val error = vm.engine.error
     var moreOpen by remember(t.id) { mutableStateOf(false) }
 
+    // A hairline of playback along the deck's bottom edge: the only place the
+    // mini player shows time, so it has to be readable at a glance.
+    val fraction = if (t.duration > 0) {
+        (vm.engine.position / t.duration).toFloat().coerceIn(0f, 1f)
+    } else 0f
+    val drawn by animateFloatAsState(
+        targetValue = fraction,
+        animationSpec = tween(700, easing = LinearEasing),
+        label = "deck progress",
+    )
+
     Box(
         modifier
             .fillMaxWidth()
             .height(D.deck)
-            .glass(RoundedCornerShape(18.dp)),
+            .liquidGlass(RoundedCornerShape(18.dp))
+            .drawWithContent {
+                drawContent()
+                if (drawn > 0f) {
+                    val h = 2.dp.toPx()
+                    drawRoundRect(
+                        color = mc.accent.copy(alpha = 0.85f),
+                        topLeft = Offset(8.dp.toPx(), size.height - h - 1.dp.toPx()),
+                        size = Size((size.width - 16.dp.toPx()) * drawn, h),
+                        cornerRadius = CornerRadius(h / 2f),
+                    )
+                }
+            },
     ) {
         Row(
             Modifier.fillMaxSize().padding(horizontal = 8.dp),
