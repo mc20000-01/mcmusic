@@ -1,5 +1,12 @@
 package dev.mcmusic.app.ui.theme
 
+import android.os.Build
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -7,13 +14,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.TextStyle
@@ -221,6 +231,57 @@ fun withAccent(base: McColors, accentHex: String?): McColors {
 val LocalMc = staticCompositionLocalOf { dusk }
 val LocalGfxLevel = staticCompositionLocalOf { 3 }
 val LocalMaterial = staticCompositionLocalOf { "glass" }
+
+/**
+ * Liquid glass: the opaque palette fill of [glass], plus a specular sheen that
+ * drifts across the panel and a double rim that reads as a bevelled edge.
+ *
+ * This is the Compose 1.7 build of the effect: no backdrop sampling yet (that
+ * needs a GraphicsLayer recorded behind the panel, which arrives in Compose
+ * 1.8), so the glass sells itself with light rather than refraction. Contrast
+ * is unchanged from [glass] because the tint underneath is the same.
+ */
+@Composable
+fun Modifier.liquidGlass(
+    shape: Shape = RoundedCornerShape(D.r3),
+    strong: Boolean = false,
+): Modifier {
+    val mc = LocalMc.current
+    val material = LocalMaterial.current
+    val gfx = LocalGfxLevel.current
+    if (material != "glass" || gfx == 0) return glass(shape, strong)
+
+    // One slow sweep, shared by every panel on screen.
+    val drift by rememberInfiniteTransition(label = "glass sheen").animateFloat(
+        initialValue = -0.35f,
+        targetValue = 1.35f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(if (gfx >= 3) 9_000 else 14_000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "sheen offset",
+    )
+    val sheen = Brush.linearGradient(
+        colors = listOf(
+            Color.Transparent,
+            mc.glassHighlight.copy(alpha = if (mc.isDark) 0.22f else 0.50f),
+            Color.Transparent,
+        ).map { it as Color },
+        start = Offset(drift * 900f, 0f),
+        end = Offset(drift * 900f + 420f, 420f),
+    )
+    return this
+        .glass(shape, strong)
+        .drawWithContent {
+            drawContent()
+            drawRect(sheen)
+        }
+        .border(1.dp, mc.glassHighlight.copy(alpha = 0.30f), shape)
+}
+
+/** Whether this device has the graphics headroom for the animated sheen. */
+fun liquidGlassSupported(): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+
 
 /**
  * Surface material layer for floating chrome.
