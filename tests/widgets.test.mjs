@@ -126,6 +126,7 @@ function loadWidgets(payload = PAYLOAD) {
     fetch: async () => ({ ok: true, json: async () => payload }),
     setInterval,
     clearInterval,
+    queueMicrotask,
     console,
   };
   context.window = context;
@@ -180,6 +181,34 @@ async function main() {
   for (const [alias, base] of ALIASES) {
     ok(`<${alias}> is the same component as <${base}>`, html[alias] === html[base]);
   }
+
+  /* `maxlen` turns over-long lines into a ticker instead of an ellipsis. */
+  const Limit = customElements.get("mcmusic-now");
+  const head = (text) => {
+    const names = new Set();
+    return {
+      textContent: text,
+      innerHTML: "",
+      classList: { add: (name) => names.add(name), contains: (name) => names.has(name) },
+    };
+  };
+  const root = (...els) => ({ querySelectorAll: () => els });
+
+  const long = head("A track title that is far too long to fit");
+  const short = head("Short");
+  const limited = new Limit();
+  limited.setAttribute("maxlen", "10");
+  limited.applyScrollLimit(root(long, short));
+  ok("long text scrolls past maxlen", limited && long.classList.contains("slide"), long.innerHTML);
+  ok("scrolling text is doubled so the loop has no gap",
+    (long.innerHTML.match(/far too long/g) || []).length === 2);
+  ok("text inside maxlen is left alone", !short.classList.contains("slide") && short.innerHTML === "");
+
+  const unlimited = new Limit();
+  const untouched = head("A track title that is far too long to fit");
+  unlimited.applyScrollLimit(root(untouched));
+  ok("without maxlen nothing scrolls", !untouched.classList.contains("slide"));
+  ok("maxlen is an observed attribute", Limit.observedAttributes.includes("maxlen"));
 
   /* A paused payload, the other branch every widget has to survive. */
   const paused = loadWidgets({ ...PAYLOAD, listening: false, track: null });
