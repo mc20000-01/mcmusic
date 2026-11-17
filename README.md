@@ -90,7 +90,7 @@ serves VNC. Two systemd units, enabled at boot:
 | Unit | What it does |
 | --- | --- |
 | `mcmusic-discord-display.service` | `Xvnc :99`, VNC on `127.0.0.1:5901` only |
-| `mcmusic-discord.service` | `/usr/bin/discord` on `DISPLAY=:99` |
+| `mcmusic-discord.service` | `/usr/local/bin/discord-headless` on `DISPLAY=:99` |
 
 The IPC socket only appears **after** the client is signed in, so the account
 has to log in once through that display:
@@ -99,14 +99,29 @@ has to log in once through that display:
 ssh -L 5901:127.0.0.1:5901 server@<host>     # then point a VNC viewer at localhost:5901
 ```
 
-Sign in with a password in the client itself — do not inject a user token.
-After that `/tmp/discord-ipc-0` exists, and presence publishes on the account
+Sign in with a password, or scan the QR code the client shows, in the client
+itself — do not inject a user token. After that
+`/run/user/1000/discord-ipc-0` exists, and presence publishes on the account
 signed in there for every listener who enables the toggle. Keep expectations
 straight: it is **one** account's profile, not each user's.
 
-`mcmusic-discord.service` is capped at 900 MB (`MemoryHigh`) / 1.5 GB
-(`MemoryMax`) and runs at `Nice=10`, so a chat client cannot take the music
-server down on a 4 GB machine.
+Host-specific details worth keeping:
+
+- `/usr/local/bin/discord-headless` runs the newest `~/.config/discord/app-*/Discord`
+  directly with `--disable-gpu --disable-dev-shm-usage --enable-low-end-device-mode`.
+  The `/usr/bin/discord` updater wrapper stalls forever on its update check here,
+  and without low-end mode the web app never finishes loading on this CPU.
+- Both `mcmusic-discord.service` and `mcmusic.service` set
+  `XDG_RUNTIME_DIR=/run/user/1000` so they agree on where the IPC socket lives;
+  `loginctl enable-linger server` keeps that directory alive across reboots.
+- The client starts at `Nice=-5` with `MemoryHigh=900M` / `MemoryMax=1.5G`:
+  startup needs the CPU to beat the 60 s web-app watchdog, but once loaded it
+  idles around 200–800 MB. Raise the caps rather than the priority if the
+  client starts getting OOM-killed.
+- A client that sits on "Starting…" for minutes with memory flat near 200 MB
+  usually has a bad Chromium disk cache: stop the unit, delete `Cache`,
+  `Code Cache` and `GPUCache` in `~/.config/discord` (login data is kept), and
+  start it again.
 
 ## Builds
 
