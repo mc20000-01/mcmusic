@@ -17,8 +17,31 @@
   const softOf = (c) => `color-mix(in srgb, ${c} 20%, transparent)`;
 
   /* One full pass of over-long text; the widgets re-render on every poll, so the
-     offset is carried over to keep the line moving instead of jumping back. */
-  const SLIDE_MS = 18000;
+     offset is carried over to keep the line moving instead of jumping back. The
+     `speed` attribute overrides the 18 s per-instance. */
+  const SLIDE_SEC = 18;
+  const slideMs = (host) => {
+    const n = parseFloat(host.getAttribute('speed') || '');
+    return Math.max(3, Math.min(60, n > 0 ? n : SLIDE_SEC)) * 1000;
+  };
+
+  /* `demo` renders sample data with no username and no network, so a gallery or
+     an offline draft can show the widgets before anyone is playing. */
+  const DEMO_COVER = 'data:image/svg+xml,' + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">'
+    + '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">'
+    + '<stop offset="0" stop-color="#b080ea"/><stop offset="1" stop-color="#241a33"/></linearGradient></defs>'
+    + '<rect width="120" height="120" fill="url(#g)"/>'
+    + '<circle cx="60" cy="60" r="34" fill="#120d18" opacity=".5"/>'
+    + '<circle cx="60" cy="60" r="5" fill="#f2edf7"/></svg>');
+  const demoPayload = () => ({
+    user: { username: 'demo' },
+    listening: true,
+    position: 83,
+    track: { title: 'Midnight City Lights (Extended Club Mix)', artist: 'The Paper Tigers', album: 'Static & Smoke', duration: 214 },
+    cover_url: DEMO_COVER,
+    profile_url: '',
+  });
 
   function themeVars(name, accent) {
     const base = (name === 'auto'
@@ -77,7 +100,7 @@
   /* over-long text: the line is doubled and slides by exactly one copy so the
      loop is seamless and the start is readable straight away */
   .slide{overflow:hidden;white-space:nowrap}
-  .slide > span{display:inline-block;animation:slide ${SLIDE_MS/1000}s linear infinite}
+  .slide > span{display:inline-block;animation:slide ${SLIDE_SEC}s linear infinite}
   .slide:hover > span{animation-play-state:paused}
   .title.slide,.sub.slide,.txt.slide{text-overflow:clip}
   @keyframes slide{from{transform:translateX(0)}to{transform:translateX(-50%)}}
@@ -94,12 +117,14 @@
     constructor(){ super(); this.attachShadow({mode:'open'}); this._timer=null; this._data=null; this._mine=new Set(); }
     connectedCallback(){ this.render(true); this.start(); }
     disconnectedCallback(){ this.stop(); }
-    static get observedAttributes(){ return ['user','theme','accent','compact','refresh','maxlen','mode']; }
+    static get observedAttributes(){ return ['user','theme','accent','compact','refresh','maxlen','speed','demo','mode']; }
     attributeChangedCallback(){ this.render(true); this.start(); }
-    start(){ this.stop(); const sec = Math.max(5, parseInt(this.getAttribute('refresh')||'12',10)||12); this._timer = setInterval(()=>this.fetch(), sec*1000); this.fetch(); }
+    _demo(){ return !this.getAttribute('user') && this.hasAttribute('demo'); }
+    start(){ this.stop(); if(this._demo()){ this.fetch(); return; } const sec = Math.max(5, parseInt(this.getAttribute('refresh')||'12',10)||12); this._timer = setInterval(()=>this.fetch(), sec*1000); this.fetch(); }
     stop(){ if(this._timer){ clearInterval(this._timer); this._timer=null; } }
     async fetch(){
       const user = this.getAttribute('user');
+      if(!user && this.hasAttribute('demo')){ this._data = demoPayload(); this.render(); return; }
       if(!user){ this._data={error:'missing user'}; this.render(); return; }
       try{
         const res = await fetch(`${BASE}/api/public/now/${encodeURIComponent(user)}`, {headers:{'accept':'application/json'}});
@@ -133,6 +158,7 @@
       if(!root || max <= 0 || typeof root.querySelectorAll !== 'function') return;
       const lines = [...root.querySelectorAll('.title,.sub,.txt')];
       const key = lines.map(el => String(el.textContent||'').trim()).join('\u0000');
+      const ms = slideMs(this);
       const now = Date.now();
       if(key !== this._slideKey){ this._slideKey = key; this._slideStart = now; }
       const offset = Math.max(0, now - (this._slideStart || now));
@@ -140,7 +166,7 @@
         if(el.classList.contains('slide')) continue;
         const text = String(el.textContent||'').trim();
         if(text.length <= max) continue;
-        el.innerHTML = `<span style="animation-delay:-${((offset % SLIDE_MS) / 1000).toFixed(2)}s">`
+        el.innerHTML = `<span style="animation-duration:${ms/1000}s;animation-delay:-${((offset % ms) / 1000).toFixed(2)}s">`
           + `${esc(text)} &nbsp; • &nbsp; ${esc(text)} &nbsp; • &nbsp;</span>`;
         el.classList.add('slide');
       }

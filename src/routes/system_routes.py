@@ -426,6 +426,9 @@ footer{margin-top:30px;color:#8f84ab;font-size:13px}
     <div class="field"><span>Scroll text longer than (characters)</span>
       <input type="number" id="maxlen" min="0" max="200" step="1" value="0" placeholder="0 = never">
     </div>
+    <div class="field"><span>Scroll speed (seconds per pass)</span>
+      <input type="number" id="speed" min="3" max="60" step="1" value="18" placeholder="18">
+    </div>
     <div class="field"><span>Compact</span>
       <label class="inline"><input type="checkbox" id="compact"> tighter padding and artwork</label>
     </div>
@@ -436,7 +439,7 @@ footer{margin-top:30px;color:#8f84ab;font-size:13px}
 
 <section>
   <h2>3 · Every widget, live</h2>
-  <p class="muted">Six widgets plus three aliases. The previews use <code>refresh="30"</code> to be gentle on the API; the tags you copy use your refresh setting.</p>
+  <p class="muted">Six widgets plus three aliases. The previews use <code>refresh="30"</code> to be gentle on the API; the tags you copy use your refresh setting. With no username picked they render built-in sample data, so you can see them working straight away.</p>
   <div class="gallery" id="gallery"></div>
 </section>
 
@@ -454,6 +457,8 @@ footer{margin-top:30px;color:#8f84ab;font-size:13px}
       <tr><td><code>compact</code></td><td data-label="Values">presence</td><td data-label="Default">off</td><td data-label="What it does">Smaller padding and artwork.</td></tr>
       <tr><td><code>refresh</code></td><td data-label="Values">seconds, min <code>5</code></td><td data-label="Default"><code>12</code></td><td data-label="What it does">How often the widget re-polls the public API.</td></tr>
       <tr><td><code>maxlen</code></td><td data-label="Values">characters, <code>0</code>–<code>200</code></td><td data-label="Default"><code>0</code></td><td data-label="What it does">Longest run of title, artist or badge text shown whole. Past that the line scrolls like the ticker instead of ending in an ellipsis; <code>0</code> never scrolls.</td></tr>
+      <tr><td><code>speed</code></td><td data-label="Values">seconds, <code>3</code>–<code>60</code></td><td data-label="Default"><code>18</code></td><td data-label="What it does">Seconds for one pass of scrolling text. Only matters when <code>maxlen</code> is set; lower is faster.</td></tr>
+      <tr><td><code>demo</code></td><td data-label="Values">presence</td><td data-label="Default">off</td><td data-label="What it does">Shows built-in sample data instead of polling, for galleries and drafts. Ignored once <code>user</code> is set.</td></tr>
     </tbody>
   </table>
 </section>
@@ -499,17 +504,24 @@ const state = {
   compact: localStorage.getItem('mc-embed-compact') === '1',
   refresh: localStorage.getItem('mc-embed-refresh') || '12',
   maxlen: localStorage.getItem('mc-embed-maxlen') || '0',
+  speed: localStorage.getItem('mc-embed-speed') || '18',
 };
 
 function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 }
 
-function tagFor(w, refresh) {
-  const parts = ['user="' + esc(state.user || 'username') + '"', 'theme="' + esc(state.theme) + '"'];
+function tagFor(w, refresh, demo) {
+  const parts = [
+    demo ? 'demo' : 'user="' + esc(state.user || 'username') + '"',
+    'theme="' + esc(state.theme) + '"',
+  ];
   if (state.accent) parts.push('accent="' + esc(state.accent) + '"');
   if (state.compact) parts.push('compact');
-  if (state.maxlen && state.maxlen !== '0') parts.push('maxlen="' + esc(state.maxlen) + '"');
+  if (state.maxlen && state.maxlen !== '0') {
+    parts.push('maxlen="' + esc(state.maxlen) + '"');
+    if (state.speed !== '18') parts.push('speed="' + esc(state.speed) + '"');
+  }
   parts.push('refresh="' + esc(refresh) + '"');
   return '<' + w.tag + ' ' + parts.join(' ') + '></' + w.tag + '>';
 }
@@ -520,7 +532,11 @@ function cssTemplate() {
     '   Widgets render inside a shadow root, so page CSS cannot reach their',
     '   internals. Style them from outside with width, margins, --mc-radius,',
     '   --mc-font and the --mc-* colour variables; the theme and accent',
-    '   attributes only supply the defaults. */',
+    '   attributes only supply the defaults.',
+    '',
+    '   Long titles: maxlen="N" scrolls any line longer than N characters',
+    '   instead of clipping it, and speed="S" sets the seconds per pass',
+    '   (3-60, default 18). Both are tag attributes, not CSS. */',
     '',
     'mcmusic-now, mcmusic-now-playing,',
     'mcmusic-card, mcmusic-profile,',
@@ -561,7 +577,7 @@ function renderGallery() {
   const host = document.getElementById('gallery');
   host.innerHTML = WIDGETS.map((w) => {
     const code = tagFor(w, state.refresh);
-    const preview = tagFor(w, 30);
+    const preview = tagFor(w, 30, !state.user);
     return '<div class="w">'
       + '<div class="head"><h3>' + esc(w.title) + '</h3><span class="tag">' + (w.alias ? 'alias' : '&lt;' + w.tag + '&gt;') + '</span></div>'
       + '<p class="muted" style="margin:0">' + esc(w.blurb) + '</p>'
@@ -604,12 +620,16 @@ function renderFull() {
 
 function renderNote() {
   const el = document.getElementById('note');
-  const user = state.user || 'username';
+  const user = state.user || 'sample data (no username needed)';
   el.innerHTML = 'Showing <em>' + esc(user) + '</em> · theme <em>' + esc(state.theme) + '</em>'
     + (state.compact ? ' · compact' : '')
-    + (state.maxlen && state.maxlen !== '0' ? ' · text scrolls past <em>' + esc(state.maxlen) + '</em> chars' : '')
+    + (state.maxlen && state.maxlen !== '0'
+      ? ' · text scrolls past <em>' + esc(state.maxlen) + '</em> chars, <em>' + esc(state.speed) + '</em>s per pass'
+      : '')
     + (state.accent ? ' · accent <em>' + esc(state.accent) + '</em>' : '')
-    + '. Unknown usernames render an “unavailable” state.';
+    + (state.user
+      ? '. Unknown usernames render an “unavailable” state.'
+      : '. Type a username (or pick a live listener below) to see your own.');
 }
 
 let renderTimer = null;
@@ -673,6 +693,7 @@ function syncControls() {
   document.getElementById('compact').checked = state.compact;
   document.getElementById('refresh').value = state.refresh;
   document.getElementById('maxlen').value = state.maxlen;
+  document.getElementById('speed').value = state.speed;
 }
 
 function init() {
@@ -724,6 +745,13 @@ function init() {
     localStorage.setItem('mc-embed-maxlen', state.maxlen);
     scheduleRender();
   });
+  document.getElementById('speed').addEventListener('change', (e) => {
+    const n = Math.min(60, Math.max(3, parseInt(e.target.value, 10) || 18));
+    state.speed = String(n);
+    e.target.value = state.speed;
+    localStorage.setItem('mc-embed-speed', state.speed);
+    scheduleRender();
+  });
 
   syncControls();
   renderGallery();
@@ -753,7 +781,7 @@ async function loadListening() {
         + '<span class="muted">' + esc(sub) + '</span></div></div>'
         + '<div class="row"><button class="secondary" data-use="' + esc(u.username) + '">Demo this user</button></div>'
         + '</div>';
-    }).join('') || '<p class="muted">Nobody is listening right now — type your own username in the box above.</p>';
+    }).join('') || '<p class="muted">Nobody is listening right now. The previews above are showing sample data — type a username in the box above to see your own.</p>';
   } catch (e) {
     host.innerHTML = '<p class="muted">Could not load listeners.</p>';
   }

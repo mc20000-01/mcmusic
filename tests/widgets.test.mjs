@@ -209,6 +209,40 @@ async function main() {
   unlimited.applyScrollLimit(root(untouched));
   ok("without maxlen nothing scrolls", !untouched.classList.contains("slide"));
   ok("maxlen is an observed attribute", Limit.observedAttributes.includes("maxlen"));
+  ok("a pass takes 18s unless speed says otherwise", long.innerHTML.includes("animation-duration:18s"), long.innerHTML);
+
+  /* `speed` sets how long one scroll pass takes. */
+  const fast = new Limit();
+  fast.setAttribute("maxlen", "10");
+  fast.setAttribute("speed", "5");
+  const fastLine = head("A track title that is far too long to fit");
+  fast.applyScrollLimit(root(fastLine));
+  ok("speed sets the pass length", fastLine.innerHTML.includes("animation-duration:5s"), fastLine.innerHTML);
+  ok("speed is an observed attribute", Limit.observedAttributes.includes("speed"));
+
+  /* `demo` renders sample data with no username and no network, so a gallery or
+     a draft page shows the widgets before anyone is playing. */
+  const offline = loadWidgets();
+  offline.context.fetch = async () => { throw new Error("demo must not hit the network"); };
+  const DemoNow = offline.customElements.get("mcmusic-now");
+  const demo = new DemoNow();
+  demo.setAttribute("demo", "");
+  demo.connectedCallback();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  demo.disconnectedCallback();
+  const demoHtml = demo.shadowRoot.innerHTML;
+  ok("demo renders sample data without a username", demoHtml.includes("The Paper Tigers"), demoHtml.slice(0, 120));
+  ok("demo stays offline", !/offline|unavailable|missing user/.test(demoHtml), demoHtml.slice(0, 160));
+  ok("demo is an observed attribute", DemoNow.observedAttributes.includes("demo"));
+
+  /* A real user still wins over demo. */
+  const mixed = new (customElements.get("mcmusic-now"))();
+  mixed.setAttribute("user", "sandisk");
+  mixed.setAttribute("demo", "");
+  mixed.connectedCallback();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  mixed.disconnectedCallback();
+  ok("a username beats demo", mixed.shadowRoot.innerHTML.includes("Test Track"));
 
   /* A paused payload, the other branch every widget has to survive. */
   const paused = loadWidgets({ ...PAYLOAD, listening: false, track: null });
