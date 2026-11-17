@@ -121,58 +121,65 @@ fun PlayerOverlay(vm: AppViewModel) {
                 return@Column
             }
 
-            BoxWithConstraints(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(top = 14.dp)
-                    .background(
-                        Brush.radialGradient(
-                            listOf(mc.accent.copy(alpha = 0.16f), Color.Transparent),
-                        ),
-                    ),
-                contentAlignment = Alignment.Center,
+            SwipeToSkip(
+                onPrevious = { tick(); engine.prev() },
+                onNext = { tick(); engine.next() },
+                modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
             ) {
-                val artSize = minOf(maxWidth * 0.72f, 300.dp)
-                Art(
-                    t.id,
-                    artSize,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(D.r3))
-                        .combinedClickable(
-                            onClick = {},
-                            onLongClickLabel = "Track options",
-                            onLongClick = { tick(); vm.openTrackMenu(t) },
-                        ),
-                )
-            }
+                Column(Modifier.fillMaxWidth()) {
+                    BoxWithConstraints(
+                        Modifier
+                            .fillMaxWidth()
+                            .background(
+                                Brush.radialGradient(
+                                    listOf(mc.accent.copy(alpha = 0.16f), Color.Transparent),
+                                ),
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        val artSize = minOf(maxWidth * 0.72f, 300.dp)
+                        Art(
+                            t.id,
+                            artSize,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(D.r3))
+                                .combinedClickable(
+                                    onClick = {},
+                                    onLongClickLabel = "Track options",
+                                    onLongClick = { tick(); vm.openTrackMenu(t) },
+                                ),
+                        )
+                    }
 
-            Spacer(Modifier.height(22.dp))
-            Text(
-                t.title,
-                style = McType.h2,
-                color = mc.fg,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.height(4.dp))
-            Row(
-                Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
-            ) {
-                Text(t.artist, style = McType.bodySm, color = mc.dim)
-                if (t.album.isNotBlank()) {
-                    Text("  ·  ", style = McType.bodySm, color = mc.dim2)
+                    Spacer(Modifier.height(22.dp))
                     Text(
-                        t.album,
-                        style = McType.bodySm,
-                        color = mc.dim2,
-                        maxLines = 1,
+                        t.title,
+                        style = McType.h2,
+                        color = mc.fg,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.clickable { vm.navigate(Route.Album(t.album)) },
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
                     )
+                    Spacer(Modifier.height(4.dp))
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
+                        Text(t.artist, style = McType.bodySm, color = mc.dim)
+                        if (t.album.isNotBlank()) {
+                            Text("  ·  ", style = McType.bodySm, color = mc.dim2)
+                            Text(
+                                t.album,
+                                style = McType.bodySm,
+                                color = mc.dim2,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.clickable { vm.navigate(Route.Album(t.album)) },
+                            )
+                        }
+                    }
                 }
             }
 
