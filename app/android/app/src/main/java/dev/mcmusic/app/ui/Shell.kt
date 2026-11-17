@@ -93,6 +93,7 @@ import dev.mcmusic.app.ui.theme.D
 import dev.mcmusic.app.ui.theme.LocalMc
 import dev.mcmusic.app.ui.theme.McType
 import dev.mcmusic.app.ui.theme.glass
+import dev.mcmusic.app.ui.theme.liquidGlass
 import kotlin.math.roundToInt
 
 @Composable
@@ -547,7 +548,7 @@ private fun NavBar(vm: AppViewModel, modifier: Modifier = Modifier) {
             Modifier
                 .fillMaxWidth()
                 .height(D.tab)
-                .glass(RoundedCornerShape(29.dp))
+                .liquidGlass(RoundedCornerShape(29.dp))
                 .padding(4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -573,7 +574,7 @@ private fun NavBar(vm: AppViewModel, modifier: Modifier = Modifier) {
                     Text(
                         item.label.uppercase(),
                         style = McType.mono9.copy(fontSize = 9.sp, letterSpacing = 0.06.em),
-                        color = if (active) mc.accent else mc.dim2,
+                        color = if (active) mc.fg else mc.dim2,
                         maxLines = 1,
                         overflow = TextOverflow.Clip,
                     )
