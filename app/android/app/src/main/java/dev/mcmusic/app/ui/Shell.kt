@@ -10,6 +10,13 @@ import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -538,6 +545,14 @@ private fun NavBar(vm: AppViewModel, modifier: Modifier = Modifier) {
         NavItem(Route.Settings, "Settings", AppIcons.Settings),
     )
 
+    val activeIndex = items.indexOfFirst { isActive(vm.route, it.route) }.coerceAtLeast(0)
+    // The pill glides; it never jumps between tabs.
+    val pill by animateFloatAsState(
+        targetValue = activeIndex.toFloat(),
+        animationSpec = spring(dampingRatio = 0.72f, stiffness = Spring.StiffnessMediumLow),
+        label = "nav pill",
+    )
+
     Box(
         modifier
             .fillMaxWidth()
@@ -549,7 +564,27 @@ private fun NavBar(vm: AppViewModel, modifier: Modifier = Modifier) {
                 .fillMaxWidth()
                 .height(D.tab)
                 .liquidGlass(RoundedCornerShape(29.dp))
-                .padding(4.dp),
+                .padding(4.dp)
+                .drawWithContent {
+                    if (items.isNotEmpty()) {
+                        val cell = size.width / items.size
+                        val gap = 2.dp.toPx()
+                        drawRoundRect(
+                            color = mc.accentSoft,
+                            topLeft = Offset(pill * cell + gap, gap),
+                            size = Size(cell - gap * 2, size.height - gap * 2),
+                            cornerRadius = CornerRadius(22.dp.toPx()),
+                        )
+                        // Hairline under the pill so it reads as lifted, not painted on.
+                        drawRoundRect(
+                            color = mc.glassHighlight.copy(alpha = 0.10f),
+                            topLeft = Offset(pill * cell + gap, gap),
+                            size = Size(cell - gap * 2, 1.dp.toPx()),
+                            cornerRadius = CornerRadius(22.dp.toPx()),
+                        )
+                    }
+                    drawContent()
+                },
             verticalAlignment = Alignment.CenterVertically,
         ) {
             items.forEach { item ->
@@ -559,17 +594,32 @@ private fun NavBar(vm: AppViewModel, modifier: Modifier = Modifier) {
                     animationSpec = tween(220),
                     label = "nav tint",
                 )
+                val lift by animateFloatAsState(
+                    targetValue = if (active) 1f else 0f,
+                    animationSpec = spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium),
+                    label = "nav lift",
+                )
                 Column(
                     Modifier
                         .weight(1f)
                         .fillMaxHeight()
                         .clip(RoundedCornerShape(22.dp))
-                        .background(if (active) mc.accentSoft else Color.Transparent)
                         .clickable { vm.navigate(item.route, push = false) },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    Icon(item.icon, null, Modifier.size(20.dp), tint = tint)
+                    Icon(
+                        item.icon,
+                        null,
+                        Modifier
+                            .size(20.dp)
+                            .graphicsLayer {
+                                val s = 0.94f + 0.06f * lift
+                                scaleX = s
+                                scaleY = s
+                            },
+                        tint = tint,
+                    )
                     Spacer(Modifier.height(2.dp))
                     Text(
                         item.label.uppercase(),
