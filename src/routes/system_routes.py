@@ -206,11 +206,13 @@ def _public_payload(username):
     track_id = int(now["track_id"]) if now and now["track_id"] else 0
     updated = int((now["updated"] if now and now["updated"] else 0) or 0)
     cover_ver = f"{track_id}-{updated}" if track_id else str(updated or int(time.time() // 60))
+    duration = float(now["duration"] or 0) if now and "duration" in now.keys() and now["duration"] is not None else 0.0
     track = {
         "id": track_id,
         "title": (now["title"] if now and now["title"] else ""),
         "artist": (now["artist"] if now and now["artist"] else ""),
         "album": (now["album"] if now and now["album"] else ""),
+        "duration": duration,
     } if track_id else None
     listening = bool(now and now["playing"] and track_id)
     position = float(now["position"] or 0) if now and now["position"] is not None else 0.0
@@ -238,24 +240,186 @@ def public_now(username):
     return resp
 
 
+@bp.get("/api/public/listening")
+def public_listening():
+    """Recently active listeners (public, no auth) for embeds/directory pages."""
+    base = PUBLIC_URL or request.url_root.rstrip("/")
+    since = time.time() - 180
+    c = _db()
+    rows = c.execute(
+        """
+        select u.username,
+               d.current_track_id as track_id, d.current_position as position,
+               d.current_paused as paused, d.current_updated as updated,
+               t.title, t.artist, t.album, t.duration
+          from devices d
+          join users u on u.id = d.user_id
+          left join tracks t on t.id = d.current_track_id
+         where d.is_active = 1 and d.current_updated >= ?
+         order by case when d.current_paused = 0 and d.current_track_id is not null then 0 else 1 end,
+                  d.current_updated desc
+         limit 40
+        """,
+        (since,),
+    ).fetchall()
+    users = []
+    seen = set()
+    for r in rows:
+        name = r["username"]
+        if name in seen:
+            continue
+        seen.add(name)
+        track_id = int(r["track_id"]) if r["track_id"] else 0
+        updated = int(r["updated"] or 0)
+        cover_ver = f"{track_id}-{updated}" if track_id else str(updated or int(time.time() // 60))
+        track = None
+        if track_id and r["title"]:
+            track = {
+                "id": track_id,
+                "title": r["title"] or "",
+                "artist": r["artist"] or "",
+                "album": r["album"] or "",
+                "duration": float(r["duration"] or 0),
+            }
+        listening = bool(track_id and not r["paused"])
+        users.append({
+            "username": name,
+            "listening": listening,
+            "position": float(r["position"] or 0),
+            "updated": updated,
+            "track": track,
+            "profile_url": f"{base}/u/{quote(name)}",
+            "cover_url": f"{base}/u/{quote(name)}/cover.png?v={quote(cover_ver)}",
+        })
+    resp = jsonify(ok=True, users=users, base_url=base, now=int(time.time()))
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    resp.headers["Cache-Control"] = "public, max-age=8"
+    return resp
+
+
 @bp.get("/embed")
 def embed_info():
     base = PUBLIC_URL or request.url_root.rstrip("/")
-    html = f"""<!doctype html><html lang="en"><head>
+    # Rich copy-paste hub for embed widgets and listening status.
+    html = r"""<!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>mcmusic widgets</title>
-<style>body{{font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;margin:0;padding:32px;background:#08060d;color:#f2ecff}}
-code,pre{{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}}pre{{background:#151022;border:1px solid #332a4d;border-radius:14px;padding:14px;overflow:auto}}
-a{{color:#a06bff}}.card{{max-width:860px;margin:0 auto}}</style></head><body><div class="card">
-<h1>mcmusic embed widgets</h1>
-<p>Public, no-login widgets for any website. Add the script once, then drop custom tags where you want them.</p>
-<pre>&lt;script src="{escape(base)}/static/embed/widgets.js" data-mcmusic-base="{escape(base)}" defer&gt;&lt;/script&gt;
+<title>mcmusic embeds & widgets</title>
+<style>
+:root{--bg:#08060d;--bg2:#151022;--panel:#110c1c;--fg:#f2ecff;--dim:#a89ec6;--line:#332a4d;--accent:#a06bff}
+*{box-sizing:border-box}body{margin:0;font:15px/1.55 Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:radial-gradient(1200px 500px at 80% -10%,#2a1558 0,transparent 60%),var(--bg);color:var(--fg)}
+a{color:#c7a8ff}.wrap{max-width:1080px;margin:0 auto;padding:28px 18px 60px}
+h1{margin:0 0 6px;font-size:34px;letter-spacing:-.02em}h2{margin:26px 0 10px;font-size:20px}p{color:var(--dim);margin:8px 0}
+.hero{padding:18px 0 8px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:14px}
+.card{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid color-mix(in srgb,var(--line) 80%,transparent);border-radius:18px;padding:14px;backdrop-filter:blur(14px);box-shadow:0 12px 30px rgba(0,0,0,.25)}
+.card h3{margin:0 0 4px;font-size:16px}.tag{display:inline-block;font:11px ui-monospace,monospace;color:#d7c8ff;background:#24163f;border:1px solid #3f2b67;border-radius:999px;padding:2px 8px;margin:0 6px 8px 0}
+pre{margin:10px 0 0;background:#0d0916;border:1px solid #2e2444;border-radius:14px;padding:12px;overflow:auto;color:#e9defd}
+code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+button,input{font:inherit}input{background:#120e1e;color:var(--fg);border:1px solid #352a4e;border-radius:10px;padding:8px 10px;min-width:180px}
+button{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:8px 12px;font-weight:600;cursor:pointer}button.secondary{background:#24183a;color:#e8dcff;border:1px solid #3a2a56}
+.preview{margin-top:10px;padding:12px;border:1px dashed #3a2d56;border-radius:14px;background:rgba(0,0,0,.18);min-height:64px}
+.muted{color:var(--dim);font-size:13px}.list{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:10px}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:999px;border:1px solid #3a2a56;background:#1a1329;color:#d9cfff;font-size:12px}
+footer{margin-top:28px;color:#8f84ab;font-size:13px}
+</style></head><body><div class="wrap">
+  <div class="hero">
+    <h1>mcmusic embeds</h1>
+    <p>Public, no-login widgets you can drop on any site. Copy the script once, then paste any tag below. See who’s listening live and grab ready-to-use snippets.</p>
+    <div class="row"><span class="pill">No account required</span><span class="pill">Live status</span><span class="pill">Stylable</span></div>
+  </div>
 
-&lt;mcmusic-now user="username" theme="dusk" accent="#a06bff"&gt;&lt;/mcmusic-now&gt;
-&lt;mcmusic-turntable user="username" theme="dusk"&gt;&lt;/mcmusic-turntable&gt;</pre>
-<p>Attributes: <code>user</code> (required), <code>theme</code> (<code>dusk|paper|ink|tide|copper|forest|rose|auto</code>), <code>accent</code>, <code>compact</code>, <code>refresh</code> (seconds).</p>
-<p>Style with CSS vars on the element: <code>--mc-accent</code>, <code>--mc-bg</code>, <code>--mc-fg</code>, <code>--mc-radius</code>, <code>--mc-font</code>.</p>
-</div></body></html>"""
+  <div class="card">
+    <h3>1) Add the script (once per page)</h3>
+    <pre id="script-snippet"></pre>
+    <div class="row"><button onclick="copyEl('script-snippet')">Copy script tag</button></div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h3>Pick a user and preview embeds</h3>
+    <p class="muted">Enter a username to generate copyable snippets and live previews for all widget types.</p>
+    <div class="row"><input id="user" placeholder="username"><button onclick="applyUser()">Update snippets</button><button class="secondary" onclick="loadListening()">Refresh listeners</button></div>
+    <div id="listening" class="muted" style="margin-top:10px">Loading listeners…</div>
+  </div>
+
+  <h2>Widgets</h2>
+  <div class="grid" id="widgets"></div>
+
+  <h2>Live listeners</h2>
+  <p class="muted">Public now-playing status from active devices (updates automatically).</p>
+  <div class="list" id="live"></div>
+
+  <footer>Base: <code id="base"></code> · API: <code>/api/public/now/&lt;username&gt;</code>, <code>/api/public/listening</code></footer>
+</div>
+<script>
+const BASE = __BASE__;
+const scriptTag = `<script src="${BASE}/static/embed/widgets.js" data-mcmusic-base="${BASE}" defer><\/script>`;
+document.getElementById('base').textContent = BASE;
+document.getElementById('script-snippet').textContent = scriptTag;
+
+const widgets = [
+  {tag:'mcmusic-now', title:'Now Playing card', desc:'Cover, track, artist, and live listening state.', attrs:' theme="dusk"', extra:'<span class="tag">card</span><span class="tag">cover</span>'},
+  {tag:'mcmusic-turntable', title:'Turntable', desc:'Spinning disc style that reacts to playing/paused.', attrs:' theme="dusk"', extra:'<span class="tag">animated</span><span class="tag">vinyl</span>'},
+  {tag:'mcmusic-bar', title:'Mini bar', desc:'Compact horizontal status bar for headers/footers.', attrs:' theme="dusk" compact', extra:'<span class="tag">compact</span>'},
+  {tag:'mcmusic-badge', title:'Badge', desc:'Tiny “listening to…” pill for sidebars and bios.', attrs:' theme="dusk"', extra:'<span class="tag">tiny</span>'},
+  {tag:'mcmusic-card', title:'Profile card', desc:'Larger profile-style listening card with artwork focus.', attrs:' theme="dusk"', extra:'<span class="tag">profile</span>'},
+  {tag:'mcmusic-marquee', title:'Marquee', desc:'Scrolling now-playing line for tight spaces.', attrs:' theme="dusk"', extra:'<span class="tag">ticker</span>'},
+];
+
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function snippetFor(w,user){
+  return `<${w.tag} user="${esc(user)}"${w.attrs}></${w.tag}>`;
+}
+function renderWidgets(user){
+  const host = document.getElementById('widgets');
+  host.innerHTML = widgets.map((w,i)=>{
+    const code = snippetFor(w,user);
+    const id = 'code-'+i;
+    return `<div class="card">${w.extra}<h3>${w.title}</h3><p class="muted">${w.desc}</p>
+      <pre id="${id}">${esc(code)}</pre>
+      <div class="row"><button onclick="copyEl('${id}')">Copy tag</button><span class="tag">&lt;${w.tag}&gt;</span></div>
+      <div class="preview">${code}</div></div>`;
+  }).join('');
+  if (window.__mcWidgetsScan) window.__mcWidgetsScan();
+}
+function copyText(text){
+  if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text);
+  const t=document.createElement('textarea');t.value=text;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove();
+}
+function copyEl(id){ copyText(document.getElementById(id).textContent); }
+function applyUser(){
+  const u=(document.getElementById('user').value||'username').trim()||'username';
+  localStorage.setItem('mc-embed-user', u);
+  renderWidgets(u);
+}
+async function loadListening(){
+  const box=document.getElementById('listening'), live=document.getElementById('live');
+  try{
+    const res=await fetch(BASE+'/api/public/listening',{headers:{accept:'application/json'}});
+    const data=await res.json();
+    const users=data.users||[];
+    box.innerHTML = users.length ? `Found <b>${users.length}</b> recent listener(s). Click one to fill username.` : 'No active listeners right now (a user appears when their device is active and recently synced).';
+    live.innerHTML = users.map(u=>{
+      const t=u.track||{}; const title=t.title||'Nothing playing';
+      const sub=t.artist?(t.artist+(t.album?' · '+t.album:'')):(u.listening?'Listening':'Idle');
+      const st=u.listening?'Listening':'Paused/idle';
+      const uname=esc(u.username);
+      return `<div class="card"><div class="row" style="justify-content:space-between"><b>${uname}</b><span class="tag">${st}</span></div>
+        <div class="preview"><mcmusic-now user="${uname}" theme="dusk" compact></mcmusic-now></div>
+        <p class="muted" style="margin:8px 0 0">${esc(title)}<br>${esc(sub)}</p>
+        <div class="row"><button class="secondary" onclick="pickUser('${uname}')">Use in snippets</button></div></div>`;
+    }).join('') || '<p class="muted">No one listening yet.</p>';
+    if (window.__mcWidgetsScan) window.__mcWidgetsScan();
+  }catch(e){ box.textContent='Could not load listeners.'; live.innerHTML=''; }
+}
+function pickUser(u){ document.getElementById('user').value=u; applyUser(); window.scrollTo({top:0,behavior:'smooth'}); }
+document.getElementById('user').value = localStorage.getItem('mc-embed-user') || 'username';
+renderWidgets(document.getElementById('user').value);
+loadListening();
+setInterval(loadListening, 15000);
+</script>
+<script src="__SCRIPT__" data-mcmusic-base="__BASE__" defer></script>
+</body></html>"""
+    html = html.replace("__BASE__", base).replace("__SCRIPT__", f"{base}/static/embed/widgets.js")
     return Response(html, mimetype="text/html")
 
 
@@ -593,9 +757,13 @@ def devices_activate(did):
 @login_required
 def devices_sync():
     row = _db().execute(
-        """select id, device_hash, name, current_track_id, current_position,
-                  current_paused, current_updated
-             from devices where user_id=? and is_active=1 limit 1""", (session["uid"],)
+        """select d.id, d.device_hash, d.name, d.current_track_id, d.current_position,
+                  d.current_paused, d.current_updated,
+                  t.title as track_title, t.artist as track_artist, t.album as track_album,
+                  t.duration as track_duration
+             from devices d
+             left join tracks t on t.id = d.current_track_id
+            where d.user_id=? and d.is_active=1 limit 1""", (session["uid"],)
     ).fetchone()
     if not row:
         return jsonify(sync=None)

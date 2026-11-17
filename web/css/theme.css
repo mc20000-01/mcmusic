@@ -19,12 +19,10 @@
 [data-theme="paper"] .trow.now { box-shadow: inset 2px 0 0 var(--accent); }
 
 /* accent-driven details */
-.rnav.on::before,
-#deck::before { background: var(--accent); }
+.rnav.on::before { background: var(--accent); }
 
 #deck::before {
-  background: var(--accent);
-  opacity: 0.22;
+  opacity: 0.5;
 }
 
 ::selection { background: var(--accent); color: var(--accent-fg); }

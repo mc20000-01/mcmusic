@@ -1,5 +1,5 @@
 (() => {
-  const SCRIPT = document.currentScript;
+  const SCRIPT = document.currentScript || Array.from(document.scripts).find(s => (s.src||'').includes('/static/embed/widgets.js'));
   const BASE = (SCRIPT && (SCRIPT.dataset.mcmusicBase || SCRIPT.getAttribute('data-mcmusic-base'))) || (SCRIPT ? new URL('.', SCRIPT.src).origin : location.origin);
   const THEMES = {
     dusk:   { bg:'#151022', bg2:'#08060d', fg:'#f2ecff', dim:'#a89ec6', line:'#332a4d', accent:'#a06bff' },
@@ -23,6 +23,11 @@
   }
 
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function fmtTime(sec){
+    sec = Math.max(0, Number(sec)||0);
+    const m = Math.floor(sec/60), s = Math.floor(sec%60);
+    return m + ':' + String(s).padStart(2,'0');
+  }
 
   const sharedCSS = `
   :host{all:initial;display:block;font-family:var(--mc-font,Inter,system-ui,-apple-system,Segoe UI,sans-serif);color:var(--mc-fg);--mc-radius:18px;}
@@ -48,6 +53,19 @@
   .spin{animation:spin 4.5s linear infinite}
   .paused .spin{animation-play-state:paused}
   @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+  .bar{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:999px;border:1px solid color-mix(in srgb,var(--mc-line) 70%, transparent);background:linear-gradient(180deg,color-mix(in srgb,var(--mc-bg) 90%, transparent),color-mix(in srgb,var(--mc-bg2) 96%, transparent));box-shadow:0 8px 20px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.08);backdrop-filter:blur(12px);min-width:0}
+  .bar .cover{width:34px;height:34px;border-radius:10px}
+  .bar .title{font-size:13px}.bar .sub{font-size:11px;margin-top:1px}
+  .badge{display:inline-flex;align-items:center;gap:8px;max-width:100%;padding:6px 10px;border-radius:999px;border:1px solid color-mix(in srgb,var(--mc-line) 70%, transparent);background:linear-gradient(180deg,color-mix(in srgb,var(--mc-bg) 90%, transparent),color-mix(in srgb,var(--mc-bg2) 96%, transparent));box-shadow:0 6px 16px rgba(0,0,0,.2);backdrop-filter:blur(10px)}
+  .badge .cover{width:22px;height:22px;border-radius:7px}
+  .badge .txt{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .profile .cover{width:96px;height:96px;border-radius:18px}
+  .profile .title{font-size:18px}
+  .progress{margin-top:10px;height:4px;border-radius:999px;background:color-mix(in srgb,var(--mc-line) 55%, transparent);overflow:hidden}
+  .progress > i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--mc-accent),color-mix(in srgb,var(--mc-accent) 45%, #fff))}
+  .marquee{overflow:hidden;white-space:nowrap}
+  .marquee span{display:inline-block;padding-left:100%;animation:mar 14s linear infinite}
+  @keyframes mar{from{transform:translateX(0)}to{transform:translateX(-100%)}}
   .compact .row{padding:10px;gap:10px}
   .compact .cover{width:54px;height:54px;border-radius:12px}
   .compact .platter{width:72px;height:72px}
@@ -60,9 +78,9 @@
     constructor(){ super(); this.attachShadow({mode:'open'}); this._timer=null; this._data=null; }
     connectedCallback(){ this.render(true); this.start(); }
     disconnectedCallback(){ this.stop(); }
-    static get observedAttributes(){ return ['user','theme','accent','compact','refresh']; }
+    static get observedAttributes(){ return ['user','theme','accent','compact','refresh','mode']; }
     attributeChangedCallback(){ this.render(true); this.start(); }
-    start(){ this.stop(); const sec = Math.max(5, parseInt(this.getAttribute('refresh')||'15',10)||15); this._timer = setInterval(()=>this.fetch(), sec*1000); this.fetch(); }
+    start(){ this.stop(); const sec = Math.max(5, parseInt(this.getAttribute('refresh')||'12',10)||12); this._timer = setInterval(()=>this.fetch(), sec*1000); this.fetch(); }
     stop(){ if(this._timer){ clearInterval(this._timer); this._timer=null; } }
     async fetch(){
       const user = this.getAttribute('user');
@@ -78,22 +96,26 @@
       for(const k in vars) this.style.setProperty(k, vars[k]);
       if(this.hasAttribute('compact')) this.classList.add('compact'); else this.classList.remove('compact');
     }
+    _stateText(d){
+      if(!d || d.error) return !d ? 'Loading…' : d.error;
+      return d.listening ? 'Listening now' : (d.track ? 'Paused' : 'Quiet right now');
+    }
   }
 
   class McNow extends BaseWidget {
     render(){
       this.applyVars();
       const d = this._data;
-      if(!d){
-        this.shadowRoot.innerHTML = `<style>${sharedCSS}</style><div class="card"><div class="row"><div class="meta"><p class="kicker">mcmusic</p><p class="title">Loading…</p></div></div></div>`; return;
-      }
-      if(d.error){
-        this.shadowRoot.innerHTML = `<style>${sharedCSS}</style><div class="card"><div class="row"><div class="meta"><p class="kicker">mcmusic</p><p class="title">${esc(d.error)}</p></div></div></div>`; return;
+      if(!d || d.error){
+        const msg = !d ? 'Loading…' : esc(d.error);
+        this.shadowRoot.innerHTML = `<style>${sharedCSS}</style><div class="card"><div class="row"><div class="meta"><p class="kicker">mcmusic</p><p class="title">${msg}</p></div></div></div>`; return;
       }
       const t = d.track || {};
       const title = t.title || 'Nothing playing right now';
-      const sub = t.artist ? `${t.artist}${t.album ? ' · '+t.album : ''}` : 'mcmusic';
-      const state = d.listening ? 'Listening now' : (d.track ? 'Paused' : 'Quiet right now');
+      const sub = t.artist ? `${esc(t.artist)}${t.album ? ' · '+esc(t.album) : ''}` : 'mcmusic';
+      const state = this._stateText(d);
+      const dur = Number(t.duration||0), pos = Math.min(dur||Infinity, Number(d.position||0));
+      const pct = dur > 0 ? Math.max(0, Math.min(100, (pos/dur)*100)) : 0;
       this.shadowRoot.innerHTML = `<style>${sharedCSS}</style>
         <div class="card">
           <div class="glow"></div>
@@ -102,8 +124,9 @@
             <div class="meta">
               <p class="kicker">${esc(d.user?.username||'mcmusic')}</p>
               <p class="title">${esc(title)}</p>
-              <p class="sub">${esc(sub)}</p>
-              <div class="foot">
+              <p class="sub">${sub}</p>
+              ${dur>0 ? `<div class="progress"><i style="width:${pct}%"></i></div><div class="foot" style="margin-top:6px"><span>${fmtTime(pos)}</span><span>${fmtTime(dur)}</span></div>` : ''}
+              <div class="foot" style="${dur>0?'margin-top:6px':''}">
                 <span class="pill"><span class="dot ${d.listening?'':'off'}"></span>${esc(state)}</span>
                 ${d.profile_url ? `<a href="${esc(d.profile_url)}" target="_blank" rel="noopener">Open</a>` : ''}
               </div>
@@ -123,7 +146,7 @@
       }
       const t = d.track || {};
       const title = t.title || 'Nothing playing right now';
-      const sub = t.artist ? `${t.artist}${t.album ? ' · '+t.album : ''}` : 'Drop the needle when something plays';
+      const sub = t.artist ? `${esc(t.artist)}${t.album ? ' · '+esc(t.album) : ''}` : 'Drop the needle when something plays';
       const state = d.listening ? 'Spinning' : (d.track ? 'Paused' : 'Idle');
       this.shadowRoot.innerHTML = `<style>${sharedCSS}</style>
         <div class="card ${d.listening ? '' : 'paused'}">
@@ -133,7 +156,7 @@
             <div class="meta">
               <p class="kicker">${esc(d.user?.username||'mcmusic')} · turntable</p>
               <p class="title">${esc(title)}</p>
-              <p class="sub">${esc(sub)}</p>
+              <p class="sub">${sub}</p>
               <div class="foot">
                 <span class="pill"><span class="dot ${d.listening?'':'off'}"></span>${esc(state)}</span>
                 ${d.profile_url ? `<a href="${esc(d.profile_url)}" target="_blank" rel="noopener">Open</a>` : ''}
@@ -144,7 +167,106 @@
     }
   }
 
-  if(!customElements.get('mcmusic-now')) customElements.define('mcmusic-now', McNow);
-  if(!customElements.get('mcmusic-now-playing')) customElements.define('mcmusic-now-playing', McNow);
-  if(!customElements.get('mcmusic-turntable')) customElements.define('mcmusic-turntable', McTurntable);
+  class McBar extends BaseWidget {
+    render(){
+      this.applyVars();
+      const d = this._data;
+      if(!d || d.error){
+        const msg = !d ? 'Loading…' : esc(d.error);
+        this.shadowRoot.innerHTML = `<style>${sharedCSS}</style><div class="bar"><span class="txt">${msg}</span></div>`; return;
+      }
+      const t = d.track || {};
+      const title = esc(t.title || 'Nothing playing');
+      const sub = esc(t.artist ? t.artist : (d.user?.username || 'mcmusic'));
+      this.shadowRoot.innerHTML = `<style>${sharedCSS}</style>
+        <a class="bar" href="${esc(d.profile_url||'#')}" target="_blank" rel="noopener">
+          <img class="cover" src="${esc(d.cover_url||'')}" alt="">
+          <span class="dot ${d.listening?'':'off'}"></span>
+          <div class="meta"><p class="title">${title}</p><p class="sub">${sub}</p></div>
+        </a>`;
+    }
+  }
+
+  class McBadge extends BaseWidget {
+    render(){
+      this.applyVars();
+      const d = this._data;
+      if(!d || d.error){
+        const msg = !d ? 'Loading…' : esc(d.error);
+        this.shadowRoot.innerHTML = `<style>${sharedCSS}</style><span class="badge"><span class="dot off"></span><span class="txt">${msg}</span></span>`; return;
+      }
+      const t = d.track || {};
+      const txt = t.title ? `${t.artist ? t.artist+' — ' : ''}${t.title}` : `${d.user?.username||'mcmusic'}: quiet`;
+      this.shadowRoot.innerHTML = `<style>${sharedCSS}</style>
+        <a class="badge" href="${esc(d.profile_url||'#')}" target="_blank" rel="noopener" title="${esc(txt)}">
+          <span class="dot ${d.listening?'':'off'}"></span>
+          <img class="cover" src="${esc(d.cover_url||'')}" alt="">
+          <span class="txt">${esc((d.listening?'Listening: ':'') + txt)}</span>
+        </a>`;
+    }
+  }
+
+  class McCard extends BaseWidget {
+    render(){
+      this.applyVars();
+      const d = this._data;
+      if(!d || d.error){
+        const msg = !d ? 'Loading…' : esc(d.error);
+        this.shadowRoot.innerHTML = `<style>${sharedCSS}</style><div class="card"><div class="row profile"><div class="meta"><p class="kicker">mcmusic</p><p class="title">${msg}</p></div></div></div>`; return;
+      }
+      const t = d.track || {};
+      const title = t.title || 'Nothing playing right now';
+      const sub = t.artist ? `${esc(t.artist)}${t.album ? ' · '+esc(t.album) : ''}` : 'Public listening profile';
+      const state = this._stateText(d);
+      this.shadowRoot.innerHTML = `<style>${sharedCSS}</style>
+        <div class="card">
+          <div class="glow"></div>
+          <div class="row profile">
+            <img class="cover" src="${esc(d.cover_url||'')}" alt="">
+            <div class="meta">
+              <p class="kicker">mcmusic profile</p>
+              <p class="title">${esc(d.user?.username||'mcmusic')}</p>
+              <p class="sub">${esc(title)}</p>
+              <p class="sub" style="margin-top:2px">${sub}</p>
+              <div class="foot">
+                <span class="pill"><span class="dot ${d.listening?'':'off'}"></span>${esc(state)}</span>
+                ${d.profile_url ? `<a href="${esc(d.profile_url)}" target="_blank" rel="noopener">Open profile</a>` : ''}
+              </div>
+            </div>
+          </div>
+        </div>`;
+    }
+  }
+
+  class McMarquee extends BaseWidget {
+    render(){
+      this.applyVars();
+      const d = this._data;
+      if(!d || d.error){
+        const msg = !d ? 'Loading…' : esc(d.error);
+        this.shadowRoot.innerHTML = `<style>${sharedCSS}</style><div class="bar"><div class="meta marquee"><span>${msg}</span></div></div>`; return;
+      }
+      const t = d.track || {};
+      const text = t.title ? `${d.user?.username||'mcmusic'} ${d.listening?'is listening to':'paused'} ${t.artist ? t.artist+' — ' : ''}${t.title}` : `${d.user?.username||'mcmusic'} is quiet right now`;
+      this.shadowRoot.innerHTML = `<style>${sharedCSS}</style>
+        <a class="bar" href="${esc(d.profile_url||'#')}" target="_blank" rel="noopener">
+          <span class="dot ${d.listening?'':'off'}"></span>
+          <div class="meta marquee"><span>${esc(text)} &nbsp; • &nbsp; ${esc(text)} &nbsp; • &nbsp;</span></div>
+        </a>`;
+    }
+  }
+
+  function define(tag, cls){ if(!customElements.get(tag)) customElements.define(tag, cls); }
+  define('mcmusic-now', McNow);
+  define('mcmusic-now-playing', McNow);
+  define('mcmusic-turntable', McTurntable);
+  define('mcmusic-bar', McBar);
+  define('mcmusic-badge', McBadge);
+  define('mcmusic-card', McCard);
+  define('mcmusic-profile', McCard);
+  define('mcmusic-marquee', McMarquee);
+  define('mcmusic-ticker', McMarquee);
+  window.__mcWidgetsScan = () => {
+    // custom elements upgrade automatically; hook reserved for future dynamic mounts
+  };
 })();
