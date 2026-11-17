@@ -183,13 +183,13 @@
   --t3: color-mix(in srgb, var(--fg) 55%, transparent);
   --hero: var(--accent);
   --tint: var(--bg);
-  --glass: rgba(255, 255, 255, 0.14);
-  --glass-strong: rgba(255, 255, 255, 0.22);
-  --glass-border: rgba(255, 255, 255, 0.18);
-  --glass-highlight: rgba(255, 255, 255, 0.25);
-  --glass-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-  --glass-blur: blur(24px) saturate(180%);
-  --glass-small-blur: blur(16px) saturate(160%);
+  --glass: rgba(255, 255, 255, 0.10);
+  --glass-strong: rgba(255, 255, 255, 0.18);
+  --glass-border: rgba(255, 255, 255, 0.16);
+  --glass-highlight: rgba(255, 255, 255, 0.28);
+  --glass-shadow: 0 12px 34px rgba(0, 0, 0, 0.28), 0 1px 0 rgba(255,255,255,0.04) inset;
+  --glass-blur: blur(28px) saturate(180%) contrast(1.02);
+  --glass-small-blur: blur(18px) saturate(160%) contrast(1.01);
 
   /* Content-first geometry: cards are 22-24, controls are circles/pills. */
   --r-1: 8px;
@@ -199,18 +199,18 @@
   --tab-h: 62px;
   --deck-h: 92px;
   --top-h: 60px;
-  --block: 0 8px 24px rgba(0, 0, 0, 0.25);
+  --block: 0 10px 28px rgba(0, 0, 0, 0.22);
   --font-mono: var(--font-ui);
 }
 
 /* Paper is the one light palette; glass flips to a dark tint so text stays
    legible without introducing a second set of component rules. */
 [data-theme="paper"] {
-  --glass: rgba(255, 255, 255, 0.38);
-  --glass-strong: rgba(255, 255, 255, 0.6);
-  --glass-border: rgba(36, 29, 20, 0.16);
-  --glass-highlight: rgba(255, 255, 255, 0.7);
-  --glass-shadow: 0 8px 24px rgba(36, 29, 20, 0.16);
+  --glass: rgba(255, 255, 255, 0.42);
+  --glass-strong: rgba(255, 255, 255, 0.66);
+  --glass-border: rgba(36, 29, 20, 0.14);
+  --glass-highlight: rgba(255, 255, 255, 0.82);
+  --glass-shadow: 0 10px 28px rgba(36, 29, 20, 0.14), 0 1px 0 rgba(255,255,255,0.5) inset;
 }
 
 /* ── optional real glass ──────────────────────────────────────────────────

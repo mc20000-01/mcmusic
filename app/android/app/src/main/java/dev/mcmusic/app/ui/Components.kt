@@ -110,44 +110,97 @@ fun McButton(
 ) {
     val mc = LocalMc.current
     val shape = RoundedCornerShape(99.dp)
-    val bg = when {
-        solid -> mc.accent
-        ghost -> Color.Transparent
-        else -> mc.glass
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(if (pressed) 0.97f else 1f, label = "btn-scale")
+    val pressLift by animateFloatAsState(if (pressed) 0.6f else 1f, label = "btn-lift")
+
+    val bgBrush = when {
+        !enabled -> Brush.linearGradient(listOf(mc.glass.copy(alpha = 0.35f), mc.glass.copy(alpha = 0.25f)))
+        solid -> Brush.linearGradient(
+            listOf(
+                mc.accent.copy(alpha = 0.98f),
+                mc.accent.copy(alpha = 0.82f),
+                mc.accent.copy(alpha = 0.92f),
+            )
+        )
+        ghost -> Brush.linearGradient(listOf(Color.Transparent, Color.Transparent))
+        danger -> Brush.linearGradient(
+            listOf(mc.err.copy(alpha = 0.16f), mc.err.copy(alpha = 0.08f))
+        )
+        else -> Brush.linearGradient(
+            listOf(mc.glassStrong.copy(alpha = 0.72f), mc.glass.copy(alpha = 0.56f))
+        )
     }
-    val borderColor = when {
-        solid -> Color.Transparent
-        ghost -> Color.Transparent
-        danger -> mc.err.copy(alpha = 0.45f)
-        else -> mc.glassBorder
+    val borderBrush = when {
+        solid -> Brush.linearGradient(
+            listOf(mc.glassHighlight.copy(alpha = 0.55f), mc.accent.copy(alpha = 0.5f))
+        )
+        ghost -> Brush.linearGradient(listOf(Color.Transparent, Color.Transparent))
+        danger -> Brush.linearGradient(
+            listOf(mc.err.copy(alpha = 0.55f), mc.err.copy(alpha = 0.25f))
+        )
+        else -> Brush.linearGradient(
+            listOf(mc.glassHighlight.copy(alpha = 0.7f), mc.glassBorder.copy(alpha = 0.7f))
+        )
     }
     val fg = when {
+        !enabled -> mc.dim.copy(alpha = 0.5f)
         solid -> mc.accentFg
         ghost -> mc.dim
         danger -> mc.err
         else -> mc.fg
     }
-    Row(
+    Box(
         modifier = modifier
-            .height(if (small) 28.dp else 36.dp)
+            .graphicsLayer {
+                scaleX = pressScale
+                scaleY = pressScale
+                alpha = pressLift
+            }
+            .height(if (small) 30.dp else 38.dp)
             .clip(shape)
-            .background(bg)
-            .border(1.dp, borderColor, shape)
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = if (small) 11.dp else 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(7.dp),
+            .background(bgBrush)
+            .border(1.dp, borderBrush, shape)
+            .drawWithCache {
+                onDrawWithContent {
+                    drawContent()
+                    if (!ghost) {
+                        drawRect(
+                            Brush.verticalGradient(
+                                listOf(
+                                    mc.glassHighlight.copy(alpha = if (solid) 0.28f else 0.18f),
+                                    Color.Transparent,
+                                )
+                            )
+                        )
+                    }
+                }
+            }
+            .clickable(
+                enabled = enabled,
+                interactionSource = interaction,
+                indication = LocalIndication.current,
+                onClick = onClick,
+            )
+            .padding(horizontal = if (small) 12.dp else 17.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        if (leading != null) {
-            Icon(leading, null, Modifier.size(if (small) 12.dp else 14.dp), tint = fg)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
+            if (leading != null) {
+                Icon(leading, null, Modifier.size(if (small) 12.dp else 14.dp), tint = fg)
+            }
+            Text(
+                text,
+                style = if (small) McType.labelSm else McType.label,
+                color = fg,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
-        Text(
-            text,
-            style = if (small) McType.labelSm else McType.label,
-            color = fg,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
     }
 }
 
@@ -267,26 +320,54 @@ fun McField(
 fun SwitchPill(checked: Boolean, onChange: (Boolean) -> Unit) {
     val mc = LocalMc.current
     val knob by animateDpAsState(
-        targetValue = if (checked) 18.dp else 2.dp,
+        targetValue = if (checked) 20.dp else 2.dp,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessMediumLow,
         ),
         label = "switch knob",
     )
+    val trackBrush = Brush.horizontalGradient(
+        if (checked) listOf(mc.accent.copy(alpha = 0.85f), mc.accent.copy(alpha = 0.55f))
+        else listOf(mc.glassStrong.copy(alpha = 0.55f), mc.glass.copy(alpha = 0.45f))
+    )
     Box(
         Modifier
-            .size(width = 38.dp, height = 20.dp)
+            .size(width = 42.dp, height = 24.dp)
             .clip(CircleShape)
-            .background(if (checked) mc.accent else mc.line2)
-            .clickable { onChange(!checked) },
+            .background(trackBrush)
+            .border(
+                1.dp,
+                Brush.linearGradient(
+                    if (checked) listOf(mc.accent.copy(alpha = 0.65f), mc.glassHighlight.copy(alpha = 0.5f))
+                    else listOf(mc.glassHighlight.copy(alpha = 0.45f), mc.glassBorder)
+                ),
+                CircleShape,
+            )
+            .drawWithCache {
+                onDrawWithContent {
+                    drawContent()
+                    drawRect(
+                        Brush.verticalGradient(
+                            listOf(mc.glassHighlight.copy(alpha = 0.22f), Color.Transparent)
+                        )
+                    )
+                }
+            }
+            .clickable { onChange(!checked) }
+            .padding(2.dp),
     ) {
         Box(
             Modifier
                 .offset(x = knob)
-                .size(16.dp)
+                .size(18.dp)
                 .clip(CircleShape)
-                .background(if (checked) mc.accentFg else mc.fg)
+                .background(
+                    Brush.radialGradient(
+                        listOf(Color.White.copy(alpha = 0.96f), if (checked) mc.accentFg else mc.fg.copy(alpha = 0.88f))
+                    )
+                )
+                .border(1.dp, mc.glassBorder.copy(alpha = 0.8f), CircleShape),
         )
     }
 }
@@ -299,22 +380,43 @@ fun Seg(
     modifier: Modifier = Modifier,
 ) {
     val mc = LocalMc.current
+    val shape = RoundedCornerShape(99.dp)
     Row(
         modifier
-            .clip(RoundedCornerShape(99.dp))
-            .background(mc.glass)
-            .border(1.dp, mc.glassBorder, RoundedCornerShape(99.dp))
-            .padding(2.dp),
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
+            .clip(shape)
+            .background(
+                Brush.linearGradient(
+                    listOf(mc.glassStrong.copy(alpha = 0.58f), mc.glass.copy(alpha = 0.45f))
+                )
+            )
+            .border(1.dp, Brush.linearGradient(listOf(mc.glassHighlight.copy(alpha = 0.5f), mc.glassBorder)), shape)
+            .drawWithCache {
+                onDrawWithContent {
+                    drawContent()
+                    drawRect(Brush.verticalGradient(listOf(mc.glassHighlight.copy(alpha = 0.12f), Color.Transparent)))
+                }
+            }
+            .padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
     ) {
         options.forEach { (key, label) ->
             val on = key == selected
             Box(
                 Modifier
-                    .clip(RoundedCornerShape(99.dp))
-                    .background(if (on) mc.accent else Color.Transparent)
+                    .clip(shape)
+                    .background(
+                        if (on) Brush.linearGradient(listOf(mc.accent.copy(alpha = 0.95f), mc.accent.copy(alpha = 0.78f)))
+                        else Brush.linearGradient(listOf(Color.Transparent, Color.Transparent))
+                    )
+                    .then(
+                        if (on) Modifier.border(
+                            1.dp,
+                            Brush.linearGradient(listOf(mc.glassHighlight.copy(alpha = 0.45f), mc.accent.copy(alpha = 0.35f))),
+                            shape,
+                        ) else Modifier
+                    )
                     .clickable { onSelect(key) }
-                    .padding(horizontal = 12.dp, vertical = 5.dp),
+                    .padding(horizontal = 13.dp, vertical = 6.dp),
             ) {
                 Text(
                     label,

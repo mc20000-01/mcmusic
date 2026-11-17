@@ -107,7 +107,10 @@ def public_profile(username):
     base = PUBLIC_URL or request.url_root.rstrip("/")
     name = account["username"]
     profile_url = f"{base}/u/{quote(name)}"
-    cover_url = f"{base}/u/{quote(name)}/cover.png"
+    track_id = now["track_id"] if now and now["track_id"] else 0
+    updated = int((now["updated"] if now and now["updated"] else 0) or 0)
+    cover_ver = f"{int(track_id)}-{updated}" if track_id else str(updated or int(time.time() // 60))
+    cover_url = f"{base}/u/{quote(name)}/cover.png?v={quote(cover_ver)}"
     track = now["title"] if now and now["title"] else ""
     artist = now["artist"] if now and now["artist"] else ""
     album = now["album"] if now and now["album"] else ""
@@ -160,16 +163,100 @@ def public_cover(username):
     account, now = _public_account(username)
     if not account:
         return Response(status=404)
-    if now and now["track_id"]:
+    track_id = int(now["track_id"]) if now and now["track_id"] else 0
+    updated = int((now["updated"] if now and now["updated"] else 0) or 0)
+    etag = f'W/"{track_id}-{updated}"'
+    if request.headers.get("If-None-Match") == etag:
+        return Response(status=304, headers={
+            "ETag": etag,
+            "Cache-Control": "public, max-age=0, must-revalidate",
+            "Access-Control-Allow-Origin": "*",
+        })
+    if track_id:
         from routes.library_routes import _track_path, read_cover
-        p = _track_path(now["track_id"])
+        p = _track_path(track_id)
         art = read_cover(p) if p else None
         if art:
-            return Response(art[0], mimetype=art[1], headers={"Cache-Control": "public, max-age=60"})
+            return Response(
+                art[0],
+                mimetype=art[1],
+                headers={
+                    "Cache-Control": "public, max-age=0, must-revalidate",
+                    "ETag": etag,
+                    "Access-Control-Allow-Origin": "*",
+                },
+            )
     fallback = os.path.join(current_app.static_folder or "", "icon-512.png")
     if os.path.isfile(fallback):
-        return send_file(fallback, mimetype="image/png", max_age=300)
-    return Response(status=404)
+        resp = send_file(fallback, mimetype="image/png")
+        resp.headers["Cache-Control"] = "public, max-age=60"
+        resp.headers["ETag"] = etag
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        return resp
+    return Response(status=404, headers={"Cache-Control": "no-store", "Access-Control-Allow-Origin": "*"})
+
+
+
+def _public_payload(username):
+    account, now = _public_account(username)
+    if not account:
+        return None
+    base = PUBLIC_URL or request.url_root.rstrip("/")
+    name = account["username"]
+    track_id = int(now["track_id"]) if now and now["track_id"] else 0
+    updated = int((now["updated"] if now and now["updated"] else 0) or 0)
+    cover_ver = f"{track_id}-{updated}" if track_id else str(updated or int(time.time() // 60))
+    track = {
+        "id": track_id,
+        "title": (now["title"] if now and now["title"] else ""),
+        "artist": (now["artist"] if now and now["artist"] else ""),
+        "album": (now["album"] if now and now["album"] else ""),
+    } if track_id else None
+    listening = bool(now and now["playing"] and track_id)
+    position = float(now["position"] or 0) if now and now["position"] is not None else 0.0
+    return {
+        "ok": True,
+        "user": {"username": name},
+        "listening": listening,
+        "position": position,
+        "updated": updated,
+        "track": track,
+        "profile_url": f"{base}/u/{quote(name)}",
+        "cover_url": f"{base}/u/{quote(name)}/cover.png?v={quote(cover_ver)}",
+        "base_url": base,
+    }
+
+
+@bp.get("/api/public/now/<username>")
+def public_now(username):
+    payload = _public_payload(username)
+    if not payload:
+        return jsonify(error="not found"), 404, {"Access-Control-Allow-Origin": "*"}
+    resp = jsonify(payload)
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    resp.headers["Cache-Control"] = "public, max-age=5"
+    return resp
+
+
+@bp.get("/embed")
+def embed_info():
+    base = PUBLIC_URL or request.url_root.rstrip("/")
+    html = f"""<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>mcmusic widgets</title>
+<style>body{{font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;margin:0;padding:32px;background:#08060d;color:#f2ecff}}
+code,pre{{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}}pre{{background:#151022;border:1px solid #332a4d;border-radius:14px;padding:14px;overflow:auto}}
+a{{color:#a06bff}}.card{{max-width:860px;margin:0 auto}}</style></head><body><div class="card">
+<h1>mcmusic embed widgets</h1>
+<p>Public, no-login widgets for any website. Add the script once, then drop custom tags where you want them.</p>
+<pre>&lt;script src="{escape(base)}/static/embed/widgets.js" data-mcmusic-base="{escape(base)}" defer&gt;&lt;/script&gt;
+
+&lt;mcmusic-now user="username" theme="dusk" accent="#a06bff"&gt;&lt;/mcmusic-now&gt;
+&lt;mcmusic-turntable user="username" theme="dusk"&gt;&lt;/mcmusic-turntable&gt;</pre>
+<p>Attributes: <code>user</code> (required), <code>theme</code> (<code>dusk|paper|ink|tide|copper|forest|rose|auto</code>), <code>accent</code>, <code>compact</code>, <code>refresh</code> (seconds).</p>
+<p>Style with CSS vars on the element: <code>--mc-accent</code>, <code>--mc-bg</code>, <code>--mc-fg</code>, <code>--mc-radius</code>, <code>--mc-font</code>.</p>
+</div></body></html>"""
+    return Response(html, mimetype="text/html")
 
 
 @bp.post("/api/rooms")
