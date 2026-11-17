@@ -254,7 +254,7 @@ def api_docs():
 
 # ---------------------------------------------------------------- settings + version
 DEFAULT_SETTINGS = {
-    "theme": "dusk", "accent": "#a06bff", "density": "comfy", "material": "glass",
+    "theme": "rose", "accent": "#7ee0b0", "density": "comfy", "material": "plane",
     "covers": True, "autoplay": True, "hide_explicit": False, "private": False,
     "yt_stats": True, "remember_volume": True, "volume": 0.8, "prefetch": True,
     "offline_audio": True, "rotur_activity": False, "show_room_url": False,
@@ -440,12 +440,12 @@ def get_app():
 
 
 # ---------------------------------------------------------------- index (PWA shell)
-INDEX_SHELL = """<!doctype html><html lang="en" data-theme="dusk">
+INDEX_SHELL = """<!doctype html><html lang="en" data-theme="rose" data-material="plane" style="--accent:#7ee0b0;--accent-fg:#07130d;--accent-soft:rgba(126,224,176,0.15)">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
 <meta name="color-scheme" content="dark light">
-<meta name="theme-color" content="#08060d">
+<meta name="theme-color" content="#171015">
 <meta name="description" content="mcmusic — your library, your room, your rules.">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">

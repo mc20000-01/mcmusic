@@ -23,10 +23,10 @@ const CONFIG = window.__MC__ || {};
 const root = document.documentElement;
 
 const DEFAULTS = {
-  theme: "dusk",
-  accent: "#a06bff",
+  theme: "rose",
+  accent: "#7ee0b0",
   density: "comfy",
-  material: "glass",
+  material: "plane",
   covers: true,
   autoplay: true,
   hide_explicit: false,
@@ -1318,7 +1318,7 @@ class App {
       : s.theme;
 
     root.dataset.theme = resolved;
-    root.dataset.material = s.material || "glass";
+    root.dataset.material = s.material || "plane";
     root.style.setProperty("--accent", s.accent);
     root.style.setProperty("--accent-fg", luminance(s.accent) > 0.6 ? "#0b0616" : "#f2ecff");
     const { r, g, b } = hexToRgb(s.accent);
