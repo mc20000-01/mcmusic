@@ -105,6 +105,34 @@ class DiscordButtonsTest(unittest.TestCase):
         self.assertEqual(self._buttons("abc123", ""), [])
 
 
+class DiscordUpdateFallbackTest(unittest.TestCase):
+    def test_buttons_are_dropped_when_the_client_rejects_them(self):
+        from music_activity.sinks.discord import DiscordSink
+        from music_activity.state import PlayerState, Track
+
+        calls = []
+
+        class Rpc:
+            def update(self, **kwargs):
+                calls.append(kwargs)
+                if "buttons" in kwargs:
+                    raise RuntimeError("buttons unsupported")
+
+        sink = DiscordSink("123", log=lambda _m: None)
+        sink._rpc = Rpc()
+        state = PlayerState(
+            track=Track(id="1", title="Song", artist="Artist", duration=200,
+                        url="https://mcmusic.sdisk.us/u/ann"),
+            playing=True,
+            extra="https://mcmusic.sdisk.us/s/abc",
+        )
+        sink._update(state)
+
+        self.assertIn("buttons", calls[0])
+        self.assertNotIn("buttons", calls[-1])
+        self.assertEqual(calls[-1]["details"], "Song")
+
+
 class DiscordActivityRouteTest(unittest.TestCase):
     def setUp(self):
         self.app = Flask(__name__)
