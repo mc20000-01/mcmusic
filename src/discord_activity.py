@@ -80,8 +80,10 @@ def available() -> tuple[bool, str]:
     try:
         if get_ipc_path(0):
             return True, ""
-    except Exception as exc:  # noqa: BLE001
-        return False, f"Discord IPC is not answering ({exc})"
+    except Exception:  # noqa: BLE001
+        # A socket left behind by a crashed client raises instead of returning
+        # None; the process check below says more than a raw errno would.
+        pass
     if client_running():
         return False, "the Discord client on this server is not signed in yet"
     return False, "Discord is not running on this server"
