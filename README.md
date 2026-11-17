@@ -38,7 +38,7 @@ Configuration is environment-only. The names that matter:
 - `ROTUR_APP`, `ROTUR_SECRET`, `INVITE_CODE`
 - `DISCORD_CLIENT_ID` (or existing `DISCORD_APPLICATION_ID`), `DISCORD_CLIENT_SECRET`, `DISCORD_REDIRECT_URI`
 - `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_ADMIN_TOKEN`, `MCMUSIC_BOT_TOKEN`
-- `DISCORD_APP_ID` (only for Discord presence)
+- `DISCORD_APP_ID` (optional override for Discord presence; `DISCORD_CLIENT_ID` is used otherwise)
 
 Nothing under `data/` (database, cookies, session key) or `mcmusic.env` is in
 this repository, and `.gitignore` keeps it that way.
@@ -64,12 +64,17 @@ of the Rotur one. It posts the current track to
 `POST /api/auth/discord/activity` (same body as the Rotur route, plus a
 `playing: false` clear) and the server publishes it as a Listening presence.
 
-Presence can only be set by a Discord client, so this needs `DISCORD_APP_ID` —
-the application id from Rich Presence → Assets — and the Discord desktop app
-running **on the server host**, which is why the route answers `503` with
-“Discord is not running on this server” instead of pretending to succeed. On a
-shared server the local client has one presence, so the last account to publish
-wins.
+Presence can only be set by a Discord client, so this needs an application id —
+`DISCORD_APP_ID`, or the `DISCORD_CLIENT_ID` / `DISCORD_APPLICATION_ID` you
+already set for linking (same application) — and the Discord desktop app running
+**on the server host**. That is why the route answers `503` with the reason
+(“Discord is not running on this server”) instead of pretending to succeed, and
+why Settings → Discord states the same thing under the toggle: `GET
+/api/auth/discord/status` reports `presence: {configured, available, reason}`.
+The activity carries a **Listen along** button when the room link is shared and
+a **mcmusic profile** button, so a listener can jump from Discord to the track.
+On a shared server the local client has one presence, so the last account to
+publish wins.
 
 ## Builds
 

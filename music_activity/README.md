@@ -127,9 +127,15 @@ one update per 15 s, and retries every 30 s when Discord is not running.
 
 The same sink powers the web/Android setting: `POST /api/auth/discord/activity`
 (`src/discord_activity.py`) keeps one presence session per signed-in account, so
-clients never import pypresence. It preflights the IPC socket and answers `503`
-“Discord is not running on this server” when there is nothing to publish to,
-which is the case here.
+clients never import pypresence — including Android, which posts the same body
+as the Rotur activity. It preflights the IPC socket and answers `503` “Discord
+is not running on this server” when there is nothing to publish to, which is the
+case here.
+
+The activity links back to mcmusic: **Listen along** (the room URL, when the
+account shares it) and **mcmusic profile** (the public profile), capped at
+Discord's two buttons and dropped entirely if the client rejects them, because a
+presence without links is better than none.
 
 **Not verified visually:** this host has no Discord desktop client, so the
 Listening type, the elapsed-time bar and the uploaded art assets were not seen in

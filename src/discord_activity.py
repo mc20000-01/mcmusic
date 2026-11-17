@@ -28,8 +28,14 @@ _sessions: dict[int, DiscordSink] = {}
 _lock = threading.Lock()
 
 
+# A Discord application is identified by one id; the bot deployment already
+# stores it as DISCORD_APPLICATION_ID and the OAuth link as DISCORD_CLIENT_ID.
 def app_id() -> str:
-    return os.environ.get("DISCORD_APP_ID", "").strip()
+    for name in ("DISCORD_APP_ID", "DISCORD_APPLICATION_ID", "DISCORD_CLIENT_ID"):
+        value = os.environ.get(name, "").strip()
+        if value:
+            return value
+    return ""
 
 
 def configured() -> bool:
@@ -43,7 +49,7 @@ def available() -> tuple[bool, str]:
     a request would report success while nothing ever reached Discord.
     """
     if not app_id():
-        return False, "DISCORD_APP_ID is not set on the server"
+        return False, "no Discord application id is set (DISCORD_APP_ID or DISCORD_CLIENT_ID)"
     try:
         from pypresence.utils import get_ipc_path
     except Exception:  # noqa: BLE001 - pypresence is optional
@@ -54,6 +60,12 @@ def available() -> tuple[bool, str]:
     except Exception as exc:  # noqa: BLE001
         return False, f"Discord IPC is not answering ({exc})"
     return False, "Discord is not running on this server"
+
+
+def state() -> dict:
+    """What the settings screen needs to explain a toggle that cannot work."""
+    usable, why = available()
+    return {"configured": configured(), "available": usable, "reason": why}
 
 
 def _new_sink(uid: int) -> DiscordSink:

@@ -303,12 +303,19 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private fun installRoturHook() {
         if (roturHookSet) return
         roturHookSet = true
-        engine.onTrackChanged = { t -> pushRotur(t, engine.playing) }
-        engine.onPlayStateChanged = { playing -> pushRotur(engine.current, playing) }
+        engine.onTrackChanged = { t ->
+            pushRotur(t, engine.playing)
+            pushDiscord(t, engine.playing)
+        }
+        engine.onPlayStateChanged = { playing ->
+            pushRotur(engine.current, playing)
+            pushDiscord(engine.current, playing)
+        }
     }
 
     private var commandLoopRunning = false
     private var roturHookSet = false
+    private var discordError: String? = null
 
     private fun heartbeatLoop() {
         viewModelScope.launch {
@@ -559,10 +566,26 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private fun pushDiscord(t: Track?, playing: Boolean, force: Boolean = false) {
+        if (!settings.discordActivity && !force) return
+        viewModelScope.launch {
+            runCatching {
+                repo.pushDiscordActivity(if (t != null && playing) t.id else null, engine.position, playing && t != null)
+            }.onFailure {
+                // Discord presence has to come from a client on the server host;
+                // repeat only a new reason so track changes do not spam the toast.
+                val msg = it.message ?: "Discord activity failed"
+                if (force || msg != discordError) toast(msg)
+                discordError = msg
+            }.onSuccess { discordError = null }
+        }
+    }
+
     /** Re-publish now so flipping the toggle shows up without waiting for a track change. */
     fun setShowRoomUrl(on: Boolean) {
         setSetting { it.copy(showRoomUrl = on) }
         pushRotur(engine.current, settings.roturActivity && engine.playing, force = true)
+        pushDiscord(engine.current, settings.discordActivity && engine.playing, force = true)
     }
 
     fun applySettings(next: Settings) {
@@ -1311,6 +1334,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun setRoturActivity(on: Boolean) {
         setSetting { it.copy(roturActivity = on) }
         pushRotur(engine.current, on && engine.playing, force = true)
+    }
+
+    fun setDiscordActivity(on: Boolean) {
+        setSetting { it.copy(discordActivity = on) }
+        pushDiscord(engine.current, on && engine.playing, force = true)
     }
 
     /* ── offline downloads ──────────────────────────────────────────────── */

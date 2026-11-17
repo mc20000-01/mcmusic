@@ -135,6 +135,35 @@ class DiscordSink:
             kwargs["start"] = start
             if end:
                 kwargs["end"] = end
+        buttons = self._buttons(state)
+        if buttons:
+            kwargs["buttons"] = buttons
+        try:
+            self._send(kwargs)
+        except Exception:
+            # Clients older than the button support reject the whole activity,
+            # and a dropped presence is worse than a missing link.
+            if "buttons" not in kwargs:
+                raise
+            kwargs.pop("buttons")
+            self.log("discord: buttons unsupported, publishing without links")
+            self._send(kwargs)
+
+    @staticmethod
+    def _buttons(state: PlayerState) -> list[dict]:
+        """Discord allows two links; offer the room first, then the profile."""
+        out: list[dict] = []
+        room = (state.extra or "").strip()
+        if room.startswith(("http://", "https://")):
+            out.append({"label": "Listen along", "url": room[:512]})
+        profile = (state.track.url if state.track else None) or ""
+        profile = profile.strip()
+        if profile.startswith(("http://", "https://")) and profile != room:
+            out.append({"label": "mcmusic profile", "url": profile[:512]})
+        return out[:2]
+
+    def _send(self, kwargs: dict) -> None:
+        assert self._rpc is not None
         if self._supported and ActivityType is not None:
             try:
                 self._rpc.update(activity_type=ActivityType.LISTENING, **kwargs)

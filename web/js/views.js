@@ -963,6 +963,18 @@ async function downloadsBody(container) {
   );
 }
 
+/** Explain the activity toggle in terms of what the server can actually do. */
+function discordPresenceHint(presence) {
+  if (!presence) return "Shows what you're playing in your Discord profile";
+  if (!presence.configured) {
+    return "Needs a Discord application id on the server (DISCORD_CLIENT_ID is enough)";
+  }
+  if (!presence.available) {
+    return "The Discord desktop app has to run on the server — it isn't running right now";
+  }
+  return "Shows what you're playing in your Discord profile, with a link to the track";
+}
+
 /* ── settings ───────────────────────────────────────────────────────────── */
 const THEMES = [
   ["dusk", "Night"],
@@ -1327,7 +1339,7 @@ async function settings(container) {
   dRow.appendChild(dActs);
   pDc.appendChild(dRow);
   pDc.appendChild(
-    row("Share as Discord activity", "Shows what you're playing in your Discord profile (needs the Discord app on the server)",
+    row("Share as Discord activity", discordPresenceHint(dc.presence),
       toggle(s.discord_activity, (v) => app()?.setPref("discord_activity", v)))
   );
   container.appendChild(pDc);
