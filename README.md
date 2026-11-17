@@ -76,6 +76,12 @@ a **mcmusic profile** button, so a listener can jump from Discord to the track.
 On a shared server the local client has one presence, so the last account to
 publish wins.
 
+Both activity toggles (Rotur and Discord) describe the server state in Settings
+and re-check it every 10 s while the page is open, so starting or quitting the
+Discord client — or a Rotur session expiring — shows up without a reload.
+`GET /api/auth/rotur/status` reports the Rotur equivalent as
+`activity: {ready, reason}`.
+
 ## Builds
 
 ```bash

@@ -7,15 +7,22 @@ stashing a verified pending identity, which is exactly what callback_route does.
 
     .venv/bin/python -m unittest discover -s tests -v
 """
+import atexit
 import os
 import shutil
 import sys
 import tempfile
 import time
 import unittest
+import unittest.mock
 
-_TMP = tempfile.mkdtemp(prefix="mcm-claim-test-")
-os.environ["DATA_DIR"] = _TMP
+# database.DB_PATH is fixed on first import and shared with every test module in
+# the process, so a directory created here must outlive this module's tests.
+_OWN_TMP = None
+if not os.environ.get("DATA_DIR"):
+    _OWN_TMP = tempfile.mkdtemp(prefix="mcm-claim-test-")
+    os.environ["DATA_DIR"] = _OWN_TMP
+    atexit.register(shutil.rmtree, _OWN_TMP, True)
 os.environ.pop("INVITE_CODE", None)
 sys.path.insert(
     0,
@@ -28,9 +35,6 @@ import database  # noqa: E402
 import rotur  # noqa: E402
 from auth import create_user  # noqa: E402
 
-
-def tearDownModule():
-    shutil.rmtree(_TMP, ignore_errors=True)
 
 
 class RoturClaimTest(unittest.TestCase):
@@ -136,6 +140,31 @@ class RoturClaimTest(unittest.TestCase):
             self.assertIn(b"Sign-in expired", resp.data)
             self.assertEqual(self._count(c, "users"), 0)
             self.assertEqual(self._count(c, "rotur_pending"), 0)
+
+
+class RoturActivityStateTest(unittest.TestCase):
+    """The settings row explains the activity toggle from this state."""
+
+    def test_unconfigured_server_says_so(self):
+        with unittest.mock.patch.object(rotur, "configured", return_value=False):
+            state = rotur._activity_state(valid_session=True)
+        self.assertFalse(state["ready"])
+        self.assertIn("not configured", state["reason"])
+
+    def test_expired_session_asks_for_a_new_sign_in(self):
+        with unittest.mock.patch.object(rotur, "configured", return_value=True), \
+                unittest.mock.patch.object(rotur, "ROTUR_TOKEN", ""):
+            state = rotur._activity_state(valid_session=False)
+        self.assertFalse(state["ready"])
+        self.assertIn("Sign in", state["reason"])
+
+    def test_a_live_session_or_server_token_is_ready(self):
+        with unittest.mock.patch.object(rotur, "configured", return_value=True), \
+                unittest.mock.patch.object(rotur, "ROTUR_TOKEN", ""):
+            self.assertTrue(rotur._activity_state(valid_session=True)["ready"])
+        with unittest.mock.patch.object(rotur, "configured", return_value=True), \
+                unittest.mock.patch.object(rotur, "ROTUR_TOKEN", "server-token"):
+            self.assertTrue(rotur._activity_state(valid_session=False)["ready"])
 
 
 if __name__ == "__main__":

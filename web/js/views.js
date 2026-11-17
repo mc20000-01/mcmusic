@@ -963,6 +963,39 @@ async function downloadsBody(container) {
   );
 }
 
+/** Explain the Rotur activity toggle in terms of what the server can do. */
+function roturActivityHint(activity) {
+  if (!activity) return "Shows what you're playing on your Rotur profile";
+  if (!activity.ready) return activity.reason || "The Rotur activity is unavailable right now";
+  return "Shows what you're playing on your Rotur profile";
+}
+
+/**
+ * Poll one status route while its settings row is on screen and rewrite the
+ * hint. A Discord client or a Rotur session changes without any page event, so
+ * the row would otherwise keep describing the state from when Settings opened.
+ */
+function watchAvailability(rowEl, path, describe) {
+  const hint = rowEl.querySelector("small");
+  if (!hint) return;
+  const tick = async () => {
+    if (!rowEl.isConnected) {
+      clearInterval(timer);
+      return;
+    }
+    try {
+      const st = await api(path);
+      if (!rowEl.isConnected) return;
+      const text = describe(st || {});
+      if (text && hint.textContent !== text) hint.textContent = text;
+    } catch (e) {
+      /* keep the last known sentence; the toggle reports real failures */
+    }
+  };
+  const timer = setInterval(tick, 10000);
+  tick();
+}
+
 /** Explain the activity toggle in terms of what the server can actually do. */
 function discordPresenceHint(presence) {
   if (!presence) return "Shows what you're playing in your Discord profile";
@@ -1263,10 +1296,16 @@ async function settings(container) {
   }
   rot.appendChild(racts);
   p4.appendChild(rot);
-  p4.appendChild(
-    row("Share as Rotur activity", "Shows what you're playing on your Rotur profile",
-      toggle(s.rotur_activity, (v) => app()?.setPref("rotur_activity", v)))
+  const roturActivityRow = row(
+    "Share as Rotur activity",
+    roturActivityHint(RoturLink.activity),
+    toggle(s.rotur_activity, (v) => app()?.setPref("rotur_activity", v))
   );
+  p4.appendChild(roturActivityRow);
+  watchAvailability(roturActivityRow, "auth/rotur/status", (st) => {
+    if (Auth.rotur) Auth.rotur.activity = st.activity || null;
+    return roturActivityHint(st.activity);
+  });
   p4.appendChild(
     row("Room link", s.room_url || "Start a room to get a link",
       (() => {
@@ -1338,10 +1377,18 @@ async function settings(container) {
   }
   dRow.appendChild(dActs);
   pDc.appendChild(dRow);
-  pDc.appendChild(
-    row("Share as Discord activity", discordPresenceHint(dc.presence),
-      toggle(s.discord_activity, (v) => app()?.setPref("discord_activity", v)))
+  const discordActivityRow = row(
+    "Share as Discord activity",
+    discordPresenceHint(dc.presence),
+    toggle(s.discord_activity, (v) => app()?.setPref("discord_activity", v))
   );
+  pDc.appendChild(discordActivityRow);
+  // The Discord client can start or quit while this page is open; keep the
+  // sentence under the toggle honest instead of asking for a reload.
+  watchAvailability(discordActivityRow, "auth/discord/status", (st) => {
+    if (Auth.discord) Auth.discord.presence = st.presence || null;
+    return discordPresenceHint(st.presence);
+  });
   container.appendChild(pDc);
 
   /* account */
