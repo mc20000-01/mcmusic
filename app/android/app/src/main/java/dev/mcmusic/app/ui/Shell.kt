@@ -563,7 +563,7 @@ private fun NavBar(vm: AppViewModel, modifier: Modifier = Modifier) {
                         .weight(1f)
                         .fillMaxHeight()
                         .clip(RoundedCornerShape(22.dp))
-                        .background(if (active) mc.glassStrong else Color.Transparent)
+                        .background(if (active) mc.accentSoft else Color.Transparent)
                         .clickable { vm.navigate(item.route, push = false) },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,

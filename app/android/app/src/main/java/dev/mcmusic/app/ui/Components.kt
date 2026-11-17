@@ -444,7 +444,7 @@ fun SectionHead(text: String, meta: String? = null, actions: @Composable RowScop
     ) {
         Text(text, style = McType.h1Small, color = mc.fg)
         if (meta != null) {
-            Text(meta, style = McType.bodyXs, color = mc.fg.copy(alpha = 0.62f))
+            Text(meta, style = McType.bodyXs, color = mc.dim)
         }
         Spacer(Modifier.weight(1f))
         actions()
@@ -464,7 +464,7 @@ fun Panel(title: String? = null, content: @Composable ColumnScope.() -> Unit) {
             Text(
                 title.uppercase(),
                 style = McType.mono10.copy(fontSize = 11.sp, letterSpacing = 0.12.em),
-                color = mc.fg.copy(alpha = 0.55f),
+                color = mc.dim2,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 8.dp),
@@ -496,7 +496,7 @@ fun SettingRow(
                 color = mc.fg,
             )
             if (subtitle != null) {
-                Text(subtitle, style = McType.bodyXs, color = mc.fg.copy(alpha = 0.62f))
+                Text(subtitle, style = McType.bodyXs, color = mc.dim)
             }
         }
         trailing()
@@ -684,7 +684,7 @@ fun TrackRow(
         modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(D.r2))
-            .background(if (isCurrent) mc.glassStrong else Color.Transparent)
+            .background(if (isCurrent) mc.accentSoft else Color.Transparent)
             .combinedClickable(
                 onClick = onClick,
                 onLongClickLabel = "Track options",
