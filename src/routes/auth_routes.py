@@ -38,27 +38,24 @@ def register():
     bootstrap = c.execute("select count(*) n from users").fetchone()["n"] == 0
 
     invite = None
-    if bootstrap:
-        # First account on a fresh server: no invite exists yet, so allow it.
-        pass
-    elif INVITE_CODE:
-        if code != INVITE_CODE:
-            return jsonify(error="bad invite code"), 403
-    else:
+    if not bootstrap:
         if not code:
             return jsonify(error="invite code required"), 403
+        # Admin-issued invite codes take priority; the server-wide INVITE_CODE
+        # remains a fallback so old deployments keep working.
         invite = _db().execute(
             "select id, code, max_uses, uses, expires, active, for_user, created_by "
             "from invite_codes where code=? and active=1", (code,)
         ).fetchone()
-        if not invite:
+        if invite:
+            if invite["uses"] >= invite["max_uses"]:
+                return jsonify(error="invite code used up"), 403
+            if invite["expires"] and time.time() > invite["expires"]:
+                return jsonify(error="invite code expired"), 403
+            if invite["for_user"] and invite["for_user"] != name:
+                return jsonify(error="this invite is for another username"), 403
+        elif not (INVITE_CODE and code == INVITE_CODE):
             return jsonify(error="bad invite code"), 403
-        if invite["uses"] >= invite["max_uses"]:
-            return jsonify(error="invite code used up"), 403
-        if invite["expires"] and time.time() > invite["expires"]:
-            return jsonify(error="invite code expired"), 403
-        if invite["for_user"] and invite["for_user"] != name:
-            return jsonify(error="this invite is for another username"), 403
 
     if not validate_username(name):
         return jsonify(error="username: 3-32 chars, letters/numbers/._-"), 400
