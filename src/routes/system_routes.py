@@ -134,7 +134,12 @@ def public_profile(username):
 <meta property="og:description" content="{escape(desc)}">
 <meta property="og:url" content="{escape(profile_url)}">
 <meta property="og:image" content="{escape(cover_url)}">
+<meta property="og:image:secure_url" content="{escape(cover_url)}">
+<meta property="og:image:alt" content="{escape(detail)}">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{escape(title)}">
+<meta name="twitter:description" content="{escape(desc)}">
+<meta name="twitter:image" content="{escape(cover_url)}">
 <style>
 :root{{color-scheme:dark;--bg:#08060d;--panel:#15101f;--line:#2c2440;--fg:#f2ecff;--dim:#a99bbd;--accent:#a06bff}}
 *{{box-sizing:border-box}}body{{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 0,#2b1850 0,var(--bg) 55%);color:var(--fg);font:15px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;display:grid;place-items:center;padding:24px}}
@@ -154,7 +159,11 @@ h1{{margin:0;font-size:27px;line-height:1.1;letter-spacing:-.03em}}
 <p class="meta">{escape(artist)}{(' · ' + escape(album)) if album else ''}</p>
 <div class="foot"><span>{escape(profile_url)}</span><a class="btn" href="{escape(base)}">Open mcmusic</a></div>
 </main></body></html>"""
-    return Response(page, mimetype="text/html", headers={"Cache-Control": "no-store"})
+    return Response(page, mimetype="text/html", headers={
+        "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
+        "Pragma": "no-cache",
+        "Expires": "0",
+    })
 
 
 @bp.get("/u/<username>/cover.png")
@@ -166,32 +175,28 @@ def public_cover(username):
     track_id = int(now["track_id"]) if now and now["track_id"] else 0
     updated = int((now["updated"] if now and now["updated"] else 0) or 0)
     etag = f'W/"{track_id}-{updated}"'
-    if request.headers.get("If-None-Match") == etag:
-        return Response(status=304, headers={
-            "ETag": etag,
-            "Cache-Control": "public, max-age=0, must-revalidate",
-            "Access-Control-Allow-Origin": "*",
-        })
+    headers = {
+        "ETag": etag,
+        "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0, s-maxage=0",
+        "Pragma": "no-cache",
+        "Expires": "0",
+        "Access-Control-Allow-Origin": "*",
+        "Vary": "Accept-Encoding",
+    }
+    # Always honor versioned URLs as unique resources for CDN caches.
+    if request.headers.get("If-None-Match") == etag and not request.args.get("v"):
+        return Response(status=304, headers=headers)
     if track_id:
         from routes.library_routes import _track_path, read_cover
         p = _track_path(track_id)
         art = read_cover(p) if p else None
         if art:
-            return Response(
-                art[0],
-                mimetype=art[1],
-                headers={
-                    "Cache-Control": "public, max-age=0, must-revalidate",
-                    "ETag": etag,
-                    "Access-Control-Allow-Origin": "*",
-                },
-            )
+            return Response(art[0], mimetype=art[1], headers=headers)
     fallback = os.path.join(current_app.static_folder or "", "icon-512.png")
     if os.path.isfile(fallback):
         resp = send_file(fallback, mimetype="image/png")
-        resp.headers["Cache-Control"] = "public, max-age=60"
-        resp.headers["ETag"] = etag
-        resp.headers["Access-Control-Allow-Origin"] = "*"
+        for k, v in headers.items():
+            resp.headers[k] = v
         return resp
     return Response(status=404, headers={"Cache-Control": "no-store", "Access-Control-Allow-Origin": "*"})
 
@@ -751,6 +756,16 @@ def devices_activate(did):
     _db().execute("update devices set is_active=1 where id=?", (did,))
     _db().commit()
     return jsonify(ok=True, active_device=did)
+
+
+@bp.post("/api/devices/clear")
+@login_required
+def devices_clear():
+    """Remove device records for this user (fixes broken/stale devices after updates)."""
+    c = _db()
+    c.execute("delete from devices where user_id=?", (session["uid"],))
+    c.commit()
+    return jsonify(ok=True)
 
 
 @bp.get("/api/devices/sync")
