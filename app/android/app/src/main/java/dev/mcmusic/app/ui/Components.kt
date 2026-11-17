@@ -97,6 +97,37 @@ val LocalListPrefs = staticCompositionLocalOf { ListPrefs() }
 
 /* ── buttons ────────────────────────────────────────────────────────────── */
 
+/**
+ * Spring press feedback for tappable surfaces.
+ *
+ * The element dips under the finger and a light tick confirms the touch. Pass
+ * the same [MutableInteractionSource] the clickable uses, otherwise the press
+ * is never observed and nothing happens.
+ */
+@Composable
+fun Modifier.pressFeedback(
+    interaction: MutableInteractionSource,
+    scaleDown: Float = 0.96f,
+    haptic: Boolean = true,
+): Modifier {
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) scaleDown else 1f,
+        animationSpec = spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessMedium),
+        label = "press",
+    )
+    if (haptic) {
+        val haptics = LocalHapticFeedback.current
+        LaunchedEffect(pressed) {
+            if (pressed) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
+    }
+    return this.graphicsLayer {
+        scaleX = scale
+        scaleY = scale
+    }
+}
+
 @Composable
 fun McButton(
     text: String,
@@ -115,6 +146,10 @@ fun McButton(
     val pressed by interaction.collectIsPressedAsState()
     val pressScale by animateFloatAsState(if (pressed) 0.97f else 1f, label = "btn-scale")
     val pressLift by animateFloatAsState(if (pressed) 0.6f else 1f, label = "btn-lift")
+    val haptics = LocalHapticFeedback.current
+    LaunchedEffect(pressed) {
+        if (pressed && enabled) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+    }
 
     val bgBrush = when {
         !enabled -> Brush.linearGradient(listOf(mc.glass.copy(alpha = 0.35f), mc.glass.copy(alpha = 0.25f)))
@@ -216,16 +251,22 @@ fun IconBtn(
     contentDescription: String? = null,
 ) {
     val mc = LocalMc.current
+    val interaction = remember { MutableInteractionSource() }
     Box(
         modifier
             .size(size)
+            .pressFeedback(interaction, scaleDown = 0.90f)
             .clip(CircleShape)
             .background(if (active) mc.accentSoft else Color.Transparent)
             .then(
                 if (active) Modifier.border(1.dp, mc.accent.copy(alpha = 0.35f), CircleShape)
                 else Modifier
             )
-            .clickable(onClick = onClick),
+            .clickable(
+                interactionSource = interaction,
+                indication = LocalIndication.current,
+                onClick = onClick,
+            ),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
@@ -680,12 +721,16 @@ fun TrackRow(
     val mc = LocalMc.current
     val prefs = LocalListPrefs.current
     val haptics = LocalHapticFeedback.current
+    val interaction = remember { MutableInteractionSource() }
     Row(
         modifier
             .fillMaxWidth()
+            .pressFeedback(interaction, scaleDown = 0.985f)
             .clip(RoundedCornerShape(D.r2))
             .background(if (isCurrent) mc.accentSoft else Color.Transparent)
             .combinedClickable(
+                interactionSource = interaction,
+                indication = LocalIndication.current,
                 onClick = onClick,
                 onLongClickLabel = "Track options",
                 onLongClick = {
@@ -824,19 +869,10 @@ fun Tile(
     val mc = LocalMc.current
     val haptics = LocalHapticFeedback.current
     val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val pressScale by animateFloatAsState(
-        targetValue = if (pressed) 0.955f else 1f,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-        label = "tile press",
-    )
     Column(
         Modifier
             .then(if (fillWidth) Modifier.fillMaxWidth() else Modifier.width(width))
-            .graphicsLayer {
-                scaleX = pressScale
-                scaleY = pressScale
-            }
+            .pressFeedback(interaction, scaleDown = 0.955f)
             .clip(RoundedCornerShape(D.r3))
             .combinedClickable(
                 interactionSource = interaction,
@@ -1050,11 +1086,17 @@ fun MenuRow(
     onClick: () -> Unit,
 ) {
     val mc = LocalMc.current
+    val interaction = remember { MutableInteractionSource() }
     Row(
         Modifier
             .fillMaxWidth()
+            .pressFeedback(interaction, scaleDown = 0.98f)
             .clip(RoundedCornerShape(D.r2))
-            .clickable(onClick = onClick)
+            .clickable(
+                interactionSource = interaction,
+                indication = LocalIndication.current,
+                onClick = onClick,
+            )
             .padding(horizontal = 10.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
