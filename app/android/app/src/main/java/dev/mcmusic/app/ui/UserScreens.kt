@@ -387,10 +387,10 @@ private fun GraphicsQuality(vm: AppViewModel) {
                 Text(
                     "This device only. Auto starts at a safe level and lowers it when frames are slow.",
                     style = McType.bodyXs,
-                    color = mc.fg.copy(alpha = 0.62f),
+                    color = mc.dim,
                 )
             }
-            Text("Auto", style = McType.bodyXs, color = mc.fg.copy(alpha = 0.62f))
+            Text("Auto", style = McType.bodyXs, color = mc.dim)
             Spacer(Modifier.width(6.dp))
             SwitchPill(vm.gfxAuto) { vm.updateGfxAuto(it) }
         }
@@ -405,12 +405,12 @@ private fun GraphicsQuality(vm: AppViewModel) {
                 Text(
                     label,
                     style = McType.mono9,
-                    color = mc.fg.copy(alpha = 0.55f),
+                    color = mc.dim2,
                 )
             }
         }
-        Text(blurbs[vm.gfxLevel.coerceIn(0, 4)], style = McType.bodyXs, color = mc.fg.copy(alpha = 0.62f))
-        Text("Current: — ms/frame", style = McType.mono9, color = mc.fg.copy(alpha = 0.55f))
+        Text(blurbs[vm.gfxLevel.coerceIn(0, 4)], style = McType.bodyXs, color = mc.dim)
+        Text("Current: — ms/frame", style = McType.mono9, color = mc.dim2)
     }
 }
 
@@ -473,7 +473,7 @@ fun SettingsScreen(vm: AppViewModel) {
                 Text(
                     "Theme",
                     style = McType.mono9,
-                    color = mc.fg.copy(alpha = 0.55f),
+                    color = mc.dim2,
                     modifier = Modifier.padding(start = 16.dp, top = 14.dp),
                 )
                 Column(
@@ -503,7 +503,7 @@ fun SettingsScreen(vm: AppViewModel) {
                     Text(
                         "Pick a colour for controls and focus",
                         style = McType.bodyXs,
-                        color = mc.fg.copy(alpha = 0.62f),
+                        color = mc.dim,
                     )
                     Row(
                         Modifier

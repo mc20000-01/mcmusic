@@ -389,10 +389,10 @@ private fun PlayerBackdrop(trackId: Int?) {
     val art = rememberArt(trackId)
 
     val style = when (material) {
-        "plane" -> BackdropStyle(72.dp, 0.26f, 0.58f, 0.98f, 0.10f)
-        "solid" -> BackdropStyle(52.dp, 0.18f, 0.66f, 0.99f, 0.07f)
-        "metal" -> BackdropStyle(38.dp, 0.50f, 0.44f, 0.96f, 0.14f)
-        else -> BackdropStyle(30.dp, 0.58f, 0.34f, 0.93f, 0.20f) // glass
+        "plane" -> BackdropStyle(72.dp, 0.20f, 0.74f, 0.99f, 0.10f)
+        "solid" -> BackdropStyle(52.dp, 0.14f, 0.80f, 0.99f, 0.07f)
+        "metal" -> BackdropStyle(38.dp, 0.40f, 0.62f, 0.97f, 0.14f)
+        else -> BackdropStyle(30.dp, 0.46f, 0.66f, 0.96f, 0.20f) // glass
     }
 
     Box(Modifier.fillMaxSize().background(mc.bg)) {
