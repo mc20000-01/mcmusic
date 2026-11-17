@@ -340,19 +340,19 @@ button{font:inherit;background:var(--accent);color:#1a1026;border:0;border-radiu
 button.secondary{background:#24183a;color:#e8dcff;border:1px solid #3a2a56;font-weight:600}
 button:active{transform:translateY(1px)}
 button.copied{background:var(--ok);color:#0b1a12}
-.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:12px;margin-top:14px}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(185px,100%),1fr));gap:12px;margin-top:14px}
 .field{display:flex;flex-direction:column;gap:5px;font-size:12px;letter-spacing:.02em;color:var(--dim)}
 input[type=text],input[type=number],select{font:inherit;font-size:14px;background:#120e1e;color:var(--fg);border:1px solid #352a4e;border-radius:10px;padding:8px 10px;width:100%}
 input[type=color]{width:44px;height:34px;padding:2px;background:#120e1e;border:1px solid #352a4e;border-radius:9px;cursor:pointer}
 input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px;vertical-align:-2px;margin:0 4px 0 0}
 .inline{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--dim);cursor:pointer}
-.gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(315px,1fr));gap:14px;margin-top:12px}
+.gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(315px,100%),1fr));gap:14px;margin-top:12px}
 .w{display:flex;flex-direction:column;gap:8px;background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.02));
   border:1px solid color-mix(in srgb,var(--line) 85%,transparent);border-radius:18px;padding:14px;box-shadow:0 14px 32px rgba(0,0,0,.22)}
 .w .head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .w pre{margin:0;flex:1}
 .stage{border:1px dashed #3a2d56;border-radius:14px;padding:14px;background:rgba(0,0,0,.22);display:flex;align-items:center;min-height:104px;overflow:auto}
-.stage > *{max-width:100%}
+.stage > *{max-width:100%;min-width:0}
 .tag{display:inline-block;font:11px ui-monospace,SFMono-Regular,Menlo,monospace;color:#d7c8ff;background:#24163f;border:1px solid #3f2b67;border-radius:999px;padding:2px 8px;white-space:nowrap}
 .tag.live{color:#bdf3d5;background:#183527;border-color:#2f6b4b}
 .cover{width:44px;height:44px;border-radius:11px;object-fit:cover;background:#1a1329;border:1px solid #352a4e;flex:none}
@@ -361,7 +361,30 @@ th,td{text-align:left;padding:7px 10px;border-bottom:1px solid #2c2140;vertical-
 th{color:#d9cfff;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.07em}
 td:first-child{white-space:nowrap}
 footer{margin-top:30px;color:#8f84ab;font-size:13px}
-@media(max-width:520px){.wrap{padding:20px 14px 56px}.card,.w{padding:13px}.stage{padding:12px;min-height:auto}}
+@media(max-width:640px){
+  thead{display:none}
+  tr{display:block;border:1px solid #2c2140;border-radius:12px;padding:9px 11px;margin:0 0 9px}
+  tr:last-child{margin-bottom:0}
+  td{display:block;border:0;padding:2px 0}
+  td:first-child{padding-top:0;white-space:normal;font-size:14px;font-weight:600;color:#efe6ff}
+  td:not(:first-child)::before{content:attr(data-label);display:block;font:10.5px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;
+    letter-spacing:.08em;text-transform:uppercase;color:#a795c9;margin:5px 0 1px}
+  table{margin-top:12px}
+}
+@media(max-width:520px){
+  .wrap{padding:18px 12px 54px}
+  .card,.w{padding:12px;border-radius:16px}
+  .stage{padding:11px;min-height:0}
+  .w .head{flex-wrap:wrap;row-gap:4px}
+  .w pre{white-space:pre-wrap;overflow-wrap:anywhere}
+  .row button{width:100%}
+  pre{font-size:11.5px;padding:10px 11px}
+  h2{font-size:17px}
+  .lead{font-size:15px}
+  .tag{font-size:10px}
+  footer{font-size:12px}
+  .hero{padding:6px 0 0}
+}
 </style></head><body><div class="wrap">
 
 <header class="hero">
@@ -422,11 +445,11 @@ footer{margin-top:30px;color:#8f84ab;font-size:13px}
   <table>
     <thead><tr><th>Attribute</th><th>Values</th><th>Default</th><th>What it does</th></tr></thead>
     <tbody>
-      <tr><td><code>user</code></td><td>any mcmusic username</td><td>—</td><td>Whose status to show. Required.</td></tr>
-      <tr><td><code>theme</code></td><td><code>dusk</code> <code>paper</code> <code>ink</code> <code>tide</code> <code>copper</code> <code>forest</code> <code>rose</code> <code>auto</code></td><td><code>dusk</code></td><td>Colour palette; <code>auto</code> follows the visitor's light/dark preference.</td></tr>
-      <tr><td><code>accent</code></td><td>any CSS colour</td><td>theme accent</td><td>Overrides the highlight colour (dot, progress bar, links). Page CSS <code>--mc-accent</code> beats it.</td></tr>
-      <tr><td><code>compact</code></td><td>presence</td><td>off</td><td>Smaller padding and artwork.</td></tr>
-      <tr><td><code>refresh</code></td><td>seconds, min <code>5</code></td><td><code>12</code></td><td>How often the widget re-polls the public API.</td></tr>
+      <tr><td><code>user</code></td><td data-label="Values">any mcmusic username</td><td data-label="Default">—</td><td data-label="What it does">Whose status to show. Required.</td></tr>
+      <tr><td><code>theme</code></td><td data-label="Values"><code>dusk</code> <code>paper</code> <code>ink</code> <code>tide</code> <code>copper</code> <code>forest</code> <code>rose</code> <code>auto</code></td><td data-label="Default"><code>dusk</code></td><td data-label="What it does">Colour palette; <code>auto</code> follows the visitor's light/dark preference.</td></tr>
+      <tr><td><code>accent</code></td><td data-label="Values">any CSS colour</td><td data-label="Default">theme accent</td><td data-label="What it does">Overrides the highlight colour (dot, progress bar, links). Page CSS <code>--mc-accent</code> beats it.</td></tr>
+      <tr><td><code>compact</code></td><td data-label="Values">presence</td><td data-label="Default">off</td><td data-label="What it does">Smaller padding and artwork.</td></tr>
+      <tr><td><code>refresh</code></td><td data-label="Values">seconds, min <code>5</code></td><td data-label="Default"><code>12</code></td><td data-label="What it does">How often the widget re-polls the public API.</td></tr>
     </tbody>
   </table>
 </section>
