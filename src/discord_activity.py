@@ -42,6 +42,29 @@ def configured() -> bool:
     return bool(app_id())
 
 
+def client_running() -> bool:
+    """Is a Discord desktop client alive on this host (signed in or not)?
+
+    The IPC socket only appears once the client finishes signing in, so process
+    presence is the only way to tell "not installed/running" from "not signed
+    in yet" in the message the settings screen shows.
+    """
+    try:
+        entries = os.listdir("/proc")
+    except OSError:
+        return False
+    for entry in entries:
+        if not entry.isdigit():
+            continue
+        try:
+            with open(f"/proc/{entry}/comm", encoding="utf-8") as fh:
+                if fh.read().strip() == "Discord":
+                    return True
+        except OSError:
+            continue
+    return False
+
+
 def available() -> tuple[bool, str]:
     """Can a presence be delivered from this host right now?
 
@@ -59,6 +82,8 @@ def available() -> tuple[bool, str]:
             return True, ""
     except Exception as exc:  # noqa: BLE001
         return False, f"Discord IPC is not answering ({exc})"
+    if client_running():
+        return False, "the Discord client on this server is not signed in yet"
     return False, "Discord is not running on this server"
 
 
