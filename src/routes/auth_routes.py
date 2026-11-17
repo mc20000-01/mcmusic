@@ -23,6 +23,7 @@ import mailer
 import discord_link
 from database import _db
 import rotur
+import discord_activity as discord_presence
 
 bp = Blueprint("auth_api", __name__)
 
@@ -105,6 +106,7 @@ def logout():
     uid = _auth_uid()
     if uid is not None:
         rotur.close_activity(uid)
+        discord_presence.close(uid)
     session.clear()
     return jsonify(ok=True)
 
@@ -268,6 +270,33 @@ def rotur_link():
     return rotur.link_route()
 
 
+def _listening_activity(uid, row, position):
+    """Build the sink-agnostic listening state every activity sink shares."""
+    settings = {}
+    sr = _db().execute("select data from settings where user_id=?", (uid,)).fetchone()
+    if sr and sr["data"]:
+        try:
+            settings = json.loads(sr["data"])
+        except ValueError:
+            settings = {}
+    room = ""
+    if settings.get("show_room_url"):
+        from routes.system_routes import room_url
+        room = room_url(uid)
+
+    user_row = _db().execute(
+        "select username from users where id=?", (uid,)
+    ).fetchone()
+    username = user_row["username"] if user_row else ""
+    base = PUBLIC_URL or request.url_root.rstrip("/")
+    profile_url = f"{base}/u/{quote(username)}" if username else ""
+    cover_url = f"{base}/u/{quote(username)}/cover.png" if username else ""
+    return rotur.listening_activity(
+        row, position, room,
+        cover_url=cover_url, profile_url=profile_url,
+    )
+
+
 @bp.post("/api/auth/rotur/activity")
 @bp.post("/api/auth/rotur/live")
 @login_required
@@ -292,29 +321,7 @@ def rotur_activity():
     if not row:
         return jsonify(error="no such track"), 404
 
-    settings = {}
-    sr = _db().execute("select data from settings where user_id=?", (uid,)).fetchone()
-    if sr and sr["data"]:
-        try:
-            settings = json.loads(sr["data"])
-        except ValueError:
-            settings = {}
-    room = ""
-    if settings.get("show_room_url"):
-        from routes.system_routes import room_url
-        room = room_url(uid)
-
-    user_row = _db().execute(
-        "select username from users where id=?", (uid,)
-    ).fetchone()
-    username = user_row["username"] if user_row else ""
-    base = PUBLIC_URL or request.url_root.rstrip("/")
-    profile_url = f"{base}/u/{quote(username)}" if username else ""
-    cover_url = f"{base}/u/{quote(username)}/cover.png" if username else ""
-    activity = rotur.listening_activity(
-        row, float(d.get("position", 0) or 0), room,
-        cover_url=cover_url, profile_url=profile_url,
-    )
+    activity = _listening_activity(uid, row, float(d.get("position", 0) or 0))
     ok, err = rotur.push_activity(
         uid, activity, str(d.get("presence", "online")),
     )
@@ -355,6 +362,46 @@ def discord_status():
 @login_required
 def discord_unlink():
     return jsonify(discord_link.unlink_route())
+
+
+@bp.post("/api/auth/discord/activity")
+@login_required
+def discord_activity_push():
+    """Stream the current track as a Discord Rich Presence activity.
+
+    Presence can only be set by a Discord client, so the desktop app has to be
+    running on this host; when it is not, say so instead of reporting success
+    on a queued update that will never arrive.
+    """
+    uid = session["uid"]
+    d = request.get_json(silent=True) or {}
+    playing = bool(d.get("playing", True))
+    tid = d.get("track_id")
+    if not playing or tid in (None, ""):
+        discord_presence.clear(uid)
+        return jsonify(ok=True, activity=None)
+    try:
+        tid = int(tid)
+    except (TypeError, ValueError):
+        return jsonify(error="track_id must be a number"), 400
+    row = _db().execute("select * from tracks where id=?", (tid,)).fetchone()
+    if not row:
+        return jsonify(error="no such track"), 404
+
+    usable, why = discord_presence.available()
+    if not usable:
+        return jsonify(ok=False, error=why), 503
+    activity = _listening_activity(uid, row, float(d.get("position", 0) or 0))
+    ok, err = discord_presence.publish(uid, activity)
+    return jsonify(
+        ok=ok,
+        error=err or None,
+        activity={
+            "type": "listening",
+            "details": activity.track.title,
+            "state": activity.track.artist,
+        },
+    ), (200 if ok else 502)
 
 
 # --------------------------------------------------------------------------- bot login handoff

@@ -1294,6 +1294,10 @@ class App {
       const playing = !!this.set.rotur_activity && !Player.el?.paused;
       this._pushRoturActivity(Player.current(), playing, true);
     }
+    if (key === "discord_activity") {
+      const playing = !!this.set.discord_activity && !Player.el?.paused;
+      this._pushDiscordActivity(Player.current(), playing, true);
+    }
     this._applyTheme();
     if (key === "real_glass") RealGlass.setMode(this.set.real_glass || "auto");
 
@@ -1395,7 +1399,10 @@ class App {
       if (this._pendingApply && !Player.playing) this.applyUpdate();
       const kind = e.detail?.kind;
       if (["track", "playing", "paused", "seek", "restored"].includes(kind)) {
-        this._pushRoturActivity(e.detail?.track || Player.current(), !Player.el?.paused);
+        const track = e.detail?.track || Player.current();
+        const playing = !Player.el?.paused;
+        this._pushRoturActivity(track, playing);
+        this._pushDiscordActivity(track, playing);
       }
     });
 
@@ -1498,6 +1505,25 @@ class App {
       // Do not fail silently: the settings toggle is useless if the account
       // is not linked or the server cannot open the Rotur socket.
       toast(`Rotur activity: ${e?.message || "could not publish"}`, {
+        iconName: "triangle-alert",
+      });
+    });
+  }
+
+  /** Push the current track as a Discord Rich Presence activity, or clear it. */
+  _pushDiscordActivity(t, playing, force = false) {
+    if (!this.set?.discord_activity && !force) return;
+    const body = t && playing
+      ? {
+          track_id: t.id,
+          position: Math.max(0, Number(Player.el?.currentTime) || 0),
+          playing: true,
+        }
+      : { playing: false };
+    api("auth/discord/activity", "POST", body).catch((e) => {
+      // Discord presence needs the desktop client on the server host; say so
+      // rather than leaving a toggle that silently does nothing.
+      toast(`Discord activity: ${e?.message || "could not publish"}`, {
         iconName: "triangle-alert",
       });
     });

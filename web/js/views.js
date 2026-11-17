@@ -1326,6 +1326,10 @@ async function settings(container) {
   }
   dRow.appendChild(dActs);
   pDc.appendChild(dRow);
+  pDc.appendChild(
+    row("Share as Discord activity", "Shows what you're playing in your Discord profile (needs the Discord app on the server)",
+      toggle(s.discord_activity, (v) => app()?.setPref("discord_activity", v)))
+  );
   container.appendChild(pDc);
 
   /* account */
