@@ -37,12 +37,24 @@ from auth import create_user  # noqa: E402
 from routes import auth_routes  # noqa: E402
 
 
+_NO_IDS = {"DISCORD_APP_ID": "", "DISCORD_APPLICATION_ID": "", "DISCORD_CLIENT_ID": ""}
+
+
 class DiscordAvailabilityTest(unittest.TestCase):
     def test_unconfigured_reports_the_missing_app_id(self):
-        with mock.patch.dict(os.environ, {"DISCORD_APP_ID": ""}):
+        with mock.patch.dict(os.environ, _NO_IDS):
             usable, why = discord_activity.available()
         self.assertFalse(usable)
         self.assertIn("DISCORD_APP_ID", why)
+
+    def test_the_linking_client_id_is_the_same_application(self):
+        # The deployment already stores the id as DISCORD_CLIENT_ID/APPLICATION_ID;
+        # presence must not need a second copy of it under a new name.
+        with mock.patch.dict(os.environ, {**_NO_IDS, "DISCORD_CLIENT_ID": "1234567890"}):
+            self.assertEqual(discord_activity.app_id(), "1234567890")
+            self.assertTrue(discord_activity.state()["configured"])
+        with mock.patch.dict(os.environ, {**_NO_IDS, "DISCORD_APPLICATION_ID": "987654321"}):
+            self.assertEqual(discord_activity.app_id(), "987654321")
 
     def test_no_client_reports_discord_is_not_running(self):
         with mock.patch.dict(os.environ, {"DISCORD_APP_ID": "1234567890"}), \
@@ -62,6 +74,35 @@ class DiscordAvailabilityTest(unittest.TestCase):
             discord_activity.clear(424242)
             discord_activity.close(424242)
         new_sink.assert_not_called()
+
+
+class DiscordButtonsTest(unittest.TestCase):
+    def _buttons(self, room: str, profile: str):
+        from music_activity.sinks.discord import DiscordSink
+        from music_activity.state import PlayerState, Track
+        state = PlayerState(
+            track=Track(id="1", title="Song", artist="Artist", url=profile or None),
+            playing=True,
+            extra=room,
+        )
+        return DiscordSink("123")._buttons(state)
+
+    def test_room_link_comes_first_then_the_profile(self):
+        buttons = self._buttons("https://mcmusic.sdisk.us/s/abc", "https://mcmusic.sdisk.us/u/ann")
+        self.assertEqual(
+            buttons,
+            [
+                {"label": "Listen along", "url": "https://mcmusic.sdisk.us/s/abc"},
+                {"label": "mcmusic profile", "url": "https://mcmusic.sdisk.us/u/ann"},
+            ],
+        )
+
+    def test_a_profile_alone_is_still_a_button(self):
+        buttons = self._buttons("", "https://mcmusic.sdisk.us/u/ann")
+        self.assertEqual(buttons, [{"label": "mcmusic profile", "url": "https://mcmusic.sdisk.us/u/ann"}])
+
+    def test_non_links_are_never_sent_to_discord(self):
+        self.assertEqual(self._buttons("abc123", ""), [])
 
 
 class DiscordActivityRouteTest(unittest.TestCase):
@@ -106,8 +147,17 @@ class DiscordActivityRouteTest(unittest.TestCase):
         _, status = self._post({"track_id": 999999, "playing": True})
         self.assertEqual(status, 404)
 
+    def test_status_explains_a_presence_that_cannot_work(self):
+        with mock.patch.dict(os.environ, _NO_IDS):
+            with self.app.test_request_context("/api/auth/discord/status"):
+                body = auth_routes.discord_status().get_json()
+        presence = body["presence"]
+        self.assertFalse(presence["configured"])
+        self.assertFalse(presence["available"])
+        self.assertIn("application id", presence["reason"])
+
     def test_missing_app_id_is_reported_not_swallowed(self):
-        with mock.patch.dict(os.environ, {"DISCORD_APP_ID": ""}):
+        with mock.patch.dict(os.environ, _NO_IDS):
             resp, status = self._post({"track_id": self.track_id, "playing": True, "position": 12})
         self.assertEqual(status, 503)
         body = resp.get_json()

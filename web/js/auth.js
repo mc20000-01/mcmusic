@@ -55,6 +55,8 @@ export const Auth = {
         discord_id: discord.discord_id || null,
         discord_username: discord.discord_username || null,
         session_valid: !!discord.session_valid,
+        // server-side presence: configured app id and a reachable Discord client
+        presence: discord.presence || null,
       };
     }
 

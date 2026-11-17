@@ -1520,12 +1520,16 @@ class App {
           playing: true,
         }
       : { playing: false };
-    api("auth/discord/activity", "POST", body).catch((e) => {
+    api("auth/discord/activity", "POST", body).then(() => {
+      this._discordErr = null;
+    }).catch((e) => {
       // Discord presence needs the desktop client on the server host; say so
-      // rather than leaving a toggle that silently does nothing.
-      toast(`Discord activity: ${e?.message || "could not publish"}`, {
-        iconName: "triangle-alert",
-      });
+      // rather than leaving a toggle that silently does nothing. Every track
+      // change fails the same way, so only repeat a *new* problem.
+      const msg = e?.message || "could not publish";
+      if (!force && msg === this._discordErr) return;
+      this._discordErr = msg;
+      toast(`Discord activity: ${msg}`, { iconName: "triangle-alert" });
     });
   }
 

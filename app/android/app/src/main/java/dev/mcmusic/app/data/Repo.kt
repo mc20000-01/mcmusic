@@ -71,6 +71,20 @@ class Repo(private val api: Api, private val store: SessionStore) {
         return api.post("auth/rotur/activity", body).optBoolean("ok")
     }
 
+    /** Ask the server to show the track in Discord; 503 means no client there. */
+    suspend fun pushDiscordActivity(
+        trackId: Int?,
+        position: Double,
+        playing: Boolean,
+    ): Boolean {
+        val body = JSONObject().put("playing", playing)
+        if (playing && trackId != null) {
+            body.put("track_id", trackId)
+            body.put("position", position)
+        }
+        return api.post("auth/discord/activity", body).optBoolean("ok")
+    }
+
     /** Ask the server to download liked songs, Faves, or one playlist. */
     suspend fun downloadCollection(kind: String, id: Int? = null): Int {
         val body = JSONObject().put("kind", kind)
@@ -464,6 +478,7 @@ data class Settings(
     val prefetch: Boolean = true,
     val offlineAudio: Boolean = true,
     val roturActivity: Boolean = false,
+    val discordActivity: Boolean = false,
     val showRoomUrl: Boolean = false,
     /** Server-provided: this account's permanent listen-along link. */
     val roomUrl: String = "",
@@ -484,6 +499,7 @@ data class Settings(
         .put("prefetch", prefetch)
         .put("offline_audio", offlineAudio)
         .put("rotur_activity", roturActivity)
+        .put("discord_activity", discordActivity)
         .put("show_room_url", showRoomUrl)
 
     companion object {
@@ -503,6 +519,7 @@ data class Settings(
             prefetch = o.optBoolean("prefetch", true),
             offlineAudio = o.optBoolean("offline_audio", true),
             roturActivity = o.optBoolean("rotur_activity", false),
+            discordActivity = o.optBoolean("discord_activity", false),
             showRoomUrl = o.optBoolean("show_room_url", false),
             roomUrl = o.optString("room_url", ""),
         )

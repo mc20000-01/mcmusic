@@ -799,6 +799,7 @@ fun SettingsScreen(vm: AppViewModel) {
                 }
             }
             Panel("Discord") {
+                val presence = discord?.optJSONObject("presence")
                 SettingRow(
                     "Discord account",
                     when {
@@ -806,13 +807,27 @@ fun SettingsScreen(vm: AppViewModel) {
                         discordLinked -> "Linked as ${discordName.ifBlank { "your Discord account" }}"
                         else -> "Link from the web app Settings"
                     },
-                    last = true,
                 ) {
                     if (discordLinked) {
                         McButton("Unlink", { vm.unlinkDiscord() }, small = true, ghost = true)
                     } else {
                         StatusChip("web", mc.dim2)
                     }
+                }
+                SettingRow(
+                    "Share as Discord activity",
+                    when {
+                        presence == null -> "Shows what you're playing in your Discord profile"
+                        !presence.optBoolean("configured") ->
+                            "Needs a Discord application id on the server (DISCORD_CLIENT_ID is enough)"
+                        !presence.optBoolean("available") ->
+                            presence.optString("reason")
+                                .ifBlank { "The Discord desktop app has to run on the server" }
+                        else -> "Shows what you're playing in Discord, with a link to the track"
+                    },
+                    last = true,
+                ) {
+                    SwitchPill(vm.settings.discordActivity) { vm.setDiscordActivity(it) }
                 }
             }
         }

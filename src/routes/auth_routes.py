@@ -355,7 +355,11 @@ def discord_callback():
 
 @bp.get("/api/auth/discord/status")
 def discord_status():
-    return jsonify(discord_link.status_route())
+    data = discord_link.status_route()
+    # Settings shows why the activity toggle cannot deliver anything yet: no
+    # application id, or no Discord client on this host.
+    data["presence"] = discord_presence.state()
+    return jsonify(data)
 
 
 @bp.post("/api/auth/discord/unlink")
