@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -33,7 +34,25 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.colorControls
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.shadow.Shadow
 import dev.mcmusic.app.R
+
+/**
+ * The recorded content layer that liquid-glass chrome samples.
+ *
+ * Null whenever the running device cannot render a backdrop: the panels then
+ * fall back to the light-only glass, which needs no sampling.
+ */
+val LocalGlassBackdrop = compositionLocalOf<Backdrop?> { null }
+
+/** Backdrop sampling needs RenderEffect (API 31) and a recorded layer. */
+fun backdropGlassSupported(): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
 /* ── palette tokens (static/css/variables.css) ─────────────────────────── */
 
@@ -233,16 +252,95 @@ val LocalGfxLevel = staticCompositionLocalOf { 3 }
 val LocalMaterial = staticCompositionLocalOf { "glass" }
 
 /**
- * Liquid glass: the opaque palette fill of [glass], plus a specular sheen that
- * drifts across the panel and a double rim that reads as a bevelled edge.
+ * Liquid glass for floating chrome (tab bar, mini player).
  *
- * This is the Compose 1.7 build of the effect: no backdrop sampling yet (that
- * needs a GraphicsLayer recorded behind the panel, which arrives in Compose
- * 1.8), so the glass sells itself with light rather than refraction. Contrast
- * is unchanged from [glass] because the tint underneath is the same.
+ * On API 31+ with a recorded backdrop this is real refraction: the panel blurs
+ * and bends whatever is behind it through [drawBackdrop], saturates the colour
+ * so artwork glows through, catches light on a 1dp rim, and lays a palette
+ * scrim on top. The scrim is the contrast guarantee - at [GLASS_SCRIM] the
+ * worst case (pure white artwork behind the panel) still leaves fg and dim text
+ * above AA, which is why this panel may only carry those two tokens.
+ *
+ * Elsewhere it degrades to the light-only glass, which is inert but identical
+ * in layout and colour.
  */
 @Composable
 fun Modifier.liquidGlass(
+    shape: Shape = RoundedCornerShape(D.r3),
+    strong: Boolean = false,
+): Modifier {
+    val mc = LocalMc.current
+    val material = LocalMaterial.current
+    val gfx = LocalGfxLevel.current
+    val backdrop = LocalGlassBackdrop.current
+
+    if (backdrop == null || material != "glass" || gfx < 2 || !backdropGlassSupported()) {
+        return sheenGlass(shape, strong)
+    }
+
+    val drift by rememberInfiniteTransition(label = "glass sheen").animateFloat(
+        initialValue = -0.35f,
+        targetValue = 1.35f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(if (gfx >= 3) 9_000 else 14_000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "sheen offset",
+    )
+    val sheen = Brush.linearGradient(
+        colors = listOf(
+            Color.Transparent,
+            mc.glassHighlight.copy(alpha = if (mc.isDark) 0.16f else 0.34f),
+            Color.Transparent,
+        ).map { it as Color },
+        start = Offset(drift * 900f, 0f),
+        end = Offset(drift * 900f + 420f, 420f),
+    )
+    val radius = if (strong) 26f else 21f
+
+    return this
+        .clip(shape)
+        .drawBackdrop(
+            backdrop = backdrop,
+            shape = { shape },
+            effects = {
+                colorControls(
+                    brightness = if (mc.isDark) 0f else 0.03f,
+                    contrast = 1f,
+                    saturation = 1.45f,
+                )
+                blur(radius.dp.toPx())
+                lens(
+                    refractionHeight = 12.dp.toPx().coerceAtMost(size.minDimension / 3f),
+                    refractionAmount = 24.dp.toPx().coerceAtMost(size.minDimension / 2f),
+                    depthEffect = false,
+                    chromaticAberration = false,
+                )
+            },
+            highlight = { Highlight(width = 1.dp, alpha = if (mc.isDark) 0.45f else 0.70f) },
+            shadow = {
+                Shadow(
+                    radius = 18.dp,
+                    color = Color.Black.copy(alpha = if (mc.isDark) 0.38f else 0.14f),
+                )
+            },
+            onDrawSurface = {
+                drawRect(mc.surface.copy(alpha = GLASS_SCRIM))
+            },
+        )
+        .drawWithContent {
+            drawContent()
+            drawRect(sheen)
+        }
+        .border(1.dp, mc.glassHighlight.copy(alpha = 0.28f), shape)
+}
+
+/** Highest transparency that still keeps fg/dim text above AA over any art. */
+private const val GLASS_SCRIM = 0.84f
+
+/** Light-only glass: the fallback when no backdrop can be sampled. */
+@Composable
+fun Modifier.sheenGlass(
     shape: Shape = RoundedCornerShape(D.r3),
     strong: Boolean = false,
 ): Modifier {

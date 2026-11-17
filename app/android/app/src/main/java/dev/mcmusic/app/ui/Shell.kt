@@ -97,8 +97,14 @@ import dev.mcmusic.app.CollectionMenu
 import dev.mcmusic.app.R
 import dev.mcmusic.app.Route
 import dev.mcmusic.app.data.Track
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import dev.mcmusic.app.ui.theme.D
+import dev.mcmusic.app.ui.theme.LocalGlassBackdrop
+import dev.mcmusic.app.ui.theme.LocalGfxLevel
+import dev.mcmusic.app.ui.theme.LocalMaterial
 import dev.mcmusic.app.ui.theme.LocalMc
+import dev.mcmusic.app.ui.theme.backdropGlassSupported
 import dev.mcmusic.app.ui.theme.McType
 import dev.mcmusic.app.ui.theme.glass
 import dev.mcmusic.app.ui.theme.liquidGlass
@@ -160,10 +166,19 @@ private fun Splash() {
 @Composable
 fun Shell(vm: AppViewModel) {
     val mc = LocalMc.current
+    val material = LocalMaterial.current
+    val gfx = LocalGfxLevel.current
+    // The chrome samples this recorded layer; recording is only worth its cost
+    // when the panels are actually going to refract.
+    val glassLive = backdropGlassSupported() && material == "glass" && gfx >= 2
+    val backdrop = if (glassLive) rememberLayerBackdrop() else null
+
+    CompositionLocalProvider(LocalGlassBackdrop provides backdrop) {
     Box(Modifier.fillMaxSize()) {
         Column(
             Modifier
                 .fillMaxSize()
+                .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
                 .background(
                     Brush.verticalGradient(
                         listOf(
@@ -234,6 +249,7 @@ fun Shell(vm: AppViewModel) {
         vm.addToPlaylistTrack?.let { AddToPlaylistSheet(vm, it) }
         if (vm.createPlaylistOpen) CreatePlaylistSheet(vm)
         if (vm.requestLog != null) RequestLogSheet(vm)
+    }
     }
 }
 
@@ -648,7 +664,7 @@ private fun NavBar(vm: AppViewModel, modifier: Modifier = Modifier) {
                     Text(
                         item.label.uppercase(),
                         style = McType.mono9.copy(fontSize = 9.sp, letterSpacing = 0.06.em),
-                        color = if (active) mc.fg else mc.dim2,
+                        color = if (active) mc.fg else mc.dim,
                         maxLines = 1,
                         overflow = TextOverflow.Clip,
                     )
