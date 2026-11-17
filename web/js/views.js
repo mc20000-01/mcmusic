@@ -1026,7 +1026,7 @@ async function settings(container) {
   p1.appendChild(
     row("Surface style", "Choose the feel of panels and chrome", segmented(
       [["glass", "Glass"], ["metal", "Metal"], ["solid", "Solid"], ["plane", "Plane"]],
-      s.material || "glass",
+      s.material || "plane",
       (v) => app()?.setPref("material", v)
     ))
   );
