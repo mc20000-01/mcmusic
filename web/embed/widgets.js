@@ -11,6 +11,11 @@
     rose:   { bg:'#24141c', bg2:'#120a0e', fg:'#f7edf2', dim:'#c9abba', line:'#532d40', accent:'#ea90b8' },
   };
 
+  /* Colour hooks a host page may set on the tag itself; anything declared out
+     there (stylesheet or inline style) beats the theme we resolve here. */
+  const VAR_NAMES = ['--mc-bg','--mc-bg2','--mc-fg','--mc-dim','--mc-line','--mc-accent','--mc-accent-soft'];
+  const softOf = (c) => `color-mix(in srgb, ${c} 20%, transparent)`;
+
   function themeVars(name, accent) {
     const base = (name === 'auto'
       ? (matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? THEMES.paper : THEMES.dusk)
@@ -18,7 +23,7 @@
     const a = accent || base.accent;
     return {
       '--mc-bg': base.bg, '--mc-bg2': base.bg2, '--mc-fg': base.fg, '--mc-dim': base.dim,
-      '--mc-line': base.line, '--mc-accent': a, '--mc-accent-soft': a + '33',
+      '--mc-line': base.line, '--mc-accent': a, '--mc-accent-soft': softOf(a),
     };
   }
 
@@ -75,7 +80,7 @@
   `;
 
   class BaseWidget extends HTMLElement {
-    constructor(){ super(); this.attachShadow({mode:'open'}); this._timer=null; this._data=null; }
+    constructor(){ super(); this.attachShadow({mode:'open'}); this._timer=null; this._data=null; this._mine=new Set(); }
     connectedCallback(){ this.render(true); this.start(); }
     disconnectedCallback(){ this.stop(); }
     static get observedAttributes(){ return ['user','theme','accent','compact','refresh','mode']; }
@@ -92,8 +97,19 @@
       this.render();
     }
     applyVars(){
+      /* Drop only the defaults we wrote last time (never a style="" the page
+         author put on the tag), then read back what the host resolves to and
+         fill in only the variables nobody outside declared. */
+      for(const k of this._mine) this.style.removeProperty(k);
+      this._mine.clear();
+      const outside = getComputedStyle(this);
       const vars = themeVars(this.getAttribute('theme')||'dusk', this.getAttribute('accent'));
-      for(const k in vars) this.style.setProperty(k, vars[k]);
+      const accent = outside.getPropertyValue('--mc-accent').trim() || vars['--mc-accent'];
+      for(const k of VAR_NAMES){
+        if(outside.getPropertyValue(k).trim()) continue;
+        this.style.setProperty(k, k === '--mc-accent-soft' ? softOf(accent) : vars[k]);
+        this._mine.add(k);
+      }
       if(this.hasAttribute('compact')) this.classList.add('compact'); else this.classList.remove('compact');
     }
     _stateText(d){
@@ -257,15 +273,19 @@
   }
 
   function define(tag, cls){ if(!customElements.get(tag)) customElements.define(tag, cls); }
+  /* A constructor can only be registered under one tag name — defining the same
+     class for a second name throws NotSupportedError and used to abort every
+     definition after it, so the aliases get their own thin subclasses. */
+  function defineAlias(tag, cls){ if(!customElements.get(tag)) customElements.define(tag, class extends cls {}); }
   define('mcmusic-now', McNow);
-  define('mcmusic-now-playing', McNow);
   define('mcmusic-turntable', McTurntable);
   define('mcmusic-bar', McBar);
   define('mcmusic-badge', McBadge);
   define('mcmusic-card', McCard);
-  define('mcmusic-profile', McCard);
   define('mcmusic-marquee', McMarquee);
-  define('mcmusic-ticker', McMarquee);
+  defineAlias('mcmusic-now-playing', McNow);
+  defineAlias('mcmusic-profile', McCard);
+  defineAlias('mcmusic-ticker', McMarquee);
   window.__mcWidgetsScan = () => {
     // custom elements upgrade automatically; hook reserved for future dynamic mounts
   };

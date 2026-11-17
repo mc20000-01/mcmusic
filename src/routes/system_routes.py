@@ -303,129 +303,430 @@ def public_listening():
 
 
 @bp.get("/embed")
+@bp.get("/embeds")
 def embed_info():
+    """Public embed gallery: live demos of every widget, copyable tags and a starter stylesheet."""
     base = PUBLIC_URL or request.url_root.rstrip("/")
-    # Rich copy-paste hub for embed widgets and listening status.
     html = r"""<!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>mcmusic embeds & widgets</title>
+<title>mcmusic embeds — live demo &amp; copy-paste widgets</title>
+<meta name="description" content="Live demos of every mcmusic embed widget, with copy-paste script tags, HTML tags and a basic CSS template.">
 <style>
-:root{--bg:#0e0a13;--bg2:#1b1325;--panel:#1b1325;--fg:#f2edf7;--dim:#b9abc9;--line:#3e2b54;--accent:#b080ea}
-*{box-sizing:border-box}body{margin:0;font:15px/1.55 Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:radial-gradient(1200px 500px at 80% -10%,#241931 0,transparent 60%),var(--bg);color:var(--fg)}
-a{color:#d5c0f5}.wrap{max-width:1080px;margin:0 auto;padding:28px 18px 60px}
-h1{margin:0 0 6px;font-size:34px;letter-spacing:-.02em}h2{margin:26px 0 10px;font-size:20px}p{color:var(--dim);margin:8px 0}
-.hero{padding:18px 0 8px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:14px}
-.card{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid color-mix(in srgb,var(--line) 80%,transparent);border-radius:18px;padding:14px;backdrop-filter:blur(14px);box-shadow:0 12px 30px rgba(0,0,0,.25)}
-.card h3{margin:0 0 4px;font-size:16px}.tag{display:inline-block;font:11px ui-monospace,monospace;color:#d7c8ff;background:#24163f;border:1px solid #3f2b67;border-radius:999px;padding:2px 8px;margin:0 6px 8px 0}
-pre{margin:10px 0 0;background:#0d0916;border:1px solid #2e2444;border-radius:14px;padding:12px;overflow:auto;color:#e9defd}
-code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
+:root{--bg:#0e0a13;--fg:#f2edf7;--dim:#b9abc9;--line:#3e2b54;--accent:#b080ea;--ok:#79d8a5}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;font:15px/1.55 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--fg);
+  background:radial-gradient(1200px 500px at 80% -10%,#241931 0,transparent 60%),radial-gradient(900px 400px at -10% 10%,#1c1630 0,transparent 55%),var(--bg)}
+a{color:#d5c0f5}
+.wrap{max-width:1120px;margin:0 auto;padding:26px 18px 70px}
+.hero{padding:12px 0 4px}
+.eyebrow{margin:0 0 8px;font:11px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+h1{margin:0;font-size:clamp(27px,5vw,40px);letter-spacing:-.025em;line-height:1.1}
+h2{margin:0 0 4px;font-size:19px;letter-spacing:-.01em}
+h3{margin:0;font-size:15px}
+p{margin:8px 0;color:var(--dim)}
+.lead{font-size:16px;max-width:64ch}
+em{color:#e3d7f7;font-style:normal}
+.pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;border:1px solid #3a2a56;background:#1a1329;color:#d9cfff;font-size:12px}
+section{margin-top:18px}
+.card{background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.02));border:1px solid color-mix(in srgb,var(--line) 85%,transparent);border-radius:18px;padding:16px;box-shadow:0 14px 32px rgba(0,0,0,.25)}
+.muted{color:var(--dim);font-size:13px}
+pre{margin:12px 0 0;background:#0b0813;border:1px solid #2e2444;border-radius:12px;padding:12px 13px;overflow:auto;color:#e9defd;
+  font:12.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;tab-size:2}
+code{font:12.5px ui-monospace,SFMono-Regular,Menlo,monospace;color:#e9defd;background:#181128;padding:1px 5px;border-radius:6px}
+pre code{background:none;padding:0}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
-button,input{font:inherit}input{background:#120e1e;color:var(--fg);border:1px solid #352a4e;border-radius:10px;padding:8px 10px;min-width:180px}
-button{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:8px 12px;font-weight:600;cursor:pointer}button.secondary{background:#24183a;color:#e8dcff;border:1px solid #3a2a56}
-.preview{margin-top:10px;padding:12px;border:1px dashed #3a2d56;border-radius:14px;background:rgba(0,0,0,.18);min-height:64px}
-.muted{color:var(--dim);font-size:13px}.list{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:10px}
-.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:999px;border:1px solid #3a2a56;background:#1a1329;color:#d9cfff;font-size:12px}
-footer{margin-top:28px;color:#8f84ab;font-size:13px}
+button{font:inherit;background:var(--accent);color:#1a1026;border:0;border-radius:10px;padding:8px 13px;font-weight:650;cursor:pointer}
+button.secondary{background:#24183a;color:#e8dcff;border:1px solid #3a2a56;font-weight:600}
+button:active{transform:translateY(1px)}
+button.copied{background:var(--ok);color:#0b1a12}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:12px;margin-top:14px}
+.field{display:flex;flex-direction:column;gap:5px;font-size:12px;letter-spacing:.02em;color:var(--dim)}
+input[type=text],input[type=number],select{font:inherit;font-size:14px;background:#120e1e;color:var(--fg);border:1px solid #352a4e;border-radius:10px;padding:8px 10px;width:100%}
+input[type=color]{width:44px;height:34px;padding:2px;background:#120e1e;border:1px solid #352a4e;border-radius:9px;cursor:pointer}
+input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px;vertical-align:-2px;margin:0 4px 0 0}
+.inline{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--dim);cursor:pointer}
+.gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(315px,1fr));gap:14px;margin-top:12px}
+.w{display:flex;flex-direction:column;gap:8px;background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.02));
+  border:1px solid color-mix(in srgb,var(--line) 85%,transparent);border-radius:18px;padding:14px;box-shadow:0 14px 32px rgba(0,0,0,.22)}
+.w .head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.w pre{margin:0;flex:1}
+.stage{border:1px dashed #3a2d56;border-radius:14px;padding:14px;background:rgba(0,0,0,.22);display:flex;align-items:center;min-height:104px;overflow:auto}
+.stage > *{max-width:100%}
+.tag{display:inline-block;font:11px ui-monospace,SFMono-Regular,Menlo,monospace;color:#d7c8ff;background:#24163f;border:1px solid #3f2b67;border-radius:999px;padding:2px 8px;white-space:nowrap}
+.tag.live{color:#bdf3d5;background:#183527;border-color:#2f6b4b}
+.cover{width:44px;height:44px;border-radius:11px;object-fit:cover;background:#1a1329;border:1px solid #352a4e;flex:none}
+table{width:100%;border-collapse:collapse;margin-top:14px;font-size:13px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid #2c2140;vertical-align:top}
+th{color:#d9cfff;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.07em}
+td:first-child{white-space:nowrap}
+footer{margin-top:30px;color:#8f84ab;font-size:13px}
+@media(max-width:520px){.wrap{padding:20px 14px 56px}.card,.w{padding:13px}.stage{padding:12px;min-height:auto}}
 </style></head><body><div class="wrap">
-  <div class="hero">
-    <h1>mcmusic embeds</h1>
-    <p>Public, no-login widgets you can drop on any site. Copy the script once, then paste any tag below. See who’s listening live and grab ready-to-use snippets.</p>
-    <div class="row"><span class="pill">No account required</span><span class="pill">Live status</span><span class="pill">Stylable</span></div>
+
+<header class="hero">
+  <p class="eyebrow">mcmusic · public widgets</p>
+  <h1>Embed what you're listening to</h1>
+  <p class="lead">Every card below is live: it's rendered by the same script you paste into your own page. Pick a user, tweak the theme, then copy the tags.</p>
+  <div class="pills">
+    <span class="pill">No account needed</span>
+    <span class="pill">Shadow-DOM isolated</span>
+    <span class="pill">Zero dependencies</span>
+    <span class="pill">Auto-refreshes</span>
   </div>
+</header>
 
-  <div class="card">
-    <h3>1) Add the script (once per page)</h3>
-    <pre id="script-snippet"></pre>
-    <div class="row"><button onclick="copyEl('script-snippet')">Copy script tag</button></div>
+<section class="card" id="builder">
+  <h2>1 · Include the script once per page</h2>
+  <p class="muted">Put this just before <code>&lt;/body&gt;</code>. It registers every widget tag below.</p>
+  <pre id="code-script"></pre>
+  <div class="row"><button data-copy="code-script">Copy script tag</button></div>
+
+  <h2 style="margin-top:22px">2 · Pick a user and options</h2>
+  <p class="muted">Snippets and every preview on this page update as you change these.</p>
+  <div class="controls">
+    <div class="field"><span>Username</span>
+      <input type="text" id="user" list="live-users" placeholder="username" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="field"><span>Theme</span>
+      <select id="theme"></select>
+    </div>
+    <div class="field"><span>Accent colour</span>
+      <span class="row" style="margin:0">
+        <input type="color" id="accent" value="#b080ea">
+        <label class="inline"><input type="checkbox" id="accent-off" checked> use theme colour</label>
+      </span>
+    </div>
+    <div class="field"><span>Refresh every (seconds)</span>
+      <input type="number" id="refresh" min="5" max="600" step="1" value="12">
+    </div>
+    <div class="field"><span>Compact</span>
+      <label class="inline"><input type="checkbox" id="compact"> tighter padding and artwork</label>
+    </div>
   </div>
+  <datalist id="live-users"></datalist>
+  <p class="muted" id="note"></p>
+</section>
 
-  <div class="card" style="margin-top:14px">
-    <h3>Pick a user and preview embeds</h3>
-    <p class="muted">Enter a username to generate copyable snippets and live previews for all widget types.</p>
-    <div class="row"><input id="user" placeholder="username"><button onclick="applyUser()">Update snippets</button><button class="secondary" onclick="loadListening()">Refresh listeners</button></div>
-    <div id="listening" class="muted" style="margin-top:10px">Loading listeners…</div>
-  </div>
+<section>
+  <h2>3 · Every widget, live</h2>
+  <p class="muted">Six widgets plus three aliases. The previews use <code>refresh="30"</code> to be gentle on the API; the tags you copy use your refresh setting.</p>
+  <div class="gallery" id="gallery"></div>
+</section>
 
-  <h2>Widgets</h2>
-  <div class="grid" id="widgets"></div>
+<section class="card">
+  <h2>4 · Basic CSS template</h2>
+  <p class="muted">Widgets render inside a shadow root, so your page CSS can't reach their internals — that's why they look consistent anywhere. What <em>does</em> work from outside: width, margins, <code>--mc-radius</code>, <code>--mc-font</code> and the colour variables. Set colours with the <code>theme</code> and <code>accent</code> attributes for ready-made palettes, or with <code>--mc-bg</code>, <code>--mc-bg2</code>, <code>--mc-fg</code>, <code>--mc-dim</code>, <code>--mc-line</code> and <code>--mc-accent</code> from your own CSS — page CSS wins over the attributes.</p>
+  <pre id="code-css"></pre>
+  <div class="row"><button data-copy="code-css">Copy CSS template</button></div>
+  <table>
+    <thead><tr><th>Attribute</th><th>Values</th><th>Default</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td><code>user</code></td><td>any mcmusic username</td><td>—</td><td>Whose status to show. Required.</td></tr>
+      <tr><td><code>theme</code></td><td><code>dusk</code> <code>paper</code> <code>ink</code> <code>tide</code> <code>copper</code> <code>forest</code> <code>rose</code> <code>auto</code></td><td><code>dusk</code></td><td>Colour palette; <code>auto</code> follows the visitor's light/dark preference.</td></tr>
+      <tr><td><code>accent</code></td><td>any CSS colour</td><td>theme accent</td><td>Overrides the highlight colour (dot, progress bar, links). Page CSS <code>--mc-accent</code> beats it.</td></tr>
+      <tr><td><code>compact</code></td><td>presence</td><td>off</td><td>Smaller padding and artwork.</td></tr>
+      <tr><td><code>refresh</code></td><td>seconds, min <code>5</code></td><td><code>12</code></td><td>How often the widget re-polls the public API.</td></tr>
+    </tbody>
+  </table>
+</section>
 
+<section class="card">
+  <h2>5 · Complete page</h2>
+  <p class="muted">Script, tags and template together — save it as <code>index.html</code> and open it.</p>
+  <pre id="code-full"></pre>
+  <div class="row"><button data-copy="code-full">Copy full page</button></div>
+</section>
+
+<section>
   <h2>Live listeners</h2>
-  <p class="muted">Public now-playing status from active devices (updates automatically).</p>
-  <div class="list" id="live"></div>
+  <p class="muted">People syncing right now. Pick one to use them in the demo above.</p>
+  <div class="gallery" id="live"></div>
+</section>
 
-  <footer>Base: <code id="base"></code> · API: <code>/api/public/now/&lt;username&gt;</code>, <code>/api/public/listening</code></footer>
+<footer>Base URL <code id="base"></code> · JSON: <code>/api/public/now/&lt;username&gt;</code> and <code>/api/public/listening</code></footer>
 </div>
-<script>
-const BASE = __BASE__;
-const scriptTag = `<script src="${BASE}/static/embed/widgets.js" data-mcmusic-base="${BASE}" defer><\/script>`;
-document.getElementById('base').textContent = BASE;
-document.getElementById('script-snippet').textContent = scriptTag;
 
-const widgets = [
-  {tag:'mcmusic-now', title:'Now Playing card', desc:'Cover, track, artist, and live listening state.', attrs:' theme="dusk"', extra:'<span class="tag">card</span><span class="tag">cover</span>'},
-  {tag:'mcmusic-turntable', title:'Turntable', desc:'Spinning disc style that reacts to playing/paused.', attrs:' theme="dusk"', extra:'<span class="tag">animated</span><span class="tag">vinyl</span>'},
-  {tag:'mcmusic-bar', title:'Mini bar', desc:'Compact horizontal status bar for headers/footers.', attrs:' theme="dusk" compact', extra:'<span class="tag">compact</span>'},
-  {tag:'mcmusic-badge', title:'Badge', desc:'Tiny “listening to…” pill for sidebars and bios.', attrs:' theme="dusk"', extra:'<span class="tag">tiny</span>'},
-  {tag:'mcmusic-card', title:'Profile card', desc:'Larger profile-style listening card with artwork focus.', attrs:' theme="dusk"', extra:'<span class="tag">profile</span>'},
-  {tag:'mcmusic-marquee', title:'Marquee', desc:'Scrolling now-playing line for tight spaces.', attrs:' theme="dusk"', extra:'<span class="tag">ticker</span>'},
+<script>
+const BASE = "__BASE__";
+const SCRIPT_TAG = '<script src="' + BASE + '/static/embed/widgets.js" data-mcmusic-base="' + BASE + '" defer></' + 'script>';
+
+const THEMES = ['dusk', 'paper', 'ink', 'tide', 'copper', 'forest', 'rose', 'auto'];
+
+const WIDGETS = [
+  {tag: 'mcmusic-now',         title: 'Now playing',           blurb: 'Cover, track, artist, live progress and listening state — the default card.'},
+  {tag: 'mcmusic-turntable',   title: 'Turntable',             blurb: 'Spinning vinyl that turns while they listen and stops when paused.'},
+  {tag: 'mcmusic-card',        title: 'Profile card',          blurb: 'Larger profile-style card with artwork and username up front.'},
+  {tag: 'mcmusic-bar',         title: 'Mini bar',              blurb: 'One-line horizontal bar for headers, footers and navs.'},
+  {tag: 'mcmusic-marquee',     title: 'Marquee',               blurb: 'Scrolling ticker for the tightest spaces.'},
+  {tag: 'mcmusic-badge',       title: 'Badge',                 blurb: 'Tiny inline pill for bios and link-in-bio pages.'},
+  {tag: 'mcmusic-now-playing', title: 'Alias · now-playing',   blurb: 'Same component as mcmusic-now.', alias: true},
+  {tag: 'mcmusic-profile',     title: 'Alias · profile',       blurb: 'Same component as mcmusic-card.', alias: true},
+  {tag: 'mcmusic-ticker',      title: 'Alias · ticker',        blurb: 'Same component as mcmusic-marquee.', alias: true},
 ];
 
-function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function snippetFor(w,user){
-  return `<${w.tag} user="${esc(user)}"${w.attrs}></${w.tag}>`;
+const state = {
+  user: localStorage.getItem('mc-embed-user') || '',
+  theme: localStorage.getItem('mc-embed-theme') || 'dusk',
+  accent: localStorage.getItem('mc-embed-accent') || '',
+  compact: localStorage.getItem('mc-embed-compact') === '1',
+  refresh: localStorage.getItem('mc-embed-refresh') || '12',
+};
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 }
-function renderWidgets(user){
-  const host = document.getElementById('widgets');
-  host.innerHTML = widgets.map((w,i)=>{
-    const code = snippetFor(w,user);
-    const id = 'code-'+i;
-    return `<div class="card">${w.extra}<h3>${w.title}</h3><p class="muted">${w.desc}</p>
-      <pre id="${id}">${esc(code)}</pre>
-      <div class="row"><button onclick="copyEl('${id}')">Copy tag</button><span class="tag">&lt;${w.tag}&gt;</span></div>
-      <div class="preview">${code}</div></div>`;
+
+function tagFor(w, refresh) {
+  const parts = ['user="' + esc(state.user || 'username') + '"', 'theme="' + esc(state.theme) + '"'];
+  if (state.accent) parts.push('accent="' + esc(state.accent) + '"');
+  if (state.compact) parts.push('compact');
+  parts.push('refresh="' + esc(refresh) + '"');
+  return '<' + w.tag + ' ' + parts.join(' ') + '></' + w.tag + '>';
+}
+
+function cssTemplate() {
+  return [
+    '/* mcmusic embeds — basic template',
+    '   Widgets render inside a shadow root, so page CSS cannot reach their',
+    '   internals. Style them from outside with width, margins, --mc-radius,',
+    '   --mc-font and the --mc-* colour variables; the theme and accent',
+    '   attributes only supply the defaults. */',
+    '',
+    'mcmusic-now, mcmusic-now-playing,',
+    'mcmusic-card, mcmusic-profile,',
+    'mcmusic-turntable {',
+    '  display: block;',
+    '  max-width: 360px;      /* card widgets read best at 320-420px */',
+    '  margin: 16px 0;',
+    '  --mc-radius: 16px;     /* corner rounding (default 18px) */',
+    '  --mc-font: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;',
+    '  /* colours — uncomment and set your own to ignore the palette: */',
+    '  /* --mc-bg: #101820;  --mc-bg2: #080d12;  --mc-fg: #f2f6f8; */',
+    '  /* --mc-dim: #a8b8c2;  --mc-line: #2c3d4a;  --mc-accent: #79d8a5; */',
+    '}',
+    '',
+    'mcmusic-bar, mcmusic-marquee, mcmusic-ticker {',
+    '  display: block;',
+    '  max-width: 520px;      /* full width for headers and footers */',
+    '  margin: 12px 0;',
+    '  --mc-radius: 12px;',
+    '  --mc-font: inherit;    /* match the surrounding page font */',
+    '}',
+    '',
+    'mcmusic-badge {',
+    '  display: inline-block; /* sits next to text in a bio */',
+    '  vertical-align: middle;',
+    '  --mc-font: inherit;',
+    '}',
+    '',
+    '@media (max-width: 380px) {',
+    '  mcmusic-now, mcmusic-now-playing,',
+    '  mcmusic-card, mcmusic-profile,',
+    '  mcmusic-turntable { margin: 12px 0; }',
+    '}',
+  ].join('\n');
+}
+
+function renderGallery() {
+  const host = document.getElementById('gallery');
+  host.innerHTML = WIDGETS.map((w) => {
+    const code = tagFor(w, state.refresh);
+    const preview = tagFor(w, 30);
+    return '<div class="w">'
+      + '<div class="head"><h3>' + esc(w.title) + '</h3><span class="tag">' + (w.alias ? 'alias' : '&lt;' + w.tag + '&gt;') + '</span></div>'
+      + '<p class="muted" style="margin:0">' + esc(w.blurb) + '</p>'
+      + '<div class="stage">' + preview + '</div>'
+      + '<pre id="code-' + w.tag + '">' + esc(code) + '</pre>'
+      + '<div class="row"><button class="secondary" data-copy="code-' + w.tag + '">Copy tag</button></div>'
+      + '</div>';
   }).join('');
-  if (window.__mcWidgetsScan) window.__mcWidgetsScan();
 }
-function copyText(text){
-  if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text);
-  const t=document.createElement('textarea');t.value=text;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove();
+
+function renderFull() {
+  const now = tagFor(WIDGETS[0], state.refresh);
+  const bar = tagFor(WIDGETS[3], state.refresh);
+  const badge = tagFor(WIDGETS[5], state.refresh);
+  document.getElementById('code-full').textContent = [
+    '<!doctype html>',
+    '<html lang="en">',
+    '<head>',
+    '  <meta charset="utf-8">',
+    '  <meta name="viewport" content="width=device-width, initial-scale=1">',
+    '  <title>Now playing</title>',
+    '  <style>',
+    cssTemplate().split('\n').map(l => '    ' + l).join('\n'),
+    '  </style>',
+    '</head>',
+    '<body>',
+    '  <h1>Now playing</h1>',
+    '  ' + now,
+    '',
+    '  <p>Also listening:</p>',
+    '  ' + bar,
+    '  ' + badge,
+    '',
+    '  <!-- mcmusic embeds: load once, after the tags -->',
+    '  ' + SCRIPT_TAG,
+    '</body>',
+    '</html>',
+  ].join('\n');
 }
-function copyEl(id){ copyText(document.getElementById(id).textContent); }
-function applyUser(){
-  const u=(document.getElementById('user').value||'username').trim()||'username';
-  localStorage.setItem('mc-embed-user', u);
-  renderWidgets(u);
+
+function renderNote() {
+  const el = document.getElementById('note');
+  const user = state.user || 'username';
+  el.innerHTML = 'Showing <em>' + esc(user) + '</em> · theme <em>' + esc(state.theme) + '</em>'
+    + (state.compact ? ' · compact' : '')
+    + (state.accent ? ' · accent <em>' + esc(state.accent) + '</em>' : '')
+    + '. Unknown usernames render an “unavailable” state.';
 }
-async function loadListening(){
-  const box=document.getElementById('listening'), live=document.getElementById('live');
-  try{
-    const res=await fetch(BASE+'/api/public/listening',{headers:{accept:'application/json'}});
-    const data=await res.json();
-    const users=data.users||[];
-    box.innerHTML = users.length ? `Found <b>${users.length}</b> recent listener(s). Click one to fill username.` : 'No active listeners right now (a user appears when their device is active and recently synced).';
-    live.innerHTML = users.map(u=>{
-      const t=u.track||{}; const title=t.title||'Nothing playing';
-      const sub=t.artist?(t.artist+(t.album?' · '+t.album:'')):(u.listening?'Listening':'Idle');
-      const st=u.listening?'Listening':'Paused/idle';
-      const uname=esc(u.username);
-      return `<div class="card"><div class="row" style="justify-content:space-between"><b>${uname}</b><span class="tag">${st}</span></div>
-        <div class="preview"><mcmusic-now user="${uname}" theme="dusk" compact></mcmusic-now></div>
-        <p class="muted" style="margin:8px 0 0">${esc(title)}<br>${esc(sub)}</p>
-        <div class="row"><button class="secondary" onclick="pickUser('${uname}')">Use in snippets</button></div></div>`;
-    }).join('') || '<p class="muted">No one listening yet.</p>';
-    if (window.__mcWidgetsScan) window.__mcWidgetsScan();
-  }catch(e){ box.textContent='Could not load listeners.'; live.innerHTML=''; }
+
+let renderTimer = null;
+function scheduleRender() {
+  clearTimeout(renderTimer);
+  renderTimer = setTimeout(() => { renderGallery(); renderFull(); renderNote(); }, 220);
 }
-function pickUser(u){ document.getElementById('user').value=u; applyUser(); window.scrollTo({top:0,behavior:'smooth'}); }
-document.getElementById('user').value = localStorage.getItem('mc-embed-user') || 'username';
-renderWidgets(document.getElementById('user').value);
-loadListening();
-setInterval(loadListening, 15000);
+
+function setUser(name) {
+  state.user = name || '';
+  document.getElementById('user').value = state.user;
+  localStorage.setItem('mc-embed-user', state.user);
+  scheduleRender();
+}
+
+function copyText(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text).then(() => true).catch(() => fallbackCopy(text));
+  }
+  return Promise.resolve(fallbackCopy(text));
+}
+function fallbackCopy(text) {
+  const t = document.createElement('textarea');
+  t.value = text;
+  t.setAttribute('readonly', '');
+  t.style.position = 'fixed';
+  t.style.top = '-1000px';
+  document.body.appendChild(t);
+  t.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+  t.remove();
+  return ok;
+}
+
+document.addEventListener('click', (e) => {
+  const use = e.target.closest('[data-use]');
+  if (use) {
+    setUser(use.getAttribute('data-use'));
+    document.getElementById('builder').scrollIntoView({behavior: 'smooth', block: 'center'});
+    return;
+  }
+  const btn = e.target.closest('[data-copy]');
+  if (!btn) return;
+  const el = document.getElementById(btn.getAttribute('data-copy'));
+  if (!el) return;
+  const label = btn.textContent;
+  copyText(el.textContent).then((ok) => {
+    btn.classList.toggle('copied', !!ok);
+    btn.textContent = ok ? 'Copied ✓' : 'Press ⌘/Ctrl+C';
+    setTimeout(() => { btn.classList.remove('copied'); btn.textContent = label; }, 1600);
+  });
+});
+
+function syncControls() {
+  document.getElementById('user').value = state.user;
+  document.getElementById('theme').value = state.theme;
+  document.getElementById('accent').value = state.accent || '#b080ea';
+  document.getElementById('accent-off').checked = !state.accent;
+  document.getElementById('accent').disabled = !state.accent;
+  document.getElementById('compact').checked = state.compact;
+  document.getElementById('refresh').value = state.refresh;
+}
+
+function init() {
+  const themes = document.getElementById('theme');
+  themes.innerHTML = THEMES.map(t => '<option value="' + t + '">' + t + (t === 'auto' ? ' (follow system)' : '') + '</option>').join('');
+
+  document.getElementById('code-script').textContent = SCRIPT_TAG;
+  document.getElementById('code-css').textContent = cssTemplate();
+  document.getElementById('base').textContent = BASE;
+
+  document.getElementById('user').addEventListener('input', (e) => {
+    state.user = e.target.value.trim();
+    localStorage.setItem('mc-embed-user', state.user);
+    scheduleRender();
+  });
+  document.getElementById('theme').addEventListener('change', (e) => {
+    state.theme = e.target.value;
+    localStorage.setItem('mc-embed-theme', state.theme);
+    scheduleRender();
+  });
+  document.getElementById('accent').addEventListener('input', (e) => {
+    if (!state.accent) return;
+    state.accent = e.target.value;
+    localStorage.setItem('mc-embed-accent', state.accent);
+    scheduleRender();
+  });
+  document.getElementById('accent-off').addEventListener('change', (e) => {
+    state.accent = e.target.checked ? '' : document.getElementById('accent').value;
+    document.getElementById('accent').disabled = e.target.checked;
+    localStorage.setItem('mc-embed-accent', state.accent);
+    scheduleRender();
+  });
+  document.getElementById('compact').addEventListener('change', (e) => {
+    state.compact = e.target.checked;
+    localStorage.setItem('mc-embed-compact', state.compact ? '1' : '0');
+    scheduleRender();
+  });
+  document.getElementById('refresh').addEventListener('change', (e) => {
+    const n = Math.min(600, Math.max(5, parseInt(e.target.value, 10) || 12));
+    state.refresh = String(n);
+    e.target.value = state.refresh;
+    localStorage.setItem('mc-embed-refresh', state.refresh);
+    scheduleRender();
+  });
+
+  syncControls();
+  renderGallery();
+  renderFull();
+  renderNote();
+  loadListening();
+  setInterval(loadListening, 20000);
+}
+
+async function loadListening() {
+  const host = document.getElementById('live');
+  try {
+    const res = await fetch(BASE + '/api/public/listening', {headers: {accept: 'application/json'}});
+    const data = await res.json();
+    const users = data.users || [];
+    document.getElementById('live-users').innerHTML = users.map(u => '<option value="' + esc(u.username) + '"></option>').join('');
+    if (!state.user && users.length) setUser(users[0].username);
+    host.innerHTML = users.map((u) => {
+      const t = u.track || {};
+      const title = t.title || 'Nothing playing';
+      const sub = t.artist ? t.artist + (t.album ? ' · ' + t.album : '') : (u.listening ? 'Listening' : 'Paused');
+      return '<div class="w">'
+        + '<div class="head"><h3>' + esc(u.username) + '</h3><span class="tag' + (u.listening ? ' live' : '') + '">' + (u.listening ? 'listening' : 'paused') + '</span></div>'
+        + '<div class="row" style="margin-top:6px;align-items:center;flex-wrap:nowrap">'
+        + '<img class="cover" src="' + esc(u.cover_url) + '" alt="" loading="lazy">'
+        + '<div style="min-width:0"><b style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(title) + '</b>'
+        + '<span class="muted">' + esc(sub) + '</span></div></div>'
+        + '<div class="row"><button class="secondary" data-use="' + esc(u.username) + '">Demo this user</button></div>'
+        + '</div>';
+    }).join('') || '<p class="muted">Nobody is listening right now — type your own username in the box above.</p>';
+  } catch (e) {
+    host.innerHTML = '<p class="muted">Could not load listeners.</p>';
+  }
+}
+
+init();
 </script>
 <script src="__SCRIPT__" data-mcmusic-base="__BASE__" defer></script>
 </body></html>"""
     html = html.replace("__BASE__", base).replace("__SCRIPT__", f"{base}/static/embed/widgets.js")
-    return Response(html, mimetype="text/html")
+    return Response(html, mimetype="text/html", headers={"Cache-Control": "no-cache"})
 
 
 @bp.post("/api/rooms")
