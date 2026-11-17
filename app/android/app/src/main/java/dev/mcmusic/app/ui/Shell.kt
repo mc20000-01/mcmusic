@@ -26,6 +26,8 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -639,12 +641,17 @@ private fun NavBar(vm: AppViewModel, modifier: Modifier = Modifier) {
                     animationSpec = spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium),
                     label = "nav lift",
                 )
+                val interaction = remember { MutableInteractionSource() }
                 Column(
                     Modifier
                         .weight(1f)
                         .fillMaxHeight()
+                        .pressFeedback(interaction, scaleDown = 0.94f)
                         .clip(RoundedCornerShape(22.dp))
-                        .clickable { vm.navigate(item.route, push = false) },
+                        .clickable(
+                            interactionSource = interaction,
+                            indication = LocalIndication.current,
+                        ) { vm.navigate(item.route, push = false) },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
