@@ -125,6 +125,12 @@ skipped until those are set.
 falls back to a plain "Playing" presence if the field is rejected, throttles to
 one update per 15 s, and retries every 30 s when Discord is not running.
 
+The same sink powers the web/Android setting: `POST /api/auth/discord/activity`
+(`src/discord_activity.py`) keeps one presence session per signed-in account, so
+clients never import pypresence. It preflights the IPC socket and answers `503`
+“Discord is not running on this server” when there is nothing to publish to,
+which is the case here.
+
 **Not verified visually:** this host has no Discord desktop client, so the
 Listening type, the elapsed-time bar and the uploaded art assets were not seen in
 the UI. The code path is exercised only up to the IPC call. Discord must run on

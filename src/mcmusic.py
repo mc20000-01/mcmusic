@@ -223,7 +223,7 @@ def api_docs():
                      "POST /api/auth/rotur/link", "POST /api/auth/rotur/activity",
                      "POST /api/auth/rotur/unlink", "GET /api/auth/discord/authorize",
                      "GET /api/auth/discord/callback", "GET /api/auth/discord/status",
-                     "POST /api/auth/discord/unlink"],
+                     "POST /api/auth/discord/unlink", "POST /api/auth/discord/activity"],
             "library": ["GET /api/tracks", "GET /api/search", "GET /api/albums",
                         "GET /api/album?name=", "GET /api/artists", "GET /api/artist?name=",
                         "GET /api/tracks/<id>/stream", "GET /api/tracks/<id>/cover"],
@@ -260,7 +260,8 @@ DEFAULT_SETTINGS = {
     "theme": "rose", "accent": "#79d8a5", "density": "comfy", "material": "plane",
     "covers": True, "autoplay": True, "hide_explicit": False, "private": False,
     "yt_stats": True, "remember_volume": True, "volume": 0.8, "prefetch": True,
-    "offline_audio": True, "rotur_activity": False, "show_room_url": False,
+    "offline_audio": True, "rotur_activity": False, "discord_activity": False,
+    "show_room_url": False,
     "real_glass": "auto",
 }
 
