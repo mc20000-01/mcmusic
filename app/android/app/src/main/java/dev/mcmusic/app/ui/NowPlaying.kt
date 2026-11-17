@@ -2,11 +2,19 @@ package dev.mcmusic.app.ui
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -69,6 +77,8 @@ import dev.mcmusic.app.ui.theme.LocalGfxLevel
 import dev.mcmusic.app.ui.theme.LocalMaterial
 import dev.mcmusic.app.ui.theme.LocalMc
 import dev.mcmusic.app.ui.theme.McType
+import dev.mcmusic.app.ui.theme.sheenGlass
+import kotlin.math.abs
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlin.math.PI
 import kotlin.math.sin
@@ -340,14 +350,26 @@ private fun TrackTape(
                 track.id,
                 artSize,
                 modifier = Modifier
+                    .shadow(
+                        18.dp,
+                        RoundedCornerShape(D.r3),
+                        clip = false,
+                        ambientColor = Color.Black.copy(alpha = 0.45f),
+                        spotColor = Color.Black.copy(alpha = 0.55f),
+                    )
                     .graphicsLayer {
                         // The centred card is the one being previewed, so it
                         // stays bright even before the swipe commits; the rest
-                        // of the tape sits back.
+                        // of the tape sits back and turns away slightly, which
+                        // gives the tape depth while the finger drags.
                         alpha = if (centered) 1f else 0.48f
-                        val s = if (centered) 1f else 0.93f
+                        val drift = ((pager.currentPage - page) + pager.currentPageOffsetFraction)
+                            .coerceIn(-1.4f, 1.4f)
+                        val s = 1f - 0.07f * abs(drift).coerceAtMost(1f)
                         scaleX = s
                         scaleY = s
+                        rotationY = drift * 6f
+                        cameraDistance = 16f * density
                     }
                     .clip(RoundedCornerShape(D.r3))
                     .combinedClickable(
@@ -494,22 +516,43 @@ fun NowPlayingScreen(vm: AppViewModel) {
         LaunchedEffect(t.id, showLyrics) {
             if (showLyrics) lyricText = vm.lyrics(t.id)
         }
-        Text("NOW PLAYING", style = McType.kicker, color = mc.accent)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("NOW PLAYING", style = McType.kicker, color = mc.accent)
+            // A quiet meter next to the kicker: it tells you the audio is
+            // moving without a second animation on the artwork.
+            if (vm.engine.playing) {
+                Spacer(Modifier.width(10.dp))
+                Equalizer(true, mc.accent.copy(alpha = 0.85f), bars = 9, height = 12.dp)
+            }
+        }
         Spacer(Modifier.height(10.dp))
         TrackTape(vm, pager, tick = {}, maxArt = 260.dp)
         Spacer(Modifier.height(16.dp))
         val shown = queue.getOrNull(pager.currentPage) ?: t
-        Text(shown.title, style = McType.h2, color = mc.fg)
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            shown.artists.ifEmpty { listOf(shown.artist) }.forEach { name ->
-                Text(
-                    name,
-                    style = McType.bodySm,
-                    color = mc.dim,
-                    modifier = Modifier
-                        .clickable { vm.navigate(Route.Artist(name)) }
-                        .padding(horizontal = 1.dp),
-                )
+        // Titles swap as the tape settles, so the meta block moves with the
+        // cover instead of snapping under it.
+        AnimatedContent(
+            targetState = shown,
+            transitionSpec = {
+                (fadeIn(tween(200)) + slideInVertically(tween(260, easing = LinearEasing)) { it / 10 })
+                    .togetherWith(fadeOut(tween(120)))
+            },
+            label = "np meta",
+        ) { tr ->
+            Column {
+                Text(tr.title, style = McType.h2, color = mc.fg, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    tr.artists.ifEmpty { listOf(tr.artist) }.forEach { name ->
+                        Text(
+                            name,
+                            style = McType.bodySm,
+                            color = mc.dim,
+                            modifier = Modifier
+                                .clickable { vm.navigate(Route.Artist(name)) }
+                                .padding(horizontal = 1.dp),
+                        )
+                    }
+                }
             }
         }
         Spacer(Modifier.height(14.dp))
@@ -519,7 +562,16 @@ fun NowPlayingScreen(vm: AppViewModel) {
             { vm.engine.seekFraction(it) },
         )
         Spacer(Modifier.height(14.dp))
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        // Transport floats on its own glass strip so the controls read as one
+        // object rather than four loose icons on the page.
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .sheenGlass(RoundedCornerShape(26.dp))
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
             IconBtn(AppIcons.SkipBack, { vm.engine.prev() }, size = 44.dp)
             IconBtn(
                 if (vm.engine.playing) AppIcons.Pause else AppIcons.Play,
@@ -529,10 +581,20 @@ fun NowPlayingScreen(vm: AppViewModel) {
             )
             IconBtn(AppIcons.SkipForward, { vm.engine.next() }, size = 44.dp)
             Spacer(Modifier.weight(1f))
+            val heart by animateFloatAsState(
+                targetValue = if (t.liked) 1.18f else 1f,
+                animationSpec = spring(dampingRatio = 0.42f, stiffness = Spring.StiffnessMedium),
+                label = "heart",
+            )
             IconBtn(
                 AppIcons.Heart,
                 { vm.toggleLike(t) },
+                modifier = Modifier.graphicsLayer {
+                    scaleX = heart
+                    scaleY = heart
+                },
                 tint = if (t.liked) mc.accent else mc.dim,
+                contentDescription = if (t.liked) "Remove from likes" else "Add to likes",
             )
         }
         Spacer(Modifier.height(14.dp))
