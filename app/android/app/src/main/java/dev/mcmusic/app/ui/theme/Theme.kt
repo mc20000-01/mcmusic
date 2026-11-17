@@ -46,10 +46,10 @@ data class McColors(
     val err: Color,
     val scrim: Color,
     val ink: Color,
-    val glass: Color = Color.White.copy(alpha = 0.14f),
-    val glassStrong: Color = Color.White.copy(alpha = 0.22f),
-    val glassBorder: Color = Color.White.copy(alpha = 0.18f),
-    val glassHighlight: Color = Color.White.copy(alpha = 0.25f),
+    val glass: Color = Color.Black.copy(alpha = 0.60f),
+    val glassStrong: Color = Color.Black.copy(alpha = 0.75f),
+    val glassBorder: Color = Color.Black.copy(alpha = 0.45f),
+    val glassHighlight: Color = Color.Black.copy(alpha = 0.10f),
 ) {
     val isDark: Boolean get() = bg.luminance() < 0.5f
 }
@@ -58,33 +58,41 @@ private fun c(hex: String) = Color(android.graphics.Color.parseColor(hex))
 
 private val dusk = McColors(
     bg = c("#0e0a13"), bg2 = c("#140e1b"), surface = c("#1b1325"), surface2 = c("#241931"),
-    fg = c("#f2edf7"), dim = c("#b9abc9"), dim2 = c("#9a8cab"),
+    fg = c("#f2edf7"), dim = c("#b9abc9"), dim2 = c("#9e91af"),
     line = c("#2c1f3d"), line2 = c("#3e2b54"),
     accent = c("#b080ea"), accentFg = c("#191023"), accentSoft = c("#b080ea").copy(alpha = 0.15f),
     ok = c("#77cfa3"), warn = c("#ecc665"), err = c("#e8737a"),
     scrim = Color(0xC407050A), ink = c("#07050a"),
+    glass = c("#1b1325").copy(alpha = 0.90f),
+    glassStrong = c("#241931").copy(alpha = 0.95f),
+    glassBorder = c("#2c1f3d").copy(alpha = 0.50f),
+    glassHighlight = c("#f2edf7").copy(alpha = 0.10f),
 )
 
 private val paper = McColors(
     bg = c("#f2ebe4"), bg2 = c("#e8dfd4"), surface = c("#faf8f4"), surface2 = c("#ebe4db"),
-    fg = c("#281f15"), dim = c("#5d4f41"), dim2 = c("#716356"),
+    fg = c("#281f15"), dim = c("#5d4f41"), dim2 = c("#6d5f52"),
     line = c("#d3c8bb"), line2 = c("#baa997"),
     accent = c("#9a4b1d"), accentFg = c("#fbf7f4"), accentSoft = c("#9a4b1d").copy(alpha = 0.12f),
     ok = c("#28714d"), warn = c("#7f5b0c"), err = c("#a12129"),
     scrim = Color(0x57211A12), ink = c("#211a12"),
-    glass = Color.White.copy(alpha = 0.38f),
-    glassStrong = Color.White.copy(alpha = 0.60f),
-    glassBorder = c("#281f15").copy(alpha = 0.16f),
-    glassHighlight = Color.White.copy(alpha = 0.70f),
+    glass = c("#faf8f4").copy(alpha = 0.90f),
+    glassStrong = c("#ebe4db").copy(alpha = 0.95f),
+    glassBorder = c("#d3c8bb").copy(alpha = 0.50f),
+    glassHighlight = c("#281f15").copy(alpha = 0.10f),
 )
 
 private val ink = McColors(
     bg = c("#0d0d0f"), bg2 = c("#131316"), surface = c("#1a1a1e"), surface2 = c("#232327"),
-    fg = c("#ededf7"), dim = c("#ababc9"), dim2 = c("#8c8cab"),
+    fg = c("#ededf7"), dim = c("#ababc9"), dim2 = c("#9898b4"),
     line = c("#2b2b31"), line2 = c("#3c3c44"),
     accent = c("#dadadd"), accentFg = c("#101023"), accentSoft = c("#dadadd").copy(alpha = 0.15f),
     ok = c("#77cfa3"), warn = c("#ecc665"), err = c("#e8737a"),
     scrim = Color(0xC4070708), ink = c("#070708"),
+    glass = c("#1a1a1e").copy(alpha = 0.90f),
+    glassStrong = c("#232327").copy(alpha = 0.95f),
+    glassBorder = c("#2b2b31").copy(alpha = 0.50f),
+    glassHighlight = c("#ededf7").copy(alpha = 0.10f),
 )
 
 private val tide = McColors(
@@ -94,6 +102,10 @@ private val tide = McColors(
     accent = c("#89cee1"), accentFg = c("#101f23"), accentSoft = c("#89cee1").copy(alpha = 0.15f),
     ok = c("#77cfa3"), warn = c("#ecc665"), err = c("#e8737a"),
     scrim = Color(0xC406090A), ink = c("#06090a"),
+    glass = c("#142124").copy(alpha = 0.90f),
+    glassStrong = c("#1b2b2f").copy(alpha = 0.95f),
+    glassBorder = c("#21353b").copy(alpha = 0.50f),
+    glassHighlight = c("#edf5f7").copy(alpha = 0.10f),
 )
 
 private val copper = McColors(
@@ -103,6 +115,10 @@ private val copper = McColors(
     accent = c("#eaa07b"), accentFg = c("#231610"), accentSoft = c("#eaa07b").copy(alpha = 0.15f),
     ok = c("#77cfa3"), warn = c("#ecc665"), err = c("#e8737a"),
     scrim = Color(0xC40A0705), ink = c("#0a0705"),
+    glass = c("#261812").copy(alpha = 0.90f),
+    glassStrong = c("#322018").copy(alpha = 0.95f),
+    glassBorder = c("#3e271d").copy(alpha = 0.50f),
+    glassHighlight = c("#f7f0ed").copy(alpha = 0.10f),
 )
 
 private val forest = McColors(
@@ -112,15 +128,23 @@ private val forest = McColors(
     accent = c("#79d8a5"), accentFg = c("#102319"), accentSoft = c("#79d8a5").copy(alpha = 0.15f),
     ok = c("#77cfa3"), warn = c("#ecc665"), err = c("#e8737a"),
     scrim = Color(0xC4050A07), ink = c("#050a07"),
+    glass = c("#14241b").copy(alpha = 0.90f),
+    glassStrong = c("#1a3024").copy(alpha = 0.95f),
+    glassBorder = c("#203c2d").copy(alpha = 0.50f),
+    glassHighlight = c("#edf7f2").copy(alpha = 0.10f),
 )
 
 private val rose = McColors(
     bg = c("#120a0e"), bg2 = c("#1b0e14"), surface = c("#24141c"), surface2 = c("#301a25"),
-    fg = c("#f7edf2"), dim = c("#c9abba"), dim2 = c("#ab8c9c"),
+    fg = c("#f7edf2"), dim = c("#c9abba"), dim2 = c("#ae909f"),
     line = c("#3c202e"), line2 = c("#532d40"),
     accent = c("#ea90b8"), accentFg = c("#231019"), accentSoft = c("#ea90b8").copy(alpha = 0.15f),
     ok = c("#77cfa3"), warn = c("#ecc665"), err = c("#e8737a"),
     scrim = Color(0xC40A0508), ink = c("#0a0508"),
+    glass = c("#24141c").copy(alpha = 0.90f),
+    glassStrong = c("#301a25").copy(alpha = 0.95f),
+    glassBorder = c("#3c202e").copy(alpha = 0.50f),
+    glassHighlight = c("#f7edf2").copy(alpha = 0.10f),
 )
 
 val McThemes = listOf("dusk", "paper", "ink", "tide", "copper", "forest", "rose", "auto")

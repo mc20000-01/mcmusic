@@ -554,7 +554,7 @@ private fun NavBar(vm: AppViewModel, modifier: Modifier = Modifier) {
             items.forEach { item ->
                 val active = isActive(vm.route, item.route)
                 val tint by animateColorAsState(
-                    targetValue = if (active) mc.accent else mc.dim,
+                    targetValue = if (active) mc.fg else mc.dim,
                     animationSpec = tween(220),
                     label = "nav tint",
                 )
