@@ -8,6 +8,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -25,6 +27,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -37,14 +42,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
@@ -55,8 +65,11 @@ import androidx.compose.ui.unit.dp
 import dev.mcmusic.app.AppViewModel
 import dev.mcmusic.app.Route
 import dev.mcmusic.app.ui.theme.D
+import dev.mcmusic.app.ui.theme.LocalGfxLevel
+import dev.mcmusic.app.ui.theme.LocalMaterial
 import dev.mcmusic.app.ui.theme.LocalMc
 import dev.mcmusic.app.ui.theme.McType
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlin.math.PI
 import kotlin.math.sin
 
@@ -72,17 +85,16 @@ fun PlayerOverlay(vm: AppViewModel) {
     val tick: () -> Unit = { haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
     var lyricsOpen by remember { mutableStateOf(false) }
 
-    Box(
-        Modifier.fillMaxSize().background(
-            Brush.verticalGradient(
-                listOf(
-                    mc.accent.copy(alpha = 0.20f),
-                    mc.bg.copy(alpha = 0.94f),
-                    mc.bg,
-                ),
-            ),
-        ),
-    ) {
+    // The whole queue is the tape, so the pager lives here: the title block
+    // can follow the centred card while the finger is still previewing.
+    val queue = engine.queue
+    val pager = rememberPagerState(
+        initialPage = engine.index.coerceIn(0, (queue.size - 1).coerceAtLeast(0)),
+        pageCount = { queue.size },
+    )
+
+    Box(Modifier.fillMaxSize()) {
+        PlayerBackdrop(t?.id)
         Column(
             Modifier
                 .fillMaxSize()
@@ -121,64 +133,38 @@ fun PlayerOverlay(vm: AppViewModel) {
                 return@Column
             }
 
-            SwipeToSkip(
-                onPrevious = { tick(); engine.prev() },
-                onNext = { tick(); engine.next() },
-                modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
-            ) {
-                Column(Modifier.fillMaxWidth()) {
-                    BoxWithConstraints(
-                        Modifier
-                            .fillMaxWidth()
-                            .background(
-                                Brush.radialGradient(
-                                    listOf(mc.accent.copy(alpha = 0.16f), Color.Transparent),
-                                ),
-                            ),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        val artSize = minOf(maxWidth * 0.72f, 300.dp)
-                        Art(
-                            t.id,
-                            artSize,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(D.r3))
-                                .combinedClickable(
-                                    onClick = {},
-                                    onLongClickLabel = "Track options",
-                                    onLongClick = { tick(); vm.openTrackMenu(t) },
-                                ),
-                        )
-                    }
+            Spacer(Modifier.height(14.dp))
+            TrackTape(vm, pager, tick)
 
-                    Spacer(Modifier.height(22.dp))
-                    Text(
-                        t.title,
-                        style = McType.h2,
-                        color = mc.fg,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                    ) {
-                        Text(t.artist, style = McType.bodySm, color = mc.dim)
-                        if (t.album.isNotBlank()) {
-                            Text("  ·  ", style = McType.bodySm, color = mc.dim2)
-                            Text(
-                                t.album,
-                                style = McType.bodySm,
-                                color = mc.dim2,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.clickable { vm.navigate(Route.Album(t.album)) },
-                            )
-                        }
+            Spacer(Modifier.height(18.dp))
+            val shown = queue.getOrNull(pager.currentPage) ?: t
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    shown.title,
+                    style = McType.h2,
+                    color = mc.fg,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(4.dp))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    Text(shown.artist, style = McType.bodySm, color = mc.dim)
+                    if (shown.album.isNotBlank()) {
+                        Text("  ·  ", style = McType.bodySm, color = mc.dim2)
+                        Text(
+                            shown.album,
+                            style = McType.bodySm,
+                            color = mc.dim2,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.clickable { vm.navigate(Route.Album(shown.album)) },
+                        )
                     }
                 }
             }
@@ -286,12 +272,205 @@ fun PlayerOverlay(vm: AppViewModel) {
 }
 
 /**
+ * The whole play queue as one long horizontal tape.
+ *
+ * Every card — already played, playing, and still upcoming — lives on the
+ * same strip, so a swipe reveals the next cover with a small 20 dp peek past
+ * the current one and a long, continuous drag can travel back through the
+ * history or forward to any queued track. The track only changes when the
+ * pager settles on a card, which keeps the gesture a true preview: let go
+ * halfway through and playback stays put.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun TrackTape(
+    vm: AppViewModel,
+    pager: PagerState,
+    tick: () -> Unit,
+    maxArt: Dp = 300.dp,
+) {
+    val engine = vm.engine
+    val queue = engine.queue
+    if (queue.isEmpty()) return
+
+    // Settling on a card is the commit point. Jumping to it reuses the engine's
+    // own queue move, so history, autoplay and the published now-playing
+    // snapshot all stay in sync.
+    LaunchedEffect(pager) {
+        snapshotFlow { pager.settledPage }
+            .distinctUntilChanged()
+            .collect { page ->
+                if (page != engine.index) {
+                    tick()
+                    engine.jumpTo(page)
+                }
+            }
+    }
+
+    // One quiet tick each time the drag crosses onto another card, so the tape
+    // feels detented without interrupting the finger.
+    LaunchedEffect(pager) {
+        snapshotFlow { pager.currentPage }
+            .distinctUntilChanged()
+            .collect { page -> if (page != engine.index) tick() }
+    }
+
+    // Keep the tape centred when the track changes from a button, autoplay or
+    // the lock screen rather than from a swipe.
+    LaunchedEffect(engine.index, queue.size) {
+        if (engine.index in queue.indices && pager.currentPage != engine.index) {
+            pager.animateScrollToPage(engine.index)
+        }
+    }
+
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        // Leave room for the neighbours: half the leftover space on each side,
+        // minus the 20 dp gap, is the sliver of the next cover that peeks in.
+        val artSize = minOf(maxWidth - 84.dp, maxArt)
+        val side = (maxWidth - artSize) / 2
+        HorizontalPager(
+            state = pager,
+            contentPadding = PaddingValues(horizontal = side),
+            pageSpacing = 20.dp,
+            modifier = Modifier.fillMaxWidth(),
+        ) { page ->
+            val track = queue.getOrNull(page) ?: return@HorizontalPager
+            val centered = page == pager.currentPage
+            Art(
+                track.id,
+                artSize,
+                modifier = Modifier
+                    .graphicsLayer {
+                        // The centred card is the one being previewed, so it
+                        // stays bright even before the swipe commits; the rest
+                        // of the tape sits back.
+                        alpha = if (centered) 1f else 0.48f
+                        val s = if (centered) 1f else 0.93f
+                        scaleX = s
+                        scaleY = s
+                    }
+                    .clip(RoundedCornerShape(D.r3))
+                    .combinedClickable(
+                        onClick = {
+                            if (page != engine.index) {
+                                tick()
+                                engine.jumpTo(page)
+                            }
+                        },
+                        onLongClickLabel = "Track options",
+                        onLongClick = { tick(); vm.openTrackMenu(track) },
+                    ),
+            )
+        }
+    }
+}
+
+private data class BackdropStyle(
+    val blur: Dp,
+    val artAlpha: Float,
+    val topScrim: Float,
+    val bottomScrim: Float,
+    val wash: Float,
+)
+
+/**
+ * A full-screen backdrop built from the current artwork.
+ *
+ * The art is blurred and pushed well back, then each material gets its own
+ * finish: glass gets a soft accent bloom, metal a diagonal sheen, plane and
+ * solid stay quiet and flat so the type carries the screen. Low graphics
+ * levels skip the blur entirely instead of dropping frames on old hardware.
+ */
+@Composable
+private fun PlayerBackdrop(trackId: Int?) {
+    val mc = LocalMc.current
+    val material = LocalMaterial.current
+    val gfx = LocalGfxLevel.current
+    val art = rememberArt(trackId)
+
+    val style = when (material) {
+        "plane" -> BackdropStyle(72.dp, 0.26f, 0.58f, 0.98f, 0.10f)
+        "solid" -> BackdropStyle(52.dp, 0.18f, 0.66f, 0.99f, 0.07f)
+        "metal" -> BackdropStyle(38.dp, 0.50f, 0.44f, 0.96f, 0.14f)
+        else -> BackdropStyle(30.dp, 0.58f, 0.34f, 0.93f, 0.20f) // glass
+    }
+
+    Box(Modifier.fillMaxSize().background(mc.bg)) {
+        if (art != null) {
+            Image(
+                art,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        // A little overscan hides the softened edge a blur
+                        // leaves behind.
+                        scaleX = 1.18f
+                        scaleY = 1.18f
+                    }
+                    .then(if (gfx >= 2) Modifier.blur(style.blur) else Modifier)
+                    .alpha(style.artAlpha),
+            )
+        }
+
+        Box(
+            Modifier.fillMaxSize().background(
+                when (material) {
+                    "metal" -> Brush.linearGradient(
+                        listOf(
+                            mc.fg.copy(alpha = 0.10f),
+                            Color.Transparent,
+                            mc.fg.copy(alpha = 0.05f),
+                        ),
+                    )
+
+                    "plane", "solid" -> Brush.verticalGradient(
+                        listOf(
+                            mc.accent.copy(alpha = style.wash),
+                            Color.Transparent,
+                            mc.bg.copy(alpha = 0.22f),
+                        ),
+                    )
+
+                    else -> Brush.verticalGradient(
+                        listOf(
+                            mc.glassHighlight.copy(alpha = 0.10f),
+                            mc.accent.copy(alpha = style.wash),
+                            Color.Transparent,
+                        ),
+                    )
+                },
+            ),
+        )
+
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(
+                    listOf(
+                        mc.bg.copy(alpha = style.topScrim),
+                        mc.bg.copy(alpha = (style.topScrim + style.bottomScrim) / 2f),
+                        mc.bg.copy(alpha = style.bottomScrim),
+                    ),
+                ),
+            ),
+        )
+    }
+}
+
+/**
  * The same player rendered as a routed screen (used by deep links from the deck
  * when the user navigates to the "now" view).
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun NowPlayingScreen(vm: AppViewModel) {
     val mc = LocalMc.current
+    val queue = vm.engine.queue
+    val pager = rememberPagerState(
+        initialPage = vm.engine.index.coerceIn(0, (queue.size - 1).coerceAtLeast(0)),
+        pageCount = { queue.size },
+    )
     Column(
         Modifier
             .fillMaxSize()
@@ -317,11 +496,12 @@ fun NowPlayingScreen(vm: AppViewModel) {
         }
         Text("NOW PLAYING", style = McType.kicker, color = mc.accent)
         Spacer(Modifier.height(10.dp))
-        Art(t.id, 260.dp)
+        TrackTape(vm, pager, tick = {}, maxArt = 260.dp)
         Spacer(Modifier.height(16.dp))
-        Text(t.title, style = McType.h2, color = mc.fg)
+        val shown = queue.getOrNull(pager.currentPage) ?: t
+        Text(shown.title, style = McType.h2, color = mc.fg)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            t.artists.ifEmpty { listOf(t.artist) }.forEach { name ->
+            shown.artists.ifEmpty { listOf(shown.artist) }.forEach { name ->
                 Text(
                     name,
                     style = McType.bodySm,

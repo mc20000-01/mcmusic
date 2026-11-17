@@ -2,13 +2,13 @@
   const SCRIPT = document.currentScript || Array.from(document.scripts).find(s => (s.src||'').includes('/static/embed/widgets.js'));
   const BASE = (SCRIPT && (SCRIPT.dataset.mcmusicBase || SCRIPT.getAttribute('data-mcmusic-base'))) || (SCRIPT ? new URL('.', SCRIPT.src).origin : location.origin);
   const THEMES = {
-    dusk:   { bg:'#151022', bg2:'#08060d', fg:'#f2ecff', dim:'#a89ec6', line:'#332a4d', accent:'#a06bff' },
-    paper:  { bg:'#fbf7ee', bg2:'#f4efe4', fg:'#241d14', dim:'#6d6151', line:'#bfb098', accent:'#b4531f' },
-    ink:    { bg:'#121214', bg2:'#050505', fg:'#f5f5f5', dim:'#8f8f96', line:'#34343b', accent:'#d7d7de' },
-    tide:   { bg:'#18262c', bg2:'#0e161a', fg:'#e4eef1', dim:'#8ba3ab', line:'#33505a', accent:'#6fb3c4' },
-    copper: { bg:'#2b1a16', bg2:'#1a0f0d', fg:'#f6e7df', dim:'#b2928a', line:'#553229', accent:'#e08a5f' },
-    forest: { bg:'#15261d', bg2:'#0b1410', fg:'#e7f3ec', dim:'#95b2a2', line:'#2f4d3d', accent:'#6fcf97' },
-    rose:   { bg:'#2a1b23', bg2:'#171015', fg:'#f7ebf1', dim:'#c2a6b4', line:'#523646', accent:'#e58ab2' },
+    dusk:   { bg:'#1b1325', bg2:'#0e0a13', fg:'#f2edf7', dim:'#b9abc9', line:'#3e2b54', accent:'#b080ea' },
+    paper:  { bg:'#faf8f4', bg2:'#f2ebe4', fg:'#281f15', dim:'#5d4f41', line:'#baa997', accent:'#9a4b1d' },
+    ink:    { bg:'#1a1a1e', bg2:'#0d0d0f', fg:'#ededf7', dim:'#ababc9', line:'#3c3c44', accent:'#dadadd' },
+    tide:   { bg:'#142124', bg2:'#0a1012', fg:'#edf5f7', dim:'#abc3c9', line:'#2e4a52', accent:'#89cee1' },
+    copper: { bg:'#261812', bg2:'#130c09', fg:'#f7f0ed', dim:'#c9b4ab', line:'#573729', accent:'#eaa07b' },
+    forest: { bg:'#14241b', bg2:'#0a120e', fg:'#edf7f2', dim:'#abc9b9', line:'#2d533e', accent:'#79d8a5' },
+    rose:   { bg:'#24141c', bg2:'#120a0e', fg:'#f7edf2', dim:'#c9abba', line:'#532d40', accent:'#ea90b8' },
   };
 
   function themeVars(name, accent) {

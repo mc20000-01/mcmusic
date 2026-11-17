@@ -975,7 +975,7 @@ const THEMES = [
   ["auto", "Auto"],
 ];
 
-const ACCENTS = ["#a06bff", "#7c5cff", "#c77dff", "#6fcf97", "#63c98d", "#e3bd52", "#e58ab2", "#e4627e", "#6fb3c4", "#f2ecff"];
+const ACCENTS = ["#b080ea", "#9a7cf0", "#d29cf0", "#79d8a5", "#77cfa3", "#ecc665", "#ea90b8", "#e8737a", "#89cee1", "#f2edf7"];
 
 async function settings(container) {
   const state = app();

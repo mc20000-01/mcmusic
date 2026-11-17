@@ -200,7 +200,9 @@ def api_docs():
         auth={
             "web": "POST /api/login for the bootstrap account, or GET "
                    "/api/auth/rotur/authorize for RoturLink. A session cookie follows.",
-            "rotur": "OAuth 2.0 + PKCE S256 against api.rotur.dev. Tokens never reach the browser.",
+            "rotur": "OAuth 2.0 + PKCE S256 against api.rotur.dev. Tokens never reach the browser. "
+                     "API-only clients can link by validator instead: GET /api/auth/rotur/key, "
+                     "mint a validator for that key, then POST /api/auth/rotur/link.",
             "bot": "Send X-MCMUSIC-BOT: <MCMUSIC_BOT_TOKEN>. Bots act as the service account.",
             "device": "Signed in? POST /api/devices/code for an 8-character code, "
                       "then POST /api/devices/claim with it. The returned mcd_ "
@@ -217,7 +219,8 @@ def api_docs():
                      "POST /api/auth/email", "POST /api/auth/reset/request",
                      "POST /api/auth/reset/check", "POST /api/auth/reset/confirm",
                      "GET /api/auth/rotur/authorize", "GET /api/auth/rotur/callback",
-                     "GET /api/auth/rotur/status", "POST /api/auth/rotur/activity",
+                     "GET /api/auth/rotur/status", "GET /api/auth/rotur/key",
+                     "POST /api/auth/rotur/link", "POST /api/auth/rotur/activity",
                      "POST /api/auth/rotur/unlink", "GET /api/auth/discord/authorize",
                      "GET /api/auth/discord/callback", "GET /api/auth/discord/status",
                      "POST /api/auth/discord/unlink"],
@@ -254,7 +257,7 @@ def api_docs():
 
 # ---------------------------------------------------------------- settings + version
 DEFAULT_SETTINGS = {
-    "theme": "rose", "accent": "#7ee0b0", "density": "comfy", "material": "plane",
+    "theme": "rose", "accent": "#79d8a5", "density": "comfy", "material": "plane",
     "covers": True, "autoplay": True, "hide_explicit": False, "private": False,
     "yt_stats": True, "remember_volume": True, "volume": 0.8, "prefetch": True,
     "offline_audio": True, "rotur_activity": False, "show_room_url": False,
@@ -440,7 +443,7 @@ def get_app():
 
 
 # ---------------------------------------------------------------- index (PWA shell)
-INDEX_SHELL = """<!doctype html><html lang="en" data-theme="rose" data-material="plane" style="--accent:#7ee0b0;--accent-fg:#07130d;--accent-soft:rgba(126,224,176,0.15)">
+INDEX_SHELL = """<!doctype html><html lang="en" data-theme="rose" data-material="plane" style="--accent:#79d8a5;--accent-fg:#102319;--accent-soft:rgba(121,216,165,0.15)">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">

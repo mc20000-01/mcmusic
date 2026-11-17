@@ -38,14 +38,17 @@ import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 /**
- * Swipe the now-playing card sideways to skip.
+ * Swipe the compact now-playing deck sideways to step through the queue.
  *
  * Swipe left for the next track, right for the previous one. Dragging only
  * *previews* the action: the label slides in and ticks once when it passes the
  * threshold, but nothing changes until the finger lifts. Releasing early, or
- * swiping out and drifting back, settles the card home and leaves playback
+ * swiping out and drifting back, settles the deck home and leaves playback
  * alone. That makes it safe to peek at what a swipe would do without
  * accidentally skipping.
+ *
+ * The full player uses its own track tape instead, where the queue itself is
+ * the swipeable surface.
  */
 @Composable
 fun SwipeToSkip(
@@ -109,8 +112,9 @@ fun SwipeToSkip(
                         }
                         if (direction != armed) {
                             armed = direction
-                            // A single crisp tick as the action becomes real,
-                            // and another (lighter) one as it lets go again.
+                            // One crisp tick as the action arms. Drifting back
+                            // under the threshold is silent so it feels like a
+                            // cancelled peek, not another action.
                             if (direction != 0) {
                                 haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             }

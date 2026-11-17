@@ -29,7 +29,7 @@ from flask import (
 )
 
 from config import (
-    INVITE_CODE,
+    INVITE_CODE, PUBLIC_URL,
     ROTUR_APP, ROTUR_SECRET, ROTUR_BASE_URL, ROTUR_SCOPE,
     ROTUR_AUTHORIZE_PATH, ROTUR_TOKEN_PATH, ROTUR_USERINFO_PATH,
     ROTUR_CALLBACK_PATH, ROTUR_STATE_TTL,
@@ -595,6 +595,204 @@ def push_live_status(uid, status, presence="online"):
     if not token:
         return False, problem
     return _set_presence(uid, token, presence)
+
+
+# --------------------------------------------------------------------------- validator linking (API only)
+# A validator proves ownership of a Rotur account without sharing its token:
+#   POST {base}/v2/validators?key=<app id>   (with the person's Rotur token)
+#   GET  {base}/v2/validators/verify?v=…&key=…  (no auth; returns id + username)
+# This is the API-only counterpart to the browser OAuth flow, so a TUI or any
+# other client can link a Rotur identity without the official mcmusic UI.
+_VALIDATOR_LOCK = threading.Lock()
+_VALIDATOR_CACHE: dict[str, dict] = {}
+
+
+def validator_ready():
+    """Validator linking only needs the app id, not the OAuth client secret."""
+    return bool(ROTUR_APP)
+
+
+def _validator_from_request(payload):
+    value = str(payload.get("validator") or payload.get("v") or "").strip()
+    if not value:
+        value = request.headers.get("X-Rotur-Validator", "").strip()
+    if not value:
+        auth = request.headers.get("Authorization", "")
+        if auth.lower().startswith("rotur "):
+            value = auth[6:].strip()
+    return value[:1024]
+
+
+def verify_validator(validator):
+    """Ask Rotur who owns a validator. A yes is cached until it expires."""
+    now = time.time()
+    with _VALIDATOR_LOCK:
+        hit = _VALIDATOR_CACHE.get(validator)
+        if hit and (hit.get("expires_at") or 0) / 1000.0 > now + 5:
+            return hit
+
+    resp = requests.get(
+        f"{ROTUR_BASE_URL}/v2/validators/verify",
+        params={"v": validator, "key": ROTUR_APP},
+        headers={"Accept": "application/json"},
+        timeout=20,
+    )
+    if resp.status_code >= 400:
+        raise RoturError(
+            f"validator check returned {resp.status_code}", resp.text[:400]
+        )
+    try:
+        data = resp.json()
+    except ValueError:
+        raise RoturError("validator check returned invalid JSON", resp.text[:400])
+    if not isinstance(data, dict):
+        raise RoturError("validator check returned an unexpected payload", repr(data)[:200])
+
+    if data.get("valid"):
+        with _VALIDATOR_LOCK:
+            for key, cached in list(_VALIDATOR_CACHE.items()):
+                if (cached.get("expires_at") or 0) / 1000.0 <= now:
+                    _VALIDATOR_CACHE.pop(key, None)
+            _VALIDATOR_CACHE[validator] = data
+    return data
+
+
+def key_route():
+    """Public discovery data for API clients that want to link a Rotur account."""
+    ready = validator_ready()
+    key = ROTUR_APP if ready else ""
+    return jsonify(
+        configured=ready,
+        key=key,
+        app=key,
+        mint=f"POST {ROTUR_BASE_URL}/v2/validators?key={key}",
+        verify=f"GET {ROTUR_BASE_URL}/v2/validators/verify?v=<validator>&key={key}",
+        link=f"{(PUBLIC_URL or request.url_root).rstrip('/')}/api/auth/rotur/link",
+        header="X-Rotur-Validator",
+        body={"validator": "<validator>"},
+        note=(
+            "Mint a validator with your Rotur token, then POST it here with a "
+            "mcmusic API token. No browser or official client is required."
+        ),
+    )
+
+
+def link_route():
+    """Link the authenticated mcmusic account to a Rotur identity by validator."""
+    uid = _auth_uid()
+    if uid is None:
+        return jsonify(
+            error="sign in with a mcmusic API token first",
+            code="login_required",
+        ), 401
+    if not validator_ready():
+        return jsonify(
+            error="Rotur linking is not configured on this server",
+            code="rotur_unconfigured",
+        ), 503
+
+    payload = request.get_json(silent=True) or {}
+    if not isinstance(payload, dict):
+        payload = {}
+    validator = _validator_from_request(payload)
+    if not validator:
+        return jsonify(
+            error="a Rotur validator is required",
+            code="validator_required",
+            hint="POST /v2/validators?key=<key> with your Rotur token, then send the validator",
+        ), 400
+
+    try:
+        info = verify_validator(validator)
+    except RoturError as e:
+        return jsonify(error=str(e), detail=e.detail, code="rotur_unreachable"), 502
+    except requests.RequestException as e:
+        return jsonify(error=f"Could not reach Rotur: {e}", code="rotur_unreachable"), 502
+
+    if not info.get("valid"):
+        return jsonify(
+            error=info.get("error") or "Rotur rejected that validator",
+            code=info.get("code") or "invalid_validator",
+            reason=info.get("reason"),
+            until=info.get("until"),
+        ), 401
+
+    rid = str(info.get("id") or "").strip()
+    rname = str(info.get("username") or "").strip()
+    if not rid:
+        return jsonify(
+            error="Rotur did not return an account id",
+            code="rotur_bad_response",
+        ), 502
+
+    # An optional Rotur access token also seeds the session used for activity
+    # pushes. The validator alone is enough to link.
+    rotur_token = str(
+        payload.get("token") or request.headers.get("X-Rotur-Token", "")
+    ).strip()
+    access = ""
+    refresh = ""
+    token_expires = 0.0
+    if rotur_token:
+        try:
+            profile = fetch_user(rotur_token)
+            token_rid, token_name = profile_identity(profile)
+        except RoturError as e:
+            return jsonify(
+                error=f"Rotur rejected that token: {e}",
+                detail=e.detail,
+                code="rotur_token_invalid",
+            ), 401
+        except requests.RequestException as e:
+            return jsonify(
+                error=f"Could not reach Rotur: {e}",
+                code="rotur_unreachable",
+            ), 502
+        if token_rid != rid:
+            return jsonify(
+                error="that token belongs to a different Rotur account",
+                code="rotur_token_mismatch",
+            ), 400
+        if token_name:
+            rname = token_name
+        access = rotur_token
+        token_expires = time.time() + 3600
+
+    c = _db()
+    other = c.execute(
+        "select id from users where rotur_id=? and id<>?", (rid, uid)
+    ).fetchone()
+    if other:
+        return jsonify(
+            error="that Rotur account is already linked to another mcmusic user",
+            code="rotur_already_linked",
+        ), 409
+
+    previous = c.execute(
+        "select rotur_id from users where id=?", (uid,)
+    ).fetchone()
+    if previous and previous["rotur_id"] and previous["rotur_id"] != rid:
+        close_activity(uid)
+        clear_rotur_session(c, uid)
+
+    c.execute(
+        "update users set rotur_id=?, rotur_username=? where id=?",
+        (rid, rname[:100], uid),
+    )
+    if access:
+        save_rotur_session(c, uid, rid, access, refresh, token_expires)
+    c.commit()
+
+    return jsonify(
+        ok=True,
+        linked=True,
+        rotur_id=rid,
+        rotur_username=rname,
+        expires_at=info.get("expires_at"),
+        account_type=info.get("account_type"),
+        owner=info.get("owner"),
+        has_tokens=bool(access),
+    )
 
 
 def unlink_route():
