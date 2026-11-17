@@ -437,7 +437,9 @@ class App {
         ? "Sign in to pick up right where you left off."
         : "It only takes a moment — you’ll be listening in no time.";
       passInput.autocomplete = next === "in" ? "current-password" : "new-password";
-      invite.hidden = !(next === "up" && CONFIG.inviteCode);
+      // Always show the invite field when creating an account: servers may
+      // rely on admin-issued invite codes even without a server-wide one.
+      invite.hidden = next !== "up";
     }
 
     const go = async () => {
@@ -511,7 +513,7 @@ class App {
       user.hidden = false;
       pass.hidden = false;
       submit.hidden = false;
-      invite.hidden = !(mode === "up" && CONFIG.inviteCode);
+      invite.hidden = mode !== "up";
       divider.hidden = !Auth.rotur.configured;
       rotur.hidden = !Auth.rotur.configured;
       forgot.hidden = false;
