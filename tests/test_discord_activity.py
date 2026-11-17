@@ -58,14 +58,27 @@ class DiscordAvailabilityTest(unittest.TestCase):
 
     def test_no_client_reports_discord_is_not_running(self):
         with mock.patch.dict(os.environ, {"DISCORD_APP_ID": "1234567890"}), \
-                mock.patch("pypresence.utils.get_ipc_path", return_value=None):
+                mock.patch("pypresence.utils.get_ipc_path", return_value=None), \
+                mock.patch.object(discord_activity, "client_running", return_value=False):
             usable, why = discord_activity.available()
         self.assertFalse(usable)
         self.assertIn("not running", why)
 
+    def test_a_client_at_the_login_screen_is_not_called_missing(self):
+        # The IPC socket only appears after signing in; telling the user Discord
+        # is not running while it sits on the login screen sends them hunting
+        # for an install that is already there.
+        with mock.patch.dict(os.environ, {"DISCORD_APP_ID": "1234567890"}), \
+                mock.patch("pypresence.utils.get_ipc_path", return_value=None), \
+                mock.patch.object(discord_activity, "client_running", return_value=True):
+            usable, why = discord_activity.available()
+        self.assertFalse(usable)
+        self.assertIn("not signed in", why)
+
     def test_a_live_socket_counts_as_available(self):
         with mock.patch.dict(os.environ, {"DISCORD_APP_ID": "1234567890"}), \
-                mock.patch("pypresence.utils.get_ipc_path", return_value="/run/user/1/discord-ipc-0"):
+                mock.patch("pypresence.utils.get_ipc_path", return_value="/run/user/1/discord-ipc-0"), \
+                mock.patch.object(discord_activity, "client_running", return_value=True):
             usable, why = discord_activity.available()
         self.assertTrue(usable, why)
 

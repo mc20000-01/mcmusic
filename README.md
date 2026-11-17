@@ -82,6 +82,32 @@ Discord client — or a Rotur session expiring — shows up without a reload.
 `GET /api/auth/rotur/status` reports the Rotur equivalent as
 `activity: {ready, reason}`.
 
+#### Running Discord on the server
+
+This host has no monitor, so the client runs on a virtual X display that also
+serves VNC. Two systemd units, enabled at boot:
+
+| Unit | What it does |
+| --- | --- |
+| `mcmusic-discord-display.service` | `Xvnc :99`, VNC on `127.0.0.1:5901` only |
+| `mcmusic-discord.service` | `/usr/bin/discord` on `DISPLAY=:99` |
+
+The IPC socket only appears **after** the client is signed in, so the account
+has to log in once through that display:
+
+```bash
+ssh -L 5901:127.0.0.1:5901 server@<host>     # then point a VNC viewer at localhost:5901
+```
+
+Sign in with a password in the client itself — do not inject a user token.
+After that `/tmp/discord-ipc-0` exists, and presence publishes on the account
+signed in there for every listener who enables the toggle. Keep expectations
+straight: it is **one** account's profile, not each user's.
+
+`mcmusic-discord.service` is capped at 900 MB (`MemoryHigh`) / 1.5 GB
+(`MemoryMax`) and runs at `Nice=10`, so a chat client cannot take the music
+server down on a 4 GB machine.
+
 ## Builds
 
 ```bash
