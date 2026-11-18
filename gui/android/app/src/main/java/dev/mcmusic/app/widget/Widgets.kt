@@ -9,17 +9,21 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
-import androidx.compose.ui.graphics.toArgb
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Shader
+import android.view.View
 import android.widget.RemoteViews
+import androidx.compose.ui.graphics.toArgb
 import dev.mcmusic.app.MainActivity
 import dev.mcmusic.app.R
 import dev.mcmusic.app.data.Api
+import dev.mcmusic.app.data.Downloads
 import dev.mcmusic.app.data.Listener
 import dev.mcmusic.app.data.Prefs
+import dev.mcmusic.app.data.Track
+import dev.mcmusic.app.playback.Playback
 import dev.mcmusic.app.ui.design.DesignLanguage
 import dev.mcmusic.app.ui.design.McPalette
 import dev.mcmusic.app.ui.design.Palettes
@@ -27,11 +31,11 @@ import kotlinx.coroutines.runBlocking
 import kotlin.math.roundToInt
 
 /**
- * Home screen widgets, ported from the web embeds: the same public endpoint
- * (`/api/public/now/<user>`), the same seven palettes and the same reading of
- * "listening / paused / quiet". RemoteViews cannot host Backdrop glass, so the
- * surface is a palette gradient with the iOS radius when the iOS language is
- * selected and the tighter One UI radius otherwise.
+ * Home screen widgets, ported from the web embeds but aware of the phone: when
+ * the app's player has a track loaded the widget mirrors that (and its buttons
+ * control it), otherwise it falls back to the public "now" endpoint, the same
+ * source the embeds use. RemoteViews cannot host Backdrop glass, so the surface
+ * is a palette gradient with the selected language's radius.
  */
 object Widgets {
 
@@ -57,6 +61,7 @@ object Widgets {
     fun refresh(context: Context) {
         Prefs.init(context)
         Api.init(context)
+        Downloads.init(context)
         val manager = AppWidgetManager.getInstance(context)
         refreshKind(context, manager, NowWidgetProvider::class.java, manager.getAppWidgetIds(ComponentName(context, NowWidgetProvider::class.java)), true)
         refreshKind(context, manager, BarWidgetProvider::class.java, manager.getAppWidgetIds(ComponentName(context, BarWidgetProvider::class.java)), false)
@@ -71,30 +76,56 @@ object Widgets {
     ) {
         if (ids.isEmpty()) return
         val user = user(context)
-        if (user == null) {
+        val local = Playback.state
+        if (user == null && local.track == null) {
             ids.forEach { id -> manager.updateAppWidget(id, signedOut(context, manager, id, tall)) }
             return
         }
         Thread {
-            val state: Listener? = runCatching { runBlocking { Api.now(user) }.getOrNull() }.getOrNull()
-            val cover = state?.coverUrl?.takeIf { it.isNotBlank() }?.let { url ->
-                runCatching { runBlocking { Api.cover(url) } }.getOrNull()
-                    ?.let { bytes -> BitmapFactory.decodeByteArray(bytes, 0, bytes.size) }
+            val track = local.track
+            val server: Listener? = if (track == null && user != null) {
+                runCatching { runBlocking { Api.now(user) }.getOrNull() }.getOrNull()
+            } else null
+            val cover = when {
+                track != null -> coverForLocal(track)
+                server?.coverUrl?.isNotBlank() == true -> runCatching {
+                    runBlocking { Api.cover(server.coverUrl) }?.let { bytes ->
+                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    }
+                }.getOrNull()
+                else -> null
             }
             ids.forEach { id ->
-                val views = if (tall) nowViews(context, manager, id, user, state, cover)
-                else barViews(context, manager, id, user, state, cover)
+                val views = if (tall) {
+                    nowViews(context, manager, id, user, server, track, local.playing, cover)
+                } else {
+                    barViews(context, manager, id, user, server, track, local.playing, cover)
+                }
                 manager.updateAppWidget(id, views)
             }
         }.start()
+    }
+
+    private fun coverForLocal(track: Track): Bitmap? {
+        Downloads.file(track.id)?.let { file ->
+            val opts = BitmapFactory.Options().apply { inSampleSize = 2 }
+            BitmapFactory.decodeFile(file.absolutePath, opts)?.let { return it }
+        }
+        return runCatching {
+            runBlocking { Api.cover("${Api.server}/api/tracks/${track.id}/cover") }?.let { bytes ->
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            }
+        }.getOrNull()
     }
 
     private fun signedOut(context: Context, manager: AppWidgetManager, id: Int, tall: Boolean): RemoteViews {
         val views = RemoteViews(context.packageName, if (tall) R.layout.widget_now else R.layout.widget_bar)
         val palette = palette(context)
         views.setImageViewBitmap(R.id.widget_bg, background(context, manager, id, tall, palette))
+        views.setViewVisibility(R.id.widget_toggle, View.GONE)
+        views.setViewVisibility(R.id.widget_next, View.GONE)
         if (tall) {
-            views.setViewVisibility(R.id.widget_cover, android.view.View.INVISIBLE)
+            views.setViewVisibility(R.id.widget_cover, View.INVISIBLE)
             views.setTextViewText(R.id.widget_kicker, "mcmusic")
             views.setTextViewText(R.id.widget_title, "No account yet")
             views.setTextViewText(R.id.widget_sub, "Open mcmusic and sign in")
@@ -104,11 +135,11 @@ object Widgets {
             views.setTextColor(R.id.widget_sub, palette.dim.toArgb())
             views.setTextColor(R.id.widget_state, palette.dim.toArgb())
         } else {
-            views.setViewVisibility(R.id.widget_cover, android.view.View.GONE)
+            views.setViewVisibility(R.id.widget_cover, View.GONE)
             views.setTextViewText(R.id.widget_title, "mcmusic")
             views.setTextViewText(R.id.widget_sub, "Open the app and sign in")
-            views.setTextColor(R.id.widget_dot, palette.dim.toArgb())
             views.setTextViewText(R.id.widget_dot, "•")
+            views.setTextColor(R.id.widget_dot, palette.dim.toArgb())
             views.setTextColor(R.id.widget_title, palette.fg.toArgb())
             views.setTextColor(R.id.widget_sub, palette.dim.toArgb())
         }
@@ -120,30 +151,34 @@ object Widgets {
         context: Context,
         manager: AppWidgetManager,
         id: Int,
-        user: String,
-        listener: Listener?,
+        user: String?,
+        server: Listener?,
+        local: Track?,
+        localPlaying: Boolean,
         cover: Bitmap?,
     ): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_now)
         val palette = palette(context)
         views.setImageViewBitmap(R.id.widget_bg, background(context, manager, id, true, palette))
 
-        val track = listener?.track
-        val listening = listener?.listening == true
+        val track = local ?: server?.track
+        val listening = local?.let { localPlaying } ?: (server?.listening == true)
         val title = track?.title?.takeIf { it.isNotBlank() } ?: "Nothing playing"
         val sub = listOfNotNull(
             track?.artist?.takeIf { it.isNotBlank() },
             track?.album?.takeIf { it.isNotBlank() },
         ).joinToString(" · ").ifBlank { "quiet right now" }
+        val who = local?.let { "this phone" } ?: server?.username ?: user.orEmpty()
         val state = when {
-            listener == null -> "not found on this server"
-            listening && track != null -> "listening · ${listener.username}"
-            !listening && track != null -> "paused · ${listener.username}"
-            else -> "quiet · ${listener.username}"
+            local != null -> "${if (localPlaying) "playing" else "paused"} · $who"
+            server == null -> "not found on this server"
+            listening && track != null -> "listening · $who"
+            !listening && track != null -> "paused · $who"
+            else -> "quiet · $who"
         }
 
-        if (cover != null) views.setImageViewBitmap(R.id.widget_cover, cover) else views.setViewVisibility(R.id.widget_cover, android.view.View.INVISIBLE)
-        views.setTextViewText(R.id.widget_kicker, listener?.username?.ifBlank { null } ?: user)
+        if (cover != null) views.setImageViewBitmap(R.id.widget_cover, cover) else views.setViewVisibility(R.id.widget_cover, View.INVISIBLE)
+        views.setTextViewText(R.id.widget_kicker, local?.let { user ?: "mcmusic" } ?: (server?.username ?: user.orEmpty()))
         views.setTextViewText(R.id.widget_title, title)
         views.setTextViewText(R.id.widget_sub, sub)
         views.setTextViewText(R.id.widget_state, state)
@@ -151,6 +186,8 @@ object Widgets {
         views.setTextColor(R.id.widget_title, palette.fg.toArgb())
         views.setTextColor(R.id.widget_sub, palette.dim.toArgb())
         views.setTextColor(R.id.widget_state, if (listening) palette.accent.toArgb() else palette.dim.toArgb())
+
+        controls(views, context, palette, local != null, localPlaying)
         views.setOnClickPendingIntent(R.id.widget_root, openApp(context))
         return views
     }
@@ -159,28 +196,63 @@ object Widgets {
         context: Context,
         manager: AppWidgetManager,
         id: Int,
-        user: String,
-        listener: Listener?,
+        user: String?,
+        server: Listener?,
+        local: Track?,
+        localPlaying: Boolean,
         cover: Bitmap?,
     ): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_bar)
         val palette = palette(context)
         views.setImageViewBitmap(R.id.widget_bg, background(context, manager, id, false, palette))
 
-        val track = listener?.track
-        val listening = listener?.listening == true
-        val title = track?.title?.takeIf { it.isNotBlank() } ?: "$user is quiet"
+        val track = local ?: server?.track
+        val listening = local?.let { localPlaying } ?: (server?.listening == true)
+        val title = track?.title?.takeIf { it.isNotBlank() }
+            ?: (server?.username ?: user)?.let { "$it is quiet" }
+            ?: "mcmusic"
         val sub = track?.artist?.takeIf { it.isNotBlank() } ?: "mcmusic"
 
-        if (cover != null) views.setImageViewBitmap(R.id.widget_cover, cover) else views.setViewVisibility(R.id.widget_cover, android.view.View.GONE)
+        if (cover != null) views.setImageViewBitmap(R.id.widget_cover, cover) else views.setViewVisibility(R.id.widget_cover, View.GONE)
         views.setTextViewText(R.id.widget_dot, "●")
         views.setTextColor(R.id.widget_dot, (if (listening) palette.accent else palette.dim).toArgb())
         views.setTextViewText(R.id.widget_title, title)
         views.setTextViewText(R.id.widget_sub, sub)
         views.setTextColor(R.id.widget_title, palette.fg.toArgb())
         views.setTextColor(R.id.widget_sub, palette.dim.toArgb())
+
+        controls(views, context, palette, local != null, localPlaying)
         views.setOnClickPendingIntent(R.id.widget_root, openApp(context))
         return views
+    }
+
+    /** Play/pause and skip, only when this widget is showing the phone's queue. */
+    private fun controls(
+        views: RemoteViews,
+        context: Context,
+        palette: McPalette,
+        canControl: Boolean,
+        playing: Boolean,
+    ) {
+        if (!canControl) {
+            views.setViewVisibility(R.id.widget_toggle, View.GONE)
+            views.setViewVisibility(R.id.widget_next, View.GONE)
+            return
+        }
+        views.setViewVisibility(R.id.widget_toggle, View.VISIBLE)
+        views.setViewVisibility(R.id.widget_next, View.VISIBLE)
+        views.setTextViewText(R.id.widget_toggle, if (playing) "❚❚" else "▶")
+        views.setTextColor(R.id.widget_toggle, palette.accent.toArgb())
+        views.setTextViewText(R.id.widget_next, "⏭")
+        views.setTextColor(R.id.widget_next, palette.dim.toArgb())
+        views.setOnClickPendingIntent(
+            R.id.widget_toggle,
+            WidgetControlReceiver.pending(context, WidgetControlReceiver.ACTION_TOGGLE, 1),
+        )
+        views.setOnClickPendingIntent(
+            R.id.widget_next,
+            WidgetControlReceiver.pending(context, WidgetControlReceiver.ACTION_NEXT, 2),
+        )
     }
 
     /** Palette gradient with the accent glow the embeds put in the top corner. */

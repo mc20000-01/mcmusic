@@ -41,6 +41,10 @@
         </activity>
 
         <receiver
+            android:name=".widget.WidgetControlReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".widget.NowWidgetProvider"
             android:exported="true"
             android:label="@string/widget_now_label">
