@@ -1,6 +1,6 @@
 """API route registration — library, playback, and track endpoints."""
 from flask import Blueprint, request, jsonify, send_file, Response, session
-import os, re, time
+import json, os, re, time
 
 from auth import _auth_uid, login_required, admin_required
 from database import _db, liked_ids, track_dict
@@ -207,6 +207,51 @@ def track_patch(tid):
     if not r:
         return jsonify(error="not found"), 404
     return jsonify(track_dict(_db(), r))
+
+
+@bp.delete("/api/tracks/<int:tid>")
+@admin_required
+def track_delete(tid):
+    """Remove a track for good: the row, the file and anything pointing at it."""
+    c = _db()
+    row = c.execute("select id, title, artist, path from tracks where id=?", (tid,)).fetchone()
+    if not row:
+        return jsonify(error="not found"), 404
+    path = _track_path(tid)
+
+    c.execute("delete from tracks where id=?", (tid,))
+    # playback.track_id and devices.current_track_id have no foreign key, so a
+    # deleted row would otherwise leave those pointing at nothing.
+    c.execute(
+        "update playback set track_id=null, playing=0, position=0 where track_id=?",
+        (tid,),
+    )
+    for pb in c.execute("select user_id, queue from playback where queue is not null").fetchall():
+        try:
+            ids = json.loads(pb["queue"] or "[]")
+        except (TypeError, ValueError):
+            continue
+        if tid in ids:
+            c.execute(
+                "update playback set queue=? where user_id=?",
+                (json.dumps([i for i in ids if i != tid]), pb["user_id"]),
+            )
+    c.execute(
+        "update devices set current_track_id=null, current_position=0, current_paused=1 "
+        "where current_track_id=?",
+        (tid,),
+    )
+    c.commit()
+
+    removed = False
+    if path:
+        try:
+            os.remove(path)
+            removed = True
+        except OSError:
+            pass
+
+    return jsonify(ok=True, id=tid, title=row["title"], artist=row["artist"], file_removed=removed)
 
 
 @bp.get("/api/tracks/<int:tid>/stream")
