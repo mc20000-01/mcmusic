@@ -33,16 +33,17 @@ Build them locally:
 ```
 
 The Android client now lives under `gui/android/` (backend and clients are
-separate trees) and is not built by CI, which has neither the signing key nor a
-Gradle wrapper for it. Publish one by hand:
+separate trees). The release workflow builds and publishes it with
+`./gradlew :app:assembleRelease`, using `keystore/mcmusic.p12` so CI signs with
+the same key as local builds and updates install in place. Publish one by hand
+with the same commands:
 
 ```bash
-JAVA_HOME=$PWD/.toolchain/jdk ANDROID_HOME=$PWD/.toolchain/sdk \
-  .toolchain/gradle/bin/gradle -p gui/android :app:assembleRelease
+(cd gui/android && ./gradlew :app:assembleRelease)
 cp gui/android/app/build/outputs/apk/release/app-release.apk \
   builds/mcmusic-$(grep -oP 'versionName\s*=\s*"\K[^"]+' gui/android/app/build.gradle.kts).apk
-(cd builds && sha256sum $(find . -maxdepth 1 -type f ! -name SHA256SUMS ! -name README.md -printf '%P\n' | sort) > SHA256SUMS)
+./scripts/collect_builds.sh   # refreshes SHA256SUMS
 ```
 
-`collect_builds.sh` only touches APKs when `app/android/` exists, so the
-committed copy survives the desktop-only release workflow.
+`collect_builds.sh` replaces only the current version's APK and keeps the older
+ones beside it, so a bad release can be rolled back by hand.
