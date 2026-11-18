@@ -22,48 +22,14 @@ jobs:
     name: Build and publish
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    # Secrets are not allowed inside a step's `if:`, so expose the optional
-    # signing key as an environment variable first.
-    env:
     steps:
       - name: Check out
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - name: Set up Java
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "17"
-
-      # ubuntu-latest already ships the Android command-line tools and sets
-      # ANDROID_HOME. The old setup-android action tried to install the
-      # removed legacy "tools" package, so install only what this build uses.
-      - name: Install Android SDK platform and build tools
-        run: |
-          set -euo pipefail
-          sdk="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
-          sdkmanager="$sdk/cmdline-tools/latest/bin/sdkmanager"
-          if [ ! -x "$sdkmanager" ]; then
-            sdkmanager=$(find "$sdk/cmdline-tools" -maxdepth 3 -type f -name sdkmanager | sort | tail -1)
-          fi
-          echo "using $sdkmanager"
-          "$sdkmanager" --version
-          yes | "$sdkmanager" --licenses >/dev/null || true
-          "$sdkmanager" "platforms;android-36" "build-tools;36.0.0" >/dev/null
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.14.7"
-          cache-read-only: false
-
-      # Signing comes from app/android/keystore/mcmusic.p12, which is committed,
-      # so this build installs over every previous release.
-      - name: Build Android APK
-        run: gradle -p app/android assembleDebug --no-daemon --console=plain
-
+      # The Android client is being rebuilt from scratch; this workflow builds
+      # and publishes the desktop and web artifacts until it returns.
       - name: Build Linux deb
         run: ./scripts/build_deb.sh
 
@@ -85,8 +51,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          android=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/android/app/build.gradle.kts | head -1)
-          android=${android:-dev}
           desktop=$(grep -oP '^version\s*=\s*"\K[^"]+' app/linux/pyproject.toml | head -1 || echo "")
           sha=$(git rev-parse --short=12 HEAD)
           notes=$(mktemp)
@@ -108,7 +72,6 @@ jobs:
             done
             echo
             echo "### Notes"
-            echo "- Android version: \`${android}\` (installs over the current copy when signatures match)."
             [ -n "$desktop" ] && echo "- Desktop package version: \`${desktop}\`."
             echo "- Linux deb: \`sudo apt install ./file.deb\`. AppImage: \`chmod +x\` then run."
             echo "- Full checksums: \`SHA256SUMS\`."
@@ -133,7 +96,6 @@ jobs:
             echo "## Build summary"
             echo
             echo "- Commit: \`$(git rev-parse --short=12 HEAD)\`"
-            echo "- Android version: \`$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/android/app/build.gradle.kts | head -1 || echo dev)\`"
             echo
             echo "### Artifacts"
             if ls builds/* >/dev/null 2>&1; then

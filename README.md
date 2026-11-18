@@ -12,7 +12,7 @@ No feed. No algorithm. Only the records you put here.
 | --- | --- |
 | `src/` | Flask server: library, playlists, lyrics, requests, devices, playback |
 | `web/` | The PWA — vanilla ES modules, no build step, offline-capable |
-| `app/android/` | Native Android client (Kotlin + Compose + Media3) |
+| `gui/` | Where the new Android client will live; the previous one was removed in full |
 | `app/linux/` | Qt 6 desktop client, shared with the macOS and Windows launch scripts |
 | `app/3ds/` | Nintendo 3DS homebrew scaffold (pairing and library browsing) |
 | `music_activity/` | Bridges playback into Rotur/Discord/OriginChats presence |
@@ -126,10 +126,8 @@ Host-specific details worth keeping:
 ## Builds
 
 ```bash
-# Android (sideload; signed with the debug key)
-cd app/android
-JAVA_HOME=$PWD/.toolchain/jdk PATH=$PWD/.toolchain/jdk/bin:$PATH \
-  .toolchain/gradle/bin/gradle -p . assembleDebug
+# The Android client is being rebuilt from scratch under gui/, so there is no
+# APK target here right now. The signing key it will need is kept in keystore/.
 
 # Publish stable names into apps/ (ignored by git)
 ./scripts/publish_apps.sh
@@ -138,8 +136,8 @@ JAVA_HOME=$PWD/.toolchain/jdk PATH=$PWD/.toolchain/jdk/bin:$PATH \
 ./scripts/release.sh
 ```
 
-`https://<your-server>/get` redirects to the newest Android build, and
-`/api/builds` is the list the website and the email form read.
+`https://<your-server>/get` still redirects to the newest published Android
+build, and `/api/builds` is the list the website and the email form read.
 
 ## Embeds
 

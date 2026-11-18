@@ -24,19 +24,24 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-version=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/android/app/build.gradle.kts | head -1)
-version=${version:-0.0.0}
+# The Android client is being rebuilt from scratch; until it returns, releases
+# carry the desktop builds only and take their version from the desktop app.
+android_version=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/android/app/build.gradle.kts 2>/dev/null | head -1 || true)
+desktop_version=$(grep -oP '^version\s*=\s*"\K[^"]+' app/linux/pyproject.toml 2>/dev/null | head -1 || true)
+version=${android_version:-${desktop_version:-0.0.0}}
 tag="v${version}"
 sha=$(git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
 
-if [ "$build" = 1 ]; then
+if [ "$build" = 1 ] && [ -d app/android ]; then
   echo "→ building Android $version"
   (
     cd app/android
-    JAVA_HOME="$PWD/.toolchain/jdk" \
-    PATH="$PWD/.toolchain/jdk/bin:$PATH" \
-      .toolchain/gradle/bin/gradle -p . assembleDebug --console=plain --offline
+    JAVA_HOME="$PWD/../../.toolchain/jdk" \
+    PATH="$PWD/../../.toolchain/jdk/bin:$PATH" \
+      ../../.toolchain/gradle/bin/gradle -p . assembleDebug --console=plain --offline
   )
+elif [ "$build" = 1 ]; then
+  echo "→ no Android client in this tree, skipping the APK"
 fi
 
 ./scripts/publish_apps.sh
@@ -44,7 +49,7 @@ fi
 files=()
 add() { [ -f "$1" ] && files+=("$1"); return 0; }
 
-add "apps/android/mcmusic-${version}.apk"
+add "apps/android/mcmusic-${android_version}.apk"
 for f in apps/linux/*.AppImage apps/linux/*.deb; do add "$f"; done
 if [ ${#files[@]} -eq 0 ]; then
   echo "nothing to release: no builds in apps/" >&2
@@ -70,7 +75,7 @@ if [ -z "$notes" ]; then
       echo "| ${name##*.} | ${size} | \`${name}\` |"
     done
     echo
-    echo "Android installs over the current copy; nothing is wiped."
+    if [ -n "$android_version" ]; then echo "Android installs over the current copy; nothing is wiped."; fi
     echo "Linux AppImage: \`chmod +x\` then run. deb: \`sudo apt install ./file.deb\`."
     echo
     echo "The same files are served at https://mcmusic.sdisk.us/apps/ — and"

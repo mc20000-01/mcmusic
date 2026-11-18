@@ -11,7 +11,9 @@ cd "$(dirname "$0")/.."
 
 mkdir -p builds
 
-android_version=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/android/app/build.gradle.kts | head -1)
+# The Android client is absent while it is rebuilt, so its half of this script
+# simply does nothing until a build.gradle.kts shows up again.
+android_version=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/android/app/build.gradle.kts 2>/dev/null | head -1 || true)
 android_version=${android_version:-dev}
 desktop_version=$(grep -oP '^version\s*=\s*"\K[^"]+' app/linux/pyproject.toml | head -1)
 desktop_version=${desktop_version:-0.0.0}
@@ -27,7 +29,9 @@ find builds -maxdepth 1 -name 'mcmusic-linux-source.zip' -delete
 # committed APK (a freshly generated key has a different signature and
 # in-place updates can fail). But we must still publish the current-version
 # build so /api/builds, GitHub Releases, and in-app update checks can see it.
-if [ "${MCMUSIC_KEEP_APK:-0}" = "1" ]; then
+if [ ! -d app/android ]; then
+  :
+elif [ "${MCMUSIC_KEEP_APK:-0}" = "1" ]; then
   echo "MCMUSIC_KEEP_APK=1: preserving existing committed APKs where present"
   if [ -f "$apk_src" ]; then
     cp "$apk_src" "builds/mcmusic-${android_version}.apk"
