@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">mcmusic</string>
+    <string name="widget_cover">Cover art</string>
+    <string name="widget_now_label">Now playing</string>
+    <string name="widget_now_description">Who is listening, with cover, track and state — the same card as the web embed.</string>
+    <string name="widget_bar_label">Listening bar</string>
+    <string name="widget_bar_description">A one-line listening strip, like the compact web embed.</string>
+    <string name="widget_config_title">Listening widget</string>
 </resources>

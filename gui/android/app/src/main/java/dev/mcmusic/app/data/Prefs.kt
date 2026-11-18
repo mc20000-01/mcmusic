@@ -30,6 +30,10 @@ object Prefs {
     var username by mutableStateOf<String?>(null)
         private set
 
+    /** Whose listening the home screen widgets show; falls back to the signed-in account. */
+    var widgetUser by mutableStateOf<String?>(null)
+        private set
+
     fun init(context: Context) {
         if (sp != null) return
         val p = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
@@ -38,6 +42,14 @@ object Prefs {
         palette = p.getString("palette", "auto") ?: "auto"
         server = (p.getString("server", DEFAULT_SERVER) ?: DEFAULT_SERVER).trimEnd('/')
         username = p.getString("username", null)
+        widgetUser = p.getString("widget_user", null)?.takeIf { it.isNotBlank() }
+    }
+
+    fun saveWidgetUser(name: String?) {
+        widgetUser = name?.trim()?.takeIf { it.isNotBlank() }
+        sp?.edit()?.apply {
+            if (widgetUser == null) remove("widget_user") else putString("widget_user", widgetUser)
+        }?.apply()
     }
 
     fun saveLanguage(id: String) {

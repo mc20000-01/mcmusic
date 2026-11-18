@@ -50,12 +50,14 @@ import dev.mcmusic.app.ui.design.DesignLanguage
 import dev.mcmusic.app.ui.design.LocalDesign
 import dev.mcmusic.app.ui.design.Palettes
 import dev.mcmusic.app.ui.design.mcSurface
+import dev.mcmusic.app.widget.Widgets
 import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen() {
     val design = LocalDesign.current
     val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
     var me by remember { mutableStateOf<Me?>(null) }
     var showLogin by remember { mutableStateOf(false) }
     var reload by remember { mutableIntStateOf(0) }
@@ -92,7 +94,10 @@ fun SettingsScreen() {
                 Segmented(
                     options = DesignLanguage.entries.map { it.label },
                     selectedIndex = DesignLanguage.entries.indexOf(DesignLanguage.from(Prefs.language)),
-                    onSelect = { index -> Prefs.saveLanguage(DesignLanguage.entries[index].id) },
+                    onSelect = { index ->
+                        Prefs.saveLanguage(DesignLanguage.entries[index].id)
+                        Widgets.refresh(context.applicationContext)
+                    },
                 )
                 Text(
                     text = DesignLanguage.from(Prefs.language).blurb,
@@ -120,7 +125,10 @@ fun SettingsScreen() {
                 )
                 PaletteGrid(
                     selected = Prefs.palette,
-                    onSelect = { Prefs.savePalette(it) },
+                    onSelect = {
+                        Prefs.savePalette(it)
+                        Widgets.refresh(context.applicationContext)
+                    },
                 )
             }
         }

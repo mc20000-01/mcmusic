@@ -17,12 +17,17 @@ import dev.mcmusic.app.ui.McShell
 import dev.mcmusic.app.ui.design.DesignLanguage
 import dev.mcmusic.app.ui.design.McTheme
 import dev.mcmusic.app.ui.design.Palettes
+import dev.mcmusic.app.widget.Widgets
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Prefs.init(applicationContext)
         Api.init(applicationContext)
+
+        // Widgets are redrawn from the same prefs: opening the app is the
+        // cheapest moment to bring them up to date.
+        Thread { runCatching { Widgets.refresh(applicationContext) } }.start()
 
         val dark = Palettes.resolve(Prefs.palette, isSystemDark()).dark
         enableEdgeToEdge(

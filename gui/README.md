@@ -30,3 +30,10 @@ JAVA_HOME=$PWD/.toolchain/jdk ANDROID_HOME=$PWD/.toolchain/sdk \
 
 The APK lands in `gui/android/app/build/outputs/apk/debug/` and is signed with
 `keystore/mcmusic.p12`, so it installs over the 2.7.0 copy.
+
+Home screen widgets (`widget/`) are the web embeds ported to RemoteViews: a
+now-playing card and a compact bar, both fed by `/api/public/now/<user>` and
+painted from the same seven palettes. They refresh every 30 minutes, when the
+app is opened and whenever the palette or design language changes. RemoteViews
+cannot render Backdrop glass, so the surface is a palette gradient — the iOS or
+One UI corner radius depending on the selected language.
