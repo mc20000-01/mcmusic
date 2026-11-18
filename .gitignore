@@ -143,3 +143,6 @@ desktop.ini
 AndroidLiquidGlass/
 Liquid-Glass-Android/
 .refs/
+
+# The one signing key every build uses; without it updates cannot install.
+!app/android/keystore/mcmusic.p12
