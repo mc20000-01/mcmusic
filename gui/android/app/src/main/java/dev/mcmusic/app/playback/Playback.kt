@@ -147,6 +147,19 @@ object Playback {
         publish(c)
     }
 
+    /**
+     * Moves an item inside the live queue. MediaItem indices follow the item, so
+     * the playing track keeps playing even when the user drags it elsewhere.
+     */
+    fun move(from: Int, to: Int) {
+        val c = controller ?: return
+        if (from == to) return
+        if (from !in queueTracks.indices || to !in queueTracks.indices) return
+        queueTracks = queueTracks.toMutableList().also { it.add(to, it.removeAt(from)) }
+        c.moveMediaItem(from, to)
+        publish(c)
+    }
+
     fun next() { controller?.seekToNextMediaItem() }
     fun previous() { controller?.seekToPreviousMediaItem() }
 
