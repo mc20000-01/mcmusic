@@ -107,7 +107,12 @@ def me_dict(u):
 
 # --------------------------------------------------------------------------- password auth
 def validate_username(name):
-    return bool(re.fullmatch(r"[A-Za-z0-9_.-]{3,32}", name))
+    """1-32 characters from letters, digits, dot, dash and underscore.
+
+    One-character names are allowed on purpose: short handles are how people
+    actually sign in here.
+    """
+    return bool(re.fullmatch(r"[A-Za-z0-9_.-]{1,32}", name))
 
 
 def validate_password(pw):

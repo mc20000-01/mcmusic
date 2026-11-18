@@ -58,8 +58,7 @@ def register():
         elif not (INVITE_CODE and code == INVITE_CODE):
             return jsonify(error="bad invite code"), 403
 
-    if not validate_username(name):
-        return jsonify(error="username: 3-32 chars, letters/numbers/._-"), 400
+    if not validate_username(name):            return jsonify(error="username: 1-32 chars, letters/numbers/._-"), 400
     if not validate_password(pw):
         return jsonify(error="password must be 6+ chars"), 400
     if c.execute("select 1 from users where username=?", (name,)).fetchone():
