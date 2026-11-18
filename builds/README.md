@@ -29,6 +29,9 @@ Build them locally:
 
 ```bash
 ./scripts/build_deb.sh
-(cd app/android && .toolchain/gradle/bin/gradle -p . assembleDebug)
 ./scripts/publish_apps.sh   # collects apps/ and builds/
 ```
+
+The Android client is being rebuilt from scratch under `gui/`; until it is
+back, `publish_apps.sh` leaves `apps/android/` alone and only the desktop
+builds are refreshed.

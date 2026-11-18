@@ -1,7 +1,0 @@
-.toolchain/
-.gradle/
-build/
-local.properties
-*.iml
-.idea/
-captures/

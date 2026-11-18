@@ -75,7 +75,7 @@ pnpm-debug.log*
 .pnpm-store/
 
 # --- Android toolchain, local paths, build output ---------------------------
-app/android/.toolchain/
+.toolchain/
 app/android/.gradle/
 app/android/.kotlin/
 app/android/local.properties
@@ -145,4 +145,4 @@ Liquid-Glass-Android/
 .refs/
 
 # The one signing key every build uses; without it updates cannot install.
-!app/android/keystore/mcmusic.p12
+!keystore/mcmusic.p12
