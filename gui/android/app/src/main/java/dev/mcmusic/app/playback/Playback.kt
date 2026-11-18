@@ -2,6 +2,8 @@ package dev.mcmusic.app.playback
 
 import android.content.ComponentName
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -19,7 +21,7 @@ import android.net.Uri
 import dev.mcmusic.app.data.Api
 import dev.mcmusic.app.data.Downloads
 import dev.mcmusic.app.data.Track
-import java.util.concurrent.Executors
+import java.util.concurrent.Executor
 
 data class PlaybackState(
     val track: Track? = null,
@@ -53,6 +55,7 @@ object Playback {
         if (controller != null || future != null) return
         val app = context.applicationContext
         val token = SessionToken(app, ComponentName(app, PlaybackService::class.java))
+        val main = Executor { Handler(Looper.getMainLooper()).post(it) }
         val f = MediaController.Builder(app, token).buildAsync()
         future = f
         f.addListener({
@@ -69,7 +72,7 @@ object Playback {
             })
             state = state.copy(ready = true)
             publish(c)
-        }, Executors.newSingleThreadExecutor())
+        }, main)
     }
 
     private fun publish(player: Player) {
