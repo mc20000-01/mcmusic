@@ -68,10 +68,10 @@ jobs:
             sdkmanager=$(find "$sdk/cmdline-tools" -maxdepth 3 -type f -name sdkmanager | sort | tail -1)
           fi
           yes | "$sdkmanager" --licenses >/dev/null || true
-          "$sdkmanager" "platforms;android-34" "build-tools;34.0.0" >/dev/null
+          "$sdkmanager" "platforms;android-36" "build-tools;36.0.0" >/dev/null
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "8.9"
+          gradle-version: "8.14.7"
       - name: Build debug APK
         run: gradle -p app/android assembleDebug --no-daemon --console=plain
       - name: Upload APK artifact

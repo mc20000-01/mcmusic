@@ -52,12 +52,12 @@ jobs:
           echo "using $sdkmanager"
           "$sdkmanager" --version
           yes | "$sdkmanager" --licenses >/dev/null || true
-          "$sdkmanager" "platforms;android-34" "build-tools;34.0.0" >/dev/null
+          "$sdkmanager" "platforms;android-36" "build-tools;36.0.0" >/dev/null
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "8.9"
+          gradle-version: "8.14.7"
           cache-read-only: false
 
       # A CI-generated debug keystore has a different signature, so its APK
