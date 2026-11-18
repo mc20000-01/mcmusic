@@ -3,6 +3,8 @@ package dev.mcmusic.app.ui.screens
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,7 +15,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Slider
@@ -24,12 +28,15 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -47,12 +54,54 @@ import dev.mcmusic.app.ui.design.LocalDesign
 import dev.mcmusic.app.ui.design.mcSurface
 import dev.mcmusic.app.ui.timecode
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 @Composable
 fun PlayerScreen() {
     val design = LocalDesign.current
     val state = Playback.state
     var scrub by remember { mutableStateOf<Float?>(null) }
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    // Drag-to-sort state: which queue row is being dragged, how far, and where it would land.
+    var dragIndex by remember { mutableStateOf<Int?>(null) }
+    var dragOffset by remember { mutableStateOf(0f) }
+    var dragTarget by remember { mutableStateOf(0) }
+
+    fun rowCenter(index: Int): Float? {
+        val info = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "queue-$index" } ?: return null
+        return info.offset + info.size / 2f
+    }
+
+    fun startDrag(index: Int) {
+        dragIndex = index
+        dragTarget = index
+        dragOffset = 0f
+    }
+
+    fun dragBy(index: Int, dy: Float) {
+        dragOffset += dy
+        val center = rowCenter(index) ?: return
+        val target = listState.nearestQueueIndex(center + dragOffset) ?: index
+        dragTarget = target
+        // Let a long queue be dragged past the visible rows.
+        val info = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "queue-$index" } ?: return
+        val top = info.offset + dragOffset
+        val edge = info.size * 1.2f
+        when {
+            top < listState.layoutInfo.viewportStartOffset + edge -> scope.launch { listState.scrollBy(-info.size / 2f) }
+            top + info.size > listState.layoutInfo.viewportEndOffset - edge -> scope.launch { listState.scrollBy(info.size / 2f) }
+        }
+    }
+
+    fun endDrag() {
+        val from = dragIndex
+        val to = dragTarget
+        dragIndex = null
+        dragOffset = 0f
+        if (from != null && from != to) Playback.move(from, to)
+    }
 
     // The controller does not push position updates; poll while this page is open.
     LaunchedEffect(state.track?.id, state.playing) {
@@ -66,6 +115,7 @@ fun PlayerScreen() {
     val fraction = if (state.duration > 0) state.position.toFloat() / state.duration else 0f
 
     LazyColumn(
+        state = listState,
         contentPadding = PaddingValues(
             start = design.screenPadding,
             end = design.screenPadding,
@@ -212,34 +262,89 @@ fun PlayerScreen() {
                 )
             }
         } else {
-            item {
-                Text(
-                    "Up next",
-                    color = design.fg,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                )
+            item(key = "upnext") {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        "Up next",
+                        color = design.fg,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        if (dragIndex != null) "move to ${dragTarget + 1}" else "hold ≡ to reorder",
+                        color = if (dragIndex != null) design.accent else design.dim,
+                        fontSize = 11.sp,
+                    )
+                }
             }
-            itemsIndexed(state.queue) { index, track ->
+            itemsIndexed(state.queue, key = { index, _ -> "queue-$index" }) { index, track ->
+                val lifted = dragIndex == index
                 QueueRow(
                     track = track,
                     playing = index == state.index,
+                    offsetY = if (lifted) dragOffset else 0f,
+                    lifted = lifted,
                     onClick = { Playback.play(state.queue, index) },
+                    handle = if (state.queue.size > 1) {
+                        Modifier.pointerInput(index) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = { startDrag(index) },
+                                onDrag = { change, amount ->
+                                    change.consume()
+                                    dragIndex?.let { dragBy(it, amount.y) }
+                                },
+                                onDragEnd = { endDrag() },
+                                onDragCancel = { endDrag() },
+                            )
+                        }
+                    } else {
+                        Modifier
+                    },
                 )
             }
         }
     }
 }
 
+/** Queue row under the nearest visible row centre, used to pick a drop slot. */
+private fun LazyListState.nearestQueueIndex(centerY: Float): Int? =
+    layoutInfo.visibleItemsInfo
+        .filter { (it.key as? String)?.startsWith("queue-") == true }
+        .minByOrNull { abs(it.offset + it.size / 2f - centerY) }
+        ?.let { (it.key as String).removePrefix("queue-").toIntOrNull() }
+
 @Composable
-private fun QueueRow(track: Track, playing: Boolean, onClick: () -> Unit) {
+private fun QueueRow(
+    track: Track,
+    playing: Boolean,
+    offsetY: Float = 0f,
+    lifted: Boolean = false,
+    onClick: () -> Unit,
+    handle: Modifier = Modifier,
+) {
     val design = LocalDesign.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .graphicsLayer {
+                translationY = offsetY
+                scaleX = if (lifted) 1.02f else 1f
+                scaleY = if (lifted) 1.02f else 1f
+            }
             .clip(RoundedCornerShape(16.dp))
             .clickable { onClick() }
-            .background(if (playing) design.accent.copy(alpha = 0.1f) else design.palette.bg2.copy(alpha = 0.25f))
+            .background(
+                when {
+                    lifted -> design.accent.copy(alpha = 0.2f)
+                    playing -> design.accent.copy(alpha = 0.1f)
+                    else -> design.palette.bg2.copy(alpha = 0.25f)
+                },
+            )
             .padding(horizontal = 14.dp, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -262,7 +367,19 @@ private fun QueueRow(track: Track, playing: Boolean, onClick: () -> Unit) {
             )
             Text(track.artist.ifBlank { "unknown artist" }, color = design.dim, fontSize = 11.sp, maxLines = 1)
         }
-        if (track.duration > 0) Text(timecode(track.duration), color = design.dim, fontSize = 11.sp)
+        if (track.duration > 0) {
+            Text(timecode(track.duration), color = design.dim, fontSize = 11.sp)
+        }
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(if (lifted) design.accent.copy(alpha = 0.22f) else design.palette.bg2.copy(alpha = 0.35f))
+                .then(handle),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("≡", color = if (lifted) design.accent else design.dim, fontSize = 14.sp)
+        }
     }
 }
 
