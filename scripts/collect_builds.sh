@@ -35,9 +35,8 @@ for candidate_apk in \
 done
 deb_src="apps/linux/mcmusic-desktop_${desktop_version}_all.deb"
 
-# Keep the folder to the current builds instead of a growing museum.
-find builds -maxdepth 1 -name 'mcmusic-desktop_*_all.deb' -delete
-find builds -maxdepth 1 -name 'mcmusic-linux-source.zip' -delete
+# Only replace an artifact when a fresh one was actually produced: a publish
+# run without a deb step must not erase the copy people are downloading.
 
 # Keep the APK copies side by side: phones only move forward, and old builds are
 # the fallback when a new one misbehaves. Only the current version is replaced.
@@ -49,6 +48,7 @@ else
 fi
 
 if [ -f "$deb_src" ]; then
+  find builds -maxdepth 1 -name 'mcmusic-desktop_*_all.deb' -delete
   cp "$deb_src" "builds/mcmusic-desktop_${desktop_version}_all.deb"
   echo "collected builds/mcmusic-desktop_${desktop_version}_all.deb"
 else

@@ -102,7 +102,19 @@ jobs:
           } > "$notes"
 
           if gh release view latest >/dev/null 2>&1; then
-            gh release edit latest --title "mcmusic latest builds" --notes-file "$notes"
+            # Assets that are no longer in builds/ must go, or the release keeps
+            # advertising builds the folder dropped.
+            for asset in $(gh release view latest --json assets -q '.assets[].name'); do
+              case "$asset" in
+                README.md|SHA256SUMS) continue ;;
+              esac
+              if [ ! -f "builds/$asset" ]; then
+                gh release delete-asset latest "$asset" -y >/dev/null 2>&1 || true
+              fi
+            done
+            # --latest keeps the rolling release on top; without it GitHub marks
+            # whichever hand-cut version was published most recently as Latest.
+            gh release edit latest --title "mcmusic latest builds" --notes-file "$notes" --latest
           else
             gh release create latest --title "mcmusic latest builds" \
               --notes-file "$notes" --latest

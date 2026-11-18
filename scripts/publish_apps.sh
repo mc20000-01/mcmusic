@@ -12,9 +12,28 @@ cd "$(dirname "$0")/.."
 
 mkdir -p apps/android apps/linux
 
-apk=app/android/app/build/outputs/apk/debug/app-debug.apk
-if [ -f "$apk" ]; then
-  version=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/android/app/build.gradle.kts | head -1)
+# The client lives in gui/android now; app/android is still honoured if it
+# comes back. Release output wins because that is what ships.
+android_dir=""
+for candidate_dir in app/android gui/android; do
+  if [ -f "$candidate_dir/app/build.gradle.kts" ]; then
+    android_dir=$candidate_dir
+    break
+  fi
+done
+apk=""
+if [ -n "$android_dir" ]; then
+  for candidate in \
+    "$android_dir/app/build/outputs/apk/release/app-release.apk" \
+    "$android_dir/app/build/outputs/apk/debug/app-debug.apk"; do
+    if [ -f "$candidate" ]; then
+      apk=$candidate
+      break
+    fi
+  done
+fi
+if [ -n "$apk" ] && [ -f "$apk" ]; then
+  version=$(grep -oP 'versionName\s*=\s*"\K[^"]+' "$android_dir/app/build.gradle.kts" | head -1)
   version=${version:-dev}
   hash=$(sha256sum "$apk" | cut -c1-16)
 
@@ -29,7 +48,7 @@ if [ -f "$apk" ]; then
   printf 'published apps/android/mainbuild.apk  (%s, v%s, %s)\n' \
     "$(du -h apps/android/mainbuild.apk | cut -f1)" "$version" "$hash"
 else
-  echo "no android apk yet: $apk" >&2
+  echo "no android apk yet (build gui/android with ./gradlew :app:assembleRelease)" >&2
 fi
 
 if [ -d app/linux ]; then
