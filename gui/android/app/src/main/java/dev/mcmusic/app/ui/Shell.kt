@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,6 +42,7 @@ import dev.mcmusic.app.ui.design.LocalBackdrop
 import dev.mcmusic.app.ui.design.LocalDesign
 import dev.mcmusic.app.ui.design.McDesign
 import dev.mcmusic.app.ui.design.mcSurface
+import dev.mcmusic.app.playback.Playback
 import dev.mcmusic.app.ui.screens.DownloadsScreen
 import dev.mcmusic.app.ui.screens.HomeScreen
 import dev.mcmusic.app.ui.screens.LibraryScreen
@@ -99,12 +101,72 @@ private fun TabContent(tab: Tab) {
     }
 }
 
+/**
+ * The strip that appears whenever something is playing, in both languages:
+ * cover, title, play/pause and a tap that opens the Player page.
+ */
+@Composable
+private fun MiniPlayer(onOpen: () -> Unit, modifier: Modifier = Modifier) {
+    val state = Playback.state
+    val track = state.track ?: return
+    val design = LocalDesign.current
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .mcSurface(RoundedCornerShape(if (design.ios) 22.dp else 18.dp), tint = design.palette.bg2.copy(alpha = 0.5f))
+            .clickable { onOpen() }
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Cover(
+            url = "${dev.mcmusic.app.data.Api.server}/api/tracks/${track.id}/cover",
+            shape = RoundedCornerShape(if (design.ios) 10.dp else 8.dp),
+            modifier = Modifier.size(38.dp),
+            fallback = design.accentSoft,
+        )
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            Text(
+                track.title,
+                color = design.fg,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+            )
+            Text(
+                if (state.buffering) "buffering…" else track.artist.ifBlank { "unknown artist" },
+                color = design.dim,
+                fontSize = 11.sp,
+                maxLines = 1,
+            )
+        }
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(design.accent)
+                .clickable { Playback.toggle() },
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(if (state.playing) "❚❚" else "▶", color = design.palette.bg2, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
 /* ── iOS 27 layout: floating glass bar, content runs underneath ───────────── */
 
 @Composable
 private fun IosShell(tab: Tab, onTab: (Tab) -> Unit) {
     Box(Modifier.fillMaxSize()) {
         TabContent(tab)
+        MiniPlayer(
+            onOpen = { onTab(Tab.Player) },
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 92.dp),
+        )
         IosTabBar(
             tab = tab,
             onTab = onTab,
@@ -163,6 +225,7 @@ private fun OneUiShell(tab: Tab, onTab: (Tab) -> Unit) {
     val design = LocalDesign.current
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) { TabContent(tab) }
+        MiniPlayer(onOpen = { onTab(Tab.Player) }, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
         Row(
             modifier = Modifier
                 .fillMaxWidth()
