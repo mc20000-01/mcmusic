@@ -5,7 +5,7 @@ by `scripts/publish_apps.sh` and by `.github/workflows/release.yml`).
 
 | File | What it is |
 | --- | --- |
-| `mcmusic-<version>.apk` | Android client, debug-signed, installs over the previous copy |
+| `mcmusic-<version>.apk` | Android client (release build), signed with `keystore/mcmusic.p12`, installs over the previous copy |
 | `mcmusic-desktop_<version>_all.deb` | Debian/Ubuntu desktop client |
 | `mcmusic-x86_64.AppImage` | Portable Linux desktop client (when present) |
 | `mcmusic-linux-source.zip` | Desktop client sources, ready to run |
@@ -32,6 +32,17 @@ Build them locally:
 ./scripts/publish_apps.sh   # collects apps/ and builds/
 ```
 
-The Android client is being rebuilt from scratch under `gui/`; until it is
-back, `publish_apps.sh` leaves `apps/android/` alone and only the desktop
-builds are refreshed.
+The Android client now lives under `gui/android/` (backend and clients are
+separate trees) and is not built by CI, which has neither the signing key nor a
+Gradle wrapper for it. Publish one by hand:
+
+```bash
+JAVA_HOME=$PWD/.toolchain/jdk ANDROID_HOME=$PWD/.toolchain/sdk \
+  .toolchain/gradle/bin/gradle -p gui/android :app:assembleRelease
+cp gui/android/app/build/outputs/apk/release/app-release.apk \
+  builds/mcmusic-$(grep -oP 'versionName\s*=\s*"\K[^"]+' gui/android/app/build.gradle.kts).apk
+(cd builds && sha256sum $(find . -maxdepth 1 -type f ! -name SHA256SUMS ! -name README.md -printf '%P\n' | sort) > SHA256SUMS)
+```
+
+`collect_builds.sh` only touches APKs when `app/android/` exists, so the
+committed copy survives the desktop-only release workflow.
