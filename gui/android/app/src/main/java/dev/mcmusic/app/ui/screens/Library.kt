@@ -1,7 +1,9 @@
 package dev.mcmusic.app.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,6 +47,7 @@ import dev.mcmusic.app.ui.EmptyState
 import dev.mcmusic.app.ui.McIcon
 import dev.mcmusic.app.ui.ScreenTitle
 import dev.mcmusic.app.ui.SectionLabel
+import dev.mcmusic.app.ui.Segmented
 import dev.mcmusic.app.ui.design.LocalDesign
 import dev.mcmusic.app.ui.design.mcSurface
 import dev.mcmusic.app.ui.timecode
@@ -57,6 +60,8 @@ fun LibraryScreen() {
     var error by remember { mutableStateOf<String?>(null) }
     var isAdmin by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<Track?>(null) }
+    var pendingAdd by remember { mutableStateOf<Track?>(null) }
+    var mode by rememberSaveable { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
     var query by rememberSaveable { mutableStateOf("") }
     var showLogin by remember { mutableStateOf(false) }
@@ -72,6 +77,11 @@ fun LibraryScreen() {
                 onFailure = { error = it.message ?: "could not load the library" },
             )
         }
+    }
+
+    if (mode == 1) {
+        PlaylistBrowser(onTracksMode = { mode = 0 })
+        return
     }
 
     val needle = query.trim().lowercase()
@@ -110,6 +120,9 @@ fun LibraryScreen() {
         }
 
         if (signedIn == true) {
+            item {
+                Segmented(listOf("Tracks", "Playlists"), 0, onSelect = { if (it == 1) mode = 1 })
+            }
             item {
                 OutlinedTextField(
                     value = query,
@@ -181,6 +194,7 @@ fun LibraryScreen() {
                         val index = shown.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
                         Playback.play(shown, index)
                     },
+                    onAddToPlaylist = { pendingAdd = track },
                     onDownload = {
                         scope.launch {
                             Downloads.download(track).fold(
@@ -193,6 +207,14 @@ fun LibraryScreen() {
                 )
             }
         }
+    }
+
+    pendingAdd?.let { track ->
+        AddToPlaylistDialog(
+            track = track,
+            onDismiss = { pendingAdd = null },
+            onAdded = { pendingAdd = null },
+        )
     }
 
     pendingDelete?.let { track ->
@@ -263,6 +285,7 @@ fun LibraryScreen() {
     )
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun TrackRow(
     track: Track,
@@ -272,6 +295,7 @@ private fun TrackRow(
     downloading: Boolean,
     onPlay: () -> Unit,
     onDownload: () -> Unit,
+    onAddToPlaylist: () -> Unit,
     onDelete: () -> Unit,
 ) {
     val design = LocalDesign.current
@@ -279,7 +303,7 @@ private fun TrackRow(
         modifier = Modifier
             .fillMaxWidth()
             .mcSurface(RoundedCornerShape(design.cardRadius), tint = if (playing) design.accent.copy(alpha = 0.1f) else androidx.compose.ui.graphics.Color.Transparent)
-            .clickable { onPlay() }
+            .combinedClickable(onClick = { onPlay() }, onLongClick = { onAddToPlaylist() })
             .padding(design.gap),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(design.gap),

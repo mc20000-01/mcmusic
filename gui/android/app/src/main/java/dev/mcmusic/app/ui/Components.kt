@@ -44,6 +44,23 @@ fun ScreenTitle(title: String, subtitle: String? = null) {
     }
 }
 
+/** A quiet back link with the parent page's name, used by detail pages. */
+@Composable
+fun ScreenBack(onBack: () -> Unit, label: String) {
+    val design = LocalDesign.current
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .clickable { onBack() }
+            .padding(vertical = 4.dp, horizontal = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text("‹", color = design.accent, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+        Text(label, color = design.accent, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
 @Composable
 fun SectionLabel(text: String, modifier: Modifier = Modifier) {
     val design = LocalDesign.current

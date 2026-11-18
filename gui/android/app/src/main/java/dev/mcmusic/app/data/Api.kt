@@ -33,6 +33,13 @@ data class Listener(
 
 data class Me(val id: Int, val username: String, val isAdmin: Boolean)
 
+data class Playlist(
+    val id: Int,
+    val name: String,
+    val count: Int,
+    val coverId: Int?,
+)
+
 /**
  * The whole HTTP side of the client. Session cookies are kept the way the web
  * app keeps them (Flask session cookie), so a signed-in phone can use the same
@@ -93,6 +100,63 @@ object Api {
                 add(trackOf(t))
             }
         }
+    }
+
+    suspend fun playlists(): Result<List<Playlist>> = call {
+        val arr = JSONObject(get("/api/playlists")).optJSONArray("playlists")
+            ?: return@call emptyList()
+        buildList {
+            for (i in 0 until arr.length()) {
+                val p = arr.optJSONObject(i) ?: continue
+                add(
+                    Playlist(
+                        id = p.optInt("id"),
+                        name = p.optString("name"),
+                        count = p.optInt("n"),
+                        coverId = p.optInt("cover_id").takeIf { !p.isNull("cover_id") && it > 0 },
+                    ),
+                )
+            }
+        }
+    }
+
+    suspend fun playlist(id: Int): Result<Pair<String, List<Track>>> = call {
+        val json = JSONObject(get("/api/playlists/$id"))
+        val tracks = buildList {
+            val arr = json.optJSONArray("tracks")
+            if (arr != null) {
+                for (i in 0 until arr.length()) {
+                    val t = arr.optJSONObject(i) ?: continue
+                    add(trackOf(t))
+                }
+            }
+        }
+        json.optString("name") to tracks
+    }
+
+    suspend fun createPlaylist(name: String): Result<Int> = call {
+        val body = JSONObject().put("name", name).toString()
+        JSONObject(post("/api/playlists", body)).optInt("id")
+    }
+
+    suspend fun renamePlaylist(id: Int, name: String): Result<Unit> = call {
+        request("/api/playlists/$id", "PATCH", JSONObject().put("name", name).toString())
+        Unit
+    }
+
+    suspend fun deletePlaylist(id: Int): Result<Unit> = call {
+        request("/api/playlists/$id", "DELETE", null)
+        Unit
+    }
+
+    suspend fun addToPlaylist(playlistId: Int, trackId: Int): Result<Unit> = call {
+        request("/api/playlists/$playlistId/tracks", "POST", JSONObject().put("track_id", trackId).toString())
+        Unit
+    }
+
+    suspend fun removeFromPlaylist(playlistId: Int, trackId: Int): Result<Unit> = call {
+        request("/api/playlists/$playlistId/tracks/$trackId", "DELETE", null)
+        Unit
     }
 
     /** Where ExoPlayer reads audio; session cookies travel with the request. */
