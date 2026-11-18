@@ -50,10 +50,13 @@ object Playback {
     private var controller: MediaController? = null
     private var future: ListenableFuture<MediaController>? = null
     private var queueTracks: List<Track> = emptyList()
+    private var appContext: Context? = null
+    private var widgetSignature: String? = null
 
     fun init(context: Context) {
         if (controller != null || future != null) return
         val app = context.applicationContext
+        appContext = app
         val token = SessionToken(app, ComponentName(app, PlaybackService::class.java))
         val main = Executor { Handler(Looper.getMainLooper()).post(it) }
         val f = MediaController.Builder(app, token).buildAsync()
@@ -78,6 +81,13 @@ object Playback {
     private fun publish(player: Player) {
         val index = player.currentMediaItemIndex.coerceAtLeast(0)
         val track = queueTracks.getOrNull(index)
+        // Home screen widgets follow the phone's queue while it owns it.
+        val signature = "${track?.id}:${player.isPlaying}"
+        if (signature != widgetSignature) {
+            widgetSignature = signature
+            appContext?.let { ctx -> Thread { runCatching { dev.mcmusic.app.widget.Widgets.refresh(ctx) } }.start() }
+        }
+
         state = state.copy(
             track = track,
             queue = queueTracks,
