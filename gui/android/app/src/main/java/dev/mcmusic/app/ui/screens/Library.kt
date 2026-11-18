@@ -38,7 +38,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.launch
 import dev.mcmusic.app.data.Api
+import dev.mcmusic.app.data.Downloads
 import dev.mcmusic.app.data.Track
+import dev.mcmusic.app.playback.Playback
 import dev.mcmusic.app.ui.EmptyState
 import dev.mcmusic.app.ui.McIcon
 import dev.mcmusic.app.ui.ScreenTitle
@@ -158,10 +160,35 @@ fun LibraryScreen() {
                 item { SectionLabel("${shown.size} tracks") }
             }
 
+            item {
+                if (shown.isNotEmpty()) {
+                    Text(
+                        "Tap a track to play it",
+                        color = design.dim,
+                        fontSize = 11.sp,
+                    )
+                }
+            }
+
             items(shown, key = { it.id }) { track ->
                 TrackRow(
                     track = track,
                     canDelete = isAdmin,
+                    playing = Playback.state.track?.id == track.id && Playback.state.playing,
+                    downloaded = Downloads.items.any { it.id == track.id },
+                    downloading = Downloads.active.contains(track.id),
+                    onPlay = {
+                        val index = shown.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
+                        Playback.play(shown, index)
+                    },
+                    onDownload = {
+                        scope.launch {
+                            Downloads.download(track).fold(
+                                onSuccess = { error = null },
+                                onFailure = { error = "Could not download “${track.title}”: ${it.message}" },
+                            )
+                        }
+                    },
                     onDelete = { pendingDelete = track },
                 )
             }
@@ -237,12 +264,22 @@ fun LibraryScreen() {
 }
 
 @Composable
-private fun TrackRow(track: Track, canDelete: Boolean, onDelete: () -> Unit) {
+private fun TrackRow(
+    track: Track,
+    canDelete: Boolean,
+    playing: Boolean,
+    downloaded: Boolean,
+    downloading: Boolean,
+    onPlay: () -> Unit,
+    onDownload: () -> Unit,
+    onDelete: () -> Unit,
+) {
     val design = LocalDesign.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .mcSurface(RoundedCornerShape(design.cardRadius))
+            .mcSurface(RoundedCornerShape(design.cardRadius), tint = if (playing) design.accent.copy(alpha = 0.1f) else androidx.compose.ui.graphics.Color.Transparent)
+            .clickable { onPlay() }
             .padding(design.gap),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(design.gap),
@@ -255,14 +292,20 @@ private fun TrackRow(track: Track, canDelete: Boolean, onDelete: () -> Unit) {
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = track.title.take(1).uppercase().ifBlank { "?" },
+                text = if (playing) "▶" else track.title.take(1).uppercase().ifBlank { "?" },
                 color = design.accent,
-                fontSize = 17.sp,
+                fontSize = if (playing) 14.sp else 17.sp,
                 fontWeight = FontWeight.SemiBold,
             )
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(track.title, color = design.fg, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+            Text(
+                track.title,
+                color = if (playing) design.accent else design.fg,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+            )
             Text(
                 text = listOf(track.artist, track.album).filter { it.isNotBlank() }.joinToString(" · "),
                 color = design.dim,
@@ -272,6 +315,25 @@ private fun TrackRow(track: Track, canDelete: Boolean, onDelete: () -> Unit) {
         }
         if (track.duration > 0) {
             Text(timecode(track.duration), color = design.dim, fontSize = 11.sp)
+        }
+        Box(
+            modifier = Modifier
+                .size(30.dp)
+                .clip(RoundedCornerShape(50))
+                .background(if (downloaded) design.accentSoft else design.palette.line.copy(alpha = 0.25f))
+                .clickable(enabled = !downloading && !downloaded) { onDownload() },
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                when {
+                    downloading -> "…"
+                    downloaded -> "✓"
+                    else -> "↓"
+                },
+                color = if (downloaded) design.accent else design.dim,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
         }
         if (canDelete) {
             Box(

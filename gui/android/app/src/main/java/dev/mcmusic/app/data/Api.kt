@@ -95,6 +95,9 @@ object Api {
         }
     }
 
+    /** Where ExoPlayer reads audio; session cookies travel with the request. */
+    fun streamUrl(id: Int): String = server + "/api/tracks/$id/stream"
+
     /** Admin only; the server answers 403 for everyone else. */
     suspend fun deleteTrack(id: Int): Result<Unit> = call {
         request("/api/tracks/$id", "DELETE", null)

@@ -31,6 +31,14 @@ JAVA_HOME=$PWD/.toolchain/jdk ANDROID_HOME=$PWD/.toolchain/sdk \
 The APK lands in `gui/android/app/build/outputs/apk/debug/` and is signed with
 `keystore/mcmusic.p12`, so it installs over the 2.7.0 copy.
 
+Playback is a real Media3 session (`playback/`): the service owns an ExoPlayer,
+the app holds a controller, and audio streams from `/api/tracks/<id>/stream`
+with the same session cookie as the rest of the client. It keeps playing in the
+background from a media notification, and the queue, shuffle, repeat and
+scrubbing all run locally. Tapping a track in Library replaces the queue with
+the visible list; the arrow on a row stores an offline copy (Downloads), which
+the player prefers over the network.
+
 Home screen widgets (`widget/`) are the web embeds ported to RemoteViews: a
 now-playing card and a compact bar, both fed by `/api/public/now/<user>` and
 painted from the same seven palettes. They refresh every 30 minutes, when the
