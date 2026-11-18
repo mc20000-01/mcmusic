@@ -25,7 +25,6 @@ jobs:
     # Secrets are not allowed inside a step's `if:`, so expose the optional
     # signing key as an environment variable first.
     env:
-      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
     steps:
       - name: Check out
         uses: actions/checkout@v5
@@ -60,18 +59,8 @@ jobs:
           gradle-version: "8.14.7"
           cache-read-only: false
 
-      # A CI-generated debug keystore has a different signature, so its APK
-      # cannot install over the one already on people's phones. When the
-      # original ~/.android/debug.keystore is supplied as a secret, CI signs
-      # with it and ships a real update. Without it, the APK committed in
-      # builds/ is released unchanged and CI still compiles the source.
-      - name: Restore the Android debug key (optional)
-        if: ${{ env.ANDROID_KEYSTORE_BASE64 != '' }}
-        run: |
-          mkdir -p "$HOME/.android"
-          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$HOME/.android/debug.keystore"
-          chmod 600 "$HOME/.android/debug.keystore"
-
+      # Signing comes from app/android/keystore/mcmusic.p12, which is committed,
+      # so this build installs over every previous release.
       - name: Build Android APK
         run: gradle -p app/android assembleDebug --no-daemon --console=plain
 
@@ -79,13 +68,9 @@ jobs:
         run: ./scripts/build_deb.sh
 
       - name: Publish web assets
-        env:
-          MCMUSIC_KEEP_APK: ${{ env.ANDROID_KEYSTORE_BASE64 == '' && '1' || '0' }}
         run: ./scripts/publish_apps.sh
 
       - name: Collect builds folder
-        env:
-          MCMUSIC_KEEP_APK: ${{ env.ANDROID_KEYSTORE_BASE64 == '' && '1' || '0' }}
         run: ./scripts/collect_builds.sh
 
       - name: Upload workflow artifacts

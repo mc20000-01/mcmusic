@@ -12,16 +12,35 @@ android {
         applicationId = "dev.mcmusic.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 31
-        versionName = "2.7.0"
+        versionCode = 32
+        versionName = "2.7.1"
         // Host running the mcmusic server. Editable on the login screen.
         buildConfigField("String", "DEFAULT_SERVER", "\"https://mcmusic.sdisk.us\"")
     }
 
+    // Every build is signed with the same committed key: this machine, CI, and
+    // any future checkout. Signing with the machine-local debug key made each
+    // release fail to install over the previous one ("conflicts with another
+    // package"), because Android refuses an update signed by a new key.
+    val projectKey = file("../keystore/mcmusic.p12")
+    signingConfigs {
+        create("mcmusic") {
+            storeFile = projectKey
+            storeType = "pkcs12"
+            storePassword = "mcmusic"
+            keyAlias = "mcmusic"
+            keyPassword = "mcmusic"
+        }
+    }
+
     buildTypes {
+        getByName("debug") {
+            signingConfig = if (projectKey.exists()) signingConfigs.getByName("mcmusic") else null
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = if (projectKey.exists()) signingConfigs.getByName("mcmusic") else null
         }
     }
 
