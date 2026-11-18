@@ -147,11 +147,23 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add builds
-          if git diff --cached --quiet; then
-            echo "builds/ is already current"
-            exit 0
-          fi
-          git commit -m "Update published builds [skip ci]"
-          git pull --rebase origin main
-          git push origin HEAD:main
+          # builds/ holds freshly rebuilt binaries, so rebasing a racing push
+          # conflicts on them. Re-apply this run's files on top of origin/main
+          # instead, and retry if someone pushes in between.
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git reset --mixed FETCH_HEAD
+            git add -A builds
+            if git diff --cached --quiet; then
+              echo "builds/ is already current"
+              exit 0
+            fi
+            git commit -m "Update published builds [skip ci]"
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "push raced with another commit; retrying (attempt $attempt)" >&2
+            sleep 5
+          done
+          echo "could not update builds/ after 3 attempts" >&2
+          exit 1
