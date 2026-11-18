@@ -28,8 +28,27 @@ jobs:
         with:
           fetch-depth: 0
 
-      # The Android client is being rebuilt from scratch; this workflow builds
-      # and publishes the desktop and web artifacts until it returns.
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android SDK packages
+        run: |
+          set -euo pipefail
+          sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" >/dev/null
+
+      - name: Build Android APK
+        run: |
+          set -euo pipefail
+          version=$(grep -oP 'versionName\s*=\s*"\K[^"]+' gui/android/app/build.gradle.kts | head -1)
+          (cd gui/android && ./gradlew :app:assembleRelease --no-daemon --stacktrace)
+          mkdir -p builds
+          cp gui/android/app/build/outputs/apk/release/app-release.apk "builds/mcmusic-${version}.apk"
+          echo "built builds/mcmusic-${version}.apk"
+
       - name: Build Linux deb
         run: ./scripts/build_deb.sh
 
