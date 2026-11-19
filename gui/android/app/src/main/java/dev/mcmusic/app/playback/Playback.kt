@@ -20,6 +20,7 @@ import com.google.common.util.concurrent.ListenableFuture
 import android.net.Uri
 import dev.mcmusic.app.data.Api
 import dev.mcmusic.app.data.Downloads
+import dev.mcmusic.app.data.Prefs
 import dev.mcmusic.app.data.Track
 import java.util.concurrent.Executor
 
@@ -228,7 +229,12 @@ class PlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
+        // Streams are bearer-authenticated; ExoPlayer must send the same token
+        // the API client uses, or playback 401s while browsing works.
+        val http = androidx.media3.datasource.DefaultHttpDataSource.Factory()
+            .setDefaultRequestProperties(Api.authHeaders())
         val player = androidx.media3.exoplayer.ExoPlayer.Builder(this)
+            .setMediaSourceFactory(androidx.media3.exoplayer.source.DefaultMediaSourceFactory(http))
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(C.USAGE_MEDIA)

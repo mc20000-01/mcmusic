@@ -166,7 +166,11 @@ def unique_username(c, base, suffix=""):
 
 
 def authenticate_user(c, name, pw):
-    u = c.execute("select * from users where username=?", (name,)).fetchone()
+    # Usernames are stored as typed, but signing in should not depend on the
+    # phone's autocapitalisation: match case-insensitively, like the web does.
+    u = c.execute(
+        "select * from users where username=? collate nocase", (str(name or "").strip(),)
+    ).fetchone()
     if not u or not u["pw"] or not check_password_hash(u["pw"], pw):
         return None
     return u
@@ -308,6 +312,17 @@ def claim_device_code(c, code, name="", ip="", ua="", device_hash=""):
         "name": label,
         "user": me_dict(user) if user else None,
     }
+
+
+def revoke_device_token_raw(c, raw):
+    """Revoke the token that authenticated this very request."""
+    h = _device_token_hash(str(raw or ""))
+    r = c.execute("select id from device_tokens where token_hash=?", (h,)).fetchone()
+    if not r:
+        return False
+    c.execute("update device_tokens set revoked=1 where id=?", (r["id"],))
+    c.commit()
+    return True
 
 
 def resolve_device_token(c, raw, touch=True):
