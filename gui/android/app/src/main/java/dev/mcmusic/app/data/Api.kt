@@ -3,6 +3,7 @@ package dev.mcmusic.app.data
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.net.CookieHandler
 import java.net.CookieManager
@@ -44,6 +45,85 @@ data class Playlist(
     val name: String,
     val count: Int,
     val coverId: Int?,
+)
+
+data class AlbumSummary(
+    val album: String,
+    val artist: String,
+    val count: Int,
+    val coverId: Int?,
+)
+
+data class ArtistSummary(
+    val artist: String,
+    val count: Int,
+    val albums: Int,
+    val coverId: Int?,
+)
+
+data class HomeSection(val title: String, val tracks: List<Track>)
+
+data class HomeFeed(val sections: List<HomeSection>, val albums: List<AlbumSummary>)
+
+data class SearchResults(
+    val tracks: List<Track>,
+    val albums: List<AlbumSummary>,
+    val artists: List<ArtistSummary>,
+)
+
+data class AdminStats(
+    val users: Int,
+    val admins: Int,
+    val tracks: Int,
+    val albums: Int,
+    val playlists: Int,
+    val plays: Int,
+    val pending: Int,
+    val approved: Int,
+    val running: Int,
+    val failed: Int,
+    val done: Int,
+    val queue: Int,
+    val rooms: Int,
+    val musicBytes: Long,
+    val diskFree: Long,
+    val diskTotal: Long,
+    val uptime: Long,
+)
+
+data class AdminUser(
+    val id: Int,
+    val username: String,
+    val email: String?,
+    val isAdmin: Boolean,
+    val created: Long,
+    val plays: Int,
+    val likes: Int,
+    val playlists: Int,
+    val requests: Int,
+)
+
+data class InviteCode(
+    val id: Int,
+    val code: String,
+    val uses: Int,
+    val maxUses: Int,
+    val expires: Long,
+    val note: String,
+    val forUser: String,
+    val active: Boolean,
+    val createdByName: String,
+    val usedBy: List<String>,
+)
+
+data class DownloadRequest(
+    val id: Int,
+    val url: String,
+    val status: String,
+    val username: String,
+    val running: Boolean,
+    val elapsed: Long,
+    val log: String,
 )
 
 /**
@@ -110,6 +190,177 @@ object Api {
     }
 
     suspend fun me(): Me? = runCatching { meOf(JSONObject(get("/api/me"))) }.getOrNull()
+
+    /** Personalised feed: made-for-you sections plus recently added albums. */
+    suspend fun home(): Result<HomeFeed> = call {
+        val json = JSONObject(get("/api/home"))
+        val sections = buildList {
+            val arr = json.optJSONArray("sections")
+            if (arr != null) {
+                for (i in 0 until arr.length()) {
+                    val section = arr.optJSONObject(i) ?: continue
+                    val tracks = tracksOf(section.optJSONArray("tracks"))
+                    if (tracks.isNotEmpty()) add(HomeSection(section.optString("title"), tracks))
+                }
+            }
+        }
+        HomeFeed(sections, albumsOf(json.optJSONArray("albums")))
+    }
+
+    /** The same grouped search the website uses: tracks, albums and artists. */
+    suspend fun search(query: String): Result<SearchResults> = call {
+        val json = JSONObject(get("/api/search?q=${enc(query)}"))
+        SearchResults(
+            tracks = tracksOf(json.optJSONArray("tracks")),
+            albums = albumsOf(json.optJSONArray("albums")),
+            artists = artistsOf(json.optJSONArray("artists")),
+        )
+    }
+
+    suspend fun albumTracks(name: String): Result<List<Track>> = call {
+        tracksOf(JSONObject(get("/api/album?name=${enc(name)}")).optJSONArray("tracks"))
+    }
+
+    suspend fun artistTracks(name: String): Result<List<Track>> = call {
+        tracksOf(JSONObject(get("/api/artist?name=${enc(name)}")).optJSONArray("tracks"))
+    }
+
+    suspend fun toggleLike(id: Int): Result<Boolean> = call {
+        JSONObject(post("/api/like/$id", "{}")).optBoolean("liked")
+    }
+
+    // --- admin ------------------------------------------------------------
+
+    suspend fun adminStats(): Result<AdminStats> = call {
+        val j = JSONObject(get("/api/admin/stats"))
+        val req = j.optJSONObject("requests")
+        fun count(key: String) = req?.optInt(key) ?: 0
+        AdminStats(
+            users = j.optInt("users"),
+            admins = j.optInt("admins"),
+            tracks = j.optInt("tracks"),
+            albums = j.optInt("albums"),
+            playlists = j.optInt("playlists"),
+            plays = j.optInt("plays"),
+            pending = count("pending"),
+            approved = count("approved"),
+            running = count("running"),
+            failed = count("failed"),
+            done = count("done"),
+            queue = j.optInt("queue"),
+            rooms = j.optInt("rooms"),
+            musicBytes = j.optLong("music_bytes"),
+            diskFree = j.optLong("disk_free"),
+            diskTotal = j.optLong("disk_total"),
+            uptime = j.optLong("uptime"),
+        )
+    }
+
+    suspend fun adminUsers(): Result<List<AdminUser>> = call {
+        val arr = JSONObject(get("/api/admin/users")).optJSONArray("users") ?: return@call emptyList()
+        buildList {
+            for (i in 0 until arr.length()) {
+                val u = arr.optJSONObject(i) ?: continue
+                add(
+                    AdminUser(
+                        id = u.optInt("id"),
+                        username = u.optString("username"),
+                        email = u.optString("email").takeIf { it.isNotBlank() },
+                        isAdmin = u.optBoolean("is_admin"),
+                        created = u.optLong("created"),
+                        plays = u.optInt("plays"),
+                        likes = u.optInt("likes"),
+                        playlists = u.optInt("playlists"),
+                        requests = u.optInt("requests"),
+                    ),
+                )
+            }
+        }
+    }
+
+    suspend fun adminSetRole(id: Int, admin: Boolean): Result<Unit> = call {
+        request("/api/admin/users/$id/admin", "POST", JSONObject().put("is_admin", admin).toString())
+        Unit
+    }
+
+    suspend fun adminDeleteUser(id: Int): Result<Unit> = call {
+        request("/api/admin/users/$id", "DELETE", null)
+        Unit
+    }
+
+    suspend fun adminInvites(): Result<List<InviteCode>> = call {
+        val arr = JSONObject(get("/api/admin/invite-codes")).optJSONArray("codes") ?: return@call emptyList()
+        buildList {
+            for (i in 0 until arr.length()) {
+                val c = arr.optJSONObject(i) ?: continue
+                val used = buildList {
+                    val ub = c.optJSONArray("used_by")
+                    if (ub != null) for (x in 0 until ub.length()) {
+                        ub.optJSONObject(x)?.optString("username")?.takeIf { it.isNotBlank() }?.let(::add)
+                    }
+                }
+                add(
+                    InviteCode(
+                        id = c.optInt("id"),
+                        code = c.optString("code"),
+                        uses = c.optInt("uses"),
+                        maxUses = c.optInt("max_uses", 1),
+                        expires = c.optLong("expires"),
+                        note = c.optString("note"),
+                        forUser = c.optString("for_user"),
+                        active = c.optBoolean("active", true),
+                        createdByName = c.optString("created_by_name"),
+                        usedBy = used,
+                    ),
+                )
+            }
+        }
+    }
+
+    suspend fun adminCreateInvite(uses: Int, hours: Int, note: String): Result<String> = call {
+        val body = JSONObject().put("uses", uses).put("hours", hours).put("note", note).toString()
+        JSONObject(post("/api/admin/invite-codes", body)).optString("code")
+    }
+
+    suspend fun adminRevokeInvite(id: Int): Result<Unit> = call {
+        request("/api/admin/invite-codes/$id", "DELETE", null)
+        Unit
+    }
+
+    suspend fun adminScan(): Result<Pair<Int, Int>> = call {
+        val j = JSONObject(post("/api/admin/scan", "{}"))
+        j.optInt("tracks") to j.optInt("albums")
+    }
+
+    suspend fun adminRequests(): Result<List<DownloadRequest>> = call {
+        val arr = JSONObject(get("/api/admin/requests")).optJSONArray("requests") ?: return@call emptyList()
+        buildList {
+            for (i in 0 until arr.length()) {
+                val r = arr.optJSONObject(i) ?: continue
+                add(
+                    DownloadRequest(
+                        id = r.optInt("id"),
+                        url = r.optString("url"),
+                        status = r.optString("status"),
+                        username = r.optString("username"),
+                        running = r.optBoolean("running"),
+                        elapsed = r.optLong("elapsed"),
+                        log = r.optString("log"),
+                    ),
+                )
+            }
+        }
+    }
+
+    /** approve/reject live on the user endpoint; cancel/retry/delete are admin-only. */
+    suspend fun adminRequestAction(id: Int, action: String): Result<Unit> = call {
+        when (action) {
+            "approve", "reject" -> post("/api/requests/$id/$action", "{}")
+            "delete" -> request("/api/admin/requests/$id", "DELETE", null)
+            else -> post("/api/admin/requests/$id/$action", "{}")
+        }
+        Unit
+    }
 
     suspend fun tracks(query: String = "", limit: Int = 200): Result<List<Track>> = call {
         val q = if (query.isBlank()) "" else "&q=${enc(query)}"
@@ -223,6 +474,47 @@ object Api {
         album = t.optString("album"),
         duration = t.optDouble("duration", 0.0),
     )
+
+    private fun tracksOf(arr: JSONArray?): List<Track> {
+        if (arr == null) return emptyList()
+        return buildList {
+            for (i in 0 until arr.length()) arr.optJSONObject(i)?.let { add(trackOf(it)) }
+        }
+    }
+
+    private fun albumsOf(arr: JSONArray?): List<AlbumSummary> {
+        if (arr == null) return emptyList()
+        return buildList {
+            for (i in 0 until arr.length()) {
+                val a = arr.optJSONObject(i) ?: continue
+                add(
+                    AlbumSummary(
+                        album = a.optString("album"),
+                        artist = a.optString("artist"),
+                        count = a.optInt("n"),
+                        coverId = a.optInt("cover_id").takeIf { it > 0 },
+                    ),
+                )
+            }
+        }
+    }
+
+    private fun artistsOf(arr: JSONArray?): List<ArtistSummary> {
+        if (arr == null) return emptyList()
+        return buildList {
+            for (i in 0 until arr.length()) {
+                val a = arr.optJSONObject(i) ?: continue
+                add(
+                    ArtistSummary(
+                        artist = a.optString("artist"),
+                        count = a.optInt("n"),
+                        albums = a.optInt("albums"),
+                        coverId = a.optInt("cover_id").takeIf { it > 0 },
+                    ),
+                )
+            }
+        }
+    }
 
     private fun meOf(j: JSONObject) = Me(
         id = j.optInt("id"),
