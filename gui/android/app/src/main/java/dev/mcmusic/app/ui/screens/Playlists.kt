@@ -40,7 +40,8 @@ import dev.mcmusic.app.data.Playlist
 import dev.mcmusic.app.data.Track
 import dev.mcmusic.app.playback.Playback
 import dev.mcmusic.app.ui.EmptyState
-import dev.mcmusic.app.ui.McIcon
+import dev.mcmusic.app.ui.Lucide
+import dev.mcmusic.app.ui.LucideIcon
 import dev.mcmusic.app.ui.ScreenTitle
 import dev.mcmusic.app.ui.SectionLabel
 import dev.mcmusic.app.ui.Segmented
@@ -121,7 +122,7 @@ fun PlaylistBrowser(onTracksMode: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Text("+", color = design.accent, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                LucideIcon(Lucide.Plus, design.accent, Modifier.size(18.dp))
                 Text("New playlist", color = design.accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             }
         }
@@ -129,7 +130,7 @@ fun PlaylistBrowser(onTracksMode: () -> Unit) {
         error?.let { message ->
             item {
                 EmptyState(
-                    icon = McIcon.Library,
+                    icon = Lucide.Library,
                     title = "Playlists didn't load",
                     body = message,
                     actionLabel = "Try again",
@@ -142,7 +143,7 @@ fun PlaylistBrowser(onTracksMode: () -> Unit) {
         if (current != null && current.isEmpty()) {
             item {
                 EmptyState(
-                    icon = McIcon.Library,
+                    icon = Lucide.Library,
                     title = "No playlists yet",
                     body = "Create one here or on the web — both read the same lists from your account.",
                 )
@@ -288,7 +289,7 @@ fun AddToPlaylistDialog(track: Track, onDismiss: () -> Unit, onAdded: (Playlist)
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text("≡", color = design.accent, fontSize = 15.sp)
+                        LucideIcon(Lucide.ListMusic, design.accent, Modifier.size(16.dp))
                         Text(playlist.name, color = design.fg, fontSize = 13.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text("${playlist.count}", color = design.dim, fontSize = 11.sp)
                     }
@@ -328,7 +329,7 @@ private fun PlaylistRow(playlist: Playlist, onOpen: () -> Unit) {
                 .background(design.accentSoft),
             contentAlignment = Alignment.Center,
         ) {
-            Text("≡", color = design.accent, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+            LucideIcon(Lucide.ListMusic, design.accent, Modifier.size(20.dp))
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(playlist.name, color = design.fg, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -338,7 +339,7 @@ private fun PlaylistRow(playlist: Playlist, onOpen: () -> Unit) {
                 fontSize = 12.sp,
             )
         }
-        Text("›", color = design.dim, fontSize = 18.sp)
+        LucideIcon(Lucide.ChevronRight, design.dim, Modifier.size(18.dp))
     }
 }
 
@@ -387,7 +388,7 @@ fun PlaylistDetail(playlist: Playlist, onBack: () -> Unit, onDeleted: () -> Unit
         error?.let { message ->
             item {
                 EmptyState(
-                    icon = McIcon.Library,
+                    icon = Lucide.Library,
                     title = "That playlist didn't load",
                     body = message,
                     actionLabel = "Try again",
@@ -409,7 +410,13 @@ fun PlaylistDetail(playlist: Playlist, onBack: () -> Unit, onDeleted: () -> Unit
                             .clickable { Playback.play(list, 0) },
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text("Play all", color = design.palette.bg2, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            LucideIcon(Lucide.Play, design.palette.bg2, Modifier.size(14.dp))
+                            Text("Play all", color = design.palette.bg2, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        }
                     }
                     Box(
                         Modifier
@@ -420,7 +427,13 @@ fun PlaylistDetail(playlist: Playlist, onBack: () -> Unit, onDeleted: () -> Unit
                             .padding(horizontal = 16.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text("Shuffle", color = design.fg, fontSize = 13.sp)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            LucideIcon(Lucide.Shuffle, design.fg, Modifier.size(14.dp))
+                            Text("Shuffle", color = design.fg, fontSize = 13.sp)
+                        }
                     }
                 }
             }
@@ -455,7 +468,13 @@ fun PlaylistDetail(playlist: Playlist, onBack: () -> Unit, onDeleted: () -> Unit
                         .padding(vertical = 11.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("Rename", color = design.fg, fontSize = 12.sp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp),
+                    ) {
+                        LucideIcon(Lucide.Pencil, design.fg, Modifier.size(13.dp))
+                        Text("Rename", color = design.fg, fontSize = 12.sp)
+                    }
                 }
                 Box(
                     Modifier
@@ -466,7 +485,13 @@ fun PlaylistDetail(playlist: Playlist, onBack: () -> Unit, onDeleted: () -> Unit
                         .padding(vertical = 11.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("Delete playlist", color = Color(0xFFE5484D), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp),
+                    ) {
+                        LucideIcon(Lucide.Trash, Color(0xFFE5484D), Modifier.size(13.dp))
+                        Text("Delete playlist", color = Color(0xFFE5484D), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
         }
@@ -607,12 +632,16 @@ private fun PlaylistTrackRow(track: Track, playing: Boolean, onPlay: () -> Unit,
                 .background(design.accentSoft),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                if (playing) "▶" else track.title.take(1).uppercase().ifBlank { "?" },
-                color = design.accent,
-                fontSize = if (playing) 13.sp else 16.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
+            if (playing) {
+                LucideIcon(Lucide.Play, design.accent, Modifier.size(16.dp))
+            } else {
+                Text(
+                    track.title.take(1).uppercase().ifBlank { "?" },
+                    color = design.accent,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(track.title, color = if (playing) design.accent else design.fg, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -626,7 +655,13 @@ private fun PlaylistTrackRow(track: Track, playing: Boolean, onPlay: () -> Unit,
                 .clickable { onRemove() }
                 .padding(horizontal = 10.dp, vertical = 6.dp),
         ) {
-            Text("Remove", color = Color(0xFFE5484D), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                LucideIcon(Lucide.Trash, Color(0xFFE5484D), Modifier.size(12.dp))
+                Text("Remove", color = Color(0xFFE5484D), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            }
         }
     }
 }

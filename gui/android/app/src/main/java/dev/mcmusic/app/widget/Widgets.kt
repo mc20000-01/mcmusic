@@ -241,10 +241,13 @@ object Widgets {
         }
         views.setViewVisibility(R.id.widget_toggle, View.VISIBLE)
         views.setViewVisibility(R.id.widget_next, View.VISIBLE)
-        views.setTextViewText(R.id.widget_toggle, if (playing) "❚❚" else "▶")
-        views.setTextColor(R.id.widget_toggle, palette.accent.toArgb())
-        views.setTextViewText(R.id.widget_next, "⏭")
-        views.setTextColor(R.id.widget_next, palette.dim.toArgb())
+        views.setImageViewResource(
+            R.id.widget_toggle,
+            if (playing) R.drawable.ic_lucide_pause else R.drawable.ic_lucide_play,
+        )
+        views.setInt(R.id.widget_toggle, "setColorFilter", palette.accent.toArgb())
+        views.setImageViewResource(R.id.widget_next, R.drawable.ic_lucide_skip_forward)
+        views.setInt(R.id.widget_next, "setColorFilter", palette.dim.toArgb())
         views.setOnClickPendingIntent(
             R.id.widget_toggle,
             WidgetControlReceiver.pending(context, WidgetControlReceiver.ACTION_TOGGLE, 1),

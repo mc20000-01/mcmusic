@@ -1,5 +1,6 @@
 package dev.mcmusic.app.ui
 
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -56,22 +57,30 @@ fun ScreenBack(onBack: () -> Unit, label: String) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Text("‹", color = design.accent, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+        LucideIcon(Lucide.ChevronLeft, design.accent, Modifier.size(18.dp))
         Text(label, color = design.accent, fontSize = 13.sp, fontWeight = FontWeight.Medium)
     }
 }
 
 @Composable
-fun SectionLabel(text: String, modifier: Modifier = Modifier) {
+fun SectionLabel(text: String, modifier: Modifier = Modifier, @DrawableRes icon: Int? = null) {
     val design = LocalDesign.current
-    Text(
-        text = text.uppercase(),
+    Row(
         modifier = modifier,
-        color = design.dim,
-        fontSize = if (design.ios) 11.sp else 12.sp,
-        fontWeight = FontWeight.SemiBold,
-        letterSpacing = if (design.ios) 0.8.sp else 0.4.sp,
-    )
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        if (icon != null) {
+            LucideIcon(icon, design.dim, Modifier.size(13.dp))
+        }
+        Text(
+            text = text.uppercase(),
+            color = design.dim,
+            fontSize = if (design.ios) 11.sp else 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = if (design.ios) 0.8.sp else 0.4.sp,
+        )
+    }
 }
 
 @Composable
@@ -144,7 +153,7 @@ fun Segmented(options: List<String>, selectedIndex: Int, onSelect: (Int) -> Unit
 
 @Composable
 fun EmptyState(
-    icon: McIcon,
+    @DrawableRes icon: Int,
     title: String,
     body: String,
     actionLabel: String? = null,
@@ -166,7 +175,7 @@ fun EmptyState(
                 .background(design.accentSoft),
             contentAlignment = Alignment.Center,
         ) {
-            McGlyph(icon, design.accent, Modifier.size(24.dp))
+            LucideIcon(icon, design.accent, Modifier.size(24.dp))
         }
         Text(title, color = design.fg, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
         Text(body, color = design.dim, fontSize = 13.sp, lineHeight = 18.sp, textAlign = TextAlign.Center)

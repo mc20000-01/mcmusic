@@ -1,6 +1,7 @@
 package dev.mcmusic.app.ui
 
 import android.os.Build
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -50,13 +51,13 @@ import dev.mcmusic.app.ui.screens.PlayerScreen
 import dev.mcmusic.app.ui.screens.SearchScreen
 import dev.mcmusic.app.ui.screens.SettingsScreen
 
-enum class Tab(val label: String, val icon: McIcon) {
-    Home("Home", McIcon.Home),
-    Search("Search", McIcon.Search),
-    Player("Player", McIcon.Play),
-    Library("Library", McIcon.Library),
-    Downloads("Downloads", McIcon.Download),
-    Settings("Settings", McIcon.Settings),
+enum class Tab(val label: String, @param:DrawableRes val icon: Int) {
+    Home("Home", Lucide.House),
+    Search("Search", Lucide.Search),
+    Player("Player", Lucide.Play),
+    Library("Library", Lucide.Library),
+    Downloads("Downloads", Lucide.Download),
+    Settings("Settings", Lucide.Settings),
 }
 
 /**
@@ -148,7 +149,11 @@ private fun MiniPlayer(onOpen: () -> Unit, modifier: Modifier = Modifier) {
                 .clickable { Playback.toggle() },
             contentAlignment = Alignment.Center,
         ) {
-            Text(if (state.playing) "❚❚" else "▶", color = design.palette.bg2, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            LucideIcon(
+                icon = if (state.playing) Lucide.Pause else Lucide.Play,
+                tint = design.palette.bg2,
+                modifier = Modifier.size(14.dp),
+            )
         }
     }
 }
@@ -199,11 +204,10 @@ private fun IosTabBar(tab: Tab, onTab: (Tab) -> Unit, modifier: Modifier = Modif
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
-                McGlyph(
+                LucideIcon(
                     icon = entry.icon,
                     tint = if (selected) design.accent else design.dim,
                     modifier = Modifier.size(23.dp),
-                    filled = selected,
                 )
                 Text(
                     text = entry.label,
@@ -261,11 +265,10 @@ private fun OneUiShell(tab: Tab, onTab: (Tab) -> Unit) {
                             .then(if (selected) Modifier.background(design.accentSoft) else Modifier),
                         contentAlignment = Alignment.Center,
                     ) {
-                        McGlyph(
+                        LucideIcon(
                             icon = entry.icon,
                             tint = if (selected) design.accent else design.dim,
                             modifier = Modifier.size(22.dp),
-                            filled = selected,
                         )
                     }
                     Text(

@@ -44,7 +44,8 @@ import dev.mcmusic.app.data.Downloads
 import dev.mcmusic.app.data.Track
 import dev.mcmusic.app.playback.Playback
 import dev.mcmusic.app.ui.EmptyState
-import dev.mcmusic.app.ui.McIcon
+import dev.mcmusic.app.ui.Lucide
+import dev.mcmusic.app.ui.LucideIcon
 import dev.mcmusic.app.ui.ScreenTitle
 import dev.mcmusic.app.ui.SectionLabel
 import dev.mcmusic.app.ui.Segmented
@@ -110,7 +111,7 @@ fun LibraryScreen() {
         if (signedIn == false) {
             item {
                 EmptyState(
-                    icon = McIcon.Library,
+                    icon = Lucide.Library,
                     title = "Your library is behind a sign-in",
                     body = "The library endpoints are per account, so the phone needs the same session the web app uses.",
                     actionLabel = "Sign in",
@@ -150,7 +151,7 @@ fun LibraryScreen() {
             error?.let { message ->
                 item {
                     EmptyState(
-                        icon = McIcon.Library,
+                        icon = Lucide.Library,
                         title = "Library didn't load",
                         body = message,
                         actionLabel = "Try again",
@@ -162,7 +163,7 @@ fun LibraryScreen() {
             if (tracks.isEmpty() && error == null) {
                 item {
                     EmptyState(
-                        icon = McIcon.Library,
+                        icon = Lucide.Library,
                         title = "Nothing in the library",
                         body = "Add music on the web and it appears here — the phone reads the same database.",
                     )
@@ -315,12 +316,16 @@ private fun TrackRow(
                 .background(design.accentSoft),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                text = if (playing) "▶" else track.title.take(1).uppercase().ifBlank { "?" },
-                color = design.accent,
-                fontSize = if (playing) 14.sp else 17.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
+            if (playing) {
+                LucideIcon(Lucide.Play, design.accent, Modifier.size(18.dp))
+            } else {
+                Text(
+                    text = track.title.take(1).uppercase().ifBlank { "?" },
+                    color = design.accent,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
@@ -348,15 +353,14 @@ private fun TrackRow(
                 .clickable(enabled = !downloading && !downloaded) { onDownload() },
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                when {
-                    downloading -> "…"
-                    downloaded -> "✓"
-                    else -> "↓"
+            LucideIcon(
+                icon = when {
+                    downloaded -> Lucide.Check
+                    downloading -> Lucide.LoaderCircle
+                    else -> Lucide.Download
                 },
-                color = if (downloaded) design.accent else design.dim,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
+                tint = if (downloaded) design.accent else design.dim,
+                modifier = Modifier.size(15.dp),
             )
         }
         if (canDelete) {
@@ -367,7 +371,13 @@ private fun TrackRow(
                     .clickable { onDelete() }
                     .padding(horizontal = 11.dp, vertical = 6.dp),
             ) {
-                Text("Remove", color = Color(0xFFE5484D), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    LucideIcon(Lucide.Trash, Color(0xFFE5484D), Modifier.size(12.dp))
+                    Text("Remove", color = Color(0xFFE5484D), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                }
             }
         }
     }

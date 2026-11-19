@@ -28,7 +28,8 @@ import dev.mcmusic.app.data.Downloads
 import dev.mcmusic.app.data.Track
 import dev.mcmusic.app.playback.Playback
 import dev.mcmusic.app.ui.EmptyState
-import dev.mcmusic.app.ui.McIcon
+import dev.mcmusic.app.ui.Lucide
+import dev.mcmusic.app.ui.LucideIcon
 import dev.mcmusic.app.ui.ScreenTitle
 import dev.mcmusic.app.ui.SectionLabel
 import dev.mcmusic.app.ui.design.LocalDesign
@@ -61,7 +62,7 @@ fun DownloadsScreen() {
         if (items.isEmpty()) {
             item {
                 EmptyState(
-                    icon = McIcon.Download,
+                    icon = Lucide.Download,
                     title = "Nothing offline yet",
                     body = "Open Library and tap the arrow on a track to keep a copy here. Downloads play without the network and appear in the same player as streams.",
                 )
@@ -106,12 +107,16 @@ private fun DownloadRow(entry: Download, playing: Boolean, onPlay: () -> Unit, o
                 .background(design.accentSoft),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                if (playing) "▶" else entry.title.take(1).uppercase().ifBlank { "?" },
-                color = design.accent,
-                fontSize = if (playing) 14.sp else 17.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
+            if (playing) {
+                LucideIcon(Lucide.Play, design.accent, Modifier.size(18.dp))
+            } else {
+                Text(
+                    entry.title.take(1).uppercase().ifBlank { "?" },
+                    color = design.accent,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
@@ -137,7 +142,13 @@ private fun DownloadRow(entry: Download, playing: Boolean, onPlay: () -> Unit, o
                 .clickable { onRemove() }
                 .padding(horizontal = 10.dp, vertical = 6.dp),
         ) {
-            Text("Remove", color = Color(0xFFE5484D), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                LucideIcon(Lucide.Trash, Color(0xFFE5484D), Modifier.size(12.dp))
+                Text("Remove", color = Color(0xFFE5484D), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            }
         }
     }
 }
