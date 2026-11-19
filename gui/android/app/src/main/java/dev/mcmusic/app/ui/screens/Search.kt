@@ -27,7 +27,7 @@ import androidx.compose.ui.unit.sp
 import dev.mcmusic.app.data.Api
 import dev.mcmusic.app.data.Listener
 import dev.mcmusic.app.ui.EmptyState
-import dev.mcmusic.app.ui.McIcon
+import dev.mcmusic.app.ui.Lucide
 import dev.mcmusic.app.ui.ScreenTitle
 import dev.mcmusic.app.ui.SectionLabel
 import dev.mcmusic.app.ui.design.LocalDesign
@@ -123,7 +123,7 @@ fun SearchScreen() {
         message?.let { text ->
             item {
                 EmptyState(
-                    icon = McIcon.Search,
+                    icon = Lucide.Search,
                     title = "Nothing found",
                     body = text,
                 )
@@ -135,7 +135,7 @@ fun SearchScreen() {
             if (matches.isEmpty()) {
                 item {
                     EmptyState(
-                        icon = McIcon.Search,
+                        icon = Lucide.Search,
                         title = "No one matches",
                         body = "Search looks at the last three minutes of listening. Try a full username to look up a profile.",
                         actionLabel = "Look up \"${query.trim()}\"",
@@ -152,7 +152,7 @@ fun SearchScreen() {
         if (needle.isEmpty() && directory.isEmpty()) {
             item {
                 EmptyState(
-                    icon = McIcon.Search,
+                    icon = Lucide.Search,
                     title = "Quiet on the server",
                     body = "Nobody is listening right now, so there is nothing to filter. Search a username to open their profile anyway.",
                 )

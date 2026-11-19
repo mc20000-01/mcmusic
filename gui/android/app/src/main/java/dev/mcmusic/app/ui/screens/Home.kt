@@ -36,7 +36,7 @@ import dev.mcmusic.app.data.Track
 import dev.mcmusic.app.ui.Cover
 import dev.mcmusic.app.ui.EmptyState
 import dev.mcmusic.app.ui.LiveDot
-import dev.mcmusic.app.ui.McIcon
+import dev.mcmusic.app.ui.Lucide
 import dev.mcmusic.app.ui.Pill
 import dev.mcmusic.app.ui.ScreenTitle
 import dev.mcmusic.app.ui.SectionLabel
@@ -92,7 +92,7 @@ fun HomeScreen() {
         if (feed is Feed.Failed) {
             item {
                 EmptyState(
-                    icon = McIcon.Search,
+                    icon = Lucide.Search,
                     title = "Can't reach the server",
                     body = (feed as Feed.Failed).message,
                     actionLabel = "Try again",
@@ -106,7 +106,7 @@ fun HomeScreen() {
         if (feed is Feed.Ready && users.isEmpty()) {
             item {
                 EmptyState(
-                    icon = McIcon.Play,
+                    icon = Lucide.Play,
                     title = "Nobody is listening",
                     body = "When someone starts a track it shows up here within a few seconds.",
                     actionLabel = "Refresh",

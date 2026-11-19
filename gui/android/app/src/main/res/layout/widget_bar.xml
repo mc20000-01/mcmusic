@@ -58,20 +58,22 @@
                 android:textSize="11sp" />
         </LinearLayout>
 
-        <TextView
+        <ImageView
             android:id="@+id/widget_toggle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
-            android:textSize="14sp" />
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginStart="10dp"
+            android:importantForAccessibility="no"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_lucide_play" />
 
-        <TextView
+        <ImageView
             android:id="@+id/widget_next"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:paddingStart="4dp"
-            android:paddingEnd="2dp"
-            android:textSize="12sp" />
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_marginStart="10dp"
+            android:importantForAccessibility="no"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_lucide_skip_forward" />
     </LinearLayout>
 </FrameLayout>

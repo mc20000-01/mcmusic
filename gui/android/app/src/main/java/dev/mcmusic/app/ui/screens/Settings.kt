@@ -41,8 +41,8 @@ import dev.mcmusic.app.BuildConfig
 import dev.mcmusic.app.data.Api
 import dev.mcmusic.app.data.Me
 import dev.mcmusic.app.data.Prefs
-import dev.mcmusic.app.ui.McIcon
-import dev.mcmusic.app.ui.McGlyph
+import dev.mcmusic.app.ui.Lucide
+import dev.mcmusic.app.ui.LucideIcon
 import dev.mcmusic.app.ui.ScreenTitle
 import dev.mcmusic.app.ui.SectionLabel
 import dev.mcmusic.app.ui.Segmented
@@ -80,7 +80,7 @@ fun SettingsScreen() {
     ) {
         item { ScreenTitle("Settings", "Appearance, account and server") }
 
-        item { SectionLabel("Appearance", Modifier.padding(top = 4.dp)) }
+        item { SectionLabel("Appearance", Modifier.padding(top = 4.dp), Lucide.Palette) }
 
         item {
             Column(
@@ -133,7 +133,7 @@ fun SettingsScreen() {
             }
         }
 
-        item { SectionLabel("Account", Modifier.padding(top = 4.dp)) }
+        item { SectionLabel("Account", Modifier.padding(top = 4.dp), Lucide.User) }
 
         item {
             Row(
@@ -151,7 +151,7 @@ fun SettingsScreen() {
                         .background(design.accentSoft),
                     contentAlignment = Alignment.Center,
                 ) {
-                    McGlyph(McIcon.Settings, design.accent, Modifier.size(20.dp))
+                    LucideIcon(Lucide.User, design.accent, Modifier.size(20.dp))
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
@@ -182,17 +182,27 @@ fun SettingsScreen() {
                         }
                         .padding(horizontal = 14.dp, vertical = 8.dp),
                 ) {
-                    Text(
-                        text = if (me == null) "Sign in" else "Sign out",
-                        color = if (me == null) design.palette.bg2 else design.accent,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp),
+                    ) {
+                        LucideIcon(
+                            icon = if (me == null) Lucide.LogIn else Lucide.LogOut,
+                            tint = if (me == null) design.palette.bg2 else design.accent,
+                            modifier = Modifier.size(13.dp),
+                        )
+                        Text(
+                            text = if (me == null) "Sign in" else "Sign out",
+                            color = if (me == null) design.palette.bg2 else design.accent,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
                 }
             }
         }
 
-        item { SectionLabel("Server", Modifier.padding(top = 4.dp)) }
+        item { SectionLabel("Server", Modifier.padding(top = 4.dp), Lucide.Server) }
 
         item {
             Column(
@@ -239,7 +249,13 @@ fun SettingsScreen() {
                             }
                             .padding(horizontal = 14.dp, vertical = 8.dp),
                     ) {
-                        Text("Save", color = design.palette.bg2, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp),
+                        ) {
+                            LucideIcon(Lucide.Check, design.palette.bg2, Modifier.size(13.dp))
+                            Text("Save", color = design.palette.bg2, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        }
                     }
                     Text(
                         text = if (savedHint) "Saved — widgets will use it too" else "Home screen widgets read this too",
@@ -250,7 +266,7 @@ fun SettingsScreen() {
             }
         }
 
-        item { SectionLabel("About", Modifier.padding(top = 4.dp)) }
+        item { SectionLabel("About", Modifier.padding(top = 4.dp), Lucide.Info) }
 
         item {
             Column(

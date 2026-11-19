@@ -47,7 +47,8 @@ import dev.mcmusic.app.data.Track
 import dev.mcmusic.app.playback.Playback
 import dev.mcmusic.app.ui.Cover
 import dev.mcmusic.app.ui.EmptyState
-import dev.mcmusic.app.ui.McIcon
+import dev.mcmusic.app.ui.Lucide
+import dev.mcmusic.app.ui.LucideIcon
 import dev.mcmusic.app.ui.Pill
 import dev.mcmusic.app.ui.ScreenTitle
 import dev.mcmusic.app.ui.design.LocalDesign
@@ -220,19 +221,29 @@ fun PlayerScreen() {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     TransportButton(
-                        label = if (state.shuffle) "shuffle on" else "shuffle",
+                        icon = Lucide.Shuffle,
+                        description = if (state.shuffle) "shuffle on" else "shuffle",
                         active = state.shuffle,
                         onClick = { Playback.toggleShuffle() },
                     )
-                    TransportButton(label = "prev", onClick = { Playback.previous() })
+                    TransportButton(
+                        icon = Lucide.SkipBack,
+                        description = "previous track",
+                        onClick = { Playback.previous() },
+                    )
                     RoundControl(
                         playing = state.playing,
                         buffering = state.buffering,
                         onClick = { Playback.toggle() },
                     )
-                    TransportButton(label = "next", onClick = { Playback.next() })
                     TransportButton(
-                        label = if (state.repeat) "repeat on" else "repeat",
+                        icon = Lucide.SkipForward,
+                        description = "next track",
+                        onClick = { Playback.next() },
+                    )
+                    TransportButton(
+                        icon = Lucide.Repeat,
+                        description = if (state.repeat) "repeat on" else "repeat",
                         active = state.repeat,
                         onClick = { Playback.cycleRepeat() },
                     )
@@ -254,7 +265,7 @@ fun PlayerScreen() {
         if (state.queue.isEmpty()) {
             item {
                 EmptyState(
-                    icon = McIcon.Play,
+                    icon = Lucide.Play,
                     title = "Nothing playing yet",
                     body = "Open Library and tap a track — it streams from your server, keeps playing in the background and shows up in the notification.",
                     actionLabel = null,
@@ -276,7 +287,7 @@ fun PlayerScreen() {
                         modifier = Modifier.weight(1f),
                     )
                     Text(
-                        if (dragIndex != null) "move to ${dragTarget + 1}" else "hold ≡ to reorder",
+                        if (dragIndex != null) "move to ${dragTarget + 1}" else "hold the grip to reorder",
                         color = if (dragIndex != null) design.accent else design.dim,
                         fontSize = 11.sp,
                     )
@@ -349,13 +360,13 @@ private fun QueueRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(
-            if (playing) "▶" else "${track.id}",
-            color = if (playing) design.accent else design.dim,
-            fontSize = if (playing) 12.sp else 10.sp,
-            modifier = Modifier.size(22.dp),
-            textAlign = TextAlign.Center,
-        )
+        Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) {
+            if (playing) {
+                LucideIcon(Lucide.Play, design.accent, Modifier.size(12.dp))
+            } else {
+                Text("${track.id}", color = design.dim, fontSize = 10.sp, textAlign = TextAlign.Center)
+            }
+        }
         Column(Modifier.weight(1f)) {
             Text(
                 track.title,
@@ -378,27 +389,36 @@ private fun QueueRow(
                 .then(handle),
             contentAlignment = Alignment.Center,
         ) {
-            Text("≡", color = if (lifted) design.accent else design.dim, fontSize = 14.sp)
+            LucideIcon(
+                icon = Lucide.GripVertical,
+                tint = if (lifted) design.accent else design.dim,
+                modifier = Modifier.size(16.dp),
+            )
         }
     }
 }
 
 @Composable
-private fun TransportButton(label: String, active: Boolean = false, onClick: () -> Unit) {
+private fun TransportButton(
+    icon: Int,
+    description: String,
+    active: Boolean = false,
+    onClick: () -> Unit,
+) {
     val design = LocalDesign.current
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(50))
             .background(if (active) design.accent.copy(alpha = 0.18f) else design.palette.bg2.copy(alpha = 0.3f))
-            .clickable { onClick() }
+            .clickable(onClickLabel = description) { onClick() }
             .padding(horizontal = 12.dp, vertical = 9.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            label,
-            color = if (active) design.accent else design.dim,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Medium,
+        LucideIcon(
+            icon = icon,
+            tint = if (active) design.accent else design.dim,
+            modifier = Modifier.size(20.dp),
+            contentDescription = description,
         )
     }
 }
@@ -414,15 +434,19 @@ private fun RoundControl(playing: Boolean, buffering: Boolean, onClick: () -> Un
             .clickable { onClick() },
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            when {
-                buffering -> "···"
-                playing -> "❚❚"
-                else -> "▶"
+        LucideIcon(
+            icon = when {
+                buffering -> Lucide.LoaderCircle
+                playing -> Lucide.Pause
+                else -> Lucide.Play
             },
-            color = design.palette.bg2,
-            fontSize = if (buffering) 18.sp else 20.sp,
-            fontWeight = FontWeight.Bold,
+            tint = design.palette.bg2,
+            modifier = Modifier.size(28.dp),
+            contentDescription = when {
+                buffering -> "buffering"
+                playing -> "pause"
+                else -> "play"
+            },
         )
     }
 }
