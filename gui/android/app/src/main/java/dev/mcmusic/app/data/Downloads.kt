@@ -82,6 +82,7 @@ object Downloads {
                 connectTimeout = 15_000
                 readTimeout = 60_000
                 setRequestProperty("Accept", "audio/*")
+                Api.authHeaders().forEach { (name, value) -> setRequestProperty(name, value) }
             }
             try {
                 if (conn.responseCode !in 200..299) {

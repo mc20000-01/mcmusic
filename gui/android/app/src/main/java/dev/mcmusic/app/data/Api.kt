@@ -157,24 +157,34 @@ object Api {
         JSONObject(get("/api/public/now/${enc(username)}")).let { listenerOf(it) }
     }
 
+    /**
+     * Sign in with the password and keep the returned device token. Every later
+     * request sends it as `Authorization: Bearer`, so nothing depends on a
+     * cookie jar surviving the trip.
+     */
     suspend fun login(username: String, password: String): Result<Me> = call {
         val body = JSONObject()
             .put("username", username)
             .put("password", password)
+            .put("device", android.os.Build.MODEL ?: "Android")
+            .put("device_hash", "android-" + android.provider.Settings.Secure.ANDROID_ID)
             .toString()
-        JSONObject(post("/api/login", body))
-        // A 200 only means the password was right. Prove the session cookie
-        // is kept before telling the UI it is signed in: otherwise sign-in
-        // looks successful and the very next screen says "not signed in".
+        val json = JSONObject(post("/api/auth/app/login", body))
+        val token = json.optString("token")
+        if (token.isBlank()) throw ApiException(500, "the server did not return a sign-in token")
+        Prefs.saveToken(token)
+        // The token only counts once the server accepts it as this account.
         val verified = runCatching { meOf(JSONObject(get("/api/me"))) }.getOrNull()
-            ?: throw ApiException(401, "Password accepted, but the session was not kept. Check the base URL.")
+            ?: throw ApiException(401, "Signed in, but the server did not accept the new token.")
         Prefs.saveUsername(verified.username)
         verified
     }
 
     suspend fun logout() {
+        runCatching { post("/api/auth/app/logout", "{}") }
         runCatching { post("/api/logout", "{}") }
         cookies.clear()
+        Prefs.saveToken(null)
         Prefs.saveUsername(null)
     }
 
@@ -431,8 +441,12 @@ object Api {
         Unit
     }
 
-    /** Where ExoPlayer reads audio; session cookies travel with the request. */
+    /** Where ExoPlayer reads audio; the token travels with the request. */
     fun streamUrl(id: Int): String = server + "/api/tracks/$id/stream"
+
+    /** Headers every authenticated media/image request needs. */
+    fun authHeaders(): Map<String, String> =
+        Prefs.token?.let { mapOf("Authorization" to "Bearer $it") } ?: emptyMap()
 
     /** Admin only; the server answers 403 for everyone else. */
     suspend fun deleteTrack(id: Int): Result<Unit> = call {
@@ -447,6 +461,7 @@ object Api {
             conn.connectTimeout = 8000
             conn.readTimeout = 12000
             conn.setRequestProperty("Accept", "image/*")
+            authHeaders().forEach { (name, value) -> conn.setRequestProperty(name, value) }
             conn.inputStream.use { it.readBytes() }
         }.getOrNull()
     }
@@ -537,6 +552,7 @@ object Api {
             connectTimeout = 10_000
             readTimeout = 15_000
             setRequestProperty("Accept", "application/json")
+            Prefs.token?.let { setRequestProperty("Authorization", "Bearer $it") }
             if (body != null) {
                 doOutput = true
                 setRequestProperty("Content-Type", "application/json")

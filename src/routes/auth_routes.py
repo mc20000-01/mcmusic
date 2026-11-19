@@ -18,6 +18,7 @@ from auth import (
     validate_username, validate_password, create_user, authenticate_user,
     create_ticket, validate_email, email_taken, set_email,
     create_reset, reset_user, consume_reset,
+    create_device_code, claim_device_code, revoke_device_token_raw,
 )
 import mailer
 import discord_link
@@ -98,6 +99,46 @@ def login():
     session.permanent = True
     session["uid"] = u["id"]
     return jsonify(me_dict(u))
+
+
+@bp.post("/api/auth/app/login")
+def app_login():
+    """Native-client sign-in: verify the password, then hand back a device token.
+
+    The browser uses a session cookie, but a phone cannot rely on a cookie jar
+    surviving WebView-style quirks. Device tokens already exist for the 3DS and
+    Qt clients and every endpoint accepts them as `Authorization: Bearer`, so
+    this is the same credential, minted in one round trip.
+    """
+    d = request.get_json(silent=True) or {}
+    name = str(d.get("username", "")).strip()
+    pw = str(d.get("password", ""))
+    c = _db()
+    u = authenticate_user(c, name, pw)
+    if not u:
+        time.sleep(0.4)
+        return jsonify(error="wrong username or password"), 401
+    minted = create_device_code(c, u["id"])
+    claim = claim_device_code(
+        c, minted["code"],
+        name=str(d.get("device") or "Android")[:64],
+        ip=request.remote_addr or "",
+        ua=(request.headers.get("User-Agent") or "")[:200],
+        device_hash=str(d.get("device_hash") or "")[:64],
+    )
+    if not claim:
+        return jsonify(error="could not mint a device token"), 500
+    return jsonify(token=claim["token"], device_id=claim["device_id"], user=claim["user"])
+
+
+@bp.post("/api/auth/app/logout")
+def app_logout():
+    """Revoke the bearer token this request was signed with."""
+    supplied = request.headers.get("Authorization", "")
+    raw = supplied[7:].strip() if supplied.startswith("Bearer ") else ""
+    revoke_device_token_raw(_db(), raw)
+    session.clear()
+    return jsonify(ok=True)
 
 
 @bp.post("/api/logout")

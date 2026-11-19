@@ -30,6 +30,10 @@ object Prefs {
     var username by mutableStateOf<String?>(null)
         private set
 
+    /** Long-lived device token (`mcd_…`); every request sends it as a bearer. */
+    var token by mutableStateOf<String?>(null)
+        private set
+
     /** Whose listening the home screen widgets show; falls back to the signed-in account. */
     var widgetUser by mutableStateOf<String?>(null)
         private set
@@ -50,6 +54,7 @@ object Prefs {
         palette = p.getString("palette", "auto") ?: "auto"
         server = (p.getString("server", DEFAULT_SERVER) ?: DEFAULT_SERVER).trimEnd('/')
         username = p.getString("username", null)
+        token = p.getString("token", null)
         widgetUser = p.getString("widget_user", null)?.takeIf { it.isNotBlank() }
         wifiOnly = p.getBoolean("wifi_only", false)
         motion = p.getBoolean("motion", true)
@@ -86,6 +91,11 @@ object Prefs {
         val clean = url.trim().trimEnd('/').ifEmpty { DEFAULT_SERVER }
         server = clean
         sp?.edit()?.putString("server", clean)?.apply()
+    }
+
+    fun saveToken(value: String?) {
+        token = value
+        sp?.edit()?.apply { if (value == null) remove("token") else putString("token", value) }?.apply()
     }
 
     fun saveUsername(name: String?) {
