@@ -1,5 +1,6 @@
 package dev.mcmusic.app.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,7 +12,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -21,6 +24,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,19 +34,27 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.mcmusic.app.data.Account
+import dev.mcmusic.app.data.AlbumSummary
 import dev.mcmusic.app.data.Api
+import dev.mcmusic.app.data.ArtistSummary
+import dev.mcmusic.app.data.HomeFeed
 import dev.mcmusic.app.data.Listener
+import dev.mcmusic.app.data.Prefs
 import dev.mcmusic.app.data.Track
+import dev.mcmusic.app.playback.Playback
 import dev.mcmusic.app.ui.Cover
 import dev.mcmusic.app.ui.EmptyState
 import dev.mcmusic.app.ui.LiveDot
 import dev.mcmusic.app.ui.Lucide
+import dev.mcmusic.app.ui.LucideIcon
 import dev.mcmusic.app.ui.Pill
 import dev.mcmusic.app.ui.ScreenTitle
 import dev.mcmusic.app.ui.SectionLabel
 import dev.mcmusic.app.ui.design.LocalDesign
 import dev.mcmusic.app.ui.design.mcSurface
 import dev.mcmusic.app.ui.timecode
+import kotlinx.coroutines.launch
 
 sealed interface Feed {
     data object Loading : Feed
@@ -50,14 +62,29 @@ sealed interface Feed {
     data class Failed(val message: String) : Feed
 }
 
+/**
+ * Signed in this is the website's own home feed (`/api/home`): made-for-you,
+ * discover, top tracks and recently added. Signed out it falls back to the
+ * public listening feed, which is all the server exposes without a session.
+ */
 @Composable
 fun HomeScreen() {
     val design = LocalDesign.current
+    val me = Account.me
+    val scope = rememberCoroutineScope()
     var feed by remember { mutableStateOf<Feed>(Feed.Loading) }
+    var home by remember { mutableStateOf<HomeFeed?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
     var reload by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(reload) {
-        if (feed !is Feed.Ready) feed = Feed.Loading
+    LaunchedEffect(reload, me != null) {
+        error = null
+        if (me != null) {
+            Api.home().fold(
+                onSuccess = { home = it },
+                onFailure = { error = it.message ?: "could not load your feed" },
+            )
+        }
         feed = Api.listening().fold(
             onSuccess = { Feed.Ready(it) },
             onFailure = { Feed.Failed(it.message ?: "could not reach the server") },
@@ -77,45 +104,93 @@ fun HomeScreen() {
         verticalArrangement = Arrangement.spacedBy(design.gap),
     ) {
         item {
-            ScreenTitle("Home", "What mcmusic is playing right now")
-        }
-
-        item {
-            HeroCard(
-                live = live,
-                total = users.size,
-                loading = feed is Feed.Loading,
-                onRefresh = { reload++ },
+            ScreenTitle(
+                "Home",
+                if (me != null) "Made for you on ${Prefs.server}" else "What mcmusic is playing right now",
             )
         }
 
-        if (feed is Feed.Failed) {
+        if (me != null) {
+            val sections = home?.sections.orEmpty()
+            if (sections.isEmpty() && error == null) {
+                item { Text("Building your feed…", color = design.dim, fontSize = 13.sp) }
+            }
+            sections.forEach { section ->
+                item(key = "section-${section.title}") {
+                    SectionLabel(section.title, Modifier.padding(top = 4.dp), Lucide.Play)
+                }
+                items(section.tracks.take(5), key = { "s-${section.title}-${it.id}" }) { track ->
+                    SongRow(track, queue = section.tracks)
+                }
+            }
+
+            val albums = home?.albums.orEmpty()
+            if (albums.isNotEmpty()) {
+                item { SectionLabel("Albums", Modifier.padding(top = 4.dp), Lucide.Library) }
+                item {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(design.gap)) {
+                        items(albums, key = { "album-${it.album}" }) { album ->
+                            AlbumTile(album) {
+                                scope.launch {
+                                    Api.albumTracks(album.album).onSuccess { tracks ->
+                                        if (tracks.isNotEmpty()) Playback.play(tracks, 0)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            error?.let { message ->
+                item {
+                    EmptyState(
+                        icon = Lucide.Search,
+                        title = "Couldn't load your feed",
+                        body = message,
+                        actionLabel = "Try again",
+                        onAction = { reload++ },
+                    )
+                }
+            }
+        } else {
             item {
-                EmptyState(
-                    icon = Lucide.Search,
-                    title = "Can't reach the server",
-                    body = (feed as Feed.Failed).message,
-                    actionLabel = "Try again",
-                    onAction = { reload++ },
+                HeroCard(
+                    live = live,
+                    total = users.size,
+                    loading = feed is Feed.Loading,
+                    onRefresh = { reload++ },
                 )
             }
-        }
 
-        item { SectionLabel("Listening now", Modifier.padding(top = 4.dp)) }
-
-        if (feed is Feed.Ready && users.isEmpty()) {
-            item {
-                EmptyState(
-                    icon = Lucide.Play,
-                    title = "Nobody is listening",
-                    body = "When someone starts a track it shows up here within a few seconds.",
-                    actionLabel = "Refresh",
-                    onAction = { reload++ },
-                )
+            if (feed is Feed.Failed) {
+                item {
+                    EmptyState(
+                        icon = Lucide.Search,
+                        title = "Can't reach the server",
+                        body = (feed as Feed.Failed).message,
+                        actionLabel = "Try again",
+                        onAction = { reload++ },
+                    )
+                }
             }
-        }
 
-        items(users, key = { it.username }) { listener -> ListenerCard(listener) }
+            item { SectionLabel("Listening now", Modifier.padding(top = 4.dp)) }
+
+            if (feed is Feed.Ready && users.isEmpty()) {
+                item {
+                    EmptyState(
+                        icon = Lucide.Play,
+                        title = "Nobody is listening",
+                        body = "When someone starts a track it shows up here within a few seconds.",
+                        actionLabel = "Refresh",
+                        onAction = { reload++ },
+                    )
+                }
+            }
+
+            items(users, key = { it.username }) { listener -> ListenerCard(listener) }
+        }
     }
 }
 
@@ -155,6 +230,92 @@ private fun HeroCard(live: Int, total: Int, loading: Boolean, onRefresh: () -> U
                 .padding(horizontal = 14.dp, vertical = 7.dp),
         ) {
             Text("Refresh", color = design.fg, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+        }
+    }
+}
+
+/** A library row used by the home feed, search results and collection pages. */
+@Composable
+fun SongRow(track: Track, queue: List<Track>, modifier: Modifier = Modifier) {
+    val design = LocalDesign.current
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .mcSurface(RoundedCornerShape(design.cardRadius))
+            .clickable { Playback.play(queue, queue.indexOfFirst { it.id == track.id }.coerceAtLeast(0)) }
+            .padding(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Cover(
+            url = "${Api.server}/api/tracks/${track.id}/cover",
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.size(42.dp),
+            fallback = design.accentSoft,
+        )
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(track.title, color = design.fg, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+            Text(
+                text = listOf(track.artist, track.album).filter { it.isNotBlank() }.joinToString(" · "),
+                color = design.dim,
+                fontSize = 11.sp,
+                maxLines = 1,
+            )
+        }
+        if (track.duration > 0) {
+            Text(timecode(track.duration), color = design.dim, fontSize = 11.sp)
+        }
+        LucideIcon(Lucide.Play, design.accent, Modifier.size(16.dp))
+    }
+}
+
+@Composable
+fun AlbumTile(album: AlbumSummary, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val design = LocalDesign.current
+    Column(
+        modifier = modifier
+            .width(132.dp)
+            .clip(RoundedCornerShape(design.tileRadius))
+            .clickable { onClick() },
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Cover(
+            url = album.coverId?.let { "${Api.server}/api/tracks/$it/cover" }.orEmpty(),
+            shape = RoundedCornerShape(design.tileRadius),
+            modifier = Modifier.size(132.dp),
+            fallback = design.accentSoft,
+        )
+        Text(album.album, color = design.fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        Text(
+            text = listOfNotNull(album.artist.takeIf { it.isNotBlank() }, "${album.count} tracks").joinToString(" · "),
+            color = design.dim,
+            fontSize = 10.sp,
+            maxLines = 1,
+        )
+    }
+}
+
+@Composable
+fun ArtistTile(artist: ArtistSummary, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val design = LocalDesign.current
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(50))
+            .mcSurface(RoundedCornerShape(50), tint = design.accentSoft)
+            .clickable { onClick() }
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Cover(
+            url = artist.coverId?.let { "${Api.server}/api/tracks/$it/cover" }.orEmpty(),
+            shape = RoundedCornerShape(50),
+            modifier = Modifier.size(26.dp),
+            fallback = design.accentSoft,
+        )
+        Column {
+            Text(artist.artist, color = design.fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Text("${artist.albums} albums · ${artist.count} tracks", color = design.dim, fontSize = 10.sp, maxLines = 1)
         }
     }
 }

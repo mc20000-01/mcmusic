@@ -49,8 +49,10 @@ import dev.mcmusic.app.ui.design.LocalBackdrop
 import dev.mcmusic.app.ui.design.LocalDesign
 import dev.mcmusic.app.ui.design.McDesign
 import dev.mcmusic.app.ui.design.mcSurface
+import dev.mcmusic.app.data.Account
 import dev.mcmusic.app.data.Prefs
 import dev.mcmusic.app.playback.Playback
+import dev.mcmusic.app.ui.screens.AdminScreen
 import dev.mcmusic.app.ui.screens.DownloadsScreen
 import dev.mcmusic.app.ui.screens.HomeScreen
 import dev.mcmusic.app.ui.screens.LibraryScreen
@@ -65,6 +67,7 @@ enum class Tab(val label: String, @param:DrawableRes val icon: Int) {
     Library("Library", Lucide.Library),
     Downloads("Downloads", Lucide.Download),
     Settings("Settings", Lucide.Settings),
+    Admin("Admin", Lucide.User),
 }
 
 /**
@@ -77,6 +80,12 @@ fun McShell() {
     val design = LocalDesign.current
     var tab by rememberSaveable { mutableStateOf(Tab.Home) }
     val backdrop = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) rememberLayerBackdrop() else null
+    // The admin tab only exists for admins; the account is fetched once and
+    // shared through Account so sign-in and demotion update the chrome.
+    LaunchedEffect(Unit) { Account.refresh() }
+    LaunchedEffect(Account.isAdmin) {
+        if (!Account.isAdmin && tab == Tab.Admin) tab = Tab.Home
+    }
 
     Box(Modifier.fillMaxSize().background(design.palette.bg)) {
         Stage(
@@ -120,9 +129,14 @@ private fun TabContent(tab: Tab) {
             Tab.Library -> LibraryScreen()
             Tab.Downloads -> DownloadsScreen()
             Tab.Settings -> SettingsScreen()
+            Tab.Admin -> AdminScreen()
         }
     }
 }
+
+@Composable
+private fun visibleTabs(): List<Tab> =
+    if (Account.isAdmin) Tab.entries.toList() else Tab.entries.filter { it != Tab.Admin }
 
 /**
  * The strip that appears whenever something is playing, in both languages:
@@ -248,7 +262,7 @@ private fun IosTabBar(tab: Tab, onTab: (Tab) -> Unit, modifier: Modifier = Modif
             .padding(horizontal = 6.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Tab.entries.forEach { entry ->
+        visibleTabs().forEach { entry ->
             val selected = entry == tab
             Column(
                 modifier = Modifier
@@ -309,7 +323,7 @@ private fun OneUiShell(tab: Tab, onTab: (Tab) -> Unit) {
                 .padding(top = 6.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Tab.entries.forEach { entry ->
+            visibleTabs().forEach { entry ->
                 val selected = entry == tab
                 Column(
                     modifier = Modifier

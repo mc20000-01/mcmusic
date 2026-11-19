@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import dev.mcmusic.app.BuildConfig
+import dev.mcmusic.app.data.Account
 import dev.mcmusic.app.data.Api
 import dev.mcmusic.app.data.Downloads
 import dev.mcmusic.app.data.Me
@@ -88,7 +89,8 @@ fun SettingsScreen() {
     var checking by remember { mutableStateOf(false) }
 
     LaunchedEffect(reload) {
-        me = Api.me()
+        Account.refresh()
+        me = Account.me
         serverDraft = Prefs.server
     }
     // The sleep countdown is derived from playback state; nudge it while open.
