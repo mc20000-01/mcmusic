@@ -2,6 +2,9 @@ package dev.mcmusic.app.ui
 
 import android.os.Build
 import androidx.annotation.DrawableRes
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -22,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,6 +37,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -43,6 +49,7 @@ import dev.mcmusic.app.ui.design.LocalBackdrop
 import dev.mcmusic.app.ui.design.LocalDesign
 import dev.mcmusic.app.ui.design.McDesign
 import dev.mcmusic.app.ui.design.mcSurface
+import dev.mcmusic.app.data.Prefs
 import dev.mcmusic.app.playback.Playback
 import dev.mcmusic.app.ui.screens.DownloadsScreen
 import dev.mcmusic.app.ui.screens.HomeScreen
@@ -90,7 +97,22 @@ fun McShell() {
 
 @Composable
 private fun TabContent(tab: Tab) {
-    Box(Modifier.fillMaxSize().statusBarsPadding()) {
+    // A short lift-and-fade on every tab change makes the six pages feel like
+    // one app instead of six swapped panels. Reduce motion turns it off.
+    val motion = Prefs.motion
+    val appear = remember(tab) { Animatable(if (motion) 0f else 1f) }
+    LaunchedEffect(tab) {
+        if (motion) appear.animateTo(1f, tween(durationMillis = 180, easing = FastOutSlowInEasing))
+    }
+    Box(
+        Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .graphicsLayer {
+                alpha = appear.value
+                translationY = (1f - appear.value) * 8.dp.toPx()
+            },
+    ) {
         when (tab) {
             Tab.Home -> HomeScreen()
             Tab.Search -> SearchScreen()
@@ -111,48 +133,81 @@ private fun MiniPlayer(onOpen: () -> Unit, modifier: Modifier = Modifier) {
     val state = Playback.state
     val track = state.track ?: return
     val design = LocalDesign.current
-    Row(
+    val fraction = if (state.duration > 0) (state.position.toFloat() / state.duration).coerceIn(0f, 1f) else 0f
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .mcSurface(RoundedCornerShape(if (design.ios) 22.dp else 18.dp), tint = design.palette.bg2.copy(alpha = 0.5f))
-            .clickable { onOpen() }
-            .padding(horizontal = 10.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+            .mcSurface(RoundedCornerShape(if (design.ios) 22.dp else 18.dp), tint = design.palette.bg2.copy(alpha = 0.5f)),
     ) {
-        Cover(
-            url = "${dev.mcmusic.app.data.Api.server}/api/tracks/${track.id}/cover",
-            shape = RoundedCornerShape(if (design.ios) 10.dp else 8.dp),
-            modifier = Modifier.size(38.dp),
-            fallback = design.accentSoft,
-        )
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            Text(
-                track.title,
-                color = design.fg,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-            )
-            Text(
-                if (state.buffering) "buffering…" else track.artist.ifBlank { "unknown artist" },
-                color = design.dim,
-                fontSize = 11.sp,
-                maxLines = 1,
-            )
-        }
-        Box(
+        Row(
             modifier = Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .background(design.accent)
-                .clickable { Playback.toggle() },
-            contentAlignment = Alignment.Center,
+                .fillMaxWidth()
+                .clickable { onOpen() }
+                .padding(start = 10.dp, end = 6.dp, top = 8.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            LucideIcon(
-                icon = if (state.playing) Lucide.Pause else Lucide.Play,
-                tint = design.palette.bg2,
-                modifier = Modifier.size(14.dp),
+            Cover(
+                url = "${dev.mcmusic.app.data.Api.server}/api/tracks/${track.id}/cover",
+                shape = RoundedCornerShape(if (design.ios) 10.dp else 8.dp),
+                modifier = Modifier.size(38.dp),
+                fallback = design.accentSoft,
+            )
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                Text(
+                    track.title,
+                    color = design.fg,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                )
+                Text(
+                    if (state.buffering) "buffering…" else track.artist.ifBlank { "unknown artist" },
+                    color = design.dim,
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .clickable { Playback.next() },
+                contentAlignment = Alignment.Center,
+            ) {
+                LucideIcon(Lucide.SkipForward, design.dim, Modifier.size(16.dp))
+            }
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(design.accent)
+                    .clickable { Playback.toggle() },
+                contentAlignment = Alignment.Center,
+            ) {
+                LucideIcon(
+                    icon = if (state.playing) Lucide.Pause else Lucide.Play,
+                    tint = design.palette.bg2,
+                    modifier = Modifier.size(14.dp),
+                )
+            }
+        }
+        // The same scrubber the Player shows, in miniature: it makes the strip
+        // look alive between control taps.
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp)
+                .padding(top = 1.dp, bottom = 7.dp)
+                .height(2.dp)
+                .clip(RoundedCornerShape(50))
+                .background(design.hairline),
+        ) {
+            Box(
+                Modifier
+                    .fillMaxWidth(fraction)
+                    .height(2.dp)
+                    .background(design.accent),
             )
         }
     }
@@ -204,11 +259,19 @@ private fun IosTabBar(tab: Tab, onTab: (Tab) -> Unit, modifier: Modifier = Modif
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
-                LucideIcon(
-                    icon = entry.icon,
-                    tint = if (selected) design.accent else design.dim,
-                    modifier = Modifier.size(23.dp),
-                )
+                Box(
+                    modifier = Modifier
+                        .size(width = 42.dp, height = 27.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .then(if (selected) Modifier.background(design.accentSoft) else Modifier),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    LucideIcon(
+                        icon = entry.icon,
+                        tint = if (selected) design.accent else design.dim,
+                        modifier = Modifier.size(21.dp),
+                    )
+                }
                 Text(
                     text = entry.label,
                     color = if (selected) design.accent else design.dim,

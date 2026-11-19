@@ -35,6 +35,10 @@ data class PlaybackState(
     val repeat: Boolean = false,
     val ready: Boolean = false,
     val error: String? = null,
+    /** Sleep timer length in minutes, 0 when off. */
+    val sleepMinutes: Int = 0,
+    /** Milliseconds left on the sleep timer, 0 when off. */
+    val sleepRemaining: Long = 0,
 )
 
 /**
@@ -52,6 +56,7 @@ object Playback {
     private var queueTracks: List<Track> = emptyList()
     private var appContext: Context? = null
     private var widgetSignature: String? = null
+    private var sleepEndsAt: Long = 0
 
     fun init(context: Context) {
         if (controller != null || future != null) return
@@ -108,7 +113,23 @@ object Playback {
 
     /** Called by the UI while it is visible so the scrubber moves. */
     fun tick() {
-        controller?.let { position(it) }
+        val c = controller ?: return
+        position(c)
+        val end = sleepEndsAt
+        if (end in 1..System.currentTimeMillis()) {
+            sleepEndsAt = 0
+            c.pause()
+            state = state.copy(sleepMinutes = 0, sleepRemaining = 0)
+        } else if (end > 0) {
+            state = state.copy(sleepRemaining = end - System.currentTimeMillis())
+        }
+    }
+
+    /** 0 turns the sleep timer off; otherwise playback pauses after [minutes]. */
+    fun setSleep(minutes: Int) {
+        sleepEndsAt = if (minutes <= 0) 0 else System.currentTimeMillis() + minutes * 60_000L
+        val remaining = if (sleepEndsAt > 0) sleepEndsAt - System.currentTimeMillis() else 0
+        state = state.copy(sleepMinutes = minutes.coerceAtLeast(0), sleepRemaining = remaining)
     }
 
     fun play(tracks: List<Track>, startIndex: Int = 0) {
@@ -194,6 +215,7 @@ object Playback {
     }
 
     fun stop() {
+        sleepEndsAt = 0
         controller?.stop()
         controller?.clearMediaItems()
         queueTracks = emptyList()

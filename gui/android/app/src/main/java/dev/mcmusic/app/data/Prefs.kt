@@ -34,6 +34,14 @@ object Prefs {
     var widgetUser by mutableStateOf<String?>(null)
         private set
 
+    /** Downloads wait for Wi-Fi instead of using cellular data. */
+    var wifiOnly by mutableStateOf(false)
+        private set
+
+    /** Tab changes and other small transitions animate. */
+    var motion by mutableStateOf(true)
+        private set
+
     fun init(context: Context) {
         if (sp != null) return
         val p = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
@@ -43,6 +51,8 @@ object Prefs {
         server = (p.getString("server", DEFAULT_SERVER) ?: DEFAULT_SERVER).trimEnd('/')
         username = p.getString("username", null)
         widgetUser = p.getString("widget_user", null)?.takeIf { it.isNotBlank() }
+        wifiOnly = p.getBoolean("wifi_only", false)
+        motion = p.getBoolean("motion", true)
     }
 
     fun saveWidgetUser(name: String?) {
@@ -50,6 +60,16 @@ object Prefs {
         sp?.edit()?.apply {
             if (widgetUser == null) remove("widget_user") else putString("widget_user", widgetUser)
         }?.apply()
+    }
+
+    fun saveWifiOnly(enabled: Boolean) {
+        wifiOnly = enabled
+        sp?.edit()?.putBoolean("wifi_only", enabled)?.apply()
+    }
+
+    fun saveMotion(enabled: Boolean) {
+        motion = enabled
+        sp?.edit()?.putBoolean("motion", enabled)?.apply()
     }
 
     fun saveLanguage(id: String) {

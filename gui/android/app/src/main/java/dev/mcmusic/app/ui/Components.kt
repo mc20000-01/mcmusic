@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -191,6 +193,86 @@ fun EmptyState(
                 Text(actionLabel, color = design.palette.bg2, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             }
         }
+    }
+}
+
+/** Hairline between rows inside a settings card. */
+@Composable
+fun SettingDivider(modifier: Modifier = Modifier) {
+    val design = LocalDesign.current
+    Box(modifier.fillMaxWidth().height(1.dp).background(design.hairline))
+}
+
+/**
+ * One settings line: icon, title, explanation and an optional control on the
+ * right. Rows are the whole settings vocabulary, so every section reads the same.
+ */
+@Composable
+fun SettingRow(
+    title: String,
+    subtitle: String? = null,
+    @DrawableRes icon: Int? = null,
+    danger: Boolean = false,
+    onClick: (() -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null,
+) {
+    val design = LocalDesign.current
+    val titleColor = if (danger) Color(0xFFE5484D) else design.fg
+    val iconTint = if (danger) Color(0xFFE5484D) else design.accent
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        if (icon != null) {
+            Box(
+                Modifier
+                    .size(30.dp)
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(if (danger) Color(0xFFE5484D).copy(alpha = 0.14f) else design.accentSoft),
+                contentAlignment = Alignment.Center,
+            ) {
+                LucideIcon(icon, iconTint, Modifier.size(15.dp))
+            }
+        }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(title, color = titleColor, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            if (subtitle != null) {
+                Text(subtitle, color = design.dim, fontSize = 11.sp, lineHeight = 15.sp)
+            }
+        }
+        trailing?.invoke()
+    }
+}
+
+/** A settings line whose control is a switch. */
+@Composable
+fun SettingSwitch(
+    title: String,
+    subtitle: String? = null,
+    @DrawableRes icon: Int? = null,
+    checked: Boolean,
+    enabled: Boolean = true,
+    onChange: (Boolean) -> Unit,
+) {
+    val design = LocalDesign.current
+    SettingRow(title = title, subtitle = subtitle, icon = icon) {
+        Switch(
+            checked = checked,
+            onCheckedChange = onChange,
+            enabled = enabled,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = design.palette.bg2,
+                checkedTrackColor = design.accent,
+                checkedBorderColor = design.accent,
+                uncheckedThumbColor = design.dim,
+                uncheckedTrackColor = design.hairline,
+                uncheckedBorderColor = design.hairline,
+            ),
+        )
     }
 }
 

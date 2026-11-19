@@ -35,12 +35,33 @@ object Downloads {
         private set
 
     private var dir: File? = null
+    private var appContext: Context? = null
 
     fun init(context: Context) {
         if (dir != null) return
+        appContext = context.applicationContext
         val d = File(context.filesDir, "downloads").apply { mkdirs() }
         dir = d
         items = readIndex(d)
+    }
+
+    fun totalBytes(): Long = items.sumOf { it.bytes }
+
+    fun clearAll() {
+        val d = dir ?: return
+        d.listFiles()?.forEach { runCatching { it.delete() } }
+        items = emptyList()
+        writeIndex(d)
+    }
+
+    /** True when the phone is on Wi-Fi or ethernet, or the state is unknown. */
+    private fun onWifi(): Boolean {
+        val ctx = appContext ?: return true
+        val cm = ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+            ?: return true
+        val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return false
+        return caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) ||
+            caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET)
     }
 
     fun file(id: Int): File? = dir?.let { File(it, "$id.audio") }?.takeIf { it.exists() && it.length() > 0 }
@@ -49,6 +70,11 @@ object Downloads {
 
     suspend fun download(track: Track): Result<Download> = withContext(Dispatchers.IO) {
         val d = dir ?: return@withContext Result.failure(IllegalStateException("downloads are not ready"))
+        if (Prefs.wifiOnly && !onWifi()) {
+            return@withContext Result.failure(
+                IllegalStateException("Downloads are set to Wi-Fi only — connect to Wi-Fi to save this track."),
+            )
+        }
         active = active + track.id
         try {
             val tmp = File(d, "${track.id}.part")

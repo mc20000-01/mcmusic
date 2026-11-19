@@ -31,7 +31,13 @@ data class Listener(
     val updated: Long = 0,
 )
 
-data class Me(val id: Int, val username: String, val isAdmin: Boolean)
+data class Me(
+    val id: Int,
+    val username: String,
+    val isAdmin: Boolean,
+    val email: String? = null,
+    val roturLinked: Boolean = false,
+)
 
 data class Playlist(
     val id: Int,
@@ -76,16 +82,31 @@ object Api {
             .put("username", username)
             .put("password", password)
             .toString()
-        val json = JSONObject(post("/api/login", body))
-        val me = meOf(json)
-        Prefs.saveUsername(me.username)
-        me
+        JSONObject(post("/api/login", body))
+        // A 200 only means the password was right. Prove the session cookie
+        // is kept before telling the UI it is signed in: otherwise sign-in
+        // looks successful and the very next screen says "not signed in".
+        val verified = runCatching { meOf(JSONObject(get("/api/me"))) }.getOrNull()
+            ?: throw ApiException(401, "Password accepted, but the session was not kept. Check the base URL.")
+        Prefs.saveUsername(verified.username)
+        verified
     }
 
     suspend fun logout() {
         runCatching { post("/api/logout", "{}") }
         cookies.clear()
         Prefs.saveUsername(null)
+    }
+
+    suspend fun changePassword(old: String, new: String): Result<Unit> = call {
+        val body = JSONObject().put("old", old).put("new", new).toString()
+        request("/api/password", "POST", body)
+        Unit
+    }
+
+    suspend fun setEmail(email: String): Result<Me> = call {
+        val body = JSONObject().put("email", email).toString()
+        meOf(JSONObject(post("/api/auth/email", body)))
     }
 
     suspend fun me(): Me? = runCatching { meOf(JSONObject(get("/api/me"))) }.getOrNull()
@@ -207,6 +228,8 @@ object Api {
         id = j.optInt("id"),
         username = j.optString("username"),
         isAdmin = j.optBoolean("is_admin"),
+        email = j.optString("email").takeIf { it.isNotBlank() },
+        roturLinked = j.optBoolean("rotur_linked"),
     )
 
     private suspend fun <T> call(block: suspend () -> T): Result<T> =
@@ -253,45 +276,101 @@ object Api {
 
 class ApiException(val code: Int, override val message: String) : Exception(message)
 
-/** Session cookies that survive a restart, so the app does not sign out on every cold start. */
+/**
+ * Session cookies that survive a restart, so the app does not sign out on every
+ * cold start. The whole cookie is stored, not just `name=value`: a restored
+ * cookie has to keep its domain and path, or the next request never gets it and
+ * the session looks lost right after signing in.
+ */
 private class PersistentCookieStore(context: Context) : CookieStore {
     private val sp = context.getSharedPreferences("cookies", Context.MODE_PRIVATE)
-    private val jar = sp.all.mapNotNull { (k, v) -> runCatching { HttpCookie.parse(v as String).first() }.getOrNull() }.toMutableList()
     private val lock = Any()
+    private val jar = mutableListOf<HttpCookie>()
+
+    init {
+        // Older builds stored only "name=value", losing domain and path. Drop
+        // that format once instead of restoring a half-broken session.
+        if (sp.getInt(VERSION_KEY, 0) != VERSION) {
+            sp.edit().clear().putInt(VERSION_KEY, VERSION).apply()
+        } else {
+            sp.all.values.forEach { raw ->
+                if (raw is String) runCatching { decode(raw) }.getOrNull()?.let { jar.add(it) }
+            }
+        }
+    }
 
     override fun add(uri: URI, cookie: HttpCookie) {
         synchronized(lock) {
+            if (cookie.domain == null) cookie.domain = uri.host
+            if (cookie.path.isNullOrEmpty()) cookie.path = "/"
             jar.removeAll { it.name == cookie.name && it.domain == cookie.domain && it.path == cookie.path }
             jar.add(cookie)
-            sp.edit().putString(key(cookie), cookie.toString()).apply()
+            sp.edit().putString(key(cookie), encode(cookie)).apply()
         }
     }
 
     override fun get(uri: URI): List<HttpCookie> = synchronized(lock) {
-        jar.filter { it.domain == null || uri.host.orEmpty().endsWith(it.domain.trimStart('.')) }
+        val host = uri.host.orEmpty().lowercase()
+        val path = uri.path.orEmpty().ifEmpty { "/" }
+        val https = uri.scheme.equals("https", ignoreCase = true)
+        jar.filter { c ->
+            val domain = c.domain?.lowercase()
+            val domainOk = domain == null || host == domain || host.endsWith(".$domain")
+            val cookiePath = c.path.orEmpty().ifEmpty { "/" }
+            val pathOk = path == cookiePath || path.startsWith(cookiePath.trimEnd('/') + "/")
+            domainOk && pathOk && (https || !c.secure) && c.maxAge != 0L
+        }
     }
 
     override fun getCookies(): List<HttpCookie> = synchronized(lock) { jar.toList() }
 
     override fun getURIs(): List<URI> = synchronized(lock) {
-        jar.mapNotNull { it.domain }.distinct().mapNotNull { d -> runCatching { URI("https://${d.trimStart('.')}") }.getOrNull() }
+        jar.mapNotNull { it.domain }.distinct()
+            .mapNotNull { d -> runCatching { URI("https://${d.trimStart('.')}") }.getOrNull() }
     }
 
     override fun remove(uri: URI, cookie: HttpCookie): Boolean = synchronized(lock) {
         sp.edit().remove(key(cookie)).apply()
-        jar.removeAll { it.name == cookie.name && it.domain == cookie.domain }
+        jar.removeAll { it.name == cookie.name && it.domain == cookie.domain && it.path == cookie.path }
+        true
     }
 
     override fun removeAll(): Boolean = synchronized(lock) {
-        sp.edit().clear().apply()
         jar.clear()
+        sp.edit().clear().putInt(VERSION_KEY, VERSION).apply()
         true
     }
 
     fun clear() = synchronized(lock) {
         jar.clear()
-        sp.edit().clear().apply()
+        sp.edit().clear().putInt(VERSION_KEY, VERSION).apply()
     }
 
     private fun key(c: HttpCookie) = "${c.domain}|${c.path}|${c.name}"
+
+    private fun encode(c: HttpCookie): String = JSONObject()
+        .put("name", c.name)
+        .put("value", c.value)
+        .put("domain", c.domain.orEmpty())
+        .put("path", c.path.orEmpty())
+        .put("secure", c.secure)
+        .put("httpOnly", c.isHttpOnly)
+        .put("maxAge", c.maxAge)
+        .toString()
+
+    private fun decode(raw: String): HttpCookie {
+        val o = JSONObject(raw)
+        return HttpCookie(o.getString("name"), o.getString("value")).apply {
+            o.optString("domain").takeIf { it.isNotBlank() }?.let { domain = it }
+            o.optString("path").takeIf { it.isNotBlank() }?.let { path = it }
+            secure = o.optBoolean("secure")
+            isHttpOnly = o.optBoolean("httpOnly")
+            maxAge = o.optLong("maxAge", -1L)
+        }
+    }
+
+    private companion object {
+        const val VERSION_KEY = "store_version"
+        const val VERSION = 2
+    }
 }
