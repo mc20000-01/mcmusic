@@ -10,22 +10,22 @@
      surface-2 14.5%, line 18%, line-2 25%, dim 73%, dim-2 61%. That keeps
      the steps even, makes dim/dim-2 legible on every surface, and stops
      each theme from drifting into its own contrast rules. */
-  --bg:          #0e0a13;
-  --bg-2:        #140e1b;
-  --surface:     #1b1325;
-  --surface-2:   #241931;
-  --fg:          #f2edf7;
-  --dim:         #b9abc9;
-  --dim-2:       #9a8cab;
-  --line:        #2c1f3d;
-  --line-2:      #3e2b54;
-  --accent:      #b080ea;
-  --accent-fg:   #191023;
-  --accent-soft: rgba(176, 128, 234, 0.15);
-  --ok:          #77cfa3;
+  --bg:          #0c0910;
+  --bg-2:        #141019;
+  --surface:     #1c1722;
+  --surface-2:   #26202e;
+  --fg:          #f5f1f8;
+  --dim:         #bdb3c8;
+  --dim-2:       #968ba3;
+  --line:        #2b2434;
+  --line-2:      #3d3449;
+  --accent:      #c3a0f2;
+  --accent-fg:   #1b1126;
+  --accent-soft: rgba(195, 160, 242, 0.14);
+  --ok:          #7ed7a8;
   --warn:        #ecc665;
-  --err:         #e8737a;
-  --scrim:       rgba(7, 5, 10, 0.76);
+  --err:         #ef8189;
+  --scrim:       rgba(6, 4, 9, 0.74);
 
   /* surfaces that are always dark (console, overlay) */
   --ink:         #07050a;
@@ -45,20 +45,23 @@
   --r-4:         20px;
 
   /* type */
-  --font-ui:     "Inter", "SF Pro Text", system-ui, -apple-system, "Segoe UI",
-                 Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-display: "Inter", "SF Pro Display", system-ui, -apple-system,
-                 "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono:   ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas,
-                 "Liberation Mono", monospace;
+  /* Concrete families come before system-ui: on some Linux desktops
+     system-ui resolves to a mono face, which made the whole app look like a
+     terminal. Every stack ends in a real sans-serif. */
+  --font-ui:     "Inter", "SF Pro Text", "Segoe UI", Roboto, "Adwaita Sans",
+                 "Noto Sans", "DejaVu Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Inter", "SF Pro Display", "Segoe UI", Roboto, "Adwaita Sans",
+                 "Noto Sans", "DejaVu Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-mono:   "JetBrains Mono", ui-monospace, "SF Mono", SFMono-Regular,
+                 Menlo, Consolas, "Liberation Mono", monospace;
 
-  --t-xs:        0.6875rem;
-  --t-sm:        0.8125rem;
-  --t-md:        0.9375rem;
-  --t-lg:        1.125rem;
-  --t-xl:        1.5rem;
-  --t-2xl:       2rem;
-  --t-3xl:       2.75rem;
+  --t-xs:        0.72rem;
+  --t-sm:        0.86rem;
+  --t-md:        1rem;
+  --t-lg:        1.25rem;
+  --t-xl:        1.6rem;
+  --t-2xl:       2.15rem;
+  --t-3xl:       3rem;
 
   /* motion */
   --ease:        cubic-bezier(0.22, 0.61, 0.36, 1);
@@ -76,107 +79,107 @@
 
 /* — paper: warm light — */
 [data-theme="paper"] {
-  --bg:          #f2ebe4;
-  --bg-2:        #e8dfd4;
-  --surface:     #faf8f4;
-  --surface-2:   #ebe4db;
-  --fg:          #281f15;
-  --dim:         #5d4f41;
-  --dim-2:       #716356;
-  --line:        #d3c8bb;
-  --line-2:      #baa997;
-  --accent:      #9a4b1d;
-  --accent-fg:   #fbf7f4;
-  --accent-soft: rgba(154, 75, 29, 0.12);
-  --ok:          #28714d;
-  --warn:        #7f5b0c;
-  --err:         #a12129;
-  --scrim:       rgba(33, 26, 18, 0.34);
-  --ink:         #211a12;
+  --bg:          #efe8de;
+  --bg-2:        #e6dbcc;
+  --surface:     #fffcf7;
+  --surface-2:   #ede3d5;
+  --fg:          #251d14;
+  --dim:         #5a4c3e;
+  --dim-2:       #756657;
+  --line:        #d6c9b9;
+  --line-2:      #bcaa96;
+  --accent:      #a34f21;
+  --accent-fg:   #fff8f1;
+  --accent-soft: rgba(163, 79, 33, 0.11);
+  --ok:          #246b49;
+  --warn:        #76540a;
+  --err:         #9c2029;
+  --scrim:       rgba(31, 24, 16, 0.32);
+  --ink:         #1f1811;
 }
 
 /* — ink: near-black, high contrast — */
 [data-theme="ink"] {
-  --bg:          #0d0d0f;
-  --bg-2:        #131316;
+  --bg:          #0b0b0d;
+  --bg-2:        #121215;
   --surface:     #1a1a1e;
-  --surface-2:   #232327;
-  --fg:          #ededf7;
-  --dim:         #ababc9;
-  --dim-2:       #8c8cab;
-  --line:        #2b2b31;
-  --line-2:      #3c3c44;
-  --accent:      #dadadd;
-  --accent-fg:   #101023;
-  --accent-soft: rgba(218, 218, 221, 0.15);
+  --surface-2:   #242429;
+  --fg:          #f0f0f5;
+  --dim:         #b4b4c2;
+  --dim-2:       #8d8d9c;
+  --line:        #2a2a30;
+  --line-2:      #3b3b44;
+  --accent:      #e4e4e9;
+  --accent-fg:   #111116;
+  --accent-soft: rgba(228, 228, 233, 0.12);
 }
 
 /* — tide: cool linen blue-grey — */
 [data-theme="tide"] {
-  --bg:          #0a1012;
-  --bg-2:        #0f181a;
-  --surface:     #142124;
-  --surface-2:   #1b2b2f;
-  --fg:          #edf5f7;
-  --dim:         #abc3c9;
-  --dim-2:       #8ca5ab;
-  --line:        #21353b;
-  --line-2:      #2e4a52;
-  --accent:      #89cee1;
-  --accent-fg:   #101f23;
-  --accent-soft: rgba(137, 206, 225, 0.15);
+  --bg:          #091013;
+  --bg-2:        #101a1e;
+  --surface:     #172429;
+  --surface-2:   #1f3036;
+  --fg:          #eef6f8;
+  --dim:         #b0c7cd;
+  --dim-2:       #8aa4ab;
+  --line:        #22353b;
+  --line-2:      #304b53;
+  --accent:      #8fd5e8;
+  --accent-fg:   #0d1c20;
+  --accent-soft: rgba(143, 213, 232, 0.14);
 }
 
 /* — copper: deep red-brown — */
 [data-theme="copper"] {
-  --bg:          #130c09;
-  --bg-2:        #1c110d;
-  --surface:     #261812;
-  --surface-2:   #322018;
-  --fg:          #f7f0ed;
-  --dim:         #c9b4ab;
-  --dim-2:       #ab958c;
-  --line:        #3e271d;
-  --line-2:      #573729;
-  --accent:      #eaa07b;
-  --accent-fg:   #231610;
-  --accent-soft: rgba(234, 160, 123, 0.15);
+  --bg:          #120c09;
+  --bg-2:        #1b120e;
+  --surface:     #261a14;
+  --surface-2:   #33231b;
+  --fg:          #faf2ee;
+  --dim:         #d2beb4;
+  --dim-2:       #ad968b;
+  --line:        #3c271e;
+  --line-2:      #56382b;
+  --accent:      #f0a883;
+  --accent-fg:   #24150e;
+  --accent-soft: rgba(240, 168, 131, 0.14);
 }
 
 /* — forest: calm deep greens — */
 [data-theme="forest"] {
-  --bg:          #0a120e;
-  --bg-2:        #0e1b14;
-  --surface:     #14241b;
-  --surface-2:   #1a3024;
-  --fg:          #edf7f2;
-  --dim:         #abc9b9;
-  --dim-2:       #8cab9a;
-  --line:        #203c2d;
-  --line-2:      #2d533e;
-  --accent:      #79d8a5;
-  --accent-fg:   #102319;
-  --accent-soft: rgba(121, 216, 165, 0.15);
-  --scrim:       rgba(5, 10, 7, 0.76);
-  --ink:         #050a07;
+  --bg:          #09110d;
+  --bg-2:        #0e1d15;
+  --surface:     #15261e;
+  --surface-2:   #1c3328;
+  --fg:          #eef9f5;
+  --dim:         #abc6b2;
+  --dim-2:       #89a89e;
+  --line:        #1f3c2e;
+  --line-2:      #30523d;
+  --accent:      #80d4b0;
+  --accent-fg:   #0d2320;
+  --accent-soft: rgba(128, 212, 176, 0.14);
+  --scrim:       rgba(4, 16, 13, 0.74);
+  --ink:         #040a07;
 }
 
 /* — rose: warm dusty plum — */
 [data-theme="rose"] {
-  --bg:          #120a0e;
-  --bg-2:        #1b0e14;
-  --surface:     #24141c;
-  --surface-2:   #301a25;
-  --fg:          #f7edf2;
-  --dim:         #c9abba;
-  --dim-2:       #ab8c9c;
-  --line:        #3c202e;
-  --line-2:      #532d40;
-  --accent:      #ea90b8;
-  --accent-fg:   #231019;
-  --accent-soft: rgba(234, 144, 184, 0.15);
-  --scrim:       rgba(10, 5, 8, 0.76);
-  --ink:         #0a0508;
+  --bg:          #11090d;
+  --bg-2:        #1a0d13;
+  --surface:     #24151d;
+  --surface-2:   #311c26;
+  --fg:          #f6e8ef;
+  --dim:         #c6aeb5;
+  --dim-2:       #ab8897;
+  --line:        #3b1e29;
+  --line-2:      #4e2f39;
+  --accent:      #f098b2;
+  --accent-fg:   #220e1b;
+  --accent-soft: rgba(240, 152, 178, 0.14);
+  --scrim:       rgba(9, 4, 6, 0.74);
+  --ink:         #070508;
 }
 
 /* accent override written by JS (settings) */

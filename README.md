@@ -15,7 +15,7 @@ No feed. No algorithm. Only the records you put here.
 | `gui/` | Where the new Android client will live; the previous one was removed in full |
 | `app/linux/` | Qt 6 desktop client, shared with the macOS and Windows launch scripts |
 | `app/3ds/` | Nintendo 3DS homebrew scaffold (pairing and library browsing) |
-| `music_activity/` | Bridges playback into Rotur/Discord/OriginChats presence |
+| `music_activity/` | Presence sinks the server uses for Rotur/Discord/originChats |
 | `scripts/` | Publish builds, cut a GitHub Release |
 | `docs/` | Roadmap, platform notes, design research |
 

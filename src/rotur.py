@@ -12,8 +12,11 @@ Protocol notes (per the Rotur docs):
 The browser never stores a Rotur token: the code exchange happens here, the
 resulting session is our own signed cookie, and tokens stay server-side.
 """
+import asyncio
 import base64
 import hashlib
+import json
+import logging
 import os
 import secrets
 import threading
@@ -21,6 +24,7 @@ import time
 from typing import Optional
 
 import rotur_activity
+from music_activity.config import ROTUR_WS
 from music_activity.state import PlayerState, Track
 
 import requests
@@ -44,9 +48,17 @@ STATE_KEY = "rotur_oauth"
 SESSION_SKEY = "rotur_pkce"
 PENDING_KEY = "rotur_pending"
 
-# A Token Manager sub-token is the only credential Rotur accepts on the status
-# WebSocket. OAuth access tokens are for the REST API and are rejected there.
+log = logging.getLogger(__name__)
+
+# A server-wide Rotur key (the Token Manager sub-token) may be configured for
+# the account that owns this instance. It belongs to exactly one Rotur user, so
+# it must never be used for anybody else: otherwise a friend's listening
+# activity lands on the owner's profile. The owner is discovered from the
+# socket's `ready` frame once and then cached.
 ROTUR_TOKEN = os.environ.get("ROTUR_TOKEN", "").strip()
+_TOKEN_OWNER_LOCK = threading.Lock()
+_TOKEN_OWNER_CACHE: dict[str, object] = {"id": "", "checked": 0.0}
+_TOKEN_OWNER_TTL = 3600
 
 # A Rotur sign-in that has no account yet waits in the database until a friend
 # code is supplied, so a restart (or a second worker) does not lose the flow.
@@ -443,16 +455,25 @@ def claim_route():
     return redirect("/")
 
 
-def _activity_state(valid_session: bool) -> dict:
+def _activity_state(valid_session: bool, uid=None) -> dict:
     """Whether the listening activity can publish, and what is missing if not."""
     if not configured():
         return {"ready": False, "reason": "Rotur is not configured on this server"}
-    if not ROTUR_TOKEN and not valid_session:
+    if valid_session:
+        return {"ready": True, "reason": ""}
+    if uid is not None and ROTUR_TOKEN:
+        owner = _server_token_owner()
+        if owner and owner == _account_rotur_id(uid):
+            return {"ready": True, "reason": ""}
         return {
             "ready": False,
-            "reason": "Sign in with Rotur again — the activity needs a live session",
+            "reason": "The server's Rotur key is for another account — "
+                      "sign in with Rotur, or link a personal token, to share activity",
         }
-    return {"ready": True, "reason": ""}
+    return {
+        "ready": False,
+        "reason": "Sign in with Rotur again — the activity needs a live session",
+    }
 
 
 def status_route():
@@ -468,7 +489,7 @@ def status_route():
     valid = bool(sess and sess["expires_at"] > time.time())
     # Whether "Share as Rotur activity" can publish at all, so the settings
     # screen can say why instead of only failing when a track starts.
-    activity = _activity_state(valid)
+    activity = _activity_state(valid, uid)
     return jsonify(
         linked=linked,
         rotur_id=row["rotur_id"] if row else None,
@@ -514,28 +535,88 @@ def _live_token(uid):
     return new_token, ""
 
 
+async def _probe_token_owner():
+    """Ask Rotur which account a key belongs to (auth only, no status change)."""
+    try:
+        import websockets
+    except Exception as e:  # noqa: BLE001
+        raise RuntimeError(f"the 'websockets' package is not installed: {e}") from e
+    async with websockets.connect(ROTUR_WS, max_size=2**16, open_timeout=10) as ws:
+        await ws.send(json.dumps({"cmd": "auth", "key": ROTUR_TOKEN}))
+        raw = await asyncio.wait_for(ws.recv(), timeout=10)
+    try:
+        msg = json.loads(raw)
+    except (TypeError, ValueError):
+        return ""
+    if not isinstance(msg, dict) or msg.get("cmd") != "ready":
+        message = msg.get("message") if isinstance(msg, dict) else raw
+        raise RuntimeError(str(message or "Rotur rejected ROTUR_TOKEN"))
+    return str(msg.get("user_id") or msg.get("id") or "")
+
+
+def _server_token_owner():
+    """Rotur id that ``ROTUR_TOKEN`` authenticates as, or ``""`` if unknown.
+
+    Cached because the lookup opens one short socket. A failure is cached too,
+    but only briefly, so a restart or a restored connection can recover.
+    """
+    if not ROTUR_TOKEN:
+        return ""
+    now = time.time()
+    with _TOKEN_OWNER_LOCK:
+        age = now - float(_TOKEN_OWNER_CACHE["checked"] or 0)
+        ttl = _TOKEN_OWNER_TTL if _TOKEN_OWNER_CACHE["id"] else 60
+        if _TOKEN_OWNER_CACHE["checked"] and age < ttl:
+            return str(_TOKEN_OWNER_CACHE["id"] or "")
+    try:
+        owner = asyncio.run(_probe_token_owner())
+    except Exception as e:  # noqa: BLE001 - activity is optional
+        log.warning("rotur: could not identify the account behind ROTUR_TOKEN: %s", e)
+        owner = ""
+    with _TOKEN_OWNER_LOCK:
+        _TOKEN_OWNER_CACHE["id"] = owner
+        _TOKEN_OWNER_CACHE["checked"] = now
+    if owner:
+        log.info("rotur: ROTUR_TOKEN belongs to %s", owner)
+    return owner
+
+
+def _account_rotur_id(uid):
+    row = _db().execute("select rotur_id from users where id=?", (uid,)).fetchone()
+    return (row["rotur_id"] if row else "") or ""
+
+
 def _activity_token(uid):
+    """The key that may post activity for *this* account.
+
+    The shared server key is only valid for the Rotur account that owns it.
+    Everyone else uses their own linked session (or a personal sub-token that
+    was supplied through ``/api/auth/rotur/link``).
+    """
     if ROTUR_TOKEN:
-        return ROTUR_TOKEN, ""
-    return _live_token(uid)
+        owner = _server_token_owner()
+        if owner and owner == _account_rotur_id(uid):
+            return ROTUR_TOKEN, ""
+    token, problem = _live_token(uid)
+    if token:
+        return token, problem
+    if ROTUR_TOKEN and not problem:
+        problem = "This account has no Rotur key of its own for activity"
+    return None, problem or "Rotur session expired — sign in again"
 
 
 def _token_provider(uid):
     # The RoturSink resolves its token on a background thread. Flask's request
     # context (and therefore _db()) is not available there, so carry the real
     # app object into that thread instead of letting every first connect fail
-    # with "Working outside of application context". A configured Token Manager
-    # sub-token skips the DB entirely.
+    # with "Working outside of application context".
     app = current_app._get_current_object() if has_app_context() else None
 
     def get():
-        if ROTUR_TOKEN:
-            return ROTUR_TOKEN
         if app is None:
-            token, _problem = _live_token(uid)
-            return token
+            return _activity_token(uid)[0]
         with app.app_context():
-            token, _problem = _live_token(uid)
+            token, _problem = _activity_token(uid)
             return token
 
     return get

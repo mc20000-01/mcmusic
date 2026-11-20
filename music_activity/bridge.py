@@ -1,4 +1,10 @@
-"""Feed the Manager from mcmusic's playback table (no Flask import needed).
+"""Legacy single-account feed from mcmusic's playback table.
+
+The Flask server now keeps one Rotur session per account (see
+``src/rotur_activity.py``) and posts activity from the account that is actually
+playing. This bridge still watches exactly one ``MCMUSIC_USER_ID`` and, if set,
+posts with the shared ``ROTUR_TOKEN`` — so only run it when that token belongs
+to the same account. Two publishers on one account fight over the activity id.
 
 Run next to the service, e.g.
   MCMUSIC_USER_ID=1 ROTUR_TOKEN=... python -m music_activity.bridge
