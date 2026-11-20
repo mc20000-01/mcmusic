@@ -1,37 +1,36 @@
 package dev.mcmusic.app.ui.screens
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.Background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.mcmusic.app.data.Account
@@ -45,10 +44,10 @@ import dev.mcmusic.app.data.Track
 import dev.mcmusic.app.playback.Playback
 import dev.mcmusic.app.ui.Cover
 import dev.mcmusic.app.ui.EmptyState
-import dev.mcmusic.app.ui.LiveDot
 import dev.mcmusic.app.ui.Lucide
 import dev.mcmusic.app.ui.LucideIcon
 import dev.mcmusic.app.ui.Pill
+import dev.mcmusic.app.ui.ScreenBack
 import dev.mcmusic.app.ui.ScreenTitle
 import dev.mcmusic.app.ui.SectionLabel
 import dev.mcmusic.app.ui.design.LocalDesign
@@ -64,8 +63,8 @@ sealed interface Feed {
 
 /**
  * Signed in this is the website's own home feed (`/api/home`): made-for-you,
- * discover, top tracks and recently added. Signed out it falls back to the
- * public listening feed, which is all the server exposes without a session.
+ * discover, top tracks and recently added. Signed out it falls back to the public
+ * listening feed, which is all the server exposes without a session.
  */
 @Composable
 fun HomeScreen() {
@@ -98,14 +97,13 @@ fun HomeScreen() {
         contentPadding = PaddingValues(
             start = design.screenPadding,
             end = design.screenPadding,
-            top = 12.dp,
-            bottom = 124.dp,
+            top = 10.dp,
+            bottom = design.gap,
         ),
-        verticalArrangement = Arrangement.spacedBy(design.gap),
+        verticalArrangement = androidx.compose.foundation.Arrangement.spacedBy(design.gap),
     ) {
         item {
             ScreenTitle(
-                "Home",
                 if (me != null) "Made for you on ${Prefs.server}" else "What mcmusic is playing right now",
             )
         }
@@ -117,7 +115,7 @@ fun HomeScreen() {
             }
             sections.forEach { section ->
                 item(key = "section-${section.title}") {
-                    SectionLabel(section.title, Modifier.padding(top = 4.dp), Lucide.Play)
+                    SectionLabel(section.title, Modifier.padding(top = 4.dp))
                 }
                 items(section.tracks.take(5), key = { "s-${section.title}-${it.id}" }) { track ->
                     SongRow(track, queue = section.tracks)
@@ -126,9 +124,9 @@ fun HomeScreen() {
 
             val albums = home?.albums.orEmpty()
             if (albums.isNotEmpty()) {
-                item { SectionLabel("Albums", Modifier.padding(top = 4.dp), Lucide.Library) }
+                item { SectionLabel("Albums", Modifier.padding(top = 4.dp)) }
                 item {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(design.gap)) {
+                    LazyRow(horizontalArrangement = androidx.compose.foundation.Arrangement.spacedBy(design.gap)) {
                         items(albums, key = { "album-${it.album}" }) { album ->
                             AlbumTile(album) {
                                 scope.launch {
@@ -145,7 +143,7 @@ fun HomeScreen() {
             error?.let { message ->
                 item {
                     EmptyState(
-                        icon = Lucide.Search,
+                        icon = dev.mcmusic.app.ui.Lucide.Search,
                         title = "Couldn't load your feed",
                         body = message,
                         actionLabel = "Try again",
@@ -153,6 +151,22 @@ fun HomeScreen() {
                     )
                 }
             }
+
+            item { SectionLabel("Listening now", Modifier.padding(top = 4.dp)) }
+
+            if (feed is Feed.Ready && users.isEmpty()) {
+                item {
+                    EmptyState(
+                        icon = dev.mcmusic.app.ui.Lucide.Play,
+                        title = "Nobody is listening",
+                        body = "When someone starts a track it shows up here within a few seconds.",
+                        actionLabel = "Refresh",
+                        onAction = { reload++ },
+                    )
+                }
+            }
+
+            items(users, key = { it.username }) { listener -> ListenerCard(listener) }
         } else {
             item {
                 HeroCard(
@@ -166,7 +180,7 @@ fun HomeScreen() {
             if (feed is Feed.Failed) {
                 item {
                     EmptyState(
-                        icon = Lucide.Search,
+                        icon = dev.mcmusic.app.ui.Lucide.Search,
                         title = "Can't reach the server",
                         body = (feed as Feed.Failed).message,
                         actionLabel = "Try again",
@@ -180,7 +194,7 @@ fun HomeScreen() {
             if (feed is Feed.Ready && users.isEmpty()) {
                 item {
                     EmptyState(
-                        icon = Lucide.Play,
+                        icon = dev.mcmusic.app.ui.Lucide.Play,
                         title = "Nobody is listening",
                         body = "When someone starts a track it shows up here within a few seconds.",
                         actionLabel = "Refresh",
@@ -195,23 +209,23 @@ fun HomeScreen() {
 }
 
 @Composable
-private fun HeroCard(live: Int, total: Int, loading: Boolean, onRefresh: () -> Unit) {
+fun HeroCard(live: Int, total: Int, loading: Boolean, onRefresh: () -> Unit) {
     val design = LocalDesign.current
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .mcSurface(RoundedCornerShape(design.cardRadius), tint = design.accent.copy(alpha = 0.10f))
+            .mcSurface(RoundedCornerShape(design.cardRadius), tint = design.accent.copy(alpha = 0.08f))
             .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = androidx.compose.foundation.Arrangement.spacedBy(14.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            LiveDot(live > 0, 9.dp)
-            Spacer(Modifier.size(8.dp))
+        Row(verticalAlignment = androidx.compose.foundation.alignment.Alignment.CenterVertically) {
+            dev.mcmusic.app.ui.LiveDot(live > 0, 9.dp)
+            androidx.compose.foundation.Spacer(Modifier.size(8.dp))
             Text(
                 text = if (live > 0) "$live listening now" else "Quiet right now",
                 color = design.fg,
                 fontSize = 18.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = androidx.compose.runtime.FontWeight.SemiBold,
             )
         }
         Text(
@@ -223,13 +237,14 @@ private fun HeroCard(live: Int, total: Int, loading: Boolean, onRefresh: () -> U
             lineHeight = 18.sp,
         )
         Box(
-            Modifier
+            modifier = Modifier
                 .clip(RoundedCornerShape(50))
                 .clickable { onRefresh() }
                 .mcSurface(RoundedCornerShape(50))
                 .padding(horizontal = 14.dp, vertical = 7.dp),
+            contentAlignment = androidx.compose.ui.Alignment.Center,
         ) {
-            Text("Refresh", color = design.fg, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            Text("Refresh", color = design.fg, fontSize = 12.sp, fontWeight = androidx.compose.runtime.FontWeight.Medium)
         }
     }
 }
@@ -244,8 +259,8 @@ fun SongRow(track: Track, queue: List<Track>, modifier: Modifier = Modifier) {
             .mcSurface(RoundedCornerShape(design.cardRadius))
             .clickable { Playback.play(queue, queue.indexOfFirst { it.id == track.id }.coerceAtLeast(0)) }
             .padding(10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = androidx.compose.foundation.alignment.CenterVertically,
+        horizontalArrangement = androidx.compose.foundation.Arrangement.spacedBy(10.dp),
     ) {
         Cover(
             url = "${Api.server}/api/tracks/${track.id}/cover",
@@ -253,7 +268,7 @@ fun SongRow(track: Track, queue: List<Track>, modifier: Modifier = Modifier) {
             modifier = Modifier.size(42.dp),
             fallback = design.accentSoft,
         )
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Column(Modifier.weight(1f), verticalArrangement = androidx.compose.foundation.Arrangement.spacedBy(2.dp)) {
             Text(track.title, color = design.fg, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1)
             Text(
                 text = listOf(track.artist, track.album).filter { it.isNotBlank() }.joinToString(" · "),
@@ -265,7 +280,7 @@ fun SongRow(track: Track, queue: List<Track>, modifier: Modifier = Modifier) {
         if (track.duration > 0) {
             Text(timecode(track.duration), color = design.dim, fontSize = 11.sp)
         }
-        LucideIcon(Lucide.Play, design.accent, Modifier.size(16.dp))
+        LucideIcon(dev.mcmusic.app.ui.Lucide.Play, design.accent, Modifier.size(16.dp))
     }
 }
 
@@ -277,7 +292,7 @@ fun AlbumTile(album: AlbumSummary, modifier: Modifier = Modifier, onClick: () ->
             .width(132.dp)
             .clip(RoundedCornerShape(design.tileRadius))
             .clickable { onClick() },
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = androidx.compose.foundation.Arrangement.spacedBy(6.dp),
     ) {
         Cover(
             url = album.coverId?.let { "${Api.server}/api/tracks/$it/cover" }.orEmpty(),
@@ -304,8 +319,8 @@ fun ArtistTile(artist: ArtistSummary, modifier: Modifier = Modifier, onClick: ()
             .mcSurface(RoundedCornerShape(50), tint = design.accentSoft)
             .clickable { onClick() }
             .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = androidx.compose.foundation.alignment.CenterVertically,
+        horizontalArrangement = androidx.compose.foundation.Arrangement.spacedBy(8.dp),
     ) {
         Cover(
             url = artist.coverId?.let { "${Api.server}/api/tracks/$it/cover" }.orEmpty(),
@@ -334,15 +349,15 @@ fun ListenerCard(listener: Listener, modifier: Modifier = Modifier) {
                 runCatching { uriHandler.openUri(listener.profileUrl) }
             }
             .padding(design.gap),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(design.gap),
+        verticalAlignment = androidx.compose.foundation.alignment.CenterVertically,
+        horizontalArrangement = androidx.compose.foundation.Arrangement.spacedBy(design.gap),
     ) {
         Cover(
             url = listener.coverUrl,
             shape = RoundedCornerShape(design.tileRadius),
             modifier = Modifier.size(58.dp),
         )
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Column(Modifier.weight(1f), verticalArrangement = androidx.compose.foundation.Arrangement.spacedBy(3.dp)) {
             Text(
                 text = listener.username.ifBlank { "someone" },
                 color = design.accent,
@@ -367,8 +382,8 @@ fun ListenerCard(listener: Listener, modifier: Modifier = Modifier) {
             )
             Row(
                 modifier = Modifier.padding(top = 3.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = androidx.compose.foundation.alignment.CenterVertically,
+                horizontalArrangement = androidx.compose.foundation.Arrangement.spacedBy(8.dp),
             ) {
                 Pill(if (listener.listening) "listening" else "paused", listener.listening)
                 val duration = track?.duration ?: 0.0
@@ -381,14 +396,6 @@ fun ListenerCard(listener: Listener, modifier: Modifier = Modifier) {
                 }
             }
         }
-    }
-}
-
-/** Shared by Home and Search. */
-@Composable
-fun ListenerList(users: List<Listener>, modifier: Modifier = Modifier) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(LocalDesign.current.gap)) {
-        users.forEach { ListenerCard(it) }
     }
 }
 

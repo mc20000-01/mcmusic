@@ -11,20 +11,18 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,8 +32,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -43,8 +39,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.kyant.backdrop.backdrops.layerBackdrop
-import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import dev.mcmusic.app.ui.design.LocalBackdrop
 import dev.mcmusic.app.ui.design.LocalDesign
 import dev.mcmusic.app.ui.design.McDesign
@@ -55,19 +49,18 @@ import dev.mcmusic.app.playback.Playback
 import dev.mcmusic.app.ui.screens.AdminScreen
 import dev.mcmusic.app.ui.screens.DownloadsScreen
 import dev.mcmusic.app.ui.screens.HomeScreen
-import dev.mcmusic.app.ui.screens.LibraryScreen
 import dev.mcmusic.app.ui.screens.PlayerScreen
 import dev.mcmusic.app.ui.screens.SearchScreen
 import dev.mcmusic.app.ui.screens.SettingsScreen
 
 enum class Tab(val label: String, @param:DrawableRes val icon: Int) {
-    Home("Home", Lucide.House),
-    Search("Search", Lucide.Search),
-    Player("Player", Lucide.Play),
-    Library("Library", Lucide.Library),
-    Downloads("Downloads", Lucide.Download),
-    Settings("Settings", Lucide.Settings),
-    Admin("Admin", Lucide.User),
+    Home("Home", 21001), // house
+    Search("Search", 20995), // search
+    Player("Player", 20990), // play
+    Library("Library", 20985), // library
+    Downloads("Downloads", 20980), // download
+    Settings("Settings", 20975), // settings
+    Admin("Admin", 20970), // user
 }
 
 /**
@@ -232,6 +225,12 @@ private fun MiniPlayer(onOpen: () -> Unit, modifier: Modifier = Modifier) {
 @Composable
 private fun IosShell(tab: Tab, onTab: (Tab) -> Unit) {
     Box(Modifier.fillMaxSize()) {
+        Stage(
+            Modifier
+                .fillMaxSize()
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding(),
+        )
         TabContent(tab)
         MiniPlayer(
             onOpen = { onTab(Tab.Player) },
@@ -239,7 +238,7 @@ private fun IosShell(tab: Tab, onTab: (Tab) -> Unit) {
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
                 .padding(horizontal = 12.dp)
-                .padding(bottom = 92.dp),
+                .padding(bottom = 96.dp),
         )
         IosTabBar(
             tab = tab,
@@ -258,7 +257,7 @@ private fun IosTabBar(tab: Tab, onTab: (Tab) -> Unit, modifier: Modifier = Modif
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .mcSurface(RoundedCornerShape(32.dp), tint = design.palette.bg.copy(alpha = 0.18f))
+            .mcSurface(RoundedCornerShape(32.dp), tint = design.palette.bg.copy(alpha = 0.16f))
             .padding(horizontal = 6.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -267,7 +266,7 @@ private fun IosTabBar(tab: Tab, onTab: (Tab) -> Unit, modifier: Modifier = Modif
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(22.dp))
+                    .clip(RoundedCornerShape(24.dp))
                     .clickable { onTab(entry) }
                     .padding(vertical = 4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -275,21 +274,21 @@ private fun IosTabBar(tab: Tab, onTab: (Tab) -> Unit, modifier: Modifier = Modif
             ) {
                 Box(
                     modifier = Modifier
-                        .size(width = 42.dp, height = 27.dp)
-                        .clip(RoundedCornerShape(14.dp))
+                        .size(width = 44.dp, height = 29.dp)
+                        .clip(RoundedCornerShape(16.dp))
                         .then(if (selected) Modifier.background(design.accentSoft) else Modifier),
                     contentAlignment = Alignment.Center,
                 ) {
                     LucideIcon(
                         icon = entry.icon,
                         tint = if (selected) design.accent else design.dim,
-                        modifier = Modifier.size(21.dp),
+                        modifier = Modifier.size(22.dp),
                     )
                 }
                 Text(
                     text = entry.label,
                     color = if (selected) design.accent else design.dim,
-                    fontSize = 9.sp,
+                    fontSize = 10.sp,
                     fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
                     textAlign = TextAlign.Center,
                     maxLines = 1,
@@ -305,7 +304,10 @@ private fun IosTabBar(tab: Tab, onTab: (Tab) -> Unit, modifier: Modifier = Modif
 private fun OneUiShell(tab: Tab, onTab: (Tab) -> Unit) {
     val design = LocalDesign.current
     Column(Modifier.fillMaxSize()) {
-        Box(Modifier.weight(1f)) { TabContent(tab) }
+        Stage(
+            Modifier.weight(1f),
+        )
+        TabContent(tab)
         MiniPlayer(onOpen = { onTab(Tab.Player) }, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
         Row(
             modifier = Modifier
@@ -328,7 +330,7 @@ private fun OneUiShell(tab: Tab, onTab: (Tab) -> Unit) {
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .clip(RoundedCornerShape(14.dp))
+                        .clip(RoundedCornerShape(16.dp))
                         .clickable { onTab(entry) }
                         .padding(vertical = 2.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -336,22 +338,22 @@ private fun OneUiShell(tab: Tab, onTab: (Tab) -> Unit) {
                 ) {
                     Box(
                         modifier = Modifier
-                            .width(46.dp)
-                            .height(30.dp)
-                            .clip(RoundedCornerShape(15.dp))
+                            .width(48.dp)
+                            .height(32.dp)
+                            .clip(RoundedCornerShape(18.dp))
                             .then(if (selected) Modifier.background(design.accentSoft) else Modifier),
                         contentAlignment = Alignment.Center,
                     ) {
                         LucideIcon(
                             icon = entry.icon,
                             tint = if (selected) design.accent else design.dim,
-                            modifier = Modifier.size(22.dp),
+                            modifier = Modifier.size(24.dp),
                         )
                     }
                     Text(
                         text = entry.label,
                         color = if (selected) design.accent else design.dim,
-                        fontSize = 10.sp,
+                        fontSize = 11.sp,
                         fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                         maxLines = 1,
                     )
@@ -361,7 +363,7 @@ private fun OneUiShell(tab: Tab, onTab: (Tab) -> Unit) {
     }
 }
 
-/** Palette wash behind everything: what the glass has to refract. */
+/** Palette wash behind everything: two soft glows + gradient background. */
 @Composable
 private fun Stage(modifier: Modifier, design: McDesign) {
     val palette = design.palette
@@ -374,14 +376,14 @@ private fun Stage(modifier: Modifier, design: McDesign) {
             ),
         )
         drawCircle(
-            color = palette.accent.copy(alpha = if (palette.dark) 0.20f else 0.16f),
-            radius = size.minDimension * 0.55f,
-            center = Offset(size.width * 0.15f, size.height * 0.10f),
+            color = palette.accent.copy(alpha = if (palette.dark) 0.14f else 0.10f),
+            radius = size.minDimension * 0.52f,
+            center = Offset(size.width * 0.18f, size.height * 0.16f),
         )
         drawCircle(
-            color = palette.accent.copy(alpha = if (palette.dark) 0.10f else 0.08f),
-            radius = size.minDimension * 0.45f,
-            center = Offset(size.width * 0.95f, size.height * 0.45f),
+            color = palette.accent.copy(alpha = if (palette.dark) 0.08f else 0.06f),
+            radius = size.minDimension * 0.42f,
+            center = Offset(size.width * 0.82f, size.height * 0.52f),
         )
     }
 }

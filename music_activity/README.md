@@ -42,9 +42,14 @@ ROTUR_TOKEN=... .venv/bin/python -m music_activity.demo
 # automated acceptance checks against the live API
 ROTUR_TOKEN=... .venv/bin/python -m music_activity.demo --selftest
 
-# real server state (run beside the Flask service)
+# legacy: one fixed account, beside the Flask service
 MCMUSIC_USER_ID=1 ROTUR_TOKEN=... .venv/bin/python -m music_activity.bridge
 ```
+
+The server posts Rotur activity from each signed-in account over its own
+session; `bridge.py` predates that and only watches a single account. Do not run
+both for the same account — they share the `mcmusic` activity id and overwrite
+each other. `deploy/music-activity.service` has been removed for that reason.
 
 `bridge.py` polls `playback` every 2 s, detects track/play/seek/queue changes and
 feeds the manager. It does not import Flask and only reads the sqlite database.

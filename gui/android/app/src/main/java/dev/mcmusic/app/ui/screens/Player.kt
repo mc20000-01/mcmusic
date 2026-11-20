@@ -1,7 +1,7 @@
 package dev.mcmusic.app.ui.screens
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
+import androidx.compose.foundation.Background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.scrollBy
@@ -28,12 +28,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -54,8 +56,6 @@ import dev.mcmusic.app.ui.ScreenTitle
 import dev.mcmusic.app.ui.design.LocalDesign
 import dev.mcmusic.app.ui.design.mcSurface
 import dev.mcmusic.app.ui.timecode
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 @Composable
@@ -81,423 +81,204 @@ fun PlayerScreen() {
         dragOffset = 0f
     }
 
-    fun dragBy(index: Int, dy: Float) {
-        dragOffset += dy
-        val center = rowCenter(index) ?: return
-        val target = listState.nearestQueueIndex(center + dragOffset) ?: index
-        dragTarget = target
-        // Let a long queue be dragged past the visible rows.
-        val info = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "queue-$index" } ?: return
-        val top = info.offset + dragOffset
-        val edge = info.size * 1.2f
-        when {
-            top < listState.layoutInfo.viewportStartOffset + edge -> scope.launch { listState.scrollBy(-info.size / 2f) }
-            top + info.size > listState.layoutInfo.viewportEndOffset - edge -> scope.launch { listState.scrollBy(info.size / 2f) }
-        }
+    fun dragRow(index: Int, x: Float) {
+        if (dragIndex == null) return
+        val delta = x - rowCenter(dragIndex)
+        val newIndex = dragIndex + roundSign(delta / design.gap)
+        dragTarget = newIndex.coerceAtLeast(0).coerceAtMost(queue.size - 1)
+        dragOffset = delta
     }
 
-    fun endDrag() {
-        val from = dragIndex
-        val to = dragTarget
+    fun endDrag(x: Float) {
+        if (dragIndex == null) return
+        val targetX = x - (design.screenPadding + 10.dp)
+        val nearest = queue?.indices?.firstOrNull { i -> i >= dragTarget - 1 && i <= dragTarget + 1 } ?: dragTarget
+        Playback.reorderQueue(dragIndex, nearest)
         dragIndex = null
+        dragTarget = 0
         dragOffset = 0f
-        if (from != null && from != to) Playback.move(from, to)
     }
 
-    // The controller does not push position updates; poll while this page is open.
-    LaunchedEffect(state.track?.id, state.playing) {
-        while (true) {
-            Playback.tick()
-            delay(500)
-        }
-    }
+    // Signed helpers
+    fun roundSign(x: Float): Int = if (x > 0.5f) 1 else if (x < -0.5f) -1 else 0
 
-    val displayPosition = scrub?.let { (it * state.duration).toLong() } ?: state.position
-    val fraction = if (state.duration > 0) state.position.toFloat() / state.duration else 0f
+    // Queue — the rows you can drag
+    val queue = state.queue?.mapNotNull { it } ?: emptyList()
 
-    LazyColumn(
-        state = listState,
-        contentPadding = PaddingValues(
-            start = design.screenPadding,
-            end = design.screenPadding,
-            top = 12.dp,
-            bottom = 150.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(design.gap),
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(design.palette.bg),
     ) {
-        item { ScreenTitle("Player", "Streaming from ${Api.server.removePrefix("https://").removePrefix("http://")}") }
-
-        state.error?.let { message ->
-            item {
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .mcSurface(RoundedCornerShape(16.dp), tint = design.accent.copy(alpha = 0.12f))
-                        .padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Playback stopped", color = design.fg, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                        Text(message, color = design.dim, fontSize = 12.sp)
-                    }
-                    Text(
-                        "Dismiss",
-                        color = design.accent,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.clickable { Playback.clearError() },
-                    )
-                }
-            }
-        }
-
-        item {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .mcSurface(RoundedCornerShape(design.cardRadius), tint = design.accent.copy(alpha = 0.08f))
-                    .padding(horizontal = 20.dp, vertical = 24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                Platter(
-                    trackId = state.track?.id,
-                    spinning = state.playing,
+        // Header: track cover + title + time + seek bar
+        Cover(
+            url = "${Api.server}/api/tracks/${state.track?.id}/cover",
+            shape = RoundedCornerShape(design.tileRadius),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp),
+            fallback = design.accentSoft,
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp, 20.dp),
+            verticalArrangement = androidx.compose.foundation.Arrangement.spacedBy(12.dp),
+        ) {
+            Row(horizontalAlignment = androidx.compose.foundation.alignment.Start) {
+                Text(
+                    state.track?.title ?: "Nothing playing",
+                    color = design.fg,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 1,
                 )
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    state.track?.artist ?: "unknown artist",
+                    color = design.dim,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 1,
+                )
+            }
+            Row(horizontalAlignment = androidx.compose.foundation.alignment.Start) {
+                if (state.track?.duration > 0) {
                     Text(
-                        text = state.track?.title ?: "Nothing queued",
-                        color = design.fg,
-                        fontSize = 21.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        textAlign = TextAlign.Center,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        text = listOfNotNull(
-                            state.track?.artist?.takeIf { it.isNotBlank() },
-                            state.track?.album?.takeIf { it.isNotBlank() },
-                        ).joinToString(" · ").ifBlank {
-                            "Pick a track in Library and it plays here"
-                        },
+                        timecode(state.position),
                         color = design.dim,
-                        fontSize = 13.sp,
-                        textAlign = TextAlign.Center,
+                        fontSize = 12.sp,
                     )
-                }
-
-                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Slider(
-                        value = if (state.duration > 0) {
-                            (scrub ?: fraction).coerceIn(0f, 1f)
-                        } else 0f,
-                        onValueChange = { scrub = it },
-                        onValueChangeFinished = {
-                            scrub?.let { Playback.seekFraction(it) }
-                            scrub = null
-                        },
-                        enabled = state.duration > 0,
-                        colors = SliderDefaults.colors(
-                            thumbColor = design.accent,
-                            activeTrackColor = design.accent,
-                            inactiveTrackColor = design.palette.line.copy(alpha = 0.5f),
-                        ),
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        timecode(state.duration - state.position),
+                        color = design.dim,
+                        fontSize = 12.sp,
                     )
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(timecode(displayPosition / 1000.0), color = design.dim, fontSize = 11.sp)
-                        Text(
-                            if (state.duration > 0) timecode(state.duration / 1000.0) else "--:--",
-                            color = design.dim,
-                            fontSize = 11.sp,
-                        )
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    TransportButton(
-                        icon = Lucide.Shuffle,
-                        description = if (state.shuffle) "shuffle on" else "shuffle",
-                        active = state.shuffle,
-                        onClick = { Playback.toggleShuffle() },
-                    )
-                    TransportButton(
-                        icon = Lucide.SkipBack,
-                        description = "previous track",
-                        onClick = { Playback.previous() },
-                    )
-                    RoundControl(
-                        playing = state.playing,
-                        buffering = state.buffering,
-                        onClick = { Playback.toggle() },
-                    )
-                    TransportButton(
-                        icon = Lucide.SkipForward,
-                        description = "next track",
-                        onClick = { Playback.next() },
-                    )
-                    TransportButton(
-                        icon = Lucide.Repeat,
-                        description = if (state.repeat) "repeat on" else "repeat",
-                        active = state.repeat,
-                        onClick = { Playback.cycleRepeat() },
-                    )
-                }
-
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (state.track != null) {
-                        Pill(if (state.playing) "playing" else "paused", state.playing)
-                        Text(
-                            "track ${state.index + 1} of ${state.queue.size}",
-                            color = design.dim,
-                            fontSize = 12.sp,
-                        )
-                    }
                 }
             }
-        }
-
-        if (state.queue.isEmpty()) {
-            item {
-                EmptyState(
-                    icon = Lucide.Play,
-                    title = "Nothing playing yet",
-                    body = "Open Library and tap a track — it streams from your server, keeps playing in the background and shows up in the notification.",
-                    actionLabel = null,
-                    onAction = {},
+            // Seek bar
+            if (state.duration > 0) {
+                Slider(
+                    value = if (state.duration > 0) (state.position.toFloat() / state.duration).coerceIn(0f, 1f) else 0f,
+                    onValueChange = scrub = it,
+                    // thumbColor = design.accent,
+                    // trackColor = design.accent,
+                    colors = SliderDefaults.colors(
+                        thumbColor = design.accent,
+                        trackColor = design.accent.copy(alpha = 0.3f),
+                    ),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 )
             }
-        } else {
-            item(key = "upnext") {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        "Up next",
-                        color = design.fg,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Text(
-                        if (dragIndex != null) "move to ${dragTarget + 1}" else "hold the grip to reorder",
-                        color = if (dragIndex != null) design.accent else design.dim,
-                        fontSize = 11.sp,
-                    )
-                }
-            }
-            itemsIndexed(state.queue, key = { index, _ -> "queue-$index" }) { index, track ->
-                val lifted = dragIndex == index
-                QueueRow(
-                    track = track,
-                    playing = index == state.index,
-                    offsetY = if (lifted) dragOffset else 0f,
-                    lifted = lifted,
-                    onClick = { Playback.play(state.queue, index) },
-                    handle = if (state.queue.size > 1) {
-                        Modifier.pointerInput(index) {
-                            detectDragGesturesAfterLongPress(
-                                onDragStart = { startDrag(index) },
-                                onDrag = { change, amount ->
-                                    change.consume()
-                                    dragIndex?.let { dragBy(it, amount.y) }
-                                },
-                                onDragEnd = { endDrag() },
-                                onDragCancel = { endDrag() },
+            // Queue viewer
+            if (queue.isNotEmpty()) {
+                SectionLabel("Queue")
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    contentPadding = androidx.compose.foundation.Arrangement.space(design.gap),
+                    verticalArrangement = androidx.compose.foundation.Arrangement.spacedBy(design.gap),
+                ) { index ->
+                    val qtrack = queue[index]
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(if (listState.firstVisibleItemIndex <= index && index <= listState.lastVisibleItemItemIndex) design.accentSoft else Color.Transparent)
+                            .clickable { Playback.play(queue, index) }
+                            .padding(vertical = 6.dp, horizontal = 12.dp),
+                        verticalAlignment = androidx.compose.foundation.alignment.CenterVertically,
+                        horizontalArrangement = androidx.compose.foundation.Arrangement.start,
+                    ) {
+                        Cover(
+                            url = "${Api.server}/api/tracks/${qtrack.id}/cover",
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.size(36.dp),
+                            fallback = design.accentSoft,
+                        )
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                            Text(qtrack.title, color = design.fg, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                            Text(
+                                text = qtrack.artist.ifBlank { "unknown" },
+                                color = design.dim,
+                                fontSize = 10.sp,
+                                maxLines = 1,
                             )
                         }
-                    } else {
-                        Modifier
-                    },
+                        if (index == state.queue?.indexOfFirst { it.id == state.track?.id }) {
+                            LucideIcon(Lucide.Check, design.accent, Modifier.size(14.dp))
+                                .align(Alignment.End)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Mini controls at bottom: prev, play/pause, next
+        MiniPlayer(onOpen = { }) {
+            Cover(
+                url = "${Api.server}/api/tracks/${state.track?.id}/cover",
+                shape = RoundedCornerShape(if (design.ios) 10.dp else 8.dp),
+                modifier = Modifier.size(44.dp),
+                fallback = design.accentSoft,
+            )
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                Text(
+                    state.track?.title ?: "Nothing playing",
+                    color = design.fg,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                )
+                Text(
+                    if (state.buffering) "buffering…" else state.track?.artist.ifBlank { "unknown artist" } ?: "",
+                    color = design.dim,
+                    fontSize = 11.sp,
+                    maxLines = 1,
                 )
             }
-        }
-    }
-}
-
-/** Queue row under the nearest visible row centre, used to pick a drop slot. */
-private fun LazyListState.nearestQueueIndex(centerY: Float): Int? =
-    layoutInfo.visibleItemsInfo
-        .filter { (it.key as? String)?.startsWith("queue-") == true }
-        .minByOrNull { abs(it.offset + it.size / 2f - centerY) }
-        ?.let { (it.key as String).removePrefix("queue-").toIntOrNull() }
-
-@Composable
-private fun QueueRow(
-    track: Track,
-    playing: Boolean,
-    offsetY: Float = 0f,
-    lifted: Boolean = false,
-    onClick: () -> Unit,
-    handle: Modifier = Modifier,
-) {
-    val design = LocalDesign.current
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .graphicsLayer {
-                translationY = offsetY
-                scaleX = if (lifted) 1.02f else 1f
-                scaleY = if (lifted) 1.02f else 1f
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spaceBetween,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(design.palette.bg)
+                        .clickable { Playback.prev() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    LucideIcon(Lucide.SkipBack, design.dim, Modifier.size(16.dp))
+                }
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(design.accent)
+                        .clickable { Playback.toggle() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    LucideIcon(
+                        icon = if (state.playing) Lucide.Pause else Lucide.Play,
+                        tint = design.palette.bg2,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(design.palette.bg)
+                        .clickable { Playback.next() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    LucideIcon(Lucide.SkipForward, design.dim, Modifier.size(16.dp))
+                }
             }
-            .clip(RoundedCornerShape(16.dp))
-            .clickable { onClick() }
-            .background(
-                when {
-                    lifted -> design.accent.copy(alpha = 0.2f)
-                    playing -> design.accent.copy(alpha = 0.1f)
-                    else -> design.palette.bg2.copy(alpha = 0.25f)
-                },
-            )
-            .padding(horizontal = 14.dp, vertical = 11.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) {
-            if (playing) {
-                LucideIcon(Lucide.Play, design.accent, Modifier.size(12.dp))
-            } else {
-                Text("${track.id}", color = design.dim, fontSize = 10.sp, textAlign = TextAlign.Center)
-            }
-        }
-        Column(Modifier.weight(1f)) {
-            Text(
-                track.title,
-                color = if (playing) design.accent else design.fg,
-                fontSize = 14.sp,
-                fontWeight = if (playing) FontWeight.SemiBold else FontWeight.Normal,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(track.artist.ifBlank { "unknown artist" }, color = design.dim, fontSize = 11.sp, maxLines = 1)
-        }
-        if (track.duration > 0) {
-            Text(timecode(track.duration), color = design.dim, fontSize = 11.sp)
-        }
-        Box(
-            modifier = Modifier
-                .size(34.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(if (lifted) design.accent.copy(alpha = 0.22f) else design.palette.bg2.copy(alpha = 0.35f))
-                .then(handle),
-            contentAlignment = Alignment.Center,
-        ) {
-            LucideIcon(
-                icon = Lucide.GripVertical,
-                tint = if (lifted) design.accent else design.dim,
-                modifier = Modifier.size(16.dp),
-            )
-        }
-    }
-}
-
-@Composable
-private fun TransportButton(
-    icon: Int,
-    description: String,
-    active: Boolean = false,
-    onClick: () -> Unit,
-) {
-    val design = LocalDesign.current
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(50))
-            .background(if (active) design.accent.copy(alpha = 0.18f) else design.palette.bg2.copy(alpha = 0.3f))
-            .clickable(onClickLabel = description) { onClick() }
-            .padding(horizontal = 12.dp, vertical = 9.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        LucideIcon(
-            icon = icon,
-            tint = if (active) design.accent else design.dim,
-            modifier = Modifier.size(20.dp),
-            contentDescription = description,
-        )
-    }
-}
-
-@Composable
-private fun RoundControl(playing: Boolean, buffering: Boolean, onClick: () -> Unit) {
-    val design = LocalDesign.current
-    Box(
-        modifier = Modifier
-            .size(64.dp)
-            .clip(CircleShape)
-            .background(design.accent)
-            .clickable { onClick() },
-        contentAlignment = Alignment.Center,
-    ) {
-        LucideIcon(
-            icon = when {
-                buffering -> Lucide.LoaderCircle
-                playing -> Lucide.Pause
-                else -> Lucide.Play
-            },
-            tint = design.palette.bg2,
-            modifier = Modifier.size(28.dp),
-            contentDescription = when {
-                buffering -> "buffering"
-                playing -> "pause"
-                else -> "play"
-            },
-        )
-    }
-}
-
-/** A record: palette-tinted sleeve, cover as the label, grooves drawn as rings. */
-@Composable
-private fun Platter(trackId: Int?, spinning: Boolean) {
-    val design = LocalDesign.current
-    val coverUrl = trackId?.let { "${Api.server}/api/tracks/$it/cover" }.orEmpty()
-    Box(
-        modifier = Modifier
-            .size(196.dp)
-            .clip(CircleShape),
-        contentAlignment = Alignment.Center,
-    ) {
-        Canvas(Modifier.size(196.dp)) {
-            drawCircle(design.palette.bg2)
-            val rings = 14
-            for (i in 1..rings) {
-                val r = size.minDimension / 2f * (i / (rings + 1f))
-                drawCircle(
-                    color = design.palette.line.copy(alpha = 0.45f),
-                    radius = r,
-                    style = Stroke(width = 1.dp.toPx()),
-                )
-            }
-            drawCircle(
-                color = design.accent.copy(alpha = 0.18f),
-                radius = size.minDimension / 2f,
-                style = Stroke(width = 2.dp.toPx()),
-            )
-            drawCircle(color = design.palette.bg2, radius = 6.dp.toPx(), center = center)
-            drawCircle(
-                color = design.dim.copy(alpha = 0.6f),
-                radius = 2.dp.toPx(),
-                center = Offset(center.x, center.y),
-            )
-        }
-        Cover(
-            url = coverUrl,
-            shape = CircleShape,
-            modifier = Modifier.size(104.dp),
-            fallback = design.palette.bg2,
-        )
-        if (spinning) {
-            Box(
-                Modifier
-                    .size(20.dp)
-                    .clip(CircleShape)
-                    .background(design.accent.copy(alpha = 0.9f)),
-            )
         }
     }
 }

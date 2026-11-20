@@ -1,12 +1,16 @@
 package dev.mcmusic.app.ui.screens
 
+import androidx.compose.foundation.Background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -23,14 +27,16 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.PasswordFieldValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.mcmusic.app.data.Account
@@ -47,6 +53,7 @@ import dev.mcmusic.app.ui.ScreenTitle
 import dev.mcmusic.app.ui.SectionLabel
 import dev.mcmusic.app.ui.design.LocalDesign
 import dev.mcmusic.app.ui.design.mcSurface
+import dev.mcmusic.app.ui.timecode
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -78,207 +85,136 @@ fun SearchScreen() {
         val name = query.trim()
         if (name.isEmpty() || busy) return
         scope.launch {
-            busy = true
-            message = null
-            Api.now(name).fold(
-                onSuccess = { found ->
-                    profile = found
-                    if (found == null) message = "\"$name\" is not on this server"
-                },
-                onFailure = { message = it.message ?: "could not reach the server" },
-            )
-            busy = false
+            loadMusic(name)
         }
     }
 
-    fun open(kind: String, name: String) {
-        scope.launch {
-            busy = true
-            val result = if (kind == "album") Api.albumTracks(name) else Api.artistTracks(name)
-            result.fold(
-                onSuccess = { tracks ->
-                    if (tracks.isEmpty()) message = "Nothing found for \"$name\"" else collection = Collection(name, kind, tracks)
-                },
-                onFailure = { message = it.message },
-            )
-            busy = false
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        directory = Api.listening().getOrDefault(emptyList())
-    }
-    LaunchedEffect(me, query) {
-        if (me != null && query.isNotBlank()) {
-            delay(300)
-            loadMusic(query.trim())
-        } else {
-            results = null
-        }
-    }
-
-    val needle = query.trim().lowercase()
-    val matches = if (needle.isEmpty()) emptyList() else directory.filter { listener ->
-        listener.username.lowercase().contains(needle) ||
-            listener.track?.title?.lowercase()?.contains(needle) == true ||
-            listener.track?.artist?.lowercase()?.contains(needle) == true
-    }
-
-    LazyColumn(
-        contentPadding = PaddingValues(
-            start = design.screenPadding,
-            end = design.screenPadding,
-            top = 12.dp,
-            bottom = 124.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(design.gap),
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = androidx.compose.foundation.Arrangement.spacedBy(12.dp),
     ) {
-        item { ScreenTitle("Search", "Tracks, albums, artists and listeners") }
-
-        item {
-            OutlinedTextField(
-                value = query,
-                onValueChange = {
-                    query = it
-                    profile = null
-                    message = null
-                },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(if (design.ios) 18.dp else 20.dp),
-                placeholder = { Text("track, album, artist or username", fontSize = 14.sp) },
-                singleLine = true,
-                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 15.sp),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { if (me == null) lookUp() }),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = design.accent,
-                    unfocusedBorderColor = design.hairline,
-                    focusedTextColor = design.fg,
-                    unfocusedTextColor = design.fg,
-                    cursorColor = design.accent,
-                    focusedPlaceholderColor = design.dim,
-                    unfocusedPlaceholderColor = design.dim,
-                    focusedContainerColor = design.palette.bg2.copy(alpha = 0.35f),
-                    unfocusedContainerColor = design.palette.bg2.copy(alpha = 0.35f),
-                ),
+        SearchBar(query = query, onChange = { query = it }, onSubmit = { lookUp() })
+        if (busy) {
+            item { CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontal)) }
+        }
+        if (message != null) {
+            item { Text(message, color = design.dim, fontSize = 13.sp, align = androidx.compose.ui.Alignment.CenterHorizontally) }
+        }
+        if (results != null && results.tracks.isNotEmpty()) {
+            SectionLabel("Search results")
+            items(results.tracks, key = { it.id }) { track ->
+                SongRow(track)
+            }
+        }
+        if (results != null && results.albums.isNotEmpty()) {
+            SectionLabel("Albums")
+            items(results.albums, key = { it.album }) { album ->
+                AlbumTile(album) {
+                    scope.launch {
+                        Api.albumTracks(album.album).onSuccess { tracks ->
+                            if (tracks.isNotEmpty()) Playback.play(tracks, 0)
+                        }
+                    }
+                }
+            }
+        }
+        if (results != null && results.artists.isNotEmpty()) {
+            SectionLabel("Artists")
+            items(results.artists, key = { it.id }) { artist ->
+                ArtistTile(artist) {
+                    scope.launch {
+                        Api.artistTracks(artist.id).onSuccess { tracks ->
+                            if (tracks.isNotEmpty()) Playback.play(tracks, 0)
+                        }
+                    }
+                }
+            }
+        }
+        if (results == null || results.tracks.isEmpty()) {
+            EmptyState(
+                icon = dev.mcmusic.app.ui.Lucide.Search,
+                title = "Nothing found",
+                body = "Try a different search term or check your spelling.",
+                actionLabel = "Search again",
+                onAction = { reload++ },
             )
         }
+    }
+}
 
-        if (busy) item { Text("Looking…", color = design.dim, fontSize = 13.sp) }
-
-        message?.let { text ->
-            item {
-                EmptyState(icon = Lucide.Search, title = "Nothing found", body = text)
+@Composable
+fun SearchBar(
+    query: String,
+    onChange: (String) -> Unit,
+    onSubmit: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val design = LocalDesign.current
+    OutlinedTextField(
+        value = query,
+        onValueChange = onChange,
+        keyboardOptions = KeyboardOptions(
+            imeAction = ImeAction.search,
+            keyboardType = KeyboardType.text,
+        ),
+        keyboardActions = KeyboardActions.onSearch { onSubmit },
+        placeholder = { Text("Search for songs, albums, or artists", color = design.dim, fontSize = 13.sp) },
+        modifier = modifier
+            .fillMaxWidth()
+            .mcSurface(RoundedCornerShape(16.dp))
+            .padding(16.dp),
+        textStyle = design.fg.copy(alpha = 0.9f),
+        dividerColor = design.line,
+        label = { Text("Search", color = design.dim) },
+        trailingIcon = {
+            if (query.isNotEmpty()) {
+                Icon(
+                    painter = androidx.compose.ui.graphics.painterResource(
+                        dev.mcmusic.app.R.drawable.ic_lucide_close
+                    ),
+                    tint = design.dim,
+                    modifier = Modifier.size(18.dp),
+                    contentDescription = null,
+                    onClick = { query = ""; onChange("") },
+                )
+            } else {
+                Modifier.empty
             }
+        },
+    )
+}
+
+/** A library row used by the home feed, search results and collection pages. */
+@Composable
+fun SongRow(track: Track, modifier: Modifier = Modifier) {
+    val design = LocalDesign.current
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .mcSurface(RoundedCornerShape(design.cardRadius))
+            .clickable { Playback.play(Track.empty().copy(id = track.id, title = track.title, artist = track.artist), 0) }
+            .padding(10.dp),
+        verticalAlignment = androidx.compose.foundation.alignment.CenterVertically,
+        horizontalArrangement = androidx.compose.foundation.Arrangement.spacedBy(10.dp),
+    ) {
+        Cover(
+            url = "${Api.server}/api/tracks/${track.id}/cover",
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.size(42.dp),
+            fallback = design.accentSoft,
+        )
+        Column(Modifier.weight(1f), verticalArrangement = androidx.compose.foundation.Arrangement.spacedBy(2.dp)) {
+            Text(track.title, color = design.fg, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+            Text(
+                text = listOf(track.artist, track.album).filter { it.isNotBlank() }.joinToString(" · "),
+                color = design.dim,
+                fontSize = 11.sp,
+                maxLines = 1,
+            )
         }
-
-        val open = collection
-        if (open != null) {
-            item { ScreenBack({ collection = null }, "Search") }
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(open.title, color = design.fg, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                        Text(
-                            "${open.kind} · ${open.tracks.size} track${if (open.tracks.size == 1) "" else "s"}",
-                            color = design.dim,
-                            fontSize = 12.sp,
-                        )
-                    }
-                    Box(
-                        Modifier
-                            .clip(RoundedCornerShape(50))
-                            .mcSurface(RoundedCornerShape(50), tint = design.accent)
-                            .clickable { Playback.play(open.tracks, 0) }
-                            .padding(horizontal = 14.dp, vertical = 8.dp),
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            LucideIcon(Lucide.Play, design.palette.bg2, Modifier.size(13.dp))
-                            Text("Play all", color = design.palette.bg2, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                }
-            }
-            items(open.tracks, key = { "c-${it.id}" }) { track -> SongRow(track, open.tracks) }
-        } else {
-            val found = results
-            if (me != null && needle.isNotEmpty() && found != null) {
-                if (found.albums.isNotEmpty()) {
-                    item { SectionLabel("Albums") }
-                    item {
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(design.gap)) {
-                            items(found.albums, key = { "a-${it.album}" }) { album ->
-                                AlbumTile(album) { open("album", album.album) }
-                            }
-                        }
-                    }
-                }
-                if (found.artists.isNotEmpty()) {
-                    item { SectionLabel("Artists") }
-                    item {
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(found.artists, key = { "r-${it.artist}" }) { artist ->
-                                ArtistTile(artist) { open("artist", artist.artist) }
-                            }
-                        }
-                    }
-                }
-                if (found.tracks.isNotEmpty()) {
-                    item { SectionLabel("Tracks") }
-                    items(found.tracks.take(40), key = { "t-${it.id}" }) { track ->
-                        SongRow(track, found.tracks)
-                    }
-                }
-                if (found.tracks.isEmpty() && found.albums.isEmpty() && found.artists.isEmpty()) {
-                    item {
-                        EmptyState(
-                            icon = Lucide.Search,
-                            title = "No music matches",
-                            body = "Nothing in the library matches \"${query.trim()}\".",
-                        )
-                    }
-                }
-            }
-
-            if (me == null && needle.isNotEmpty()) {
-                item {
-                    EmptyState(
-                        icon = Lucide.User,
-                        title = "Sign in to search the library",
-                        body = "Only account holders can search tracks, albums and artists. Listener lookups work signed out.",
-                        actionLabel = "Look up \"${query.trim()}\"",
-                        onAction = { lookUp() },
-                    )
-                }
-            }
-
-            profile?.let { found ->
-                item { SectionLabel("Profile") }
-                item { ListenerCard(found) }
-            }
-
-            if (needle.isNotEmpty()) {
-                item { SectionLabel("Active listeners") }
-                if (matches.isEmpty()) {
-                    item {
-                        EmptyState(
-                            icon = Lucide.Search,
-                            title = "No one matches",
-                            body = "Listener search looks at the last three minutes. Search a full username to open a profile.",
-                            actionLabel = "Look up \"${query.trim()}\"",
-                            onAction = { lookUp() },
-                        )
-                    }
-                }
-                items(matches, key = { it.username }) { ListenerCard(it) }
-            } else if (directory.isNotEmpty()) {
-                item { SectionLabel("Listening now") }
-                items(directory.take(10), key = { it.username }) { ListenerCard(it) }
-            }
+        if (track.duration > 0) {
+            Text(timecode(track.duration), color = design.dim, fontSize = 11.sp)
         }
+        LucideIcon(dev.mcmusic.app.ui.Lucide.Play, design.accent, Modifier.size(16.dp))
     }
 }

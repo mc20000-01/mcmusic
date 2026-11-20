@@ -55,7 +55,9 @@ class Manager:
         for sink in self.sinks:
             name = sink.__class__.__name__
             try:
-                if state.track is None:
+                # A paused track is not "listening": leaving the rich activity
+                # up makes the profile claim a song is playing when it is not.
+                if state.track is None or not state.playing:
                     sink.clear()
                 else:
                     sink.publish(state)

@@ -158,13 +158,50 @@ class RoturActivityStateTest(unittest.TestCase):
         self.assertFalse(state["ready"])
         self.assertIn("Sign in", state["reason"])
 
-    def test_a_live_session_or_server_token_is_ready(self):
+    def test_a_live_session_is_ready(self):
         with unittest.mock.patch.object(rotur, "configured", return_value=True), \
                 unittest.mock.patch.object(rotur, "ROTUR_TOKEN", ""):
             self.assertTrue(rotur._activity_state(valid_session=True)["ready"])
+
+    def test_server_token_only_serves_its_own_account(self):
         with unittest.mock.patch.object(rotur, "configured", return_value=True), \
-                unittest.mock.patch.object(rotur, "ROTUR_TOKEN", "server-token"):
-            self.assertTrue(rotur._activity_state(valid_session=False)["ready"])
+                unittest.mock.patch.object(rotur, "ROTUR_TOKEN", "server-token"), \
+                unittest.mock.patch.object(rotur, "_server_token_owner", return_value="owner-id"), \
+                unittest.mock.patch.object(rotur, "_account_rotur_id", return_value="owner-id"):
+            self.assertTrue(rotur._activity_state(valid_session=False, uid=1)["ready"])
+        with unittest.mock.patch.object(rotur, "configured", return_value=True), \
+                unittest.mock.patch.object(rotur, "ROTUR_TOKEN", "server-token"), \
+                unittest.mock.patch.object(rotur, "_server_token_owner", return_value="owner-id"), \
+                unittest.mock.patch.object(rotur, "_account_rotur_id", return_value="friend-id"):
+            state = rotur._activity_state(valid_session=False, uid=3)
+        self.assertFalse(state["ready"])
+        self.assertIn("another account", state["reason"])
+
+
+class RoturActivityTokenTest(unittest.TestCase):
+    """The shared key must never post activity for a different Rotur account."""
+
+    def test_server_token_is_only_used_by_its_owner(self):
+        with unittest.mock.patch.object(rotur, "ROTUR_TOKEN", "server-token"), \
+                unittest.mock.patch.object(rotur, "_server_token_owner", return_value="owner-id"), \
+                unittest.mock.patch.object(rotur, "_account_rotur_id", return_value="owner-id"):
+            self.assertEqual(rotur._activity_token(1), ("server-token", ""))
+
+    def test_another_account_gets_its_own_token(self):
+        with unittest.mock.patch.object(rotur, "ROTUR_TOKEN", "server-token"), \
+                unittest.mock.patch.object(rotur, "_server_token_owner", return_value="owner-id"), \
+                unittest.mock.patch.object(rotur, "_account_rotur_id", return_value="friend-id"), \
+                unittest.mock.patch.object(rotur, "_live_token", return_value=("friend-token", "")):
+            self.assertEqual(rotur._activity_token(3), ("friend-token", ""))
+
+    def test_another_account_without_a_session_gets_no_server_token(self):
+        with unittest.mock.patch.object(rotur, "ROTUR_TOKEN", "server-token"), \
+                unittest.mock.patch.object(rotur, "_server_token_owner", return_value="owner-id"), \
+                unittest.mock.patch.object(rotur, "_account_rotur_id", return_value="friend-id"), \
+                unittest.mock.patch.object(rotur, "_live_token", return_value=(None, "expired")):
+            token, problem = rotur._activity_token(3)
+        self.assertIsNone(token)
+        self.assertIn("expired", problem)
 
 
 if __name__ == "__main__":

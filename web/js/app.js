@@ -201,6 +201,23 @@ class App {
       if (!document.hidden) this._checkForUpdates();
     });
 
+    // The Rotur socket lives on the server, so an activity outlives the tab.
+    // Clear it when the tab that was actually playing goes away; a remote
+    // controller closing must leave the speaker's activity alone.
+    window.addEventListener("pagehide", () => {
+      const el = Player.el;
+      if (!this.set?.rotur_activity || !el || el.paused) return;
+      try {
+        fetch("/api/auth/rotur/activity", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ playing: false }),
+          keepalive: true,
+        });
+      } catch (e) { /* best effort while the page unloads */ }
+    });
+
     window.addEventListener("online", () => this._net(true));
     window.addEventListener("offline", () => this._net(false));
     this._net(navigator.onLine);

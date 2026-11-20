@@ -1,31 +1,63 @@
 package dev.mcmusic.app.ui
 
 import androidx.annotation.DrawableRes
-import androidx.compose.foundation.background
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.mcmusic.app.data.Account
+import dev.mcmusic.app.data.Api
+import dev.mcmusic.app.data.Listener
+import dev.mcmusic.app.data.Track
+import dev.mcmusic.app.playback.Playback
+import dev.mcmusic.app.ui.EmptyState
+import dev.mcmusic.app.ui.Lucide
+import dev.mcmusic.app.ui.LucideIcon
+import dev.mcmusic.app.ui.ScreenBack
+import dev.mcmusic.app.ui.ScreenTitle
+import dev.mcmusic.app.ui.SectionLabel
 import dev.mcmusic.app.ui.design.LocalDesign
 import dev.mcmusic.app.ui.design.mcSurface
 
@@ -53,7 +85,7 @@ fun ScreenBack(onBack: () -> Unit, label: String) {
     val design = LocalDesign.current
     Row(
         modifier = Modifier
-            .clip(RoundedCornerShape(50))
+            .clip(RoundedCornerShape(8.dp))
             .clickable { onBack() }
             .padding(vertical = 4.dp, horizontal = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -65,16 +97,13 @@ fun ScreenBack(onBack: () -> Unit, label: String) {
 }
 
 @Composable
-fun SectionLabel(text: String, modifier: Modifier = Modifier, @DrawableRes icon: Int? = null) {
+fun SectionLabel(text: String, modifier: Modifier = Modifier) {
     val design = LocalDesign.current
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        if (icon != null) {
-            LucideIcon(icon, design.dim, Modifier.size(13.dp))
-        }
         Text(
             text = text.uppercase(),
             color = design.dim,
@@ -89,11 +118,15 @@ fun SectionLabel(text: String, modifier: Modifier = Modifier, @DrawableRes icon:
 fun LiveDot(active: Boolean, size: Dp = 8.dp) {
     val design = LocalDesign.current
     Box(
-        Modifier
-            .size(size)
-            .clip(CircleShape)
-            .background(if (active) design.accent else design.dim.copy(alpha = 0.5f)),
-    )
+        modifier = Modifier.size(size).clip(CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier.size(4).clip(CircleShape),
+            contentAlignment = Alignment.Center,
+            backgroundColor = if (active) design.accent else design.dim.copy(alpha = 0.5f),
+        )
+    }
 }
 
 @Composable
@@ -116,10 +149,10 @@ fun Pill(text: String, active: Boolean = true, modifier: Modifier = Modifier) {
 fun Segmented(options: List<String>, selectedIndex: Int, onSelect: (Int) -> Unit) {
     val design = LocalDesign.current
     Row(
-        Modifier
+        modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(if (design.ios) 14.dp else 16.dp))
-            .background(design.palette.bg2.copy(alpha = if (design.palette.dark) 0.55f else 0.75f))
+            .clip(RoundedCornerShape(16.dp))
+            .background(design.palette.bg2.copy(alpha = if (design.palette.dark) 0.5f else 0.7f))
             .padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
@@ -128,11 +161,10 @@ fun Segmented(options: List<String>, selectedIndex: Int, onSelect: (Int) -> Unit
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(if (design.ios) 34.dp else 36.dp)
-                    .clip(RoundedCornerShape(if (design.ios) 11.dp else 13.dp))
+                    .height(38.dp)
+                    .clip(RoundedCornerShape(14.dp))
                     .then(
-                        if (selected) Modifier.background(if (design.ios) design.accent else design.accentSoft)
-                        else Modifier,
+                        if (selected) Modifier.background(design.accentSoft) else Modifier,
                     )
                     .clickable { onSelect(index) },
                 contentAlignment = Alignment.Center,
@@ -166,31 +198,23 @@ fun EmptyState(
         modifier = Modifier
             .fillMaxWidth()
             .mcSurface(RoundedCornerShape(design.cardRadius))
-            .padding(horizontal = 22.dp, vertical = 30.dp),
+            .padding(horizontal = 24.dp, vertical = 36.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Box(
-            Modifier
-                .size(48.dp)
-                .clip(CircleShape)
-                .background(design.accentSoft),
+            modifier = Modifier.size(56.dp).clip(CircleShape),
             contentAlignment = Alignment.Center,
         ) {
-            LucideIcon(icon, design.accent, Modifier.size(24.dp))
+            LucideIcon(icon, design.accent, Modifier.size(28.dp))
         }
-        Text(title, color = design.fg, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
-        Text(body, color = design.dim, fontSize = 13.sp, lineHeight = 18.sp, textAlign = TextAlign.Center)
+        Text(title, color = design.fg, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
+        Text(body, color = design.dim, fontSize = 14.sp, lineHeight = 20.sp, textAlign = TextAlign.Center)
         if (actionLabel != null && onAction != null) {
             Box(
-                Modifier
-                    .padding(top = 4.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(design.accent)
-                    .clickable { onAction() }
-                    .padding(horizontal = 18.dp, vertical = 9.dp),
+                modifier = Modifier.padding(top = 6.dp).clip(RoundedCornerShape(50)).background(design.accent).clickable { onAction() }.padding(horizontal = 24.dp, vertical = 12.dp),
             ) {
-                Text(actionLabel, color = design.palette.bg2, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text(actionLabel, color = design.palette.bg2, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -204,8 +228,8 @@ fun SettingDivider(modifier: Modifier = Modifier) {
 }
 
 /**
- * One settings line: icon, title, explanation and an optional control on the
- * right. Rows are the whole settings vocabulary, so every section reads the same.
+ * One settings line: icon, title, explanation and an optional control on the right.
+ * Rows are the whole settings vocabulary, so every section reads the same.
  */
 @Composable
 fun SettingRow(
@@ -223,16 +247,13 @@ fun SettingRow(
         modifier = Modifier
             .fillMaxWidth()
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(vertical = 11.dp),
+            .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (icon != null) {
             Box(
-                Modifier
-                    .size(30.dp)
-                    .clip(RoundedCornerShape(9.dp))
-                    .background(if (danger) Color(0xFFE5484D).copy(alpha = 0.14f) else design.accentSoft),
+                modifier = Modifier.size(30.dp).clip(RoundedCornerShape(9.dp)).background(if (danger) Color(0xFFE5484D).copy(alpha = 0.14f) else design.accentSoft),
                 contentAlignment = Alignment.Center,
             ) {
                 LucideIcon(icon, iconTint, Modifier.size(15.dp))
@@ -276,6 +297,7 @@ fun SettingSwitch(
     }
 }
 
+/** Timecode helper. */
 fun timecode(seconds: Double): String {
     val s = seconds.coerceAtLeast(0.0).toInt()
     return "${s / 60}:${(s % 60).toString().padStart(2, '0')}"
