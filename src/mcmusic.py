@@ -392,11 +392,13 @@ def pwa_icon_maskable():
 
 @app.get("/apple-touch-icon.png")
 def pwa_apple_touch():
+    """Apple touch icon for the installed PWA."""
     return send_file(os.path.join(STATIC_DIR, "apple-touch-icon.png"), mimetype="image/png")
 
 
 @app.get("/icon-<int:size>.png")
 def pwa_icon_png(size):
+    """Generated PWA icon at the requested size."""
     p = os.path.join(STATIC_DIR, f"icon-{size}.png")
     if not os.path.exists(p):
         return jsonify(error="not found"), 404
@@ -411,6 +413,7 @@ APP_DIST = os.path.join(PROJECT_DIR, "apps")
 
 @app.get("/apps/<path:name>")
 def app_build(name):
+    """Serve a published APK/desktop artifact."""
     base = os.path.realpath(APP_DIST)
     path = os.path.realpath(os.path.join(base, name))
     if not path.startswith(base + os.sep) or not os.path.isfile(path):
@@ -479,7 +482,22 @@ window.__MC__ = {
 </body></html>"""
 
 
+UI_DIR = os.path.join(WEB_DIR, "ui")
+
+
+def _ui_response():
+    """The v3 client (ui/ → web/ui/): one bundle for every app route."""
+    path = os.path.join(UI_DIR, "index.html")
+    if not os.path.exists(path):
+        return _shell_response()
+    with open(path, encoding="utf-8") as fh:
+        body = fh.read()
+    return Response(body, mimetype="text/html",
+                    headers={"Cache-Control": "no-cache, must-revalidate"})
+
+
 def _shell_response():
+    """Read the legacy shell page from disk."""
     body = (INDEX_SHELL
             .replace("__ROTUR_APP__", json.dumps(ROTUR_APP))
             .replace("__ROTUR_SCOPE__", json.dumps(ROTUR_SCOPE))
@@ -492,7 +510,30 @@ def _shell_response():
 
 @app.get("/")
 def index():
+    """Serve the v3 client's index.html."""
+    return _ui_response()
+
+
+@app.get("/legacy")
+def legacy_ui():
+    """The previous vanilla-JS player, kept reachable until the v3 client
+    reaches feature parity (playlists, rooms, admin, offline downloads)."""
     return _shell_response()
+
+
+@app.get("/auth")
+@app.get("/upload")
+@app.get("/artists")
+@app.get("/artist/<path:rest>")
+@app.get("/set/<path:rest>")
+@app.get("/playlists")
+@app.get("/playlist/<path:rest>")
+@app.get("/settings")
+@app.get("/devices")
+@app.get("/admin")
+def ui_route(rest=None):
+    """Client-side routes: refresh on a deep link must return the app."""
+    return _ui_response()
 
 
 @app.get("/reset")
@@ -509,6 +550,7 @@ def reset_page():
 
 # ---------------------------------------------------------------- boot
 def boot():
+    """Application factory: config, routes, background jobs."""
     with app.app_context():
         c = _db()
         ensure_schema(c)

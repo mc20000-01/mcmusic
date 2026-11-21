@@ -1,0 +1,13 @@
+
+.library-img {
+    border-radius: 10px;
+}
+
+.library-card {
+    display: flex;
+    flex-direction: column;
+}
+
+.library-link {
+    padding: 5px 12px 5px 5px !important;
+}

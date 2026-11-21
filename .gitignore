@@ -146,3 +146,8 @@ Liquid-Glass-Android/
 
 # The one signing key every build uses; without it updates cannot install.
 !keystore/mcmusic.p12
+
+# v3 client build
+ui/node_modules/
+ui/dist/
+web/ui/

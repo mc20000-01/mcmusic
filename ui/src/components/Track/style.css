@@ -1,0 +1,73 @@
+
+.track {
+    display: flex;
+    align-items: center;
+    padding: 5px;
+    gap: 5px;
+
+    height: 30px;
+
+    &.border {
+        border: 1px solid var(--back-border);
+        border-radius: 10px;
+    }
+    
+    &:has(.grip) {
+        padding-left: 10px;
+    }
+    
+    > .name {
+        padding: 5px;
+        
+        flex: 1;
+
+        text-align: left;
+    }
+    
+    > .left {
+        position: relative;
+        display: flex;
+        align-items: center;
+        min-width: 15px;
+
+        > .track-number {
+            position: absolute;
+            right: 0;
+            text-align: right;
+        }
+
+        > svg {
+            display: none;
+            position: absolute;
+            right: 0;
+        }
+
+        > .equaliser {
+            display: none;
+            width: 15px;
+        }
+    }
+    
+    &:hover > .left {
+        > .track-number {
+            display: none;
+        }
+        > svg {
+            display: unset;
+        }
+        > .equaliser {
+            display: none;
+        }
+    }
+    &.playing > .left {
+        > .track-number {
+            display: none;
+        }
+        > svg {
+            display: none;
+        }
+        > .equaliser {
+            display: flex;
+        }
+    }
+}

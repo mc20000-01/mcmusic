@@ -9,6 +9,12 @@ the mcmusic SQLite database.
 
 Usage:
   python tools/fix_music_db.py [--music-dir /path/to/music] [--data-dir /path/to/data] [--dry-run] [--embed] [--rename]
+  python tools/fix_music_db.py --fix-albums [--dry-run]
+
+--fix-albums rewrites album tags in place so each track carries its real album
+(from the <track>.yt.json sidecar the downloader wrote) instead of the name of
+the playlist folder it was downloaded into. Tracks that have no album of their
+own get the song name, per library convention.
 """
 
 import argparse
@@ -22,7 +28,7 @@ from datetime import datetime
 
 try:
     from mutagen import File
-    from mutagen.id3 import ID3
+    from mutagen.id3 import ID3, ID3NoHeaderError, TIT2, TPE1, TALB, TCON, TDRC, TRCK
     from mutagen.mp4 import MP4
     from mutagen.flac import FLAC
 except ImportError:
@@ -66,25 +72,136 @@ def read_tags(path):
         return {}
 
 
+def read_yt_album(path):
+    """The real album the downloader recorded in <track>.yt.json, if any."""
+    sidecar = os.path.splitext(path)[0] + ".yt.json"
+    try:
+        with open(sidecar, encoding="utf-8") as fh:
+            data = json.load(fh)
+        album = data.get("album") if isinstance(data, dict) else None
+        return str(album).strip() if album else ""
+    except (OSError, ValueError):
+        return ""
+
+
+def set_album_tag(path, album):
+    """Set only the album tag, leaving every other tag/stream untouched."""
+    ext = os.path.splitext(path)[1].lower()
+    try:
+        if ext == ".mp3":
+            try:
+                f = ID3(path)
+            except ID3NoHeaderError:
+                f = ID3()
+            f["TALB"] = TALB(encoding=3, text=album)
+            f.save(path)
+        elif ext in (".m4a", ".aac", ".mp4"):
+            f = MP4(path)
+            if f.tags is None:
+                f.add_tags()
+            f.tags["\xa9alb"] = [album]
+            f.save()
+        elif ext == ".flac":
+            f = FLAC(path)
+            f["album"] = [album]
+            f.save()
+        else:
+            f = File(path, easy=True)
+            if f is None:
+                return False
+            if f.tags is None:
+                f.add_tags()
+            f["album"] = [album]
+            f.save()
+        return True
+    except Exception as e:
+        print(f"  [WARN] could not write album to {path}: {e}")
+        return False
+
+
+def pick_album(root, title, current, yt_album):
+    """Real album if we know one; otherwise the song name -- never the folder.
+
+    The folder a download lands in is the playlist it came from, so it only
+    counts as an album value when it has already been replaced by something
+    that is not the folder name.
+    """
+    folder = os.path.basename(root)
+    if yt_album:
+        return yt_album
+    current = (current or "").strip()
+    if current and current != folder:
+        return current
+    return (title or "").strip()
+
+
+def fix_albums(music_dir, db_path, dry_run):
+    """Rewrite album tags/DB rows so they are the track's real album."""
+    conn = sqlite3.connect(db_path)
+    checked = fixed = kept = failed = db_updated = 0
+    shown = 0
+    for root, dirs, files in os.walk(music_dir):
+        dirs[:] = [d for d in dirs if not d.startswith(".")]
+        for f in sorted(files):
+            if os.path.splitext(f)[1].lower() not in AUDIO_EXTS:
+                continue
+            full = os.path.join(root, f)
+            rel = os.path.relpath(full, music_dir)
+            checked += 1
+            existing = read_tags(full)
+            _track_no, song_name, _ext = parse_filename(f)
+            title = (existing.get("title") or song_name or "").strip()
+            current = (existing.get("album") or "").strip()
+            desired = pick_album(root, title, current, read_yt_album(full))
+            if not desired or desired == current:
+                kept += 1
+                continue
+            if shown < 20:
+                print(f"  ALBUM: {rel}\n         {current or '(none)'} -> {desired}")
+                shown += 1
+                if shown == 20:
+                    print("  ... (further changes are counted, not listed)")
+            if dry_run:
+                fixed += 1
+                continue
+            if not set_album_tag(full, desired):
+                failed += 1
+                continue
+            fixed += 1
+            try:
+                cur = conn.execute(
+                    "update tracks set album=?, mtime=? where path=?",
+                    (desired, os.path.getmtime(full), rel),
+                )
+                db_updated += max(cur.rowcount, 0)
+            except sqlite3.Error as e:
+                print(f"  [WARN] db row for {rel} not updated: {e}")
+    if not dry_run:
+        conn.commit()
+    conn.close()
+    verb = "would fix" if dry_run else "fixed"
+    print(f"\nAlbums: {checked} file(s) checked, {fixed} {verb}, {kept} already correct, "
+          f"{failed} failed, {db_updated} db row(s) updated." +
+          ("\nDRY RUN: no files were modified." if dry_run else ""))
+    return fixed, failed
+
+
 def write_tags(path, metadata):
     """Embed metadata into audio file tags."""
     ext = os.path.splitext(path)[1].lower()
     try:
         if ext == ".mp3":
-            f = ID3(path)
-            if "title" in metadata:
-                f.add_or_set_mutable("TIT2", metadata["title"])
-            if "artist" in metadata:
-                f.add_or_set_mutable("TPE1", metadata["artist"])
-            if "album" in metadata:
-                f.add_or_set_mutable("TALB", metadata["album"])
-            if "genre" in metadata:
-                f.add_or_set_mutable("TCON", metadata["genre"])
-            if "date" in metadata:
-                f.add_or_set_mutable("TDRC", metadata["date"])
-            if "tracknumber" in metadata:
-                f.add_or_set_mutable("TRCK", str(metadata["tracknumber"]))
-            f.save()
+            try:
+                f = ID3(path)
+            except ID3NoHeaderError:
+                f = ID3()
+            for frame, key in (("TIT2", "title"), ("TPE1", "artist"), ("TALB", "album"),
+                               ("TCON", "genre"), ("TDRC", "date"), ("TRCK", "tracknumber")):
+                if key in metadata:
+                    cls = {"TIT2": TIT2, "TPE1": TPE1, "TALB": TALB,
+                           "TCON": TCON, "TDRC": TDRC, "TRCK": TRCK}[frame]
+                    f[frame] = cls(encoding=3, text=str(metadata[key]))
+            f.save(path)
         elif ext in (".m4a", ".aac"):
             f = MP4(path)
             if "title" in metadata:
@@ -141,7 +258,7 @@ def sync_database(conn, music_dir, updates):
         title = upd["title"]
         track_no = upd.get("track_no")
         artist = upd.get("artist", "Unknown Artist")
-        album = upd.get("album", os.path.basename(os.path.dirname(new_path)) or "Unknown Album")
+        album = upd.get("album") or title
 
         conn.execute(
             """insert into tracks(path,title,artist,album,track_no,genre,year,duration,mtime,added)
@@ -173,6 +290,9 @@ def main():
     ap.add_argument("--no-sidecar", action="store_true", help="Disable sidecar metadata files")
     ap.add_argument("--rename", action="store_true", help="Rename files on disk to <Song Name>.ext")
     ap.add_argument("--db-only", action="store_true", help="Only sync database, don't touch files")
+    ap.add_argument("--fix-albums", action="store_true",
+                    help="Rewrite album tags in place: real album from the .yt.json sidecar, "
+                         "else the song name (never the playlist folder the track was downloaded into)")
     args = ap.parse_args()
 
     music_dir = os.path.abspath(args.music_dir)
@@ -185,6 +305,10 @@ def main():
     if not os.path.exists(db_path):
         print(f"ERROR: database not found: {db_path}")
         sys.exit(1)
+
+    if args.fix_albums:
+        fix_albums(music_dir, db_path, args.dry_run)
+        return
 
     write_sidecar = args.sidecar and not args.no_sidecar
 
@@ -228,7 +352,7 @@ def main():
                 "track_number": track_no,
                 "title": existing.get("title") or song_name,
                 "artist": existing.get("artist") or "Unknown Artist",
-                "album": existing.get("album") or os.path.basename(root) or "Unknown Album",
+                "album": existing.get("album") or read_yt_album(full) or song_name,
                 "genre": existing.get("genre") or "",
                 "year": existing.get("date") or "",
             }

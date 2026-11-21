@@ -11,6 +11,7 @@ bp = Blueprint("channel_api", __name__)
 
 
 def _require_bot_or_admin():
+    """Guard for the channel endpoints: bot token or admin session."""
     if is_bot_request():
         return None
     uid = _auth_uid()
@@ -23,6 +24,7 @@ def _require_bot_or_admin():
 
 
 def _serialize(ch):
+    """JSON shape of a channel row."""
     return {
         "id": ch["id"], "platform": ch["platform"], "channel_id": ch["channel_id"],
         "guild_id": ch["guild_id"], "mode": ch["mode"],
@@ -33,6 +35,7 @@ def _serialize(ch):
 
 @bp.get("/api/channels")
 def channels_list():
+    """Channels linked to the bot, for the dashboard."""
     guard = _require_bot_or_admin()
     if guard:
         return guard
@@ -50,6 +53,7 @@ def channels_list():
 
 @bp.post("/api/channels")
 def channels_bind():
+    """Bind a chat channel to a music control channel."""
     guard = _require_bot_or_admin()
     if guard:
         return guard
@@ -77,6 +81,7 @@ def channels_bind():
 
 @bp.delete("/api/channels/<int:cid>")
 def channels_unbind(cid):
+    """Remove a channel binding."""
     guard = _require_bot_or_admin()
     if guard:
         return guard
@@ -89,6 +94,7 @@ def channels_unbind(cid):
 
 @bp.get("/api/channels/<int:cid>/state")
 def channel_state(cid):
+    """Current playback/queue state of one channel."""
     guard = _require_bot_or_admin()
     if guard:
         return guard
@@ -104,6 +110,7 @@ def channel_state(cid):
 
 @bp.post("/api/channels/<int:cid>/dashboard")
 def channel_dashboard(cid):
+    """Update the dashboard/now-playing message for a channel."""
     guard = _require_bot_or_admin()
     if guard:
         return guard

@@ -313,7 +313,7 @@
   position: absolute;
   inset: 0 0 auto;
   height: 1px;
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 70%, #fff), transparent);
+  background: var(--line-2);
   opacity: 0.45;
 }
 
@@ -515,9 +515,7 @@
 /* ══ Liquid Glass shell ══════════════════════════════════════════════════ */
 
 body {
-  background:
-    radial-gradient(110% 80% at 50% -10%, color-mix(in srgb, var(--hero) 30%, transparent), transparent 62%),
-    var(--tint);
+  background: var(--tint);
   transition: background 400ms var(--ease);
 }
 

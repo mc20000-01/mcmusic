@@ -1,0 +1,14 @@
+
+.content-not-allowed {
+    gap: 20px !important;
+    
+    > p {
+        color: var(--text-dim);
+        font-size: var(--font-size-medium);
+
+        &.small {
+            margin-top: -5px;
+            font-size: var(--font-size-smaller);
+        }
+    }
+}

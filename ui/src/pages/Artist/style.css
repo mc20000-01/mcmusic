@@ -1,0 +1,5 @@
+/* Artist hero: artwork and name side by side, bottom-aligned. */
+.content-artist .top {
+    align-items: flex-end;
+    gap: 20px;
+}

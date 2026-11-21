@@ -1,0 +1,60 @@
+
+#topbar {
+    display: flex;
+    
+    min-height: 50px;
+
+    border-bottom: 1px solid var(--back-border);
+
+    padding: 0 5px;
+
+    > div {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+
+        &.left {
+            width: 100px;
+            
+            > .logo {
+                margin-left: 10px;
+            }
+        }
+        &.middle {
+            flex: 1;
+            justify-content: center;
+            gap: 5px;
+            
+            /* counteract left side lol */
+            margin-right: 100px;
+        }
+    }
+}
+
+.mobile {
+    #topbar {
+        padding: 0 10px;
+        align-items: unset;
+        
+        > .middle {
+            margin-right: 0;
+            width: 100%;
+            
+            > div:has(.search-bar) {
+                flex: 1;
+            }
+        }
+    }
+}
+
+/* On phones the account label and the extra action crowd the search field. */
+.mobile {
+    #topbar .user {
+        display: none;
+    }
+    .search-bar {
+        width: auto;
+        flex: 1;
+        min-width: 0;
+    }
+}

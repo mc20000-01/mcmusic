@@ -358,9 +358,7 @@ html[data-material="metal"] {
 [data-material="metal"] .tile,
 [data-material="metal"] .qk,
 [data-material="metal"] .login-card {
-  background-image:
-    linear-gradient(180deg, color-mix(in srgb, var(--fg) 10%, transparent), transparent 38%),
-    linear-gradient(135deg, color-mix(in srgb, var(--fg) 7%, transparent), transparent 45%);
+  background-image: none;
 }
 
 [data-material="solid"] .tile,

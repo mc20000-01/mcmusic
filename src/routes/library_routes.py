@@ -28,7 +28,10 @@ def _first(tags, key, default=""):
 def read_tags(full, rel):
     base = os.path.splitext(os.path.basename(rel))[0]
     title = re.sub(r"^\d+\s*-\s*", "", base)
-    album = os.path.basename(os.path.dirname(rel)) or "Unknown Album"
+    # Never derive the album from the folder: for downloads that is just the
+    # name of the playlist the track came from. A track with no album of its
+    # own falls back to the song name.
+    album = ""
     artist, track_no, genre, year, dur = "Unknown Artist", 0, "", "", 0.0
     try:
         f = mutagen.File(full, easy=True)
@@ -37,13 +40,14 @@ def read_tags(full, rel):
             tg = f.tags
             title = _first(tg, "title", title) or title
             artist = _first(tg, "artist", artist) or artist
-            album = _first(tg, "album", album) or album
+            album = _first(tg, "album")
             genre = _first(tg, "genre")
             year = _first(tg, "date")[:4]
             m = re.match(r"\d+", _first(tg, "tracknumber", "0"))
             track_no = int(m.group()) if m else 0
     except Exception:
         pass
+    album = album or title
     artist = re.sub(r"\s*-\s*Topic$", "", artist)
     return title, artist, album, track_no, genre, year, dur
 
@@ -98,6 +102,7 @@ def _track_path(tid):
 @bp.get("/api/tracks")
 @login_required
 def tracks():
+    """Paginated track list; `q` matches title, artist or album."""
     q = request.args.get("q", "").strip()
     limit = min(int(request.args.get("limit", 200)), 2000)
     off = int(request.args.get("offset", 0))
@@ -119,6 +124,7 @@ def tracks():
 @bp.get("/api/search")
 @login_required
 def search():
+    """Combined search over tracks, albums and artists for the v3 client."""
     q = request.args.get("q", "").strip()
     if not q:
         return jsonify(tracks=[], albums=[], artists=[])
@@ -147,6 +153,7 @@ def search():
 @bp.get("/api/albums")
 @login_required
 def albums():
+    """Album rows with track count and a cover id; the client maps these to album sets."""
     rows = _db().execute(
         "select album, artist, count(*) n, min(id) cover_id from tracks group by album order by album collate nocase"
     )
@@ -156,6 +163,7 @@ def albums():
 @bp.get("/api/album")
 @login_required
 def album():
+    """Tracks for one album name, ordered by disc/track number."""
     L = liked_ids(_db(), session["uid"])
     rows = _db().execute(
         "select * from tracks where album=? order by track_no, title", (request.args.get("name", ""),)
@@ -166,6 +174,7 @@ def album():
 @bp.get("/api/artists")
 @login_required
 def artists():
+    """Artists grouped by normalized key so spelling variants share one page."""
     # Grouped by artist_key so "Uraru" and "うらる" are one artist; the most
     # common spelling becomes the display name.
     rows = _db().execute(
@@ -182,6 +191,7 @@ def artists():
 @bp.get("/api/artist")
 @login_required
 def artist():
+    """Tracks credited to one artist, collaborations included."""
     L = liked_ids(_db(), session["uid"])
     # Collabs: a track credited "A, B" belongs to both artist pages. The key
     # also folds case, spacing and kana spelling variants together.
@@ -198,6 +208,7 @@ def artist():
 @bp.patch("/api/tracks/<int:tid>")
 @admin_required
 def track_patch(tid):
+    """Update mutable track fields (currently the explicit flag)."""
     d = request.get_json(silent=True) or {}
     if "explicit" in d:
         v = d["explicit"]
@@ -257,6 +268,7 @@ def track_delete(tid):
 @bp.get("/api/tracks/<int:tid>/stream")
 @login_required
 def stream(tid):
+    """Stream the audio file with range support so the player can seek."""
     p = _track_path(tid)
     if not p:
         return jsonify(error="not found"), 404
@@ -266,6 +278,7 @@ def stream(tid):
 @bp.get("/api/tracks/<int:tid>/sources")
 @login_required
 def track_sources(tid):
+    """YouTube sources recorded for a track (one row per download)."""
     rows = _db().execute(
         "select yt_id, url, title, added from track_sources where track_id=? order by added",
         (tid,),
@@ -276,6 +289,7 @@ def track_sources(tid):
 @bp.get("/api/tracks/<int:tid>/lyrics")
 @login_required
 def track_lyrics(tid):
+    """Stored or synced lyrics, fetched and cached on first request."""
     r = _db().execute(
         "select lyrics, lyrics_source, title, artist, album, duration from tracks where id=?", (tid,)
     ).fetchone()
@@ -296,6 +310,7 @@ def track_lyrics(tid):
 @bp.get("/api/tracks/<int:tid>/cover")
 @login_required
 def cover(tid):
+    """Embedded cover art for a track, with content-type sniffing."""
     p = _track_path(tid)
     c = read_cover(p) if p else None
     if not c:

@@ -2,13 +2,13 @@
   const SCRIPT = document.currentScript || Array.from(document.scripts).find(s => (s.src||'').includes('/static/embed/widgets.js'));
   const BASE = (SCRIPT && (SCRIPT.dataset.mcmusicBase || SCRIPT.getAttribute('data-mcmusic-base'))) || (SCRIPT ? new URL('.', SCRIPT.src).origin : location.origin);
   const THEMES = {
-    dusk:   { bg:'#1b1325', bg2:'#0e0a13', fg:'#f2edf7', dim:'#b9abc9', line:'#3e2b54', accent:'#b080ea' },
-    paper:  { bg:'#faf8f4', bg2:'#f2ebe4', fg:'#281f15', dim:'#5d4f41', line:'#baa997', accent:'#9a4b1d' },
-    ink:    { bg:'#1a1a1e', bg2:'#0d0d0f', fg:'#ededf7', dim:'#ababc9', line:'#3c3c44', accent:'#dadadd' },
-    tide:   { bg:'#142124', bg2:'#0a1012', fg:'#edf5f7', dim:'#abc3c9', line:'#2e4a52', accent:'#89cee1' },
-    copper: { bg:'#261812', bg2:'#130c09', fg:'#f7f0ed', dim:'#c9b4ab', line:'#573729', accent:'#eaa07b' },
-    forest: { bg:'#14241b', bg2:'#0a120e', fg:'#edf7f2', dim:'#abc9b9', line:'#2d533e', accent:'#79d8a5' },
-    rose:   { bg:'#24141c', bg2:'#120a0e', fg:'#f7edf2', dim:'#c9abba', line:'#532d40', accent:'#ea90b8' },
+    dusk:   { bg:'#0a0a0a', bg2:'#000000', fg:'#ffffff', dim:'#b3b3b3', line:'#262626', accent:'#ffffff' },
+    paper:  { bg:'#ffffff', bg2:'#f2f2f2', fg:'#0a0a0a', dim:'#555555', line:'#d4d4d4', accent:'#000000' },
+    ink:    { bg:'#111111', bg2:'#000000', fg:'#f5f5f5', dim:'#a3a3a3', line:'#2b2b2b', accent:'#ffffff' },
+    tide:   { bg:'#0d0d0d', bg2:'#000000', fg:'#ededed', dim:'#9c9c9c', line:'#242424', accent:'#e6e6e6' },
+    copper: { bg:'#141414', bg2:'#000000', fg:'#f7f7f7', dim:'#b0b0b0', line:'#2e2e2e', accent:'#ffffff' },
+    forest: { bg:'#0b0b0b', bg2:'#000000', fg:'#f0f0f0', dim:'#a8a8a8', line:'#272727', accent:'#fafafa' },
+    rose:   { bg:'#151515', bg2:'#000000', fg:'#f4f4f4', dim:'#b5b5b5', line:'#303030', accent:'#ffffff' },
   };
 
   /* Colour hooks a host page may set on the tag itself; anything declared out
@@ -29,11 +29,9 @@
      an offline draft can show the widgets before anyone is playing. */
   const DEMO_COVER = 'data:image/svg+xml,' + encodeURIComponent(
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">'
-    + '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">'
-    + '<stop offset="0" stop-color="#b080ea"/><stop offset="1" stop-color="#241a33"/></linearGradient></defs>'
-    + '<rect width="120" height="120" fill="url(#g)"/>'
-    + '<circle cx="60" cy="60" r="34" fill="#120d18" opacity=".5"/>'
-    + '<circle cx="60" cy="60" r="5" fill="#f2edf7"/></svg>');
+    + '<rect width="120" height="120" fill="#0a0a0a"/>'
+    + '<circle cx="60" cy="60" r="34" fill="none" stroke="#ffffff" stroke-width="2"/>'
+    + '<circle cx="60" cy="60" r="5" fill="#ffffff"/></svg>');
   const demoPayload = () => ({
     user: { username: 'demo' },
     listening: true,
@@ -64,8 +62,8 @@
   const sharedCSS = `
   :host{all:initial;display:block;font-family:var(--mc-font,Inter,system-ui,-apple-system,Segoe UI,sans-serif);color:var(--mc-fg);--mc-radius:18px;}
   *,*::before,*::after{box-sizing:border-box}
-  .card{position:relative;overflow:hidden;border-radius:var(--mc-radius);border:1px solid color-mix(in srgb,var(--mc-line) 70%, transparent);background:linear-gradient(180deg,color-mix(in srgb,var(--mc-bg) 92%, transparent),color-mix(in srgb,var(--mc-bg2) 96%, transparent));box-shadow:0 12px 30px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.08);backdrop-filter:blur(14px) saturate(140%);-webkit-backdrop-filter:blur(14px) saturate(140%);}
-  .glow{position:absolute;inset:-40% -20% auto auto;width:70%;height:140%;background:radial-gradient(circle at 30% 30%, var(--mc-accent-soft), transparent 60%);pointer-events:none;}
+  .card{position:relative;overflow:hidden;border-radius:var(--mc-radius);border:1px solid color-mix(in srgb,var(--mc-line) 70%, transparent);background:var(--mc-bg);box-shadow:0 12px 30px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.08);backdrop-filter:blur(14px) saturate(140%);-webkit-backdrop-filter:blur(14px) saturate(140%);}
+  .glow{position:absolute;inset:-40% -20% auto auto;width:70%;height:140%;background:none;pointer-events:none;}
   .row{position:relative;display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;padding:14px;}
   .cover{width:72px;height:72px;border-radius:14px;object-fit:cover;background:color-mix(in srgb,var(--mc-bg2) 80%, #000);border:1px solid color-mix(in srgb,var(--mc-line) 70%, transparent);box-shadow:0 8px 18px rgba(0,0,0,.25);}
   .meta{min-width:0}
@@ -78,23 +76,23 @@
   .dot.off{background:var(--mc-dim);box-shadow:none}
   a{color:inherit;text-decoration:none}
   .turn{grid-template-columns:auto 1fr;gap:16px}
-  .platter{position:relative;width:96px;height:96px;border-radius:50%;background:radial-gradient(circle at 50% 50%, #222 0 18%, #0b0b0b 19% 22%, #1a1a1a 23% 35%, #0f0f0f 36% 48%, #171717 49% 62%, #0d0d0d 63% 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08), 0 10px 24px rgba(0,0,0,.35);display:grid;place-items:center}
+  .platter{position:relative;width:96px;height:96px;border-radius:50%;background:#0d0d0d;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08), 0 10px 24px rgba(0,0,0,.35);display:grid;place-items:center}
   .platter::after{content:"";position:absolute;inset:10px;border-radius:50%;border:1px solid rgba(255,255,255,.05)}
   .disc{width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.2);box-shadow:0 0 0 4px rgba(0,0,0,.35)}
-  .spindle{position:absolute;width:8px;height:8px;border-radius:50%;background:linear-gradient(#fff,#999);box-shadow:0 0 0 2px rgba(0,0,0,.5)}
+  .spindle{position:absolute;width:8px;height:8px;border-radius:50%;background:#fff;box-shadow:0 0 0 2px rgba(0,0,0,.5)}
   .spin{animation:spin 4.5s linear infinite}
   .paused .spin{animation-play-state:paused}
   @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
-  .bar{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:999px;border:1px solid color-mix(in srgb,var(--mc-line) 70%, transparent);background:linear-gradient(180deg,color-mix(in srgb,var(--mc-bg) 90%, transparent),color-mix(in srgb,var(--mc-bg2) 96%, transparent));box-shadow:0 8px 20px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.08);backdrop-filter:blur(12px);min-width:0}
+  .bar{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:999px;border:1px solid color-mix(in srgb,var(--mc-line) 70%, transparent);background:var(--mc-bg);box-shadow:0 8px 20px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.08);backdrop-filter:blur(12px);min-width:0}
   .bar .cover{width:34px;height:34px;border-radius:10px}
   .bar .title{font-size:13px}.bar .sub{font-size:11px;margin-top:1px}
-  .badge{display:inline-flex;align-items:center;gap:8px;max-width:100%;padding:6px 10px;border-radius:999px;border:1px solid color-mix(in srgb,var(--mc-line) 70%, transparent);background:linear-gradient(180deg,color-mix(in srgb,var(--mc-bg) 90%, transparent),color-mix(in srgb,var(--mc-bg2) 96%, transparent));box-shadow:0 6px 16px rgba(0,0,0,.2);backdrop-filter:blur(10px)}
+  .badge{display:inline-flex;align-items:center;gap:8px;max-width:100%;padding:6px 10px;border-radius:999px;border:1px solid color-mix(in srgb,var(--mc-line) 70%, transparent);background:var(--mc-bg);box-shadow:0 6px 16px rgba(0,0,0,.2);backdrop-filter:blur(10px)}
   .badge .cover{width:22px;height:22px;border-radius:7px}
   .badge .txt{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .profile .cover{width:96px;height:96px;border-radius:18px}
   .profile .title{font-size:18px}
   .progress{margin-top:10px;height:4px;border-radius:999px;background:color-mix(in srgb,var(--mc-line) 55%, transparent);overflow:hidden}
-  .progress > i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--mc-accent),color-mix(in srgb,var(--mc-accent) 45%, #fff))}
+  .progress > i{display:block;height:100%;border-radius:inherit;background:var(--mc-accent)}
   .marquee{overflow:hidden;white-space:nowrap}
   .marquee span{display:inline-block;padding-left:100%;animation:mar 14s linear infinite}
   /* over-long text: the line is doubled and slides by exactly one copy so the

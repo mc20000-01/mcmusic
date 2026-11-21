@@ -54,7 +54,7 @@ object Widgets {
 
     private fun cornerDp(context: Context): Float {
         Prefs.init(context)
-        return if (DesignLanguage.from(Prefs.language) == DesignLanguage.Ios) 24f else 18f
+        return 18f
     }
 
     /** Rewrites every placed widget of both sizes. */

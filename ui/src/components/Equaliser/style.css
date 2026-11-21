@@ -1,0 +1,34 @@
+
+/*.equaliser {
+    display: flex;
+    align-items: flex-end;
+    gap: calc((var(--size) - (var(--size) / 7 * 4)) / 4);
+
+    width: var(--size);
+    height: var(--size);
+    
+    > .equaliser-line {
+        display: flex;
+        
+        background: var(--equaliser);
+        height: var(--size);
+        width: calc(var(--size) / 7);
+        animation: equaliserLine 1s ease-in-out infinite;
+        animation-delay: calc(var(--idx) * 0.3s);
+    }
+
+}
+
+@keyframes equaliserLine {
+    0% {
+        height: var(--size);
+    }
+
+    50% {
+        height: calc(var(--size) / 2);
+    }
+
+    100% {
+        height: var(--size);
+    }
+}*/

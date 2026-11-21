@@ -141,7 +141,7 @@ def public_profile(username):
 <meta name="twitter:description" content="{escape(desc)}">
 <meta name="twitter:image" content="{escape(cover_url)}">
 <style>
-:root{{color-scheme:dark;--bg:#0e0a13;--panel:#1b1325;--line:#3e2b54;--fg:#f2edf7;--dim:#b9abc9;--accent:#b080ea}}
+:root{{color-scheme:dark;--bg:#0e0a13;--panel:#1b1325;--line:#3e2b54;--fg:#f2edf7;--dim:#b9abc9;--accent:#ffffff}}
 *{{box-sizing:border-box}}body{{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 0,#241931 0,var(--bg) 55%);color:var(--fg);font:15px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;display:grid;place-items:center;padding:24px}}
 a{{color:inherit}}.card{{width:min(100%,430px);background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:18px;box-shadow:0 24px 80px #0008}}
 img{{width:100%;aspect-ratio:1;object-fit:cover;border-radius:15px;display:block;background:#241931}}
@@ -236,6 +236,7 @@ def _public_payload(username):
 
 @bp.get("/api/public/now/<username>")
 def public_now(username):
+    """Now-playing payload used by the web embeds and widgets."""
     payload = _public_payload(username)
     if not payload:
         return jsonify(error="not found"), 404, {"Access-Control-Allow-Origin": "*"}
@@ -311,69 +312,57 @@ def embed_info():
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>mcmusic embeds — live demo &amp; copy-paste widgets</title>
 <meta name="description" content="Live demos of every mcmusic embed widget, with copy-paste script tags, HTML tags and a basic CSS template.">
-<style>
-:root{--bg:#0e0a13;--fg:#f2edf7;--dim:#b9abc9;--line:#3e2b54;--accent:#b080ea;--ok:#79d8a5}
+<link rel="stylesheet" href="/static/ui/flufi-ui.css"><style>
+/* Monochrome embeds: pure black/white, no tinted surfaces. */
+:root{color-scheme:dark;--back:#000;--back-raised:#0a0a0a;--flat-hover:#161616;--prim:#0d0d0d;--prim-brighter:#111;--seco:#161616;--tert:#222;--tert-hover:#444;--accent:#fff;--accent-hover:#e6e6e6;--text:#ededed;--text-bright:#fff;--text-dim:#a3a3a3;--text-dark:#6b6b6b;--back-border:#222;--prim-border:#262626;--text-on-light:#000}
+/* Layout only. Colours, controls, tags and tables come from flufi-ui. */
 *,*::before,*::after{box-sizing:border-box}
-body{margin:0;font:15px/1.55 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--fg);
-  background:radial-gradient(1200px 500px at 80% -10%,#241931 0,transparent 60%),radial-gradient(900px 400px at -10% 10%,#1c1630 0,transparent 55%),var(--bg)}
-a{color:#d5c0f5}
+body{margin:0;font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--text);background:var(--back)}
+a{color:var(--accent)}
 .wrap{max-width:1120px;margin:0 auto;padding:26px 18px 70px}
 .hero{padding:12px 0 4px}
+section{margin-top:18px}
 .eyebrow{margin:0 0 8px;font:11px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
 h1{margin:0;font-size:clamp(27px,5vw,40px);letter-spacing:-.025em;line-height:1.1}
-h2{margin:0 0 4px;font-size:19px;letter-spacing:-.01em}
+h2{margin:0 0 4px;font-size:19px}
 h3{margin:0;font-size:15px}
-p{margin:8px 0;color:var(--dim)}
+p{margin:8px 0;color:var(--text-dim)}
 .lead{font-size:16px;max-width:64ch}
-em{color:#e3d7f7;font-style:normal}
+em{color:var(--text);font-style:normal}
 .pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
-.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;border:1px solid #3a2a56;background:#1a1329;color:#d9cfff;font-size:12px}
-section{margin-top:18px}
-.card{background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.02));border:1px solid color-mix(in srgb,var(--line) 85%,transparent);border-radius:18px;padding:16px;box-shadow:0 14px 32px rgba(0,0,0,.25)}
-.muted{color:var(--dim);font-size:13px}
-pre{margin:12px 0 0;background:#0b0813;border:1px solid #2e2444;border-radius:12px;padding:12px 13px;overflow:auto;color:#e9defd;
-  font:12.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;tab-size:2}
-code{font:12.5px ui-monospace,SFMono-Regular,Menlo,monospace;color:#e9defd;background:#181128;padding:1px 5px;border-radius:6px}
+.container{padding:16px}
+.muted{color:var(--text-dim);font-size:13px}
+pre{margin:12px 0 0;background:var(--prim);border:1px solid var(--prim-border);border-radius:6px;padding:12px 13px;overflow:auto;color:var(--text);font:12.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;tab-size:2}
+code{font:12.5px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--text);background:var(--seco);padding:1px 5px;border-radius:4px}
 pre code{background:none;padding:0}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
-button{font:inherit;background:var(--accent);color:#1a1026;border:0;border-radius:10px;padding:8px 13px;font-weight:650;cursor:pointer}
-button.secondary{background:#24183a;color:#e8dcff;border:1px solid #3a2a56;font-weight:600}
-button:active{transform:translateY(1px)}
-button.copied{background:var(--ok);color:#0b1a12}
 .controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(185px,100%),1fr));gap:12px;margin-top:14px}
-.field{display:flex;flex-direction:column;gap:5px;font-size:12px;letter-spacing:.02em;color:var(--dim)}
-input[type=text],input[type=number],select{font:inherit;font-size:14px;background:#120e1e;color:var(--fg);border:1px solid #352a4e;border-radius:10px;padding:8px 10px;width:100%}
-input[type=color]{width:44px;height:34px;padding:2px;background:#120e1e;border:1px solid #352a4e;border-radius:9px;cursor:pointer}
-input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px;vertical-align:-2px;margin:0 4px 0 0}
-.inline{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--dim);cursor:pointer}
+.field{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--text-dim)}
+.inline{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-dim);cursor:pointer}
 .gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(315px,100%),1fr));gap:14px;margin-top:12px}
-.w{display:flex;flex-direction:column;gap:8px;background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.02));
-  border:1px solid color-mix(in srgb,var(--line) 85%,transparent);border-radius:18px;padding:14px;box-shadow:0 14px 32px rgba(0,0,0,.22)}
+.w{display:flex;flex-direction:column;gap:8px;background:var(--prim);border:1px solid var(--back-border);border-radius:6px;padding:14px}
 .w .head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .w pre{margin:0;flex:1}
-.stage{border:1px dashed #3a2d56;border-radius:14px;padding:14px;background:rgba(0,0,0,.22);display:flex;align-items:center;min-height:104px;overflow:auto}
+.stage{border:1px dashed var(--prim-border);border-radius:6px;padding:14px;background:var(--back);display:flex;align-items:center;min-height:104px;overflow:auto}
 .stage > *{max-width:100%;min-width:0}
-.tag{display:inline-block;font:11px ui-monospace,SFMono-Regular,Menlo,monospace;color:#d7c8ff;background:#24163f;border:1px solid #3f2b67;border-radius:999px;padding:2px 8px;white-space:nowrap}
-.tag.live{color:#bdf3d5;background:#183527;border-color:#2f6b4b}
-.cover{width:44px;height:44px;border-radius:11px;object-fit:cover;background:#1a1329;border:1px solid #352a4e;flex:none}
+.tag.live{color:var(--text-bright)}
 table{width:100%;border-collapse:collapse;margin-top:14px;font-size:13px}
-th,td{text-align:left;padding:7px 10px;border-bottom:1px solid #2c2140;vertical-align:top}
-th{color:#d9cfff;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.07em}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--back-border);vertical-align:top}
+th{color:var(--text-bright);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.07em}
 td:first-child{white-space:nowrap}
-footer{margin-top:30px;color:#8f84ab;font-size:13px}
+footer{margin-top:30px;color:var(--text-dark);font-size:13px}
 @media(max-width:640px){
   thead{display:none}
-  tr{display:block;border:1px solid #2c2140;border-radius:12px;padding:9px 11px;margin:0 0 9px}
+  tr{display:block;border:1px solid var(--back-border);border-radius:6px;padding:9px 11px;margin:0 0 9px}
   tr:last-child{margin-bottom:0}
   td{display:block;border:0;padding:2px 0}
-  td:first-child{padding-top:0;white-space:normal;font-size:14px;font-weight:600;color:#efe6ff}
-  td:not(:first-child)::before{content:attr(data-label);display:block;font:10.5px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;
-    letter-spacing:.08em;text-transform:uppercase;color:#a795c9;margin:5px 0 1px}
+  td:first-child{padding-top:0;white-space:normal;font-size:14px;font-weight:600;color:var(--text-bright)}
+  td:not(:first-child)::before{content:attr(data-label);display:block;font:10.5px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);margin:5px 0 1px}
   table{margin-top:12px}
 }
 @media(max-width:520px){
   .wrap{padding:18px 12px 54px}
-  .card,.w{padding:12px;border-radius:16px}
+  .container,.w{padding:12px}
   .stage{padding:11px;min-height:0}
   .w .head{flex-wrap:wrap;row-gap:4px}
   .w pre{white-space:pre-wrap;overflow-wrap:anywhere}
@@ -381,7 +370,6 @@ footer{margin-top:30px;color:#8f84ab;font-size:13px}
   pre{font-size:11.5px;padding:10px 11px}
   h2{font-size:17px}
   .lead{font-size:15px}
-  .tag{font-size:10px}
   footer{font-size:12px}
   .hero{padding:6px 0 0}
 }
@@ -392,42 +380,42 @@ footer{margin-top:30px;color:#8f84ab;font-size:13px}
   <h1>Embed what you're listening to</h1>
   <p class="lead">Every card below is live: it's rendered by the same script you paste into your own page. Pick a user, tweak the theme, then copy the tags.</p>
   <div class="pills">
-    <span class="pill">No account needed</span>
-    <span class="pill">Shadow-DOM isolated</span>
-    <span class="pill">Zero dependencies</span>
-    <span class="pill">Auto-refreshes</span>
+    <span class="tag">No account needed</span>
+    <span class="tag">Shadow-DOM isolated</span>
+    <span class="tag">Zero dependencies</span>
+    <span class="tag">Auto-refreshes</span>
   </div>
 </header>
 
-<section class="card" id="builder">
+<section class="container" id="builder">
   <h2>1 · Include the script once per page</h2>
   <p class="muted">Put this just before <code>&lt;/body&gt;</code>. It registers every widget tag below.</p>
   <pre id="code-script"></pre>
-  <div class="row"><button data-copy="code-script">Copy script tag</button></div>
+  <div class="row"><button class="button variant-accent" data-copy="code-script">Copy script tag</button></div>
 
   <h2 style="margin-top:22px">2 · Pick a user and options</h2>
   <p class="muted">Snippets and every preview on this page update as you change these.</p>
   <div class="controls">
     <div class="field"><span>Username</span>
-      <input type="text" id="user" list="live-users" placeholder="username" autocomplete="off" spellcheck="false">
+      <input class="input" type="text" id="user" list="live-users" placeholder="username" autocomplete="off" spellcheck="false">
     </div>
     <div class="field"><span>Theme</span>
-      <select id="theme"></select>
+      <select class="input" id="theme"></select>
     </div>
     <div class="field"><span>Accent colour</span>
       <span class="row" style="margin:0">
-        <input type="color" id="accent" value="#b080ea">
+        <input type="color" id="accent" value="#ffffff">
         <label class="inline"><input type="checkbox" id="accent-off" checked> use theme colour</label>
       </span>
     </div>
     <div class="field"><span>Refresh every (seconds)</span>
-      <input type="number" id="refresh" min="5" max="600" step="1" value="12">
+      <input class="input" type="number" id="refresh" min="5" max="600" step="1" value="12">
     </div>
     <div class="field"><span>Scroll text longer than (characters)</span>
-      <input type="number" id="maxlen" min="0" max="200" step="1" value="0" placeholder="0 = never">
+      <input class="input" type="number" id="maxlen" min="0" max="200" step="1" value="0" placeholder="0 = never">
     </div>
     <div class="field"><span>Scroll speed (seconds per pass)</span>
-      <input type="number" id="speed" min="3" max="60" step="1" value="18" placeholder="18">
+      <input class="input" type="number" id="speed" min="3" max="60" step="1" value="18" placeholder="18">
     </div>
     <div class="field"><span>Compact</span>
       <label class="inline"><input type="checkbox" id="compact"> tighter padding and artwork</label>
@@ -443,12 +431,12 @@ footer{margin-top:30px;color:#8f84ab;font-size:13px}
   <div class="gallery" id="gallery"></div>
 </section>
 
-<section class="card">
+<section class="container">
   <h2>4 · Basic CSS template</h2>
   <p class="muted">Widgets render inside a shadow root, so your page CSS can't reach their internals — that's why they look consistent anywhere. What <em>does</em> work from outside: width, margins, <code>--mc-radius</code>, <code>--mc-font</code> and the colour variables. Set colours with the <code>theme</code> and <code>accent</code> attributes for ready-made palettes, or with <code>--mc-bg</code>, <code>--mc-bg2</code>, <code>--mc-fg</code>, <code>--mc-dim</code>, <code>--mc-line</code> and <code>--mc-accent</code> from your own CSS — page CSS wins over the attributes.</p>
   <pre id="code-css"></pre>
-  <div class="row"><button data-copy="code-css">Copy CSS template</button></div>
-  <table>
+  <div class="row"><button class="button variant-accent" data-copy="code-css">Copy CSS template</button></div>
+  <table class="table">
     <thead><tr><th>Attribute</th><th>Values</th><th>Default</th><th>What it does</th></tr></thead>
     <tbody>
       <tr><td><code>user</code></td><td data-label="Values">any mcmusic username</td><td data-label="Default">—</td><td data-label="What it does">Whose status to show. Required.</td></tr>
@@ -463,11 +451,11 @@ footer{margin-top:30px;color:#8f84ab;font-size:13px}
   </table>
 </section>
 
-<section class="card">
+<section class="container">
   <h2>5 · Complete page</h2>
   <p class="muted">Script, tags and template together — save it as <code>index.html</code> and open it.</p>
   <pre id="code-full"></pre>
-  <div class="row"><button data-copy="code-full">Copy full page</button></div>
+  <div class="row"><button class="button variant-accent" data-copy="code-full">Copy full page</button></div>
 </section>
 
 <section>
@@ -583,7 +571,7 @@ function renderGallery() {
       + '<p class="muted" style="margin:0">' + esc(w.blurb) + '</p>'
       + '<div class="stage">' + preview + '</div>'
       + '<pre id="code-' + w.tag + '">' + esc(code) + '</pre>'
-      + '<div class="row"><button class="secondary" data-copy="code-' + w.tag + '">Copy tag</button></div>'
+      + '<div class="row"><button class="button variant-panel" data-copy="code-' + w.tag + '">Copy tag</button></div>'
       + '</div>';
   }).join('');
 }
@@ -687,7 +675,7 @@ document.addEventListener('click', (e) => {
 function syncControls() {
   document.getElementById('user').value = state.user;
   document.getElementById('theme').value = state.theme;
-  document.getElementById('accent').value = state.accent || '#b080ea';
+  document.getElementById('accent').value = state.accent || '#ffffff';
   document.getElementById('accent-off').checked = !state.accent;
   document.getElementById('accent').disabled = !state.accent;
   document.getElementById('compact').checked = state.compact;
@@ -779,7 +767,7 @@ async function loadListening() {
         + '<img class="cover" src="' + esc(u.cover_url) + '" alt="" loading="lazy">'
         + '<div style="min-width:0"><b style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(title) + '</b>'
         + '<span class="muted">' + esc(sub) + '</span></div></div>'
-        + '<div class="row"><button class="secondary" data-use="' + esc(u.username) + '">Demo this user</button></div>'
+        + '<div class="row"><button class="button variant-panel" data-use="' + esc(u.username) + '">Demo this user</button></div>'
         + '</div>';
     }).join('') || '<p class="muted">Nobody is listening right now. The previews above are showing sample data — type a username in the box above to see your own.</p>';
   } catch (e) {
@@ -798,6 +786,7 @@ init();
 @bp.post("/api/rooms")
 @login_required
 def room_create():
+    """Create a listen-along room for the signed-in account."""
     uid = session["uid"]
     name = _db().execute("select username from users where id=?", (uid,)).fetchone()["username"]
     code = personal_room_code(uid)
@@ -813,6 +802,7 @@ def room_create():
 @bp.post("/api/rooms/<code>/state")
 @login_required
 def room_push(code):
+    """Push the current track/position into a room."""
     d = request.get_json(silent=True) or {}
     with rooms_lock:
         r = rooms.get(code)
@@ -832,6 +822,7 @@ def room_push(code):
 @bp.get("/api/rooms/<code>")
 @login_required
 def room_get(code):
+    """Snapshot of a room (track, position, listeners)."""
     with rooms_lock:
         r = dict(rooms.get(code) or {})
     if not r:
@@ -850,6 +841,7 @@ def room_get(code):
 @bp.delete("/api/rooms/<code>")
 @login_required
 def room_close(code):
+    """Close a room owned by the signed-in account."""
     with rooms_lock:
         r = rooms.get(code)
         if r and r["host"] == session["uid"]:
@@ -860,6 +852,7 @@ def room_close(code):
 @bp.get("/api/admin/rooms")
 @admin_required
 def admin_rooms():
+    """All open rooms, for the admin overview."""
     now = time.time()
     with rooms_lock:
         data = [(code, dict(r)) for code, r in rooms.items()]
@@ -879,6 +872,7 @@ def admin_rooms():
 @bp.delete("/api/admin/rooms/<code>")
 @admin_required
 def admin_room_close(code):
+    """Force-close a room as an admin."""
     with rooms_lock:
         rooms.pop(code, None)
     return jsonify(ok=True)
@@ -1014,6 +1008,7 @@ def worker():
 @bp.post("/api/requests")
 @login_required
 def req_create():
+    """Submit a download request; admins start it immediately."""
     url = str((request.get_json(silent=True) or {}).get("url", "")).strip()
     if not valid_yt(url):
         return jsonify(error="need an https YouTube / YouTube Music video or playlist link"), 400
@@ -1033,6 +1028,7 @@ def req_create():
 @bp.get("/api/requests")
 @login_required
 def req_list():
+    """The signed-in user's download requests."""
     c = _db()
     admin = c.execute("select is_admin from users where id=?", (session["uid"],)).fetchone()["is_admin"]
     q = """select r.id, r.url, r.status, r.created, r.log, u.username from requests r
@@ -1044,6 +1040,7 @@ def req_list():
 @bp.post("/api/requests/<int:rid>/<action>")
 @admin_required
 def req_act(rid, action):
+    """Approve, reject, cancel or retry a download request."""
     if action not in ("approve", "reject"):
         return jsonify(error="bad action"), 400
     r = _db().execute("select status from requests where id=?", (rid,)).fetchone()
@@ -1060,6 +1057,7 @@ def req_act(rid, action):
 @bp.get("/api/devices")
 @login_required
 def devices_list():
+    """Devices registered to the current account."""
     rows = _db().execute(
         """select d.id, d.device_hash, d.ip, d.user_agent, d.name, d.last_seen,
                    d.current_track_id, d.current_position, d.current_paused,
@@ -1075,6 +1073,7 @@ def devices_list():
 @bp.post("/api/devices/heartbeat")
 @login_required
 def devices_heartbeat():
+    """Heartbeat from a playing client; updates presence and the active device."""
     d = request.get_json(silent=True) or {}
     device_hash = str(d.get("device_hash", ""))[:64].strip()
     if not device_hash:
@@ -1116,6 +1115,7 @@ def devices_heartbeat():
 @bp.post("/api/devices/<int:did>/activate")
 @login_required
 def devices_activate(did):
+    """Make one of the account's devices the active speaker."""
     row = _db().execute("select id from devices where id=? and user_id=?", (did, session["uid"])).fetchone()
     if not row:
         return jsonify(error="not found"), 404
@@ -1138,6 +1138,7 @@ def devices_clear():
 @bp.get("/api/devices/sync")
 @login_required
 def devices_sync():
+    """Playback sync payload shared between the account's devices."""
     row = _db().execute(
         """select d.id, d.device_hash, d.name, d.current_track_id, d.current_position,
                   d.current_paused, d.current_updated,
@@ -1195,12 +1196,14 @@ def devices_claim():
 @bp.get("/api/devices/tokens")
 @login_required
 def devices_tokens_list():
+    """List device tokens by prefix only, never the secret."""
     return jsonify(tokens=list_device_tokens(_db(), session["uid"]))
 
 
 @bp.post("/api/devices/tokens/<int:tid>/revoke")
 @login_required
 def devices_token_revoke(tid):
+    """Revoke one device token, signing that client out."""
     if not revoke_device_token(_db(), session["uid"], tid):
         return jsonify(error="not found"), 404
     return jsonify(ok=True)
@@ -1209,6 +1212,7 @@ def devices_token_revoke(tid):
 @bp.get("/api/admin/devices")
 @admin_required
 def admin_devices():
+    """All devices across accounts, for admins."""
     rows = _db().execute(
         """select d.id, d.device_hash, d.ip, d.user_agent, d.name, d.last_seen,
                   d.current_track_id, d.current_position, d.current_paused,
@@ -1223,6 +1227,7 @@ def admin_devices():
 @bp.get("/api/admin/invite-codes")
 @admin_required
 def admin_invite_list():
+    """Invite codes with usage and expiry state."""
     c = _db()
     rows = c.execute(
         "select i.*, u.username created_by_name from invite_codes i "
@@ -1245,6 +1250,7 @@ def admin_invite_list():
 @bp.post("/api/admin/invite-codes")
 @admin_required
 def admin_invite_create():
+    """Create an invite code with a use limit and optional expiry."""
     d = request.get_json(silent=True) or {}
     try:
         uses = max(1, min(int(d.get("uses") or 1), 100))
@@ -1276,6 +1282,7 @@ def admin_invite_create():
 @bp.delete("/api/admin/invite-codes/<int:code_id>")
 @admin_required
 def admin_invite_revoke(code_id):
+    """Revoke an invite code so it can no longer be redeemed."""
     c = _db()
     c.execute("update invite_codes set active=0 where id=?", (code_id,))
     c.commit()
@@ -1285,6 +1292,7 @@ def admin_invite_revoke(code_id):
 @bp.get("/api/admin/stats")
 @admin_required
 def admin_stats():
+    """Counts, disk usage and request totals for the admin overview."""
     c = _db()
     req = {r["status"]: r["n"] for r in c.execute("select status, count(*) n from requests group by status")}
     dur = shutil.disk_usage(MUSIC_DIR)
@@ -1309,6 +1317,7 @@ def admin_stats():
 @bp.get("/api/admin/requests")
 @admin_required
 def admin_req_list():
+    """Every download request, newest first."""
     limit = min(max(int(request.args.get("limit", 200)), 1), 500)
     rows = _db().execute(
         "select r.*, u.username from requests r left join users u on u.id=r.user_id order by r.id desc limit ?",
@@ -1334,6 +1343,7 @@ def admin_req_list():
 @bp.get("/api/admin/requests/<int:rid>/log")
 @admin_required
 def admin_req_log(rid):
+    """Tail of a request's downloader log."""
     r = _db().execute("select id,status,created,finished,url from requests where id=?", (rid,)).fetchone()
     if not r:
         return jsonify(error="not found"), 404
@@ -1351,6 +1361,7 @@ def admin_req_log(rid):
 @bp.post("/api/admin/requests/<int:rid>/cancel")
 @admin_required
 def admin_req_cancel(rid):
+    """Cancel a queued or running request."""
     with running_lock:
         ent = running.get(rid)
         if ent:
@@ -1380,6 +1391,7 @@ def admin_req_cancel(rid):
 @bp.post("/api/admin/requests/<int:rid>/retry")
 @admin_required
 def admin_req_retry(rid):
+    """Requeue a failed request."""
     with running_lock:
         if rid in running:
             return jsonify(error="still running"), 409
@@ -1399,6 +1411,7 @@ def admin_req_retry(rid):
 @bp.delete("/api/admin/requests/<int:rid>")
 @admin_required
 def admin_req_delete(rid):
+    """Delete a request row and its log."""
     with running_lock:
         if rid in running:
             return jsonify(error="cancel it first"), 409
@@ -1414,6 +1427,7 @@ def admin_req_delete(rid):
 @bp.get("/api/admin/users")
 @admin_required
 def admin_users():
+    """Accounts with play/like/playlist counts."""
     rows = _db().execute(
         """select u.id, u.username, u.email, u.is_admin, u.created,
             (select count(*) from plays p where p.user_id=u.id) plays,
@@ -1428,6 +1442,7 @@ def admin_users():
 @bp.post("/api/admin/users/<int:uid>/admin")
 @admin_required
 def admin_user_admin(uid):
+    """Promote or demote an account."""
     val = 1 if (request.get_json(silent=True) or {}).get("is_admin") else 0
     u = _db().execute("select id, is_admin from users where id=?", (uid,)).fetchone()
     if not u:
@@ -1446,6 +1461,7 @@ def admin_user_admin(uid):
 @bp.delete("/api/admin/users/<int:uid>")
 @admin_required
 def admin_user_delete(uid):
+    """Delete an account and everything it owns."""
     if uid == session["uid"]:
         return jsonify(error="you can't delete yourself"), 400
     u = _db().execute("select id, is_admin from users where id=?", (uid,)).fetchone()
@@ -1471,6 +1487,7 @@ def admin_user_delete(uid):
 @bp.post("/api/admin/scan")
 @admin_required
 def admin_scan():
+    """Rescan the music folder into the database."""
     scan_library(_db())
     c = _db()
     return jsonify(tracks=c.execute("select count(*) n from tracks").fetchone()["n"],
@@ -1481,6 +1498,7 @@ def admin_scan():
 @bp.get("/api/admin/enrich")
 @admin_required
 def enrich_status():
+    """Progress of the background metadata enrichment job."""
     c = _db()
     return jsonify(
         total=c.execute("select count(*) n from tracks").fetchone()["n"],
@@ -1493,6 +1511,7 @@ def enrich_status():
 @bp.get("/api/admin/lyrics")
 @admin_required
 def lyrics_status():
+    """Progress of the background lyrics fetch."""
     import lyrics
     return jsonify(lyrics.status())
 
@@ -1500,6 +1519,7 @@ def lyrics_status():
 @bp.post("/api/admin/lyrics")
 @admin_required
 def lyrics_start():
+    """Start fetching missing lyrics."""
     import lyrics
     started = lyrics.start_backfill()
     return jsonify(started=started, **lyrics.status())
@@ -1508,6 +1528,7 @@ def lyrics_start():
 @bp.post("/api/admin/enrich")
 @admin_required
 def enrich_start():
+    """Start metadata enrichment for the library."""
     if (request.get_json(silent=True) or {}).get("force"):
         _db().execute("update tracks set yt_checked=null")
         _db().commit()
@@ -1521,6 +1542,7 @@ def enrich_start():
 @bp.post("/api/playback")
 @login_required
 def playback_push():
+    """Client pushes its playback state for the sync/now-playing views."""
     d = request.get_json(silent=True) or {}
     uid = session["uid"]
     queue = d.get("queue") or []
@@ -1559,6 +1581,7 @@ def playback_push():
 @bp.get("/api/playback")
 @login_required
 def playback_pull():
+    """Client pulls the playback state of the account's active device."""
     uid = session["uid"]
     c = _db()
     from database import get_playback

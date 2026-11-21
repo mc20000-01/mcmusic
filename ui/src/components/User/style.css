@@ -1,0 +1,19 @@
+
+.pfp {
+    display: flex;
+    position: relative;
+
+    > img.pfp {
+        border-radius: 100%;
+    }
+    > img.overlay {
+        position: absolute;
+        inset: -10%;
+        width: 120%;
+        height: 120%;
+    }
+}
+
+.username {
+    text-transform: capitalize;
+}
