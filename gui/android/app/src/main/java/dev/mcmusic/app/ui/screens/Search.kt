@@ -28,6 +28,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.mcmusic.app.data.Account
 import dev.mcmusic.app.data.AlbumSummary
 import dev.mcmusic.app.data.Api
 import dev.mcmusic.app.data.ArtistSummary
@@ -42,6 +43,7 @@ import dev.mcmusic.app.ui.McField
 import dev.mcmusic.app.ui.Muted
 import dev.mcmusic.app.ui.SectionLabel
 import dev.mcmusic.app.ui.ScreenTitle
+import dev.mcmusic.app.ui.SignInCard
 import dev.mcmusic.app.ui.TrackRow
 import dev.mcmusic.app.ui.design.LocalDesign
 import dev.mcmusic.app.ui.design.mcSurface
@@ -62,7 +64,7 @@ fun SearchScreen(onPlaylist: (Int) -> Unit, onOpenPlayer: () -> Unit) {
     var searchJob by remember { mutableStateOf<Job?>(null) }
 
     suspend fun runSearch(text: String) {
-        if (text.isBlank()) {
+        if (Account.me == null || text.isBlank()) {
             results = null
             error = null
             searching = false
@@ -78,7 +80,7 @@ fun SearchScreen(onPlaylist: (Int) -> Unit, onOpenPlayer: () -> Unit) {
 
     // Cancel the previous request so a slow earlier query cannot overwrite the
     // results of a newer one.
-    LaunchedEffect(query) {
+    LaunchedEffect(query, Account.me?.id) {
         searchJob?.cancel()
         searchJob = launch {
             delay(250)
@@ -99,6 +101,10 @@ fun SearchScreen(onPlaylist: (Int) -> Unit, onOpenPlayer: () -> Unit) {
                 keyboard = KeyboardOptions(imeAction = ImeAction.Search),
                 actions = KeyboardActions(onSearch = { }),
             )
+        }
+        if (Account.me == null) {
+            item { SignInCard() }
+            return@LazyColumn
         }
         if (searching) item { Loading("Searching…") }
         error?.let { item { ErrorLine(it) } }
@@ -132,7 +138,12 @@ fun SearchScreen(onPlaylist: (Int) -> Unit, onOpenPlayer: () -> Unit) {
                         )
                         Column(Modifier.weight(1f)) {
                             Text(entry.artist, color = design.fg, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                            Text("${entry.count} tracks · ${entry.albums} albums", color = design.dim, fontSize = 11.sp)
+                            Text(
+                                if (entry.albums > 0) "${entry.count} tracks · ${entry.albums} albums"
+                                else "${entry.count} tracks",
+                                color = design.dim,
+                                fontSize = 11.sp,
+                            )
                         }
                     }
                 }

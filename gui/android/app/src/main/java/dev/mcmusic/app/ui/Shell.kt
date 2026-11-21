@@ -1,5 +1,6 @@
 package dev.mcmusic.app.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -68,6 +69,7 @@ enum class Tab(val label: String, @param:DrawableRes val icon: Int) {
 @Composable
 private fun TopBar(onAccount: () -> Unit) {
     val design = LocalDesign.current
+    val me = Account.me
     Row(
         Modifier
             .fillMaxWidth()
@@ -102,7 +104,7 @@ private fun TopBar(onAccount: () -> Unit) {
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                if (Account.me != null) "@${Account.me!!.username}" else "Sign in",
+                if (me != null) "@${me.username}" else "Sign in",
                 color = design.accent,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -274,15 +276,34 @@ fun McShell() {
         tab = next
     }
 
+    // A detail pane is one level deep: Back closes it before leaving Playlists.
+    val back: () -> Unit = {
+        if (playlistId != null) {
+            playlistId = null
+        } else if (tab.fullScreen) {
+            tab = previous
+        } else {
+            tab = Tab.Home
+        }
+    }
+    BackHandler(enabled = tab.fullScreen || playlistId != null, onBack = back)
+
+    val openPlaylist: (Int) -> Unit = { id ->
+        playlistId = id
+        open(Tab.Playlists)
+    }
+
     Box(Modifier.fillMaxSize()) {
         if (tab.fullScreen) {
-            TabContent(
-                tab = tab,
-                onTab = open,
-                onPlaylist = { id -> playlistId = id; open(Tab.Playlists) },
-                playlistId = playlistId,
-                onBack = { tab = previous },
-            )
+            Box(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+                TabContent(
+                    tab = tab,
+                    onTab = open,
+                    onPlaylist = openPlaylist,
+                    playlistId = playlistId,
+                    onBack = back,
+                )
+            }
         } else {
             Column(Modifier.fillMaxSize()) {
                 TopBar(onAccount = { open(Tab.Settings) })
@@ -290,9 +311,9 @@ fun McShell() {
                     TabContent(
                         tab = tab,
                         onTab = open,
-                        onPlaylist = { id -> playlistId = id; open(Tab.Playlists) },
+                        onPlaylist = openPlaylist,
                         playlistId = playlistId,
-                        onBack = { tab = previous },
+                        onBack = back,
                     )
                 }
                 MiniPlayer(onOpen = { open(Tab.Player) })

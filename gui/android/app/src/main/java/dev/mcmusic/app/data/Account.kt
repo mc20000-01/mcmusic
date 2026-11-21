@@ -22,4 +22,11 @@ object Account {
         me = Api.me()
         loaded = true
     }
+
+    /** Sign in and publish the verified account to the whole app at once. */
+    suspend fun signIn(username: String, password: String): Result<Me> =
+        Api.login(username, password).onSuccess {
+            me = it
+            loaded = true
+        }
 }

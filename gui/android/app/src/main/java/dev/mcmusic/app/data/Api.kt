@@ -174,6 +174,9 @@ object Api {
      * cookie jar surviving the trip.
      */
     suspend fun login(username: String, password: String): Result<Me> = call {
+        // Never let a stale browser-style session decide who just signed in.
+        // The native token is the credential; verification must use it alone.
+        cookies.clear()
         val body = JSONObject()
             .put("username", username)
             .put("password", password)
@@ -185,9 +188,10 @@ object Api {
         if (token.isBlank()) throw ApiException(500, "the server did not return a sign-in token")
         val previous = Prefs.token
         Prefs.saveToken(token)
+        cookies.clear()
         // The token only counts once the server accepts it as this account.
         val verified = runCatching { meOf(JSONObject(get("/api/me"))) }.getOrNull()
-        if (verified == null) {
+        if (verified == null || verified.id <= 0) {
             Prefs.saveToken(previous)
             throw ApiException(401, "Signed in, but the server did not accept the new token.")
         }

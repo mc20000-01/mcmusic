@@ -58,15 +58,7 @@ fun DownloadsScreen(onOpenPlayer: () -> Unit) {
                 else "${items.size} tracks · ${formatBytes(Downloads.totalBytes())}",
             )
         }
-        if (Account.me == null) {
-            item {
-                EmptyState(
-                    icon = Lucide.LogIn,
-                    title = "Sign in to download",
-                    body = "Audio comes from the authenticated stream endpoint, so downloads need an account.",
-                )
-            }
-        } else if (items.isNotEmpty()) {
+        if (items.isNotEmpty()) {
             item {
                 SectionLabel("On this device") {
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -103,17 +95,27 @@ fun DownloadsScreen(onOpenPlayer: () -> Unit) {
                     IconButton(Lucide.Trash) { Downloads.remove(download.id) }
                 }
             }
-        } else if (Account.me != null && items.isEmpty()) {
+        } else {
             item {
                 EmptyState(
                     icon = Lucide.Download,
                     title = "No downloads",
-                    body = "Saved tracks play offline and show up in the mini player like any other queue.",
+                    body = if (Account.me == null) {
+                        "Sign in from Settings to save tracks. Anything already on this device still plays offline."
+                    } else {
+                        "Saved tracks play offline and show up in the mini player like any other queue."
+                    },
                 )
             }
         }
-        if (Account.me != null) {
-            item { Muted("Downloads are not synced between devices.") }
+        item {
+            Muted(
+                if (Account.me == null) {
+                    "Downloads are per device and are not synced."
+                } else {
+                    "Downloads are not synced between devices."
+                },
+            )
         }
     }
 }

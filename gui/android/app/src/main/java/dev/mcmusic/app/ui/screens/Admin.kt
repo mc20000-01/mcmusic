@@ -285,7 +285,7 @@ fun AdminScreen(onBack: () -> Unit) {
                             ) {
                                 val actions = when (request.status) {
                                     "pending" -> listOf("approve", "reject")
-                                    "approved" -> listOf("run", "reject")
+                                    "approved" -> listOf("cancel")
                                     "running" -> listOf("cancel")
                                     "failed" -> listOf("retry", "delete")
                                     else -> listOf("delete")
