@@ -11,8 +11,8 @@ No feed. No algorithm. Only the records you put here.
 | Path | What it is |
 | --- | --- |
 | `src/` | Flask server: library, playlists, lyrics, requests, devices, playback |
-| `ui/` | The web client (Preact + Vite), forked from flufi-music/v3-client. Builds into `web/ui/`; `/` serves it |
-| `web/` | The previous PWA — vanilla ES modules, no build step. Still served at `/legacy` |
+| `ui/` | The web client (Preact + Vite), forked from flufi-music/v3-client. Builds into `web/ui/`; every page route serves it |
+| `web/` | Static assets served next to the client: icons, manifest, service worker, embeds |
 | `gui/` | Where the new Android client will live; the previous one was removed in full |
 | `app/linux/` | Qt 6 desktop client, shared with the macOS and Windows launch scripts |
 | `app/3ds/` | Nintendo 3DS homebrew scaffold (pairing and library browsing) |
@@ -33,8 +33,8 @@ cp mcmusic.env.example mcmusic.env               # then edit it
 .venv/bin/python -m src.mcmusic                  # or: gunicorn mcmusic:app
 ```
 
-Without `web/ui/` the server falls back to the legacy shell in `web/`, which
-stays reachable at `/legacy`.
+There is one web client. If `web/ui/` has not been built, `/` returns a short
+503 page telling you to run `./scripts/build_ui.sh` rather than an older app.
 
 Configuration is environment-only. The names that matter:
 

@@ -10,7 +10,7 @@
     overflow: auto;
     background: var(--prim);
     border: 1px solid var(--back-border);
-    border-radius: 10px;
+    border-radius: var(--radius);
     box-shadow: var(--shadow-raised);
 }
 

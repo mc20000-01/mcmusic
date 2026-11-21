@@ -1,8 +1,7 @@
 import { useState } from "preact/hooks";
 import { useSignal } from "@preact/signals";
 import { useLocation } from "preact-iso";
-import { Container, Content, FormalInput, Header1, Input, Tabs, Text, TextIconButton } from "flufi-ui/components";
-import { LogIn } from "lucide-preact";
+import { Button, Container, Content, FormalInput, Input, Text } from "flufi-ui/components";
 
 import "./style.css";
 import { login, register } from "../../common/auth";
@@ -11,6 +10,8 @@ import { PasswordInput } from "../../components/PasswordInput/PasswordInput";
 /**
  * Local sign-in / registration. Authentication is a cookie session on the
  * Flask server, so there is nothing to persist client-side afterwards.
+ *
+ * Deliberately plain: one column, no card, no accent colour.
  */
 export function AuthPage() {
     const loc = useLocation();
@@ -44,20 +45,9 @@ export function AuthPage() {
 
     return (
         <Content class="auth" centered>
-            <Container box extra_gap centered_x class="auth-box">
-                <Header1>mcmusic</Header1>
-                <Text dim content={mode == "login"
-                    ? "Sign in to your library."
-                    : "Create an account. The first account is the admin; after that you need an invite code."} />
-
-                <Tabs
-                    value={mode}
-                    tabs={[
-                        { name: "Sign in", value: "login" },
-                        { name: "Register", value: "register" },
-                    ]}
-                    onChange={(v) => { setMode(v as "login" | "register"); setError(null); }}
-                />
+            <Container class="auth-box">
+                <Text class="auth-word" content="mcmusic" />
+                <Text dim content={mode == "login" ? "Sign in." : "Create an account."} />
 
                 <FormalInput label="Username">
                     <Input value={username} />
@@ -75,15 +65,22 @@ export function AuthPage() {
 
                 {error && <Text class="error" content={error} />}
 
-                <TextIconButton
+                <Button
                     variant="accent"
                     centered
+                    extraPadding
                     disabled={busy || username.value.trim() == "" || password.value == ""}
                     onClick={submit}
                 >
-                    <LogIn size={20} />
                     {busy ? "..." : mode == "login" ? "Sign in" : "Create account"}
-                </TextIconButton>
+                </Button>
+
+                <Button
+                    variant="always-transparent"
+                    onClick={() => { setMode(mode == "login" ? "register" : "login"); setError(null); }}
+                >
+                    <Text dim content={mode == "login" ? "Create an account" : "Back to sign in"} />
+                </Button>
             </Container>
         </Content>
     )

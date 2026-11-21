@@ -446,64 +446,28 @@ def get_app():
     return resp
 
 
-# ---------------------------------------------------------------- index (PWA shell)
-INDEX_SHELL = """<!doctype html><html lang="en" data-theme="rose" data-material="plane" style="--accent:#79d8a5;--accent-fg:#102319;--accent-soft:rgba(121,216,165,0.15)">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
-<meta name="color-scheme" content="dark light">
-<meta name="theme-color" content="#171015">
-<meta name="description" content="mcmusic — your library, your room, your rules.">
-<link rel="manifest" href="/manifest.webmanifest">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="icon" href="/icon.svg" type="image/svg+xml">
-<title>mcmusic</title>
-<link rel="stylesheet" href="/static/css/variables.css">
-<link rel="stylesheet" href="/static/css/base.css">
-<link rel="stylesheet" href="/static/css/layout.css">
-<link rel="stylesheet" href="/static/css/components.css">
-<link rel="stylesheet" href="/static/css/theme.css">
-<link rel="stylesheet" href="/static/css/mobile.css">
-<link rel="stylesheet" href="/static/css/gfx.css">
-</head><body>
-<div id="app"></div>
-<div id="toasts" aria-live="polite"></div>
-<audio id="audio" preload="auto" playsinline></audio>
-<script>
-window.__MC__ = {
-  roturApp: __ROTUR_APP__,
-  roturScope: __ROTUR_SCOPE__,
-  inviteCode: __INVITE_CODE__,
-  build: __BUILD__,
-  shell: __SHELL__
-};
-</script>
-<script type="module" src="/static/js/app.js"></script>
-</body></html>"""
-
-
+# ---------------------------------------------------------------- index (web client)
 UI_DIR = os.path.join(WEB_DIR, "ui")
 
 
 def _ui_response():
-    """The v3 client (ui/ → web/ui/): one bundle for every app route."""
+    """The v3 client (ui/ -> web/ui/): one bundle for every app route."""
     path = os.path.join(UI_DIR, "index.html")
     if not os.path.exists(path):
-        return _shell_response()
+        return Response(
+            "<!doctype html><title>mcmusic</title>"
+            "<body style=\"font:15px/1.5 system-ui;background:#08080a;color:#cfcfd6;"
+            "display:grid;place-items:center;height:100vh;margin:0\">"
+            "<main style=\"max-width:32rem;padding:2rem\">"
+            "<h1 style=\"font-size:1.1rem;font-weight:600\">mcmusic</h1>"
+            "<p>The web client has not been built on this server.</p>"
+            "<pre style=\"background:#0f0f12;padding:.75rem;border-radius:10px\">"
+            "./scripts/build_ui.sh</pre></main>",
+            status=503,
+            mimetype="text/html",
+        )
     with open(path, encoding="utf-8") as fh:
         body = fh.read()
-    return Response(body, mimetype="text/html",
-                    headers={"Cache-Control": "no-cache, must-revalidate"})
-
-
-def _shell_response():
-    """Read the legacy shell page from disk."""
-    body = (INDEX_SHELL
-            .replace("__ROTUR_APP__", json.dumps(ROTUR_APP))
-            .replace("__ROTUR_SCOPE__", json.dumps(ROTUR_SCOPE))
-            .replace("__INVITE_CODE__", json.dumps(INVITE_CODE))
-            .replace("__BUILD__", json.dumps(BUILD))
-            .replace("__SHELL__", json.dumps(SHELL_VERSION)))
     return Response(body, mimetype="text/html",
                     headers={"Cache-Control": "no-cache, must-revalidate"})
 
@@ -512,13 +476,6 @@ def _shell_response():
 def index():
     """Serve the v3 client's index.html."""
     return _ui_response()
-
-
-@app.get("/legacy")
-def legacy_ui():
-    """The previous vanilla-JS player, kept reachable until the v3 client
-    reaches feature parity (playlists, rooms, admin, offline downloads)."""
-    return _shell_response()
 
 
 @app.get("/auth")
@@ -545,7 +502,7 @@ def reset_page():
     The aliases exist so a mail client appending a slash, or someone typing
     /forgot, still lands on the app instead of a 404.
     """
-    return _shell_response()
+    return _ui_response()
 
 
 # ---------------------------------------------------------------- boot

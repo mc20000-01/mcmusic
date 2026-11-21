@@ -127,6 +127,7 @@ def scan_library(conn):
     with scan_lock:
         known = {r["path"]: r["mtime"] for r in conn.execute("select path, mtime from tracks")}
         seen = set()
+        pending = 0
         for root, dirs, files in os.walk(MUSIC_DIR):
             dirs[:] = [d for d in dirs if not d.startswith(".")]
             for f in files:
@@ -169,6 +170,13 @@ def scan_library(conn):
                 )
                 tid = conn.execute("select id from tracks where path=?", (rel,)).fetchone()[0]
                 index_track(conn, tid, artist, title)
+                # Commit in batches: a walk over a big library can take minutes,
+                # and holding the write lock that whole time makes every other
+                # write 500 with "database is locked".
+                pending += 1
+                if pending >= 25:
+                    conn.commit()
+                    pending = 0
                 if yt:
                     # Sidecar knowledge is better than a later API round trip.
                     conn.execute(

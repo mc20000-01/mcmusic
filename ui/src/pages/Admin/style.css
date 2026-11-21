@@ -6,7 +6,7 @@
     word-break: break-word;
     background: var(--prim);
     padding: 8px;
-    border-radius: 6px;
+    border-radius: var(--radius);
 }
 
 /* Admin content is tables and lists; keep it from spanning ultra-wide. */

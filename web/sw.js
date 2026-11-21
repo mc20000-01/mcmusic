@@ -8,39 +8,21 @@
      JSON shapes never outlive the app that wrote them; media survives updates
    ========================================================================== */
 
-const SHELL = "mcmusic-shell-v15";
+const SHELL = "mcmusic-shell-v16";
 const API = "mcmusic-api-v2";
 const MEDIA = "mcmusic-media-v1";
 const MEDIA_MAX = 400;                        // tracks + artwork kept offline
 const MEDIA_INDEX = "/__mcmusic_media_index"; // eviction order; never fetched
 const API_SWR_MS = 900;                       // grace period for a cached API body
 
+/* The v3 client's bundles are content-hashed and cached on first use, so the
+   install only needs the shell itself and the icons. */
 const ASSETS = [
   "/",
   "/manifest.webmanifest",
   "/icon.svg",
   "/icon-192.png",
   "/icon-512.png",
-  "/static/css/variables.css",
-  "/static/css/base.css",
-  "/static/css/layout.css",
-  "/static/css/components.css",
-  "/static/css/theme.css",
-  "/static/css/mobile.css",
-  "/static/css/gfx.css",
-  "/static/css/link.css",
-  "/static/js/app.js",
-  "/static/js/api.js",
-  "/static/js/auth.js",
-  "/static/js/cache.js",
-  "/static/js/gfx.js",
-  "/static/js/glass.js",
-  "/static/js/icons.js",
-  "/static/js/mobile.js",
-  "/static/js/player.js",
-  "/static/js/rotur.js",
-  "/static/js/ui.js",
-  "/static/js/views.js",
 ];
 
 /* API responses that are safe to serve stale when offline. */

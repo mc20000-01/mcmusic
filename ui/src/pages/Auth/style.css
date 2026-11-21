@@ -1,10 +1,24 @@
-/* Centering comes from Content's `centered` prop; the panel width is ours. */
+/* Minimal auth: one narrow column on the page background, no panel chrome.
+   Centering comes from Content's `centered` prop. */
 .content-auth > .container {
-    width: 340px;
+    width: 300px;
+    max-width: 100%;
     align-items: stretch;
+    gap: 12px;
 }
 
-.content-auth .tabs,
-.content-auth .formal-input {
+.content-auth .auth-word {
+    color: var(--text-bright);
+    font-size: var(--font-size-big);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+.content-auth .formal-input,
+.content-auth .button {
     width: 100%;
+}
+
+.content-auth .button {
+    margin: 0;
 }
