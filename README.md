@@ -13,7 +13,7 @@ No feed. No algorithm. Only the records you put here.
 | `src/` | Flask server: library, playlists, lyrics, requests, devices, playback |
 | `ui/` | The web client (Preact + Vite), forked from flufi-music/v3-client. Builds into `web/ui/`; every page route serves it |
 | `web/` | Static assets served next to the client: icons, manifest, service worker, embeds |
-| `gui/` | Where the new Android client will live; the previous one was removed in full |
+| `gui/android/` | Native Kotlin/Compose Android client, built and signed from `keystore/` |
 | `app/linux/` | Qt 6 desktop client, shared with the macOS and Windows launch scripts |
 | `app/3ds/` | Nintendo 3DS homebrew scaffold (pairing and library browsing) |
 | `music_activity/` | Presence sinks the server uses for Rotur/Discord/originChats |
@@ -140,10 +140,14 @@ Host-specific details worth keeping:
 ## Builds
 
 ```bash
-# The Android client is being rebuilt from scratch under gui/, so there is no
-# APK target here right now. The signing key it will need is kept in keystore/.
+# Build the signed Android client with the pinned JDK 17 / Android SDK.
+export JAVA_HOME="$PWD/.toolchain/jdk"
+export ANDROID_HOME="$PWD/.toolchain/sdk"
+export ANDROID_SDK_ROOT="$ANDROID_HOME"
+export PATH="$JAVA_HOME/bin:$PATH"
+( cd gui/android && ./gradlew :app:assembleRelease --no-daemon )
 
-# Publish stable names into apps/ (ignored by git)
+# Publish stable names into apps/ (ignored by git); /get and /api/builds read it.
 ./scripts/publish_apps.sh
 
 # Create/refresh the GitHub Release with every published file

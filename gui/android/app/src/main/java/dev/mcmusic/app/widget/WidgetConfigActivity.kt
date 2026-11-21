@@ -15,7 +15,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.OutlinedTextField
@@ -64,13 +66,15 @@ class WidgetConfigActivity : ComponentActivity() {
 
         setContent {
             McTheme(Prefs.palette, DesignLanguage.from(Prefs.language)) {
-                var name by remember { mutableStateOf(Prefs.widgetUser ?: Prefs.username.orEmpty()) }
+                var name by remember {
+                    mutableStateOf(Prefs.widgetUserFor(widgetId) ?: Prefs.widgetUser ?: Prefs.username.orEmpty())
+                }
                 ConfigScreen(
                     name = name,
                     onName = { name = it },
                     onCancel = { finish() },
                     onSave = {
-                        Prefs.saveWidgetUser(name)
+                        Prefs.saveWidgetUser(widgetId, name)
                         Widgets.refresh(applicationContext)
                         setResult(
                             Activity.RESULT_OK,
@@ -95,6 +99,8 @@ class WidgetConfigActivity : ComponentActivity() {
             Modifier
                 .fillMaxSize()
                 .background(design.palette.bg)
+                .statusBarsPadding()
+                .navigationBarsPadding()
                 .padding(20.dp),
             contentAlignment = Alignment.Center,
         ) {
@@ -135,7 +141,7 @@ class WidgetConfigActivity : ComponentActivity() {
                     ),
                 )
                 Text(
-                    "Colours follow the palette in Settings; the surface uses the same seven themes as the web embeds.",
+                    "Colours follow the palette in Settings. Every widget can follow a different account.",
                     color = design.dim,
                     fontSize = 11.sp,
                     lineHeight = 16.sp,

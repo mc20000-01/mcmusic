@@ -24,24 +24,24 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-# The Android client is being rebuilt from scratch; until it returns, releases
-# carry the desktop builds only and take their version from the desktop app.
-android_version=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/android/app/build.gradle.kts 2>/dev/null | head -1 || true)
+android_version=$(grep -oP 'versionName\s*=\s*"\K[^"]+' gui/android/app/build.gradle.kts 2>/dev/null | head -1 || true)
 desktop_version=$(grep -oP '^version\s*=\s*"\K[^"]+' app/linux/pyproject.toml 2>/dev/null | head -1 || true)
 version=${android_version:-${desktop_version:-0.0.0}}
 tag="v${version}"
 sha=$(git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
 
-if [ "$build" = 1 ] && [ -d app/android ]; then
-  echo "→ building Android $version"
+if [ "$build" = 1 ]; then
+  echo "→ building Android $android_version"
+  repo=$PWD
+  rm -f gui/android/app/build/outputs/apk/release/app-release.apk
   (
-    cd app/android
-    JAVA_HOME="$PWD/../../.toolchain/jdk" \
-    PATH="$PWD/../../.toolchain/jdk/bin:$PATH" \
-      ../../.toolchain/gradle/bin/gradle -p . assembleDebug --console=plain --offline
+    cd gui/android
+    JAVA_HOME="$repo/.toolchain/jdk" \
+    ANDROID_HOME="$repo/.toolchain/sdk" \
+    ANDROID_SDK_ROOT="$repo/.toolchain/sdk" \
+    PATH="$repo/.toolchain/jdk/bin:$PATH" \
+      "$repo/.toolchain/gradle/bin/gradle" -p . :app:assembleRelease --console=plain --offline
   )
-elif [ "$build" = 1 ]; then
-  echo "→ no Android client in this tree, skipping the APK"
 fi
 
 ./scripts/publish_apps.sh

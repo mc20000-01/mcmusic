@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -31,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -61,81 +61,110 @@ enum class Tab(val label: String, @param:DrawableRes val icon: Int) {
     Admin("Admin", Lucide.User);
 
     val inBar: Boolean get() = this in listOf(Home, Search, Library, Downloads, Settings)
+    val fullScreen: Boolean get() = this == Player || this == Admin
 }
 
-/**
- * The compact top bar the web client has: wordmark on the left, account on the
- * right. It stays out of the scroll area, like the site's header.
- */
+/** Brand mark plus account, kept above the scroll area like the site header. */
 @Composable
 private fun TopBar(onAccount: () -> Unit) {
     val design = LocalDesign.current
     Row(
         Modifier
             .fillMaxWidth()
-            .background(design.palette.bg)
             .statusBarsPadding()
-            .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+            .padding(start = 18.dp, end = 12.dp, top = 10.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text("mcmusic", color = design.fg, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-        Box(Modifier.weight(1f))
-        Text(
-            Prefs.server.removePrefix("https://").removePrefix("http://"),
-            color = design.dim,
-            fontSize = 10.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
         Box(
-            Modifier
-                .size(30.dp)
-                .clip(CircleShape)
-                .background(design.accentSoft)
-                .clickable { onAccount() },
+            Modifier.size(34.dp).clip(CircleShape).background(design.accent),
             Alignment.Center,
         ) {
-            LucideIcon(
-                if (Account.me != null) Lucide.User else Lucide.LogIn,
-                design.accent,
-                Modifier.size(15.dp),
+            Text("m", color = design.palette.bg, fontSize = 18.sp, fontWeight = FontWeight.Black)
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            Text("mcmusic", color = design.fg, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text(
+                "your room, your rules",
+                color = design.dim,
+                fontSize = 10.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Box(Modifier.weight(1f))
+        Box(
+            Modifier
+                .clip(RoundedCornerShape(50))
+                .background(design.accentWash)
+                .clickable { onAccount() }
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                if (Account.me != null) "@${Account.me!!.username}" else "Sign in",
+                color = design.accent,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
 }
 
+/** Floating now-playing card: artwork, title, transport and a hairline progress. */
 @Composable
 private fun MiniPlayer(onOpen: () -> Unit) {
     val state = Playback.state
     val track = state.track ?: return
     val design = LocalDesign.current
-    val fraction = if (state.duration > 0) (state.position.toFloat() / state.duration).coerceIn(0f, 1f) else 0f
+    val fraction = if (state.duration > 0) {
+        (state.position.toFloat() / state.duration).coerceIn(0f, 1f)
+    } else 0f
+    val shape = RoundedCornerShape(18.dp)
     Column(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp)
-            .mcSurface(RoundedCornerShape(8.dp)),
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .mcSurface(shape),
     ) {
         Row(
-            Modifier.fillMaxWidth().clickable { onOpen() }.padding(start = 8.dp, end = 4.dp, top = 7.dp, bottom = 7.dp),
+            Modifier
+                .fillMaxWidth()
+                .clickable { onOpen() }
+                .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(11.dp),
         ) {
-            TrackCover(track, 36.dp)
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                Text(track.title, color = design.fg, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            TrackCover(track, 42.dp, 12.dp)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    track.title,
+                    color = design.fg,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
                 Text(
                     if (state.buffering) "buffering…" else track.artist.ifBlank { "unknown artist" },
-                    color = design.dim, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    color = design.dim,
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
-            IconButton(Lucide.SkipForward, onClick = { Playback.next() })
+            IconButton(Lucide.SkipForward, size = 18.dp) { Playback.next() }
             Box(
-                Modifier.size(32.dp).clip(CircleShape).background(design.accent).clickable { Playback.toggle() },
+                Modifier.size(38.dp).clip(CircleShape).background(design.accent).clickable { Playback.toggle() },
                 Alignment.Center,
             ) {
-                LucideIcon(if (state.playing) Lucide.Pause else Lucide.Play, design.palette.bg, Modifier.size(13.dp))
+                LucideIcon(
+                    if (state.playing) Lucide.Pause else Lucide.Play,
+                    design.palette.bg,
+                    Modifier.size(15.dp),
+                )
             }
         }
         Box(Modifier.fillMaxWidth().height(2.dp).background(design.hairline)) {
@@ -144,15 +173,17 @@ private fun MiniPlayer(onOpen: () -> Unit) {
     }
 }
 
+/** Glassy tab dock, grouped into one floating pill. */
 @Composable
 private fun BottomBar(tab: Tab, onTab: (Tab) -> Unit) {
     val design = LocalDesign.current
     Row(
         Modifier
             .fillMaxWidth()
-            .background(design.palette.bg)
             .navigationBarsPadding()
-            .padding(horizontal = 4.dp, vertical = 5.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .mcSurface(RoundedCornerShape(26.dp))
+            .padding(horizontal = 6.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Tab.entries.filter { it.inBar }.forEach { entry ->
@@ -160,9 +191,10 @@ private fun BottomBar(tab: Tab, onTab: (Tab) -> Unit) {
             Column(
                 Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(if (selected) design.accentSoft else Color.Transparent)
                     .clickable { onTab(entry) }
-                    .padding(vertical = 4.dp),
+                    .padding(vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
@@ -174,8 +206,8 @@ private fun BottomBar(tab: Tab, onTab: (Tab) -> Unit) {
                 Text(
                     entry.label,
                     color = if (selected) design.accent else design.dim,
-                    fontSize = 9.sp,
-                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                    fontSize = 10.sp,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
                     maxLines = 1,
                 )
             }
@@ -191,18 +223,17 @@ private fun TabContent(
     playlistId: Int?,
     onBack: () -> Unit,
 ) {
-    val design = LocalDesign.current
     val motion = Prefs.motion
     val appear = remember(tab) { Animatable(if (motion) 0f else 1f) }
     LaunchedEffect(tab) {
-        if (motion) appear.animateTo(1f, tween(160, easing = FastOutSlowInEasing))
+        if (motion) appear.animateTo(1f, tween(220, easing = FastOutSlowInEasing))
     }
     Box(
         Modifier
             .fillMaxSize()
             .graphicsLayer {
                 alpha = appear.value
-                translationY = (1f - appear.value) * 8.dp.toPx()
+                translationY = (1f - appear.value) * 12.dp.toPx()
             },
     ) {
         when (tab) {
@@ -224,13 +255,11 @@ private fun TabContent(
 }
 
 /**
- * The app shell: fixed top bar, the current page, a mini player when something
- * is playing, and the bottom tab strip. The player and admin pages are pushed
- * over the shell and return to where they were opened from.
+ * App shell: brand header, current page, floating player and tab dock. The
+ * player and admin pages take over the screen and return to where they opened.
  */
 @Composable
 fun McShell() {
-    val design = LocalDesign.current
     var tab by rememberSaveable { mutableStateOf(Tab.Home) }
     var previous by rememberSaveable { mutableStateOf(Tab.Home) }
     var playlistId by rememberSaveable { mutableStateOf<Int?>(null) }
@@ -241,24 +270,34 @@ fun McShell() {
     }
 
     val open: (Tab) -> Unit = { next ->
-        if (next != Tab.Player && next != Tab.Admin && next != Tab.Playlists) previous = tab
+        if (next != tab) previous = tab
         tab = next
     }
 
-    Box(Modifier.fillMaxSize().background(design.palette.bg)) {
-        Column(Modifier.fillMaxSize()) {
-            TopBar(onAccount = { open(Tab.Settings) })
-            Box(Modifier.weight(1f)) {
-                TabContent(
-                    tab = tab,
-                    onTab = open,
-                    onPlaylist = { id -> playlistId = id; open(Tab.Playlists) },
-                    playlistId = playlistId,
-                    onBack = { tab = previous },
-                )
+    Box(Modifier.fillMaxSize()) {
+        if (tab.fullScreen) {
+            TabContent(
+                tab = tab,
+                onTab = open,
+                onPlaylist = { id -> playlistId = id; open(Tab.Playlists) },
+                playlistId = playlistId,
+                onBack = { tab = previous },
+            )
+        } else {
+            Column(Modifier.fillMaxSize()) {
+                TopBar(onAccount = { open(Tab.Settings) })
+                Box(Modifier.weight(1f)) {
+                    TabContent(
+                        tab = tab,
+                        onTab = open,
+                        onPlaylist = { id -> playlistId = id; open(Tab.Playlists) },
+                        playlistId = playlistId,
+                        onBack = { tab = previous },
+                    )
+                }
+                MiniPlayer(onOpen = { open(Tab.Player) })
+                BottomBar(tab = tab, onTab = open)
             }
-            if (tab != Tab.Player) MiniPlayer(onOpen = { open(Tab.Player) })
-            BottomBar(tab = tab, onTab = open)
         }
     }
 }

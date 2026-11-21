@@ -52,11 +52,29 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Compile and package the debug APK
         run: (cd gui/android && ./gradlew :app:assembleDebug --no-daemon --stacktrace)
-      - name: Upload the debug APK
+      - name: Build and verify the signed release APK
+        run: |
+          set -euo pipefail
+          version=$(grep -oP 'versionName\s*=\s*"\K[^"]+' gui/android/app/build.gradle.kts | head -1)
+          rm -f gui/android/app/build/outputs/apk/release/app-release.apk
+          (cd gui/android && ./gradlew :app:assembleRelease --no-daemon --stacktrace)
+          apk=gui/android/app/build/outputs/apk/release/app-release.apk
+          aapt="$ANDROID_HOME/build-tools/36.0.0/aapt"
+          apksigner="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          apk_version=$("$aapt" dump badging "$apk" | head -1 | grep -o "versionName='[^']*'" | cut -d"'" -f2)
+          if [ "$apk_version" != "$version" ]; then
+            echo "APK version $apk_version does not match Gradle version $version" >&2
+            exit 1
+          fi
+          "$apksigner" verify --print-certs "$apk" | tr '[:upper:]' '[:lower:]' \
+            | grep -q 0b0fd0fa35ff712901d42cab215d5e3cb706daef57bffa7ebef61cacda1dc4ce
+      - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
-          name: mcmusic-debug-apk
-          path: gui/android/app/build/outputs/apk/debug/app-debug.apk
+          name: mcmusic-apks
+          path: |
+            gui/android/app/build/outputs/apk/debug/app-debug.apk
+            gui/android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
 
   python-checks:

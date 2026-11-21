@@ -11,39 +11,30 @@ by `scripts/publish_apps.sh` and by `.github/workflows/release.yml`).
 | `mcmusic-linux-source.zip` | Desktop client sources, ready to run |
 | `SHA256SUMS` | Checksums for every file above |
 
-The same files are attached to the rolling **latest** GitHub Release on every
-push to `main`, and `https://<server>/get` redirects to the newest Android
-build. Only one version of each artifact is kept here; older files live in the
-repository history and in previous release uploads.
+The current files are attached to the rolling **latest** GitHub Release on
+every push to `main`, and `https://<server>/get` redirects to the newest Android
+build. Older versioned APKs may remain here for rollback, but the release only
+advertises the current one.
 
 ## Android signing
 
 The APK stays installable over the previous copy only when it is signed with
-the same key. CI therefore releases the committed APK unless the original
-`~/.android/debug.keystore` is supplied as the repository secret
-`ANDROID_KEYSTORE_BASE64` (base64 of that file). With the secret set, CI builds
-and ships a fresh APK signed with the same key; without it, CI still compiles
-the source for verification but the committed APK is what ships.
-
-Build them locally:
+the same key. CI builds the signed APK from source with the committed
+`keystore/mcmusic.p12`, then verifies both the embedded version and the signer
+certificate before publishing it. A missing keystore fails the build instead of
+producing an unsigned APK.
 
 ```bash
+export JAVA_HOME="$PWD/.toolchain/jdk"
+export ANDROID_HOME="$PWD/.toolchain/sdk"
+export ANDROID_SDK_ROOT="$ANDROID_HOME"
+export PATH="$JAVA_HOME/bin:$PATH"
 ./scripts/build_deb.sh
-./scripts/publish_apps.sh   # collects apps/ and builds/
+(cd gui/android && ./gradlew :app:assembleRelease --no-daemon)
+./scripts/publish_apps.sh
 ```
 
-The Android client now lives under `gui/android/` (backend and clients are
-separate trees). The release workflow builds and publishes it with
-`./gradlew :app:assembleRelease`, using `keystore/mcmusic.p12` so CI signs with
-the same key as local builds and updates install in place. Publish one by hand
-with the same commands:
-
-```bash
-(cd gui/android && ./gradlew :app:assembleRelease)
-cp gui/android/app/build/outputs/apk/release/app-release.apk \
-  builds/mcmusic-$(grep -oP 'versionName\s*=\s*"\K[^"]+' gui/android/app/build.gradle.kts).apk
-./scripts/collect_builds.sh   # refreshes SHA256SUMS
-```
-
-`collect_builds.sh` replaces only the current version's APK and keeps the older
-ones beside it, so a bad release can be rolled back by hand.
+`publish_apps.sh` refuses a stale or differently signed APK, copies it to the
+stable `apps/android/` names used by `/get` and `/api/builds`, then calls
+`collect_builds.sh` to refresh `builds/` and `SHA256SUMS`. Do not copy an APK
+straight into `builds/`; `apps/` is where the server reads from.

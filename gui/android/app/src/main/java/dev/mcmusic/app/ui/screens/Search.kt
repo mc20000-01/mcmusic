@@ -45,7 +45,9 @@ import dev.mcmusic.app.ui.ScreenTitle
 import dev.mcmusic.app.ui.TrackRow
 import dev.mcmusic.app.ui.design.LocalDesign
 import dev.mcmusic.app.ui.design.mcSurface
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /** Grouped search, the same three buckets `/api/search` returns to the site. */
 @Composable
@@ -57,6 +59,7 @@ fun SearchScreen(onPlaylist: (Int) -> Unit, onOpenPlayer: () -> Unit) {
     var searching by remember { mutableStateOf(false) }
     var album by remember { mutableStateOf<AlbumSummary?>(null) }
     var artist by remember { mutableStateOf<ArtistSummary?>(null) }
+    var searchJob by remember { mutableStateOf<Job?>(null) }
 
     suspend fun runSearch(text: String) {
         if (text.isBlank()) {
@@ -66,7 +69,6 @@ fun SearchScreen(onPlaylist: (Int) -> Unit, onOpenPlayer: () -> Unit) {
             return
         }
         searching = true
-        delay(250)
         Api.search(text).fold(
             onSuccess = { results = it; error = null },
             onFailure = { error = it.message ?: "search failed"; results = null },
@@ -74,7 +76,15 @@ fun SearchScreen(onPlaylist: (Int) -> Unit, onOpenPlayer: () -> Unit) {
         searching = false
     }
 
-    LaunchedEffect(query) { runSearch(query) }
+    // Cancel the previous request so a slow earlier query cannot overwrite the
+    // results of a newer one.
+    LaunchedEffect(query) {
+        searchJob?.cancel()
+        searchJob = launch {
+            delay(250)
+            runSearch(query)
+        }
+    }
 
     LazyColumn(
         contentPadding = PaddingValues(start = design.screenPadding, end = design.screenPadding, top = 10.dp, bottom = 24.dp),

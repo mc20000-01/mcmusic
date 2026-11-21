@@ -1,7 +1,9 @@
 package dev.mcmusic.app.playback
 
+import android.app.PendingIntent
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import android.os.Handler
 import android.os.Looper
 import androidx.compose.runtime.getValue
@@ -18,10 +20,15 @@ import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import android.net.Uri
+import dev.mcmusic.app.MainActivity
 import dev.mcmusic.app.data.Api
 import dev.mcmusic.app.data.Downloads
 import dev.mcmusic.app.data.Prefs
 import dev.mcmusic.app.data.Track
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import java.util.concurrent.Executor
 
 data class PlaybackState(
@@ -57,12 +64,34 @@ object Playback {
     private var queueTracks: List<Track> = emptyList()
     private var appContext: Context? = null
     private var widgetSignature: String? = null
-    private var sleepEndsAt: Long = 0
+    private var reportedTrackId: Int? = null
+    private val reportScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val reportHandler = Handler(Looper.getMainLooper())
+    private val reportRunnable = object : Runnable {
+        override fun run() {
+            controller?.let { player ->
+                position(player)
+                checkSleep(player)
+                if (state.track != null) report(player)
+            }
+            reportHandler.postDelayed(this, 5_000L)
+        }
+    }
 
     fun init(context: Context) {
         if (controller != null || future != null) return
         val app = context.applicationContext
         appContext = app
+        val savedSleep = Prefs.sleepEndsAt
+        val now = System.currentTimeMillis()
+        if (savedSleep > now) {
+            state = state.copy(
+                sleepMinutes = ((savedSleep - now + 59_999) / 60_000).toInt(),
+                sleepRemaining = savedSleep - now,
+            )
+        } else if (savedSleep > 0) {
+            Prefs.saveSleepEndsAt(0L)
+        }
         val token = SessionToken(app, ComponentName(app, PlaybackService::class.java))
         val main = Executor { Handler(Looper.getMainLooper()).post(it) }
         val f = MediaController.Builder(app, token).buildAsync()
@@ -81,12 +110,16 @@ object Playback {
             })
             state = state.copy(ready = true)
             publish(c)
+            reportHandler.removeCallbacks(reportRunnable)
+            reportHandler.post(reportRunnable)
         }, main)
     }
 
     private fun publish(player: Player) {
         val index = player.currentMediaItemIndex.coerceAtLeast(0)
         val track = queueTracks.getOrNull(index)
+        val wasPlaying = state.playing
+        val trackChanged = track?.id != reportedTrackId
         // Home screen widgets follow the phone's queue while it owns it.
         val signature = "${track?.id}:${player.isPlaying}"
         if (signature != widgetSignature) {
@@ -106,6 +139,12 @@ object Playback {
             error = null,
         )
         position(player)
+        if (trackChanged && track != null) {
+            reportedTrackId = track.id
+            val id = track.id
+            reportScope.launch { runCatching { Api.recordPlay(id) } }
+        }
+        if (track != null && (trackChanged || wasPlaying != state.playing)) report(player)
     }
 
     private fun position(player: Player) {
@@ -116,20 +155,44 @@ object Playback {
     fun tick() {
         val c = controller ?: return
         position(c)
-        val end = sleepEndsAt
+        checkSleep(c)
+    }
+
+    private fun checkSleep(player: Player) {
+        val end = Prefs.sleepEndsAt
         if (end in 1..System.currentTimeMillis()) {
-            sleepEndsAt = 0
-            c.pause()
+            Prefs.saveSleepEndsAt(0L)
+            player.pause()
             state = state.copy(sleepMinutes = 0, sleepRemaining = 0)
+            report(player)
         } else if (end > 0) {
             state = state.copy(sleepRemaining = end - System.currentTimeMillis())
         }
     }
 
+    /** Push the current track, position and queue to the server. */
+    private fun report(player: Player) {
+        val snapshot = state
+        val track = snapshot.track ?: return
+        reportScope.launch {
+            runCatching { Api.heartbeat(track.id, snapshot.position, !snapshot.playing) }
+            runCatching {
+                Api.pushPlayback(
+                    trackId = track.id,
+                    positionMs = snapshot.position,
+                    durationMs = snapshot.duration,
+                    playing = snapshot.playing,
+                    queue = snapshot.queue.map { it.id },
+                )
+            }
+        }
+    }
+
     /** 0 turns the sleep timer off; otherwise playback pauses after [minutes]. */
     fun setSleep(minutes: Int) {
-        sleepEndsAt = if (minutes <= 0) 0 else System.currentTimeMillis() + minutes * 60_000L
-        val remaining = if (sleepEndsAt > 0) sleepEndsAt - System.currentTimeMillis() else 0
+        val end = if (minutes <= 0) 0L else System.currentTimeMillis() + minutes * 60_000L
+        Prefs.saveSleepEndsAt(end)
+        val remaining = if (end > 0) end - System.currentTimeMillis() else 0
         state = state.copy(sleepMinutes = minutes.coerceAtLeast(0), sleepRemaining = remaining)
     }
 
@@ -216,7 +279,9 @@ object Playback {
     }
 
     fun stop() {
-        sleepEndsAt = 0
+        controller?.let { report(it) }
+        Prefs.saveSleepEndsAt(0L)
+        reportedTrackId = null
         controller?.stop()
         controller?.clearMediaItems()
         queueTracks = emptyList()
@@ -231,8 +296,16 @@ class PlaybackService : MediaSessionService() {
         super.onCreate()
         // Streams are bearer-authenticated; ExoPlayer must send the same token
         // the API client uses, or playback 401s while browsing works.
-        val http = androidx.media3.datasource.DefaultHttpDataSource.Factory()
-            .setDefaultRequestProperties(Api.authHeaders())
+        // Read the token for every request: the service may start before login,
+        // and logout/login can swap the token without recreating ExoPlayer.
+        val baseHttp = androidx.media3.datasource.DefaultHttpDataSource.Factory()
+        val http = object : androidx.media3.datasource.DataSource.Factory {
+            override fun createDataSource(): androidx.media3.datasource.DataSource =
+                baseHttp.createDataSource().apply {
+                    val httpSource = this as androidx.media3.datasource.HttpDataSource
+                    Api.authHeaders().forEach { (name, value) -> httpSource.setRequestProperty(name, value) }
+                }
+        }
         val player = androidx.media3.exoplayer.ExoPlayer.Builder(this)
             .setMediaSourceFactory(androidx.media3.exoplayer.source.DefaultMediaSourceFactory(http))
             .setAudioAttributes(
@@ -244,7 +317,16 @@ class PlaybackService : MediaSessionService() {
             )
             .setHandleAudioBecomingNoisy(true)
             .build()
-        session = MediaSession.Builder(this, player).build()
+        val openApp = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pending = PendingIntent.getActivity(
+            this,
+            0,
+            openApp,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        session = MediaSession.Builder(this, player).setSessionActivity(pending).build()
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session

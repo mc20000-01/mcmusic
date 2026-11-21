@@ -66,24 +66,31 @@ fun HomeScreen(onOpenSearch: () -> Unit, onOpenPlayer: () -> Unit) {
     var feed by remember { mutableStateOf<HomeFeed?>(null) }
     var listeners by remember { mutableStateOf<List<Listener>>(emptyList()) }
     var recent by remember { mutableStateOf<List<Track>>(emptyList()) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var errors by remember { mutableStateOf<List<String>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var reload by remember { mutableIntStateOf(0) }
     var album by remember { mutableStateOf<AlbumSummary?>(null) }
 
     LaunchedEffect(reload, me != null) {
         loading = true
-        error = null
-        Api.listening().onSuccess { listeners = it }
-        Api.tracks(limit = 60).onSuccess { recent = it }
+        val failures = mutableListOf<String>()
+        Api.listening().fold(
+            onSuccess = { listeners = it },
+            onFailure = { failures += "Listening now: ${it.message ?: "unavailable"}" },
+        )
+        Api.tracks(limit = 60).fold(
+            onSuccess = { recent = it },
+            onFailure = { failures += "Library: ${it.message ?: "unavailable"}" },
+        )
         if (me != null) {
             Api.home().fold(
                 onSuccess = { feed = it },
-                onFailure = { error = it.message ?: "could not load your feed" },
+                onFailure = { failures += "Your mix: ${it.message ?: "unavailable"}" },
             )
         } else {
             feed = null
         }
+        errors = failures
         loading = false
     }
 
@@ -105,7 +112,7 @@ fun HomeScreen(onOpenSearch: () -> Unit, onOpenPlayer: () -> Unit) {
         }
 
         if (loading) item { Loading("Building your feed…") }
-        error?.let { message -> item { ErrorLine(message) } }
+        errors.forEach { message -> item { ErrorLine(message) } }
 
         if (listeners.isNotEmpty()) {
             item {
