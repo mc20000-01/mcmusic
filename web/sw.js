@@ -48,7 +48,10 @@ self.addEventListener("install", (event) => {
         cache.add(new Request(url, { cache: "reload" })).catch(() => null)
       )
     );
-    // Never skipWaiting automatically: an update must not interrupt playback.
+    // Take over at once: this version replaces the retired vanilla client, and
+    // a waiting worker would keep serving its cached shell until every tab
+    // closed. Old shell caches are dropped in `activate`.
+    await self.skipWaiting();
   })());
 });
 
