@@ -45,6 +45,7 @@ function DesktopContent() {
         )}>
             <IconButton
                 class="openclose"
+                title={leftSidebarOpen.value ? "Collapse sidebar" : "Expand sidebar"}
                 onClick={() => leftSidebarOpen.value = !leftSidebarOpen.value}
             >
                 <Branch cond={leftSidebarOpen.value}>

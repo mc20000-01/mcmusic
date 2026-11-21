@@ -1,3 +1,7 @@
+.save-row {
+    gap: 10px;
+}
+
 /* Forms read better at a column width than stretched across a wide pane. */
 .content-settings > .container > .container {
     width: 100%;

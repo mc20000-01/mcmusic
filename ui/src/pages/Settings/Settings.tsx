@@ -4,7 +4,7 @@ import {
     Button, Container, Content, FormalInput, Header2, Header3, Loading,
     Seperator, Slider, Text, TextIconButton, WrapList
 } from "flufi-ui/components";
-import { KeyRound, LogOut, Save } from "lucide-preact";
+import { Check, KeyRound, LogOut, Save } from "lucide-preact";
 import { API } from "../../common/net/api";
 import { currentUser, logout } from "../../common/auth";
 import { PasswordInput } from "../../components/PasswordInput/PasswordInput";
@@ -37,26 +37,41 @@ export function SettingsPage() {
     const [settings, setSettings] = useState<Prefs | null>(null);
     const [message, setMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [dirty, setDirty] = useState(false);
+    const [saving, setSaving] = useState(false);
     const oldPw = useSignal("");
     const newPw = useSignal("");
 
     useEffect(() => {
-        loadPrefs().then(s => setSettings(s ?? {}));
+        loadPrefs()
+            .then(s => setSettings(s ?? {}))
+            .catch(e => {
+                // Render the form with defaults rather than an endless spinner;
+                // saving will surface the real error if the server is down.
+                setSettings({});
+                setError(e instanceof Error ? e.message : String(e));
+            });
     }, []);
 
     function set(key: string, value: unknown) {
         setSettings(s => ({ ...(s ?? {}), [key]: value }));
+        setDirty(true);
+        setMessage(null);
     }
 
     async function save() {
         setError(null);
         setMessage(null);
+        setSaving(true);
         try {
             await API.saveSettings(settings ?? {});
             applyPrefs(settings ?? {});
+            setDirty(false);
             setMessage("Preferences saved.");
         } catch (e) {
             setError(e instanceof Error ? e.message : String(e));
+        } finally {
+            setSaving(false);
         }
     }
 
@@ -79,7 +94,13 @@ export function SettingsPage() {
                 {() => (
                     <Container extra_gap>
                         <Header2>Settings</Header2>
-                        {(message || error) && <Text class={error ? "error" : ""} content={error ?? message!} />}
+                        {(message || error) && (
+                            <Text
+                                class={error ? "error" : "status"}
+                                role="status"
+                                content={error ?? message!}
+                            />
+                        )}
 
                         <Container>
                             <Header3>Account</Header3>
@@ -128,15 +149,24 @@ export function SettingsPage() {
                                     <Button
                                         key={key}
                                         variant={settings![key] ? "accent-subtle" : "panel"}
+                                        title={settings![key] ? "On" : "Off"}
                                         onClick={() => set(key, !settings![key])}
                                     >
+                                        {settings![key] && <Check size={15} />}
                                         {label}
                                     </Button>
                                 ))}
                             </WrapList>
-                            <TextIconButton variant="accent" onClick={save}>
-                                <Save size={18} /> Save preferences
-                            </TextIconButton>
+                            <Container horizontal centered_y class="save-row">
+                                <TextIconButton
+                                    variant="accent"
+                                    disabled={saving || !dirty}
+                                    onClick={save}
+                                >
+                                    <Save size={18} /> {saving ? "Saving…" : "Save preferences"}
+                                </TextIconButton>
+                                {dirty && <Text dim content="Unsaved changes" />}
+                            </Container>
                             <Text dim content="Stored on the server and shared with the Android/Qt/legacy clients." />
                         </Container>
 

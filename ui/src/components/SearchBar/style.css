@@ -11,6 +11,18 @@
     width: 100%;
 }
 
+.search-bar:focus-within {
+    border-color: var(--accent);
+}
+
+.search-bar .search-input::placeholder {
+    color: var(--text-dark);
+}
+
+.mobile .search-bar {
+    min-height: 40px;
+}
+
 .search-popout > div {
     padding: 10px;
     gap: 10px;

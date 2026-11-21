@@ -1,3 +1,21 @@
+.admin .section-head {
+    gap: 8px;
+}
+
+/* Request rows carry a long URL and up to six actions; let the actions wrap
+   under the text instead of pushing the row wider than the page. */
+.admin .req-head {
+    gap: 4px 8px;
+}
+
+.admin .req-url {
+    flex: 1 1 260px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .admin .log {
     max-height: 320px;
     overflow: auto;

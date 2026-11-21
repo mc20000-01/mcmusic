@@ -1,0 +1,32 @@
+.upload-requests {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.upload-request {
+    gap: 4px 10px;
+    min-width: 0;
+}
+
+.upload-request .req-url {
+    flex: 1 1 240px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.upload-request .req-status {
+    flex: none;
+    font-size: var(--font-size-small);
+    text-transform: lowercase;
+}
+
+@media (max-width: 600px) {
+    .upload-request .req-url {
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+}

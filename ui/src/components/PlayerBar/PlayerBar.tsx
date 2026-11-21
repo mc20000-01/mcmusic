@@ -2,7 +2,7 @@ import { useState } from "preact/hooks";
 import { Image, Container, FooterContainer, IconButton, Slider, Text } from "flufi-ui/components";
 import { MicVocal, Pause, Play } from "lucide-preact";
 import {
-    currentId, duration, formatTime, isPlaying, nowPlaying, position, seekTo, togglePlay
+    currentId, duration, formatTime, isPlaying, nowPlaying, playError, position, seekTo, togglePlay
 } from "../../common/player";
 import { LyricsPanel } from "../Lyrics/LyricsPanel";
 
@@ -27,14 +27,20 @@ export function PlayerBar() {
                         src={`/api/tracks/${currentId.value ?? track.id}/cover`}
                         size={40}
                     />
-                    <IconButton onClick={() => togglePlay()}>
+                    <IconButton
+                        title={isPlaying.value ? "Pause" : "Play"}
+                        onClick={() => togglePlay()}
+                    >
                         {isPlaying.value ? <Pause size={18} /> : <Play size={18} />}
                     </IconButton>
                     <Container vertical class="meta">
                         <Text class="title" content={track.title} />
                         <Text class="artist" dim content={track.artist} />
+                        {playError.value && (
+                            <Text class="play-error" role="status" content={playError.value} />
+                        )}
                     </Container>
-                    <Text dim content={formatTime(position.value)} />
+                    <Text class="time" dim content={formatTime(position.value)} />
                     <Slider
                         class="seek"
                         value={Math.min(position.value, duration.value)}
@@ -43,8 +49,11 @@ export function PlayerBar() {
                         step={0.1}
                         onChange={seekTo}
                     />
-                    <Text dim content={formatTime(duration.value)} />
-                    <IconButton title="Lyrics" onClick={() => setShowLyrics(v => !v)}>
+                    <Text class="time" dim content={formatTime(duration.value)} />
+                    <IconButton
+                        title="Lyrics"
+                        onClick={() => setShowLyrics(v => !v)}
+                    >
                         <MicVocal size={17} />
                     </IconButton>
                 </Container>

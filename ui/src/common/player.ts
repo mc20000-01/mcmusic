@@ -14,10 +14,16 @@ export const nowPlaying = signal<NowPlaying | null>(null);
 export const isPlaying = signal(false);
 export const position = signal(0);
 export const duration = signal(0);
+/** Set when the stream fails, so the bar can say so instead of sitting silent. */
+export const playError = signal<string | null>(null);
 
 audio.addEventListener("play", () => { isPlaying.value = true; });
 audio.addEventListener("pause", () => { isPlaying.value = false; });
 audio.addEventListener("ended", () => { isPlaying.value = false; });
+audio.addEventListener("error", () => {
+    isPlaying.value = false;
+    playError.value = "Couldn't play this track.";
+});
 audio.addEventListener("timeupdate", () => { position.value = audio.currentTime; });
 audio.addEventListener("loadedmetadata", () => { duration.value = audio.duration || 0; });
 
@@ -29,6 +35,7 @@ const reported = new Set<string>();
 export function playTrack(id: string, meta?: Omit<NowPlaying, "id">) {
     if (currentId.value !== id) {
         currentId.value = id;
+        playError.value = null;
         audio.src = API.streamUrl(id);
     }
     if (meta) nowPlaying.value = { id, ...meta };

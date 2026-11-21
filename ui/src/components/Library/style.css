@@ -6,8 +6,84 @@
 .library-card {
     display: flex;
     flex-direction: column;
+    min-width: 0;
 }
 
 .library-link {
-    padding: 5px 12px 5px 5px !important;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    padding: 6px 4px 0 !important;
+    width: 100%;
+    min-width: 0;
+}
+
+.cover-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+}
+
+.cover-wrap .cover-link {
+    display: block;
+    width: 100%;
+    height: 100%;
+    padding: 0 !important;
+}
+
+.cover-wrap .library-img {
+    width: 100%;
+    height: 100%;
+}
+
+/* Two lines are always reserved, so a long album name cannot change the row
+   height or push the next row of covers out of line. */
+.library-card .card-title {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.3;
+    height: 2.6em;
+    overflow-wrap: anywhere;
+}
+
+.library-card .card-sub {
+    font-size: var(--font-size-small);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Play button floats over the cover, revealed on hover or keyboard focus. */
+.library-card .card-play {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--text-on-light);
+    cursor: pointer;
+    opacity: 0;
+    box-shadow: 0 2px 8px #0008;
+    transition: opacity var(--transition-fast);
+}
+
+.library-card:hover .card-play,
+.library-card:focus-within .card-play {
+    opacity: 1;
+}
+
+@media (pointer: coarse) {
+    .library-card .card-play {
+        opacity: 1;
+    }
 }

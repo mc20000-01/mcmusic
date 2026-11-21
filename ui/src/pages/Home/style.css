@@ -4,3 +4,48 @@
     align-items: stretch;
     justify-content: flex-start;
 }
+
+.album-controls {
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 10px 0 16px;
+}
+
+.album-controls .album-filter {
+    width: 220px;
+    min-width: 0;
+}
+
+.album-controls .album-sort {
+    width: 170px;
+}
+
+/* auto-fill keeps every column the same width, so the last card in a row can
+   never overflow the pane or get clipped. */
+.album-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 16px;
+    width: 100%;
+}
+
+.album-grid .library-card {
+    width: 100%;
+}
+
+.load-more {
+    margin-top: 16px;
+}
+
+@media (max-width: 720px) {
+    .album-grid {
+        grid-template-columns: repeat(auto-fill, minmax(122px, 1fr));
+        gap: 12px;
+    }
+
+    .album-controls .album-filter,
+    .album-controls .album-sort {
+        flex: 1;
+        width: auto;
+    }
+}
