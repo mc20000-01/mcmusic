@@ -13,6 +13,7 @@ bp = Blueprint("personal_api", __name__)
 @bp.post("/api/plays")
 @login_required
 def add_play():
+    """Record a play and refresh the automatic Faves playlist."""
     d = request.get_json(silent=True) or {}
     try:
         tid = int(d.get("track_id") or 0)
@@ -33,6 +34,7 @@ def add_play():
 @bp.post("/api/like/<int:tid>")
 @login_required
 def like(tid):
+    """Toggle a like on a track."""
     c, uid = _db(), session["uid"]
     if not c.execute("select 1 from tracks where id=?", (tid,)).fetchone():
         return jsonify(error="not found"), 404
@@ -49,6 +51,7 @@ def like(tid):
 @bp.get("/api/likes")
 @login_required
 def likes():
+    """Every liked track, newest first."""
     rows = _db().execute(
         """select t.* from likes l join tracks t on t.id=l.track_id
            where l.user_id=? order by l.ts desc""", (session["uid"],)
@@ -58,10 +61,12 @@ def likes():
 
 # --------------------------------------------------------------------------- playlists
 def _own_pl(pid):
+    """Fetch a playlist only if it belongs to the signed-in account."""
     return _db().execute("select * from playlists where id=? and user_id=?", (pid, session["uid"])).fetchone()
 
 
 def _faves_id(c, uid):
+    """Id of the account's automatic Faves playlist, creating it if needed."""
     row = c.execute(
         "select id from playlists where user_id=? and name='Faves'", (uid,)
     ).fetchone()
@@ -148,6 +153,7 @@ def download_collection():
 @bp.get("/api/playlists")
 @login_required
 def playlists():
+    """The account's playlists with track counts."""
     _refresh_faves(_db(), session["uid"])
     rows = _db().execute(
         """select p.id, p.name, count(pt.track_id) n,
@@ -161,6 +167,7 @@ def playlists():
 @bp.post("/api/playlists")
 @login_required
 def playlist_create():
+    """Create an empty playlist."""
     name = str((request.get_json(silent=True) or {}).get("name", "")).strip()[:100]
     if not name:
         return jsonify(error="name required"), 400
@@ -174,6 +181,7 @@ def playlist_create():
 @bp.get("/api/playlists/<int:pid>")
 @login_required
 def playlist_get(pid):
+    """One playlist with its tracks."""
     p = _own_pl(pid)
     if not p:
         return jsonify(error="not found"), 404
@@ -188,6 +196,7 @@ def playlist_get(pid):
 @bp.patch("/api/playlists/<int:pid>")
 @login_required
 def playlist_rename(pid):
+    """Rename a playlist owned by the account."""
     if not _own_pl(pid):
         return jsonify(error="not found"), 404
     name = str((request.get_json(silent=True) or {}).get("name", "")).strip()[:100]
@@ -201,6 +210,7 @@ def playlist_rename(pid):
 @bp.delete("/api/playlists/<int:pid>")
 @login_required
 def playlist_delete(pid):
+    """Delete a playlist and its entries."""
     if not _own_pl(pid):
         return jsonify(error="not found"), 404
     _db().execute("delete from playlists where id=?", (pid,))
@@ -211,6 +221,7 @@ def playlist_delete(pid):
 @bp.post("/api/playlists/<int:pid>/tracks")
 @login_required
 def playlist_add(pid):
+    """Append a track to a playlist."""
     if not _own_pl(pid):
         return jsonify(error="not found"), 404
     tid = int((request.get_json(silent=True) or {}).get("track_id", 0))
@@ -227,6 +238,7 @@ def playlist_add(pid):
 @bp.delete("/api/playlists/<int:pid>/tracks/<int:tid>")
 @login_required
 def playlist_remove(pid, tid):
+    """Remove a track from a playlist."""
     if not _own_pl(pid):
         return jsonify(error="not found"), 404
     _db().execute("delete from playlist_tracks where playlist_id=? and track_id=?", (pid, tid))
@@ -236,6 +248,7 @@ def playlist_remove(pid, tid):
 
 # --------------------------------------------------------------------------- recommendations
 def affinity(uid):
+    """Per-artist/album/genre weights used by the recommender."""
     A, B, G = defaultdict(float), defaultdict(float), defaultdict(float)
     now = time.time()
     c = _db()
@@ -265,6 +278,7 @@ def affinity(uid):
 
 
 def recommend(uid, n=30, unplayed_only=False):
+    """Ranked recommendations from the affinity scores."""
     c = _db()
     A, B, G = affinity(uid)
     ever = {r["track_id"] for r in c.execute("select distinct track_id from plays where user_id=?", (uid,))}
@@ -297,6 +311,7 @@ def recommend(uid, n=30, unplayed_only=False):
 @bp.get("/api/home")
 @login_required
 def home():
+    """Home payload: recently played, new additions and picks."""
     uid, c = session["uid"], _db()
     L = liked_ids(c, uid)
     top = c.execute(
@@ -327,6 +342,7 @@ def home():
 @bp.get("/api/radio/<int:tid>")
 @login_required
 def radio(tid):
+    """Tracks similar to one seed track."""
     seed = _db().execute("select * from tracks where id=?", (tid,)).fetchone()
     if not seed:
         return jsonify(error="not found"), 404

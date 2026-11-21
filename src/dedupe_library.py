@@ -5,6 +5,16 @@ Two files for the same song (two uploads, two links) become one library entry:
 the extra file is moved to <music>/.dupes/ (recoverable, ignored by the
 scanner) and its link is recorded in track_sources so the UI can offer both.
 
+Matching is deliberately conservative: the same video id always merges, and
+files merge when they share a normalised title + artist and a similar length.
+Bracketed text that says what a version is -- "(English Cover)", "(Live)", a
+remixer's name -- is kept, so a cover and the original never merge; only
+brackets that just say "official video"/"lyrics" are ignored.
+
+Every reference is re-pointed at the survivor before the duplicate row goes:
+playlists, likes, plays, track artists, sources, the playback queue and the
+track a device is currently on.
+
     python src/dedupe_library.py --dry-run     # show what would merge
     python src/dedupe_library.py               # merge for real
 """
@@ -20,54 +30,77 @@ import unicodedata
 
 from config import DB_PATH, MUSIC_DIR
 
-BRACKETS_RE = re.compile(r"[\(\[\{][^\)\]\}]*[\)\]\}]")
+BRACKETS_RE = re.compile(r"[\(\[\{]([^\)\]\}]*)[\)\]\}]")
 FEAT_RE = re.compile(r"\b(?:feat|ft|featuring)\.?\s+.*$", re.I)
-JUNK_RE = re.compile(r"\b(?:official|video|audio|lyrics?|hd|hq|remaster(?:ed)?|mv|m/?v)\b", re.I)
+JUNK_RE = re.compile(r"\b(?:official|video|audio|lyrics?|hd|hq|remaster(?:ed)?|mv|4k|visuali[sz]er)\b", re.I)
+JUNK_WORDS = {"official", "video", "audio", "lyric", "lyrics", "hd", "hq",
+              "mv", "4k", "remaster", "remastered", "visualizer", "visualiser"}
+TOPIC_SUFFIX_RE = re.compile(r"\s*-\s*topic\s*$", re.I)
 WORD_RE = re.compile(r"[^a-z0-9]+")
 DURATION_SLACK = 3.0
 
 
+def _bracket(match):
+    """Keep version-defining brackets, drop only junk-only ones."""
+    words = set(WORD_RE.sub(" ", match.group(1).lower()).split())
+    return " " if words and words <= JUNK_WORDS else f" {match.group(1)} "
+
+
 def norm(value):
     text = unicodedata.normalize("NFKD", str(value or ""))
-    text = text.encode("ascii", "ignore").decode()
-    text = text.lower()
-    text = BRACKETS_RE.sub(" ", text)
+    text = text.encode("ascii", "ignore").decode().lower()
+    text = TOPIC_SUFFIX_RE.sub("", text)
+    text = BRACKETS_RE.sub(_bracket, text)
     text = FEAT_RE.sub(" ", text)
     text = JUNK_RE.sub(" ", text)
     return WORD_RE.sub(" ", text).strip()
 
 
-def key_for(row):
-    return (norm(row["title"]), norm(row["artist"]) or "unknown")
+def artist_key(row):
+    return norm(row["artist"]) or "unknown"
+
+
+def duration_close(a, b):
+    da, db = a["duration"] or 0, b["duration"] or 0
+    return not (da and db and abs(da - db) > DURATION_SLACK)
 
 
 def find_groups(rows):
-    """Rows that describe the same song: same normalised name and close length."""
-    buckets = {}
-    for row in rows:
-        buckets.setdefault(key_for(row), []).append(row)
-    groups = []
-    for items in buckets.values():
-        if len(items) < 2:
-            continue
-        items.sort(key=lambda r: r["id"])
-        used = set()
-        for i, head in enumerate(items):
-            if head["id"] in used:
-                continue
-            used.add(head["id"])
-            bucket = [head]
-            for other in items[i + 1:]:
-                if other["id"] in used:
-                    continue
-                a, b = head["duration"] or 0, other["duration"] or 0
-                if a and b and abs(a - b) > DURATION_SLACK:
-                    continue
-                bucket.append(other)
-                used.add(other["id"])
-            if len(bucket) > 1:
-                groups.append(bucket)
-    return groups
+    """Components of rows that describe the same recording."""
+    parent = list(range(len(rows)))
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    def union(a, b):
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[max(ra, rb)] = min(ra, rb)
+
+    # 1) same YouTube video is the same recording, whatever the tags say.
+    by_yt = {}
+    for i, row in enumerate(rows):
+        if row["yt_id"]:
+            other = by_yt.setdefault(row["yt_id"], i)
+            if other != i:
+                union(i, other)
+
+    # 2) same normalised title + artist, close length.
+    by_key = {}
+    for i, row in enumerate(rows):
+        key = (norm(row["title"]), artist_key(row))
+        for j in by_key.get(key, []):
+            if duration_close(row, rows[j]):
+                union(i, j)
+        by_key.setdefault(key, []).append(i)
+
+    groups = {}
+    for i in range(len(rows)):
+        groups.setdefault(find(i), []).append(rows[i])
+    return [sorted(items, key=lambda r: r["id"]) for items in groups.values() if len(items) > 1]
 
 
 def _names(raw):
@@ -76,6 +109,25 @@ def _names(raw):
     except (TypeError, ValueError):
         return []
     return [str(v) for v in value if str(v).strip()]
+
+
+def richness(row):
+    score = 0
+    if row["yt_id"]:
+        score += 4
+    if row["lyrics"]:
+        score += 2
+    if row["genre"]:
+        score += 1
+    album = (row["album"] or "").strip()
+    if album and album != (row["title"] or "").strip():
+        score += 2
+    return score
+
+
+def survivor(bucket):
+    """Keep the best-annotated row, not just the oldest one."""
+    return sorted(bucket, key=lambda r: (-richness(r), r["id"]))[0]
 
 
 def quarantine(rel_path):
@@ -105,57 +157,121 @@ def quarantine(rel_path):
     return dest
 
 
+def fill_missing(conn, keep, dup):
+    """Copy annotations the survivor is missing from the duplicate."""
+    updates = {}
+    keep_album = (keep["album"] or "").strip()
+    dup_album = (dup["album"] or "").strip()
+    # Only take the duplicate's album when the survivor has none or is still
+    # showing the song-name fallback.
+    if (not keep_album or keep_album == (keep["title"] or "").strip()) \
+            and dup_album and dup_album != (dup["title"] or "").strip():
+        updates["album"] = dup_album
+    for column in ("genre", "year", "lyrics", "lyrics_source", "yt_likes",
+                   "yt_views", "yt_channel", "yt_date"):
+        if not keep[column] and dup[column]:
+            updates[column] = dup[column]
+    if not keep["duration"] and dup["duration"]:
+        updates["duration"] = dup["duration"]
+    if updates:
+        sets = ", ".join(f"{k}=?" for k in updates)
+        conn.execute(f"update tracks set {sets} where id=?", (*updates.values(), keep["id"]))
+        keep.update(updates)
+
+
+def repoint(conn, keep, dup):
+    """Move every reference from the duplicate to the survivor."""
+    # Playlists: keep the survivor's position when already present.
+    conn.execute(
+        "insert or ignore into playlist_tracks(playlist_id, track_id, pos) "
+        "select playlist_id, ?, pos from playlist_tracks where track_id=?",
+        (keep["id"], dup["id"]),
+    )
+    conn.execute("delete from playlist_tracks where track_id=?", (dup["id"],))
+
+    # Likes and plays.
+    conn.execute(
+        "insert or ignore into likes(user_id, track_id, ts) select user_id, ?, ts from likes where track_id=?",
+        (keep["id"], dup["id"]),
+    )
+    conn.execute("delete from likes where track_id=?", (dup["id"],))
+    conn.execute("update plays set track_id=? where track_id=?", (keep["id"], dup["id"]))
+
+    # All links live on the survivor.
+    conn.execute(
+        "insert or ignore into track_sources(track_id, yt_id, url, title, added) "
+        "select ?, yt_id, url, title, added from track_sources where track_id=?",
+        (keep["id"], dup["id"]),
+    )
+    conn.execute("delete from track_sources where track_id=?", (dup["id"],))
+
+    # 'now playing' pointers, including queues stored as JSON lists.
+    conn.execute("update playback set track_id=? where track_id=?", (keep["id"], dup["id"]))
+    for pb in conn.execute("select user_id, queue from playback where queue is not null").fetchall():
+        try:
+            ids = json.loads(pb["queue"] or "[]")
+        except (TypeError, ValueError):
+            continue
+        if dup["id"] in ids:
+            conn.execute(
+                "update playback set queue=? where user_id=?",
+                (json.dumps([keep["id"] if i == dup["id"] else i for i in ids]), pb["user_id"]),
+            )
+    conn.execute(
+        "update devices set current_track_id=? where current_track_id=?", (keep["id"], dup["id"])
+    )
+
+
+def merge_artists(conn, keep, dup):
+    names = _names(keep["artists"])
+    seen = {n.casefold() for n in names}
+    names += [n for n in _names(dup["artists"]) if n.casefold() not in seen]
+    if names != _names(keep["artists"]):
+        conn.execute("update tracks set artists=? where id=?", (json.dumps(names), keep["id"]))
+    for pos, name in enumerate(names):
+        conn.execute(
+            "insert or ignore into track_artists(track_id, artist, position) values(?,?,?)",
+            (keep["id"], name, pos),
+        )
+    conn.execute("delete from track_artists where track_id=?", (dup["id"],))
+
+
 def run(dry_run=True):
     conn = sqlite3.connect(DB_PATH, timeout=30)
     conn.row_factory = sqlite3.Row
     rows = conn.execute(
-        "select id, path, title, artist, artists, duration, yt_id from tracks order by id"
+        "select id, path, title, artist, artists, album, genre, year, duration, "
+        "track_no, yt_id, yt_likes, yt_views, yt_channel, yt_date, lyrics, lyrics_source "
+        "from tracks order by id"
     ).fetchall()
     groups = find_groups(rows)
     folded = 0
     links = 0
     for bucket in groups:
-        keep = bucket[0]
+        keep = survivor(bucket)
         for item in bucket:
-            if not item["yt_id"]:
+            if item["id"] == keep["id"]:
                 continue
-            url = f"https://www.youtube.com/watch?v={item['yt_id']}"
-            if dry_run:
-                links += 1
-                continue
-            cur = conn.execute(
-                """insert or ignore into track_sources(track_id, yt_id, url, title, added)
-                   values(?,?,?,?,?)""",
-                (keep["id"], item["yt_id"], url, item["title"], time.time()),
-            )
-            links += cur.rowcount
-        for dup in bucket[1:]:
-            print(f"  merge #{dup['id']} {dup['title']!r} -> #{keep['id']}")
+            if item["yt_id"]:
+                url = f"https://www.youtube.com/watch?v={item['yt_id']}"
+                if dry_run:
+                    links += 1
+                else:
+                    cur = conn.execute(
+                        """insert or ignore into track_sources(track_id, yt_id, url, title, added)
+                           values(?,?,?,?,?)""",
+                        (keep["id"], item["yt_id"], url, item["title"], time.time()),
+                    )
+                    links += cur.rowcount
+            print(f"  merge #{item['id']} {item['title']!r} -> #{keep['id']} {keep['title']!r}")
             if dry_run:
                 folded += 1
                 continue
-            # A collab credit on either file belongs to the survivor.
-            names = _names(keep["artists"]) + [
-                n for n in _names(dup["artists"]) if n.casefold() not in
-                {x.casefold() for x in _names(keep["artists"])}
-            ]
-            conn.execute("update tracks set artists=? where id=?",
-                         (json.dumps(names), keep["id"]))
-            for pos, name in enumerate(names):
-                conn.execute(
-                    "insert or ignore into track_artists(track_id, artist, position) "
-                    "values(?,?,?)",
-                    (keep["id"], name, pos),
-                )
-            conn.execute("delete from track_artists where track_id=?", (dup["id"],))
-            conn.execute(
-                "insert or ignore into likes(user_id, track_id, ts) "
-                "select user_id, ?, ts from likes where track_id=?",
-                (keep["id"], dup["id"]),
-            )
-            conn.execute("update plays set track_id=? where track_id=?", (keep["id"], dup["id"]))
-            conn.execute("delete from tracks where id=?", (dup["id"],))
-            quarantine(dup["path"])
+            fill_missing(conn, keep, item)
+            merge_artists(conn, keep, item)
+            repoint(conn, keep, item)
+            conn.execute("delete from tracks where id=?", (item["id"],))
+            quarantine(item["path"])
             folded += 1
     if not dry_run:
         conn.commit()

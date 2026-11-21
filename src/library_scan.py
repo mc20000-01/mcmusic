@@ -38,7 +38,10 @@ def _first(tags, key, default=""):
 def read_tags(full, rel):
     base = os.path.splitext(os.path.basename(rel))[0]
     title = re.sub(r"^\d+\s*-\s*", "", base)
-    album = os.path.basename(os.path.dirname(rel)) or "Unknown Album"
+    # Never derive the album from the folder: for downloads that is just the
+    # name of the playlist the track came from. A track with no album of its
+    # own falls back to the song name.
+    album = ""
     artist, track_no, genre, year, dur = "Unknown Artist", 0, "", "", 0.0
     try:
         f = mutagen.File(full, easy=True)
@@ -47,13 +50,14 @@ def read_tags(full, rel):
             tg = f.tags
             title = _first(tg, "title", title) or title
             artist = _first(tg, "artist", artist) or artist
-            album = _first(tg, "album", album) or album
+            album = _first(tg, "album")
             genre = _first(tg, "genre")
             year = _first(tg, "date")[:4]
             m = re.match(r"\d+", _first(tg, "tracknumber", "0"))
             track_no = int(m.group()) if m else 0
     except Exception:
         pass
+    album = album or title
     artist = re.sub(r"\s*-\s*Topic$", "", artist)
     lyrics, lyrics_source = read_lyrics(full)
     return title, artist, album, track_no, genre, year, dur, lyrics, lyrics_source

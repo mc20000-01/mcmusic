@@ -1,0 +1,10 @@
+
+.track-list {
+    gap: 5px;
+
+    &.track-list-input {
+        > .tracks {
+            margin-top: 15px;
+        }
+    }
+}

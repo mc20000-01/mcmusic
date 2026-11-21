@@ -1,0 +1,5 @@
+/* Forms read better at a column width than stretched across a wide pane. */
+.content-settings > .container > .container {
+    width: 100%;
+    max-width: 760px;
+}

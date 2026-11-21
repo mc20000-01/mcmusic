@@ -20,9 +20,7 @@
 html, body {
   margin: 0;
   min-height: 100%;
-  background:
-    radial-gradient(120% 80% at 50% -10%, rgba(176, 128, 234, 0.16), transparent 60%),
-    var(--bg);
+  background: var(--bg);
   color: var(--fg);
   font-family: var(--font-ui);
   display: grid;

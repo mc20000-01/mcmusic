@@ -11,7 +11,8 @@ No feed. No algorithm. Only the records you put here.
 | Path | What it is |
 | --- | --- |
 | `src/` | Flask server: library, playlists, lyrics, requests, devices, playback |
-| `web/` | The PWA — vanilla ES modules, no build step, offline-capable |
+| `ui/` | The web client (Preact + Vite), forked from flufi-music/v3-client. Builds into `web/ui/`; `/` serves it |
+| `web/` | The previous PWA — vanilla ES modules, no build step. Still served at `/legacy` |
 | `gui/` | Where the new Android client will live; the previous one was removed in full |
 | `app/linux/` | Qt 6 desktop client, shared with the macOS and Windows launch scripts |
 | `app/3ds/` | Nintendo 3DS homebrew scaffold (pairing and library browsing) |
@@ -28,8 +29,12 @@ middle and no account anywhere else: one `data/mcmusic.db` is the truth.
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt        # Flask, gunicorn, mutagen, …
 cp mcmusic.env.example mcmusic.env               # then edit it
+( cd ui && npm ci && npm run build )             # writes web/ui/, what `/` serves
 .venv/bin/python -m src.mcmusic                  # or: gunicorn mcmusic:app
 ```
+
+Without `web/ui/` the server falls back to the legacy shell in `web/`, which
+stays reachable at `/legacy`.
 
 Configuration is environment-only. The names that matter:
 
@@ -42,6 +47,15 @@ Configuration is environment-only. The names that matter:
 
 Nothing under `data/` (database, cookies, session key) or `mcmusic.env` is in
 this repository, and `.gitignore` keeps it that way.
+
+### Library maintenance
+
+```bash
+python tools/fix_music_db.py --fix-albums        # album tag = sidecar album, else song name
+python tools/fetch_albums.py --workers 6         # ask YouTube for real albums, resumable
+python src/dedupe_library.py --dry-run           # duplicate songs, what would merge
+python src/dedupe_library.py                     # merge them, keep both links
+```
 
 ### Discord account linking
 

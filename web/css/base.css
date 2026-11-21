@@ -26,15 +26,7 @@ html {
 }
 
 body {
-  /* two solid ink tones in a fine repeating stripe — no gradients */
-  background-image:
-    repeating-linear-gradient(0deg, var(--bg-2) 0 2px, var(--bg) 2px 6px);
-  background-attachment: fixed;
-}
-
-[data-theme="paper"] body {
-  background-image:
-    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.012) 0 1px, transparent 1px 3px);
+  background: var(--bg);
 }
 
 h1, h2, h3, h4 { margin: 0; font-weight: 600; }

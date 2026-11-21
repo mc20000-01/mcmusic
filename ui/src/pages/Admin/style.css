@@ -1,0 +1,15 @@
+.admin .log {
+    max-height: 320px;
+    overflow: auto;
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: var(--prim);
+    padding: 8px;
+    border-radius: 6px;
+}
+
+/* Admin content is tables and lists; keep it from spanning ultra-wide. */
+.content-admin > .container > .container {
+    max-width: 980px;
+}

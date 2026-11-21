@@ -1,30 +1,21 @@
 package dev.mcmusic.app.ui.screens
 
-import androidx.compose.foundation.Background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -34,140 +25,94 @@ import dev.mcmusic.app.data.Downloads
 import dev.mcmusic.app.data.Track
 import dev.mcmusic.app.playback.Playback
 import dev.mcmusic.app.ui.EmptyState
+import dev.mcmusic.app.ui.GhostButton
+import dev.mcmusic.app.ui.IconButton
 import dev.mcmusic.app.ui.Lucide
-import dev.mcmusic.app.ui.LucideIcon
+import dev.mcmusic.app.ui.Muted
 import dev.mcmusic.app.ui.ScreenTitle
 import dev.mcmusic.app.ui.SectionLabel
+import dev.mcmusic.app.ui.TrackCover
 import dev.mcmusic.app.ui.design.LocalDesign
-import dev.mcmusic.app.ui.design.mcSurface
-import kotlinx.coroutines.launch
+import dev.mcmusic.app.ui.formatBytes
 
+/**
+ * Offline copies. Downloads are per device and stored by [Downloads]; playback
+ * already prefers the local file, so this page only shows, plays and removes.
+ */
 @Composable
-fun DownloadsScreen() {
+fun DownloadsScreen(onOpenPlayer: () -> Unit) {
     val design = LocalDesign.current
-    var signedIn by remember { mutableStateOf<Boolean?>(null) }
-    var downloads by remember { mutableStateOf<List<Download>>(emptyList()) }
-    var loading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
+    val items = Downloads.items
+    var confirmClear by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
-        if (me != null) {
-            loading = true
-            Api.downloads { it ->
-                loading = false
-                downloads = it
-                error = null
-            }.onFailure { loading = false; error = it.message ?: "could not load downloads" }
-        } else {
-            loading = false
-        }
-        signedIn = me != null
-    }
-
-    val me = Account.me
+    fun asTrack(d: Download) = Track(d.id, d.title, d.artist, d.album, d.duration)
 
     LazyColumn(
-        contentPadding = PaddingValues(
-            start = design.screenPadding,
-            end = design.screenPadding,
-            top = 10.dp,
-            bottom = design.gap,
-        ),
-        verticalArrangement = androidx.compose.foundation.Arrangement.spacedBy(design.gap),
+        contentPadding = PaddingValues(design.screenPadding, 10.dp, design.screenPadding, 24.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item {
             ScreenTitle(
-                if (me != null) "Downloads" else "Sign in to download",
+                "Downloads",
+                if (items.isEmpty()) "Nothing saved on this device yet."
+                else "${items.size} tracks · ${formatBytes(Downloads.totalBytes())}",
             )
         }
-
-        if (me != null) {
-            if (loading) {
-                item { Text("Loading downloads…", color = design.dim, fontSize = 13.sp, align = androidx.compose.ui.Alignment.CenterHorizontally) }
-            }
-            if (error != null) {
-                EmptyState(
-                    icon = dev.mcmusic.app.ui.Lucide.Download,
-                    title = "Couldn't load downloads",
-                    body = error,
-                    actionLabel = "Try again",
-                    onAction = {},
-                )
-            }
-            if (downloads.isNotEmpty()) {
-                items(downloads, key = { it.id }) { download ->
-                    DownloadRow(download)
-                }
-            }
-            if (downloads.isEmpty()) {
-                EmptyState(
-                    icon = dev.mcmusic.app.ui.Lucide.Download,
-                    title = "No downloads",
-                    body = "Your downloads will appear here.",
-                    actionLabel = "",
-                )
-            }
-        } else {
-            if (!me!.value) {
-                item {
-                    ScreenBack(onBack = { }) {}
-                    Text("Sign in to access downloads", color = design.dim, fontSize = 14.sp, align = androidx.compose.ui.Alignment.CenterHorizontally)
-                }
-            }
+        if (Account.me == null) {
             item {
                 EmptyState(
-                    icon = dev.mcmusic.app.ui.Lucide.Download,
+                    icon = Lucide.LogIn,
                     title = "Sign in to download",
-                    body = "Download tracks from YouTube playlists.",
-                    actionLabel = "Sign in",
+                    body = "Audio comes from the authenticated stream endpoint, so downloads need an account.",
                 )
             }
         }
-    }
-}
-
-@Composable
-fun DownloadRow(download: Download) {
-    val design = LocalDesign.current
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .mcSurface(RoundedCornerShape(design.cardRadius))
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.start,
-    ) {
-        Cover(
-            url = "${Api.server}/api/tracks/${download.trackId}/cover",
-            shape = RoundedCornerShape(8.dp),
-            modifier = Modifier.size(40.dp),
-            fallback = design.accentSoft,
-        )
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(download.title, color = design.fg, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1)
-            Text(
-                text = download.artist.ifBlank { "unknown artist" },
-                color = design.dim,
-                fontSize = 11.sp,
-                maxLines = 1,
-            )
-            if (download.progress >= 0) {
-                Text(
-                    text = "${download.progress.toInt()}% complete",
-                    color = design.dim,
-                    fontSize = 11.sp,
+        if (items.isNotEmpty()) {
+            item {
+                SectionLabel("On this device") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        GhostButton(if (confirmClear) "Really clear?" else "Clear all", danger = true) {
+                            if (confirmClear) {
+                                Downloads.clearAll()
+                                confirmClear = false
+                            } else {
+                                confirmClear = true
+                            }
+                        }
+                    }
+                }
+            }
+            items(items, key = { it.id }) { download ->
+                val track = asTrack(download)
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(11.dp),
+                ) {
+                    TrackCover(track)
+                    Column(Modifier.weight(1f)) {
+                        Text(track.title, color = design.fg, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        Text(
+                            "${track.artist} · ${formatBytes(download.bytes)}",
+                            color = design.dim, fontSize = 11.sp,
+                        )
+                    }
+                    IconButton(Lucide.Play, tint = design.accent) {
+                        Playback.play(items.map(::asTrack), items.indexOf(download))
+                        onOpenPlayer()
+                    }
+                    IconButton(Lucide.Trash) { Downloads.remove(download.id) }
+                }
+            }
+        } else {
+            item {
+                EmptyState(
+                    icon = Lucide.Download,
+                    title = "No downloads",
+                    body = "Saved tracks play offline and show up in the mini player like any other queue.",
                 )
             }
         }
-        Spacer(Modifier.width(8.dp))
-        Box(
-            modifier = Modifier
-                .size(24.dp)
-                .clip(CircleShape)
-                .background(design.palette.bg),
-            contentAlignment = Alignment.Center,
-        ) {
-            LucideIcon(Lucide.Download, design.dim, Modifier.size(14.dp))
-        }
+        item { Muted("Downloads are not synced between devices.") }
     }
 }

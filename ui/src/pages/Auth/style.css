@@ -1,0 +1,10 @@
+/* Centering comes from Content's `centered` prop; the panel width is ours. */
+.content-auth > .container {
+    width: 340px;
+    align-items: stretch;
+}
+
+.content-auth .tabs,
+.content-auth .formal-input {
+    width: 100%;
+}

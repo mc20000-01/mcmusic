@@ -1,240 +1,247 @@
 package dev.mcmusic.app.ui.screens
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.PasswordFieldValue
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.mcmusic.app.data.Account
 import dev.mcmusic.app.data.Api
-import dev.mcmusic.app.ui.EmptyState
+import dev.mcmusic.app.data.Downloads
+import dev.mcmusic.app.data.Prefs
+import dev.mcmusic.app.ui.ErrorLine
+import dev.mcmusic.app.ui.GhostButton
 import dev.mcmusic.app.ui.Lucide
-import dev.mcmusic.app.ui.LucideIcon
-import dev.mcmusic.app.ui.Segmented
+import dev.mcmusic.app.ui.McField
+import dev.mcmusic.app.ui.Muted
+import dev.mcmusic.app.ui.PrimaryButton
+import dev.mcmusic.app.ui.ScreenTitle
+import dev.mcmusic.app.ui.SectionLabel
+import dev.mcmusic.app.ui.SettingCard
+import dev.mcmusic.app.ui.SettingDivider
+import dev.mcmusic.app.ui.SettingRow
+import dev.mcmusic.app.ui.SwitchRow
 import dev.mcmusic.app.ui.design.LocalDesign
-import dev.mcmusic.app.ui.design.mcSurface
+import dev.mcmusic.app.ui.formatBytes
 import kotlinx.coroutines.launch
 
+/**
+ * Settings is the web client's account + preferences page: who you are, which
+ * server you talk to, motion, download rules and local storage. The admin entry
+ * only appears for admins, and signing out drops the shell back to Home.
+ */
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(onAdmin: () -> Unit, onSignedOut: () -> Unit) {
     val design = LocalDesign.current
-    var signedIn by remember { mutableStateOf<Boolean?>(null) }
-    var motd by remember { mutableStateOf<String?>(null) }
-    var theme by rememberSaveable { currentDesignLanguage() }
-    var language by rememberSaveable { currentDesignLanguage() }
-    var motion by rememberSaveable { Prefs.motion }
-    var showCovers by rememberSaveable { true }
-    var hideExplicit by rememberSaveable { false }
+    val scope = rememberCoroutineScope()
+    val me = Account.me
 
-    Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-        verticalArrangement = androidx.compose.foundation.Arrangement.spacedBy(12.dp),
-    ) {
-        SettingsHeader()
+    var username by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var notice by remember { mutableStateOf<String?>(null) }
 
-        // Appearance
-        SettingsSection("Appearance") {
-            SettingsToggle(
-                title = "Theme",
-                subtitle = design.language.label,
-                icon = dev.mcmusic.app.ui.Lucide.Palette,
-                checked = language.id == design.language.id,
-                onChange = { language = it },
-            )
-            SettingsToggle(
-                title = "Design language",
-                subtitle = if (language.id == "ios") "iOS 27 chrome" else "One UI flat chrome",
-                icon = dev.mcmusic.app.ui.Lucide.Compass,
-                checked = language.id == "ios",
-                onChange = { language = it },
-            )
-            SettingsToggle(
-                title = "Reduce motion",
-                subtitle = "Animate transitions",
-                icon = dev.mcmusic.app.ui.Lucide.Sync,
-                checked = motion,
-                onChange = { motion = !it },
-            )
-            SettingsToggle(
-                title = "Show song covers",
-                subtitle = " artwork in lists and tiles",
-                icon = dev.mcmusic.app.ui.Lucide.Image,
-                checked = showCovers,
-                onChange = { showCovers = it },
-            )
-            SettingsToggle(
-                title = "Hide explicit",
-                subtitle = "Filter explicit lyrics",
-                icon = dev.mcmusic.app.ui.Lucide.Lock,
-                checked = hideExplicit,
-                onChange = { hideExplicit = it },
-            )
-        }
+    var server by remember { mutableStateOf(Prefs.server) }
+    var email by remember { mutableStateOf("") }
+    var oldPassword by remember { mutableStateOf("") }
+    var newPassword by remember { mutableStateOf("") }
+    var showAccountTools by remember { mutableStateOf(false) }
 
-        // Social
-        SettingsSection("Social") {
-            SettingsToggle(
-                title = "Discord Rich Presence",
-                subtitle = "Show what you're listening to on Discord",
-                icon = dev.mcmusic.app.ui.Lucide.Discord,
-                checked = true, // TODO: read from prefs
-                onChange = {},
-            )
-            SettingsToggle(
-                title = "Rotur activity",
-                subtitle = "Share what you're listening to on Rotur",
-                icon = dev.mcmusic.app.ui.Lucide.Server,
-                checked = true, // TODO: read from prefs
-                onChange = {},
-            )
-        }
+    LaunchedEffect(me?.id) { email = me?.email.orEmpty() }
 
-        // About
-        SettingsSection("About") {
-            SettingsRow(
-                title = "Version",
-                subtitle = "mcmusic ${Prefs.version}",
-                icon = dev.mcmusic.app.ui.Lucide.Info,
-                onClick = {},
+    fun signIn() {
+        if (username.isBlank() || password.isBlank()) return
+        busy = true
+        error = null
+        notice = null
+        scope.launch {
+            Api.login(username.trim(), password).fold(
+                onSuccess = {
+                    password = ""
+                    Account.refresh()
+                    notice = "Signed in as ${it.username}."
+                },
+                onFailure = { error = it.message ?: "could not sign in" },
             )
-            SettingsRow(
-                title = "Contact",
-                subtitle = "Report issues or say hello",
-                icon = dev.mcmusic.app.ui.Lucide.Mail,
-                onClick = {},
-            )
+            busy = false
         }
     }
-}
 
-@Composable
-fun SettingsHeader() {
-    val design = LocalDesign.current
-    SettingsSection("", {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+    LazyColumn(
+        contentPadding = PaddingValues(design.screenPadding, 10.dp, design.screenPadding, 32.dp),
+        verticalArrangement = Arrangement.spacedBy(9.dp),
+    ) {
+        item { ScreenTitle("Settings", "Account, server and this device.") }
+        error?.let { item { ErrorLine(it) } }
+        notice?.let { item { Muted(it) } }
+
+        item { SectionLabel("Account") }
+        if (me == null) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    McField(username, { username = it }, "Username")
+                    McField(
+                        password, { password = it }, "Password",
+                        password = true,
+                        keyboard = KeyboardOptions(imeAction = ImeAction.Done, keyboardType = KeyboardType.Password),
+                        actions = KeyboardActions(onDone = { signIn() }),
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        PrimaryButton(if (busy) "Signing in…" else "Sign in", enabled = !busy) { signIn() }
+                        Muted("Same account as the website.", Modifier.align(Alignment.CenterVertically))
+                    }
+                    Muted("New accounts need an invite from an admin.")
+                }
+            }
+        } else {
+            item {
+                SettingCard {
+                    SettingRow("Signed in as ${me.username}", me.email ?: "no email on file", icon = Lucide.User)
+                    SettingDivider()
+                    SettingRow("Account tools", "Email and password", icon = Lucide.Lock) {
+                        GhostButton(if (showAccountTools) "Hide" else "Open") { showAccountTools = !showAccountTools }
+                    }
+                }
+            }
+            if (showAccountTools) {
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        McField(email, { email = it }, "Email", keyboard = KeyboardOptions(keyboardType = KeyboardType.Email))
+                        GhostButton("Save email") {
+                            scope.launch {
+                                Api.setEmail(email.trim()).fold(
+                                    onSuccess = { Account.refresh(); notice = "Email saved." },
+                                    onFailure = { error = it.message ?: "could not save the email" },
+                                )
+                            }
+                        }
+                        McField(oldPassword, { oldPassword = it }, "Current password", password = true)
+                        McField(newPassword, { newPassword = it }, "New password", password = true)
+                        GhostButton("Change password") {
+                            scope.launch {
+                                Api.changePassword(oldPassword, newPassword).fold(
+                                    onSuccess = {
+                                        oldPassword = ""; newPassword = ""
+                                        notice = "Password changed."
+                                    },
+                                    onFailure = { error = it.message ?: "could not change the password" },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            if (Account.isAdmin) {
+                item {
+                    SettingCard {
+                        SettingRow("Admin", "Users, invites and the download queue", icon = Lucide.Server, onClick = onAdmin)
+                    }
+                }
+            }
+            item {
+                SettingCard {
+                    SettingRow("Sign out", danger = true, icon = Lucide.LogOut) {
+                        scope.launch {
+                            Api.logout()
+                            Account.refresh()
+                            onSignedOut()
+                        }
+                    }
+                }
+            }
+        }
+
+        item { SectionLabel("Server") }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                McField(server, { server = it }, "Server URL", keyboard = KeyboardOptions(keyboardType = KeyboardType.Uri))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GhostButton("Save server") {
+                        Prefs.saveServer(server)
+                        server = Prefs.server
+                        notice = "Server saved. Restart the app if the session does not follow."
+                    }
+                    GhostButton("Reset default") {
+                        Prefs.saveServer(Prefs.DEFAULT_SERVER)
+                        server = Prefs.server
+                    }
+                }
+                Muted("Streams, covers and the API all follow this address.")
+            }
+        }
+
+        item { SectionLabel("Playback and data") }
+        item {
+            SettingCard {
+                SwitchRow(
+                    "Reduce motion",
+                    "Turns off tab transitions.",
+                    icon = Lucide.RefreshCw,
+                    checked = !Prefs.motion,
+                    onChange = { Prefs.saveMotion(!it) },
+                )
+                SettingDivider()
+                SwitchRow(
+                    "Download over Wi-Fi only",
+                    "Blocks downloads on mobile data.",
+                    icon = Lucide.Wifi,
+                    checked = Prefs.wifiOnly,
+                    onChange = { Prefs.saveWifiOnly(it) },
+                )
+                SettingDivider()
+                SettingRow(
+                    "Downloads",
+                    "${Downloads.items.size} tracks · ${formatBytes(Downloads.totalBytes())}",
+                    icon = Lucide.HardDrive,
+                )
+            }
+        }
+
+        item { SectionLabel("About") }
+        item {
+            SettingCard {
+                SettingRow("mcmusic Android", "Native client for the mcmusic server", icon = Lucide.Info)
+                SettingDivider()
+                SettingRow("Server", Prefs.server.removePrefix("https://").removePrefix("http://"), icon = Lucide.Server)
+                SettingDivider()
+                SettingRow(
+                    "Build",
+                    "Compose · Media3",
+                    icon = Lucide.Library,
+                    value = "1.0",
+                )
+            }
+        }
+        item {
             Text(
-                text = "mcmusic",
-                color = design.accent,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.ExtraBold,
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = Prefs.version,
+                "Playback continues in the notification shade. Cover art and catalogs come from the same API the web client uses.",
                 color = design.dim,
-                fontSize = 12.sp,
+                fontSize = 11.sp,
+                lineHeight = 16.sp,
+                fontWeight = FontWeight.Normal,
+                modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
             )
         }
-    })
-}
-
-@Composable
-fun SettingsSection(title: String, content: @Composable () -> Unit) {
-    val design = LocalDesign.current
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        if (title.isNotBlank()) {
-            SectionLabel(title)
-        }
-        content()
-    }
-}
-
-@Composable
-fun SettingsToggle(
-    title: String,
-    subtitle: String,
-    @DrawableRes icon: Int,
-    checked: Boolean,
-    onChange: (Boolean) -> Unit,
-) {
-    val design = LocalDesign.current
-    SettingsRow(
-        title = title,
-        subtitle = subtitle,
-        icon = icon,
-        onClick = { onChange(!checked) },
-        trailing = {
-            Icon(
-                painter = androidx.compose.ui.graphics.painterResource(
-                    dev.mcmusic.app.R.drawable.ic_lucide_check
-                ),
-                tint = if (checked) design.accent else design.dim,
-                modifier = Modifier.size(18.dp),
-            )
-        },
-    )
-}
-
-@Composable
-fun SettingsRow(
-    title: String,
-    subtitle: String? = null,
-    @DrawableRes icon: Int? = null,
-    danger: Boolean = false,
-    onClick: (() -> Unit)? = null,
-    trailing: (@Composable () -> Unit)? = null,
-) {
-    val design = LocalDesign.current
-    val titleColor = if (danger) Color(0xFFE5484D) else design.fg
-    val iconTint = if (danger) Color(0xFFE5484D) else design.accent
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        if (icon != null) {
-            Box(
-                modifier = Modifier
-                    .size(30.dp)
-                    .clip(RoundedCornerShape(9.dp))
-                    .background(if (danger) Color(0xFFE5484D).copy(alpha = 0.14f) else design.accentSoft),
-                contentAlignment = Alignment.Center,
-            ) {
-                LucideIcon(icon, iconTint, Modifier.size(15.dp))
-            }
-        }
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(title, color = titleColor, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-            if (subtitle != null) {
-                Text(subtitle, color = design.dim, fontSize = 11.sp, lineHeight = 15.sp)
-            }
-        }
-        trailing?.invoke()
     }
 }

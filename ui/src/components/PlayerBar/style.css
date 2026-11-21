@@ -1,0 +1,46 @@
+#player-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    padding: 8px 12px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    background: var(--panel, rgba(23, 16, 21, 0.94));
+    border-top: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+    backdrop-filter: blur(12px);
+}
+
+#player-bar .player {
+    gap: 12px;
+}
+
+#player-bar .art {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    object-fit: cover;
+    background: rgba(255, 255, 255, 0.06);
+    flex: none;
+}
+
+#player-bar .meta {
+    min-width: 0;
+    flex: 1;
+}
+
+#player-bar .title,
+#player-bar .artist {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* flufi's Slider has no flex sizing of its own. */
+#player-bar .seek {
+    flex: 2;
+}
+
+main {
+    padding-bottom: 84px;
+}

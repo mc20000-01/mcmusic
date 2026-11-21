@@ -1,0 +1,6 @@
+/* Home uses the shell's own page padding; the grid stretches to the content
+   width so album tiles fill the row instead of shrink-wrapping to the centre. */
+.content-home {
+    align-items: stretch;
+    justify-content: flex-start;
+}

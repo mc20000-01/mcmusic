@@ -1,0 +1,5 @@
+/* The album header is a row: cover on the left, title/artist beside it. */
+.content-set .top {
+    align-items: flex-end;
+    gap: 20px;
+}

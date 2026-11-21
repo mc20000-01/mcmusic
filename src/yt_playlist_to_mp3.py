@@ -457,7 +457,7 @@ def probe_full(path, attempts=2):
     return None
 
 
-def classify_and_fix(path, cover_path, album_fallback, do_repair, do_fix_minor):
+def classify_and_fix(path, cover_path, do_repair, do_fix_minor):
     data = probe_full(path)
     fmt = (data or {}).get("format") or {}
     try:
@@ -505,7 +505,7 @@ def classify_and_fix(path, cover_path, album_fallback, do_repair, do_fix_minor):
         cmd += ["-map", "0", "-c", "copy"]
     cmd += ["-metadata", f"title={title or fallback_title}"]
     cmd += ["-metadata", f"artist={artist or 'Unknown Artist'}"]
-    cmd += ["-metadata", f"album={album or album_fallback}"]
+    cmd += ["-metadata", f"album={album or title or fallback_title}"]
     if track_num:
         cmd += ["-metadata", f"track={track_num}"]
     cmd += [tmp_path]
@@ -568,9 +568,8 @@ def maintenance_pass(out_dir, audio_format, scan_workers, do_repair, do_fix_mino
         if not audios:
             continue
         cover_path = os.path.join(root, images[0]) if images else None
-        album_fallback = os.path.basename(root) or "Unknown Album"
         for name in audios:
-            jobs.append((os.path.join(root, name), cover_path, album_fallback))
+            jobs.append((os.path.join(root, name), cover_path))
 
     counts = {"corrupt": 0, "meta_fixed": 0, "cover_fixed": 0, "meta_cover_fixed": 0,
               "ok": 0, "patch_failed": 0}
@@ -583,8 +582,8 @@ def maintenance_pass(out_dir, audio_format, scan_workers, do_repair, do_fix_mino
         milestone = max(1, len(jobs) // 10)
         with concurrent.futures.ThreadPoolExecutor(max_workers=scan_workers) as pool:
             futs = {
-                pool.submit(classify_and_fix, p, c, a, do_repair, do_fix_minor): p
-                for p, c, a in jobs
+                pool.submit(classify_and_fix, p, c, do_repair, do_fix_minor): p
+                for p, c in jobs
             }
             for f in concurrent.futures.as_completed(futs):
                 try:
@@ -885,6 +884,37 @@ def write_yt_sidecar(audio_path, info):
     return "ok"
 
 
+def set_album_tag(path, album):
+    """Write the album tag in place (stream copy, no re-encode).
+
+    yt-dlp's metadata postprocessor already embeds the album when the extractor
+    knows it (YouTube Music does), so this is only used for the fallback case:
+    music that has no album of its own gets the song name.
+    """
+    album = str(album or "").strip()
+    if not album:
+        return False
+    ext = os.path.splitext(path)[1]
+    tmp_path = f"{path}.album{ext}"
+    cmd = ["ffmpeg", "-y", "-v", "error", "-i", path, "-map", "0", "-c", "copy",
+           "-metadata", f"album={album}", tmp_path]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        if result.returncode == 0 and os.path.exists(tmp_path) and os.path.getsize(tmp_path) > 0:
+            os.replace(tmp_path, path)
+            return True
+        log(f"[album warn] {os.path.basename(path)}: {result.stderr.strip()[:200]}",
+            level="WARN")
+    except Exception as e:
+        log(f"[album warn] {os.path.basename(path)}: {e}", level="WARN")
+    try:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+    except OSError:
+        pass
+    return False
+
+
 def resolve_audio_path(job, out_dir, audio_format):
     """Find the finished file for a job after postprocessing changed its extension."""
     folder = os.path.join(out_dir, sanitize_filename(job["playlist_title"]))
@@ -953,8 +983,13 @@ def make_ydl_opts(job, out_dir, split_artist, quality, ffmpeg_threads, archive_p
         postprocessors.append({"key": "FFmpegThumbnailsConvertor", "format": thumbnail_format})
         postprocessors.append({"key": "EmbedThumbnail"})
 
-    ffmeta_args = ["-metadata", f"album={job['playlist_title']}",
-                   "-metadata", f"track={job['index']}",
+    # The album is deliberately NOT forced here. yt-dlp's metadata
+    # postprocessor writes the real album whenever the extractor knows it
+    # (YouTube Music does), and overriding that with the playlist title was
+    # putting every track of a playlist into an album named after the
+    # playlist. Tracks with no album of their own get the song name in
+    # download_one, once the video metadata is known.
+    ffmeta_args = ["-metadata", f"track={job['index']}",
                    "-metadata", f"purl={job['url']}"]
     for k, v in extra_meta.items():
         ffmeta_args += ["-metadata", f"{k}={v}"]
@@ -1049,6 +1084,11 @@ def download_one(job, out_dir, split_artist, quality, ffmpeg_threads, archive_pa
             RATE_LIMIT.note_success()
             audio_path = resolve_audio_path(job, out_dir, audio_format)
             if audio_path:
+                info = job.get("_info") or {}
+                if not info.get("album"):
+                    album = (info.get("track") or info.get("title")
+                             or job.get("title"))
+                    set_album_tag(audio_path, album)
                 write_yt_sidecar(audio_path, job.get("_info"))
                 if lyrics:
                     status = write_lyrics_sidecar(audio_path, job.get("_info"))

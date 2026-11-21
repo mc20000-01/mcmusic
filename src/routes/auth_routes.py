@@ -31,6 +31,7 @@ bp = Blueprint("auth_api", __name__)
 
 @bp.post("/api/register")
 def register():
+    """Create a local account (first account becomes admin; later ones need an invite)."""
     d = request.get_json(silent=True) or {}
     name = str(d.get("username", "")).strip()
     pw = str(d.get("password", ""))
@@ -91,6 +92,7 @@ def register():
 
 @bp.post("/api/login")
 def login():
+    """Password sign-in; sets the session cookie the web client uses."""
     d = request.get_json(silent=True) or {}
     u = authenticate_user(_db(), str(d.get("username", "")), str(d.get("password", "")))
     if not u:
@@ -143,6 +145,7 @@ def app_logout():
 
 @bp.post("/api/logout")
 def logout():
+    """Clear the session cookie."""
     uid = _auth_uid()
     if uid is not None:
         rotur.close_activity(uid)
@@ -153,6 +156,7 @@ def logout():
 
 @bp.get("/api/me")
 def me():
+    """The signed-in account, or null."""
     uid = _auth_uid()
     if uid is None:
         return jsonify(error="not logged in"), 401
@@ -166,6 +170,7 @@ def me():
 @bp.post("/api/password")
 @login_required
 def change_password():
+    """Change the current account's password after checking the old one."""
     d = request.get_json(silent=True) or {}
     uid = _auth_uid()
     u = _db().execute("select * from users where id=?", (uid,)).fetchone()
@@ -197,6 +202,7 @@ def set_own_email():
 
 
 def _reset_link(token):
+    """Absolute URL of a password-reset link."""
     base = PUBLIC_URL or request.url_root.rstrip("/")
     return f"{base}/reset?token={token}"
 
@@ -280,21 +286,25 @@ def confirm_reset():
 # --------------------------------------------------------------------------- RoturLink
 @bp.get("/api/auth/rotur/authorize")
 def rotur_authorize():
+    """Start the Rotur OAuth hand-off."""
     return rotur.authorize_route()
 
 
 @bp.get(ROTUR_CALLBACK_PATH)
 def rotur_callback():
+    """Rotur redirect target; links the Rotur id to the account and returns to the app."""
     return rotur.callback_route()
 
 
 @bp.post("/api/auth/rotur/claim")
 def rotur_claim():
+    """Claim a pending Rotur link with its one-time token."""
     return rotur.claim_route()
 
 
 @bp.get("/api/auth/rotur/status")
 def rotur_status():
+    """Whether the account has a linked Rotur id."""
     return rotur.status_route()
 
 
@@ -379,22 +389,26 @@ def rotur_activity():
 @bp.post("/api/auth/rotur/unlink")
 @login_required
 def rotur_unlink():
+    """Remove the Rotur link from the account."""
     return rotur.unlink_route()
 
 
 # --------------------------------------------------------------------------- Discord link
 @bp.get("/api/auth/discord/authorize")
 def discord_authorize():
+    """Start the Discord OAuth hand-off."""
     return discord_link.authorize_route()
 
 
 @bp.get("/api/auth/discord/callback")
 def discord_callback():
+    """Discord redirect target; stores the tokens on the account."""
     return discord_link.callback_route()
 
 
 @bp.get("/api/auth/discord/status")
 def discord_status():
+    """Whether the account has a linked Discord id."""
     data = discord_link.status_route()
     # Settings shows why the activity toggle cannot deliver anything yet: no
     # application id, or no Discord client on this host.
@@ -405,6 +419,7 @@ def discord_status():
 @bp.post("/api/auth/discord/unlink")
 @login_required
 def discord_unlink():
+    """Remove the Discord link and stop presence updates."""
     return jsonify(discord_link.unlink_route())
 
 
@@ -492,6 +507,7 @@ _SENT = {}
 
 
 def _too_soon(email):
+    """Rate-limit gate for repeat reset/build mails."""
     now = time.time()
     last = _SENT.get(email)
     if last and now - last < 30:
@@ -503,6 +519,7 @@ def _too_soon(email):
 
 
 def _send_build(kind, email):
+    """Mail a build link, with rate limiting and a friendly error."""
     import builds
 
     spec = builds.describe(kind)

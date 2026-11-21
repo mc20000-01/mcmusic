@@ -1,0 +1,7 @@
+/* The one thing flufi-ui's Track does not give us: let the row fill the width
+   next to the remove button (and let long titles truncate). */
+.playlist-row > :first-child,
+.playlist-result .grow {
+    flex: 1;
+    min-width: 0;
+}
