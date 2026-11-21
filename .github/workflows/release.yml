@@ -60,13 +60,17 @@ jobs:
           apk=gui/android/app/build/outputs/apk/release/app-release.apk
           aapt="$ANDROID_HOME/build-tools/36.0.0/aapt"
           apksigner="$ANDROID_HOME/build-tools/36.0.0/apksigner"
-          apk_version=$("$aapt" dump badging "$apk" | head -1 | grep -o "versionName='[^']*'" | cut -d"'" -f2)
+          badging=$("$aapt" dump badging "$apk")
+          apk_version=$(grep -m1 -o "versionName='[^']*'" <<<"$badging" | cut -d"'" -f2)
           if [ "$apk_version" != "$version" ]; then
             echo "APK version $apk_version does not match Gradle version $version" >&2
             exit 1
           fi
-          "$apksigner" verify --print-certs "$apk" | tr '[:upper:]' '[:lower:]' \
-            | grep -q 0b0fd0fa35ff712901d42cab215d5e3cb706daef57bffa7ebef61cacda1dc4ce
+          signer=$("$apksigner" verify --print-certs "$apk" | tr '[:upper:]' '[:lower:]')
+          if ! grep -q 0b0fd0fa35ff712901d42cab215d5e3cb706daef57bffa7ebef61cacda1dc4ce <<<"$signer"; then
+            echo "APK has an unexpected signer certificate" >&2
+            exit 1
+          fi
           mkdir -p builds
           cp "$apk" "builds/mcmusic-${version}.apk"
           echo "built builds/mcmusic-${version}.apk (signed, v$version)"
