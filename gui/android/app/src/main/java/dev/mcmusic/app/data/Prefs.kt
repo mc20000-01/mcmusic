@@ -56,6 +56,7 @@ object Prefs {
         username = p.getString("username", null)
         token = p.getString("token", null)
         widgetUser = p.getString("widget_user", null)?.takeIf { it.isNotBlank() }
+        sleepEndsAt = p.getLong("sleep_ends_at", 0L)
         wifiOnly = p.getBoolean("wifi_only", false)
         motion = p.getBoolean("motion", true)
     }
@@ -64,6 +65,28 @@ object Prefs {
         widgetUser = name?.trim()?.takeIf { it.isNotBlank() }
         sp?.edit()?.apply {
             if (widgetUser == null) remove("widget_user") else putString("widget_user", widgetUser)
+        }?.apply()
+    }
+
+    /** Per-widget override; widgets can follow different accounts. */
+    fun widgetUserFor(id: Int): String? =
+        sp?.getString("widget_user_$id", null)?.takeIf { it.isNotBlank() }
+
+    fun saveWidgetUser(id: Int, name: String?) {
+        val clean = name?.trim()?.takeIf { it.isNotBlank() }
+        sp?.edit()?.apply {
+            if (clean == null) remove("widget_user_$id") else putString("widget_user_$id", clean)
+        }?.apply()
+    }
+
+    /** Persisted sleep deadline so the timer survives a screen restart. */
+    var sleepEndsAt by mutableStateOf(0L)
+        private set
+
+    fun saveSleepEndsAt(value: Long) {
+        sleepEndsAt = value
+        sp?.edit()?.apply {
+            if (value <= 0L) remove("sleep_ends_at") else putLong("sleep_ends_at", value)
         }?.apply()
     }
 

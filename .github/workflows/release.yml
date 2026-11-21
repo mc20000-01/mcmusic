@@ -55,10 +55,21 @@ jobs:
           export ANDROID_HOME="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
           export ANDROID_SDK_ROOT="$ANDROID_HOME"
           version=$(grep -oP 'versionName\s*=\s*"\K[^"]+' gui/android/app/build.gradle.kts | head -1)
+          rm -f gui/android/app/build/outputs/apk/release/app-release.apk
           (cd gui/android && ./gradlew :app:assembleRelease --no-daemon --stacktrace)
+          apk=gui/android/app/build/outputs/apk/release/app-release.apk
+          aapt="$ANDROID_HOME/build-tools/36.0.0/aapt"
+          apksigner="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          apk_version=$("$aapt" dump badging "$apk" | head -1 | grep -o "versionName='[^']*'" | cut -d"'" -f2)
+          if [ "$apk_version" != "$version" ]; then
+            echo "APK version $apk_version does not match Gradle version $version" >&2
+            exit 1
+          fi
+          "$apksigner" verify --print-certs "$apk" | tr '[:upper:]' '[:lower:]' \
+            | grep -q 0b0fd0fa35ff712901d42cab215d5e3cb706daef57bffa7ebef61cacda1dc4ce
           mkdir -p builds
-          cp gui/android/app/build/outputs/apk/release/app-release.apk "builds/mcmusic-${version}.apk"
-          echo "built builds/mcmusic-${version}.apk"
+          cp "$apk" "builds/mcmusic-${version}.apk"
+          echo "built builds/mcmusic-${version}.apk (signed, v$version)"
 
       - name: Build Linux deb
         run: ./scripts/build_deb.sh
@@ -83,6 +94,9 @@ jobs:
           set -euo pipefail
           desktop=$(grep -oP '^version\s*=\s*"\K[^"]+' app/linux/pyproject.toml | head -1 || echo "")
           sha=$(git rev-parse --short=12 HEAD)
+          android_version=$(grep -oP 'versionName\s*=\s*"\K[^"]+' gui/android/app/build.gradle.kts | head -1)
+          current_apk="mcmusic-${android_version}.apk"
+          artifacts=()
           notes=$(mktemp)
           {
             echo "## mcmusic latest"
@@ -95,6 +109,12 @@ jobs:
             for f in builds/*; do
               [ -f "$f" ] || continue
               base=$(basename "$f")
+              # Older APK snapshots stay in the repo for rollback, but the
+              # release must only advertise the APK built by this run.
+              case "$base" in
+                mcmusic-*.apk) [ "$base" = "$current_apk" ] || continue ;;
+              esac
+              artifacts+=("$f")
               [ "$base" = "SHA256SUMS" ] && continue
               size=$(du -h "$f" | cut -f1)
               sum=$(sha256sum "$f" | cut -d' ' -f1)
@@ -103,6 +123,7 @@ jobs:
             echo
             echo "### Notes"
             [ -n "$desktop" ] && echo "- Desktop package version: \`${desktop}\`."
+            echo "- Android: \`${current_apk}\` (v${android_version})."
             echo "- Linux deb: \`sudo apt install ./file.deb\`. AppImage: \`chmod +x\` then run."
             echo "- Full checksums: \`SHA256SUMS\`."
             echo
@@ -112,12 +133,16 @@ jobs:
           } > "$notes"
 
           if gh release view latest >/dev/null 2>&1; then
-            # Assets that are no longer in builds/ must go, or the release keeps
-            # advertising builds the folder dropped.
+            # Remove stale APKs and assets that are no longer in builds/, or the
+            # release keeps advertising builds this run did not produce.
             for asset in $(gh release view latest --json assets -q '.assets[].name'); do
               case "$asset" in
                 README.md|SHA256SUMS) continue ;;
               esac
+              if [[ "$asset" == mcmusic-*.apk && "$asset" != "$current_apk" ]]; then
+                gh release delete-asset latest "$asset" -y >/dev/null 2>&1 || true
+                continue
+              fi
               if [ ! -f "builds/$asset" ]; then
                 gh release delete-asset latest "$asset" -y >/dev/null 2>&1 || true
               fi
@@ -129,7 +154,7 @@ jobs:
             gh release create latest --title "mcmusic latest builds" \
               --notes-file "$notes" --latest
           fi
-          gh release upload latest builds/* --clobber
+          gh release upload latest "${artifacts[@]}" --clobber
 
       - name: Build summary
         if: always()

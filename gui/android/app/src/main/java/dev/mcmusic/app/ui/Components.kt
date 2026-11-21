@@ -32,6 +32,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -60,7 +62,7 @@ fun ScreenTitle(title: String, subtitle: String? = null, modifier: Modifier = Mo
 fun SectionLabel(text: String, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null) {
     val design = LocalDesign.current
     Row(
-        modifier.fillMaxWidth().padding(top = 6.dp),
+        modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -87,13 +89,13 @@ fun PrimaryButton(text: String, modifier: Modifier = Modifier, enabled: Boolean 
     val design = LocalDesign.current
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(design.tileRadius))
             .background(if (enabled) design.accent else design.accent.copy(alpha = 0.35f))
             .clickable(enabled = enabled) { onClick() }
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(horizontal = 18.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, color = design.palette.bg, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        Text(text, color = design.palette.bg, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -103,13 +105,17 @@ fun GhostButton(text: String, modifier: Modifier = Modifier, danger: Boolean = f
     val tint = if (danger) Danger else design.fg
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
-            .border(1.dp, if (danger) Danger.copy(alpha = 0.5f) else design.hairline, RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(design.tileRadius))
+            .border(
+                1.dp,
+                if (danger) Danger.copy(alpha = 0.5f) else design.hairline,
+                RoundedCornerShape(design.tileRadius),
+            )
             .clickable { onClick() }
-            .padding(horizontal = 14.dp, vertical = 9.dp),
+            .padding(horizontal = 16.dp, vertical = 11.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, color = tint, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+        Text(text, color = tint, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -117,13 +123,13 @@ fun GhostButton(text: String, modifier: Modifier = Modifier, danger: Boolean = f
 fun IconButton(
     @DrawableRes icon: Int,
     modifier: Modifier = Modifier,
-    size: Dp = 18.dp,
+    size: Dp = 20.dp,
     tint: Color? = null,
     onClick: () -> Unit,
 ) {
     val design = LocalDesign.current
     Box(
-        modifier = modifier.size(34.dp).clip(CircleShape).clickable { onClick() },
+        modifier = modifier.size(44.dp).clip(CircleShape).clickable { onClick() },
         contentAlignment = Alignment.Center,
     ) {
         LucideIcon(icon, tint ?: design.dim, Modifier.size(size))
@@ -149,8 +155,9 @@ fun McField(
         label = { Text(label, fontSize = 12.sp) },
         singleLine = true,
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(design.tileRadius),
         textStyle = androidx.compose.ui.text.TextStyle(color = design.fg, fontSize = 14.sp),
+        visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
         keyboardOptions = keyboard,
         keyboardActions = actions,
         colors = OutlinedTextFieldDefaults.colors(
@@ -186,14 +193,14 @@ fun Pill(text: String, active: Boolean = true, modifier: Modifier = Modifier) {
     Row(
         modifier
             .clip(RoundedCornerShape(50))
-            .background(design.palette.bg2)
+            .background(design.accentWash)
             .border(1.dp, design.hairline, RoundedCornerShape(50))
-            .padding(horizontal = 9.dp, vertical = 4.dp),
+            .padding(horizontal = 11.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        LiveDot(active, 5.dp)
-        Text(text, color = if (active) design.fg else design.dim, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+        LiveDot(active, 6.dp)
+        Text(text, color = if (active) design.fg else design.dim, fontSize = 11.sp, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -243,10 +250,10 @@ fun EmptyState(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Box(Modifier.size(44.dp).clip(CircleShape).background(design.accentSoft), Alignment.Center) {
-            LucideIcon(icon, design.accent, Modifier.size(20.dp))
+        Box(Modifier.size(56.dp).clip(CircleShape).background(design.accentSoft), Alignment.Center) {
+            LucideIcon(icon, design.accent, Modifier.size(24.dp))
         }
-        Text(title, color = design.fg, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
+        Text(title, color = design.fg, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
         Text(body, color = design.dim, fontSize = 13.sp, lineHeight = 19.sp, textAlign = TextAlign.Center)
         if (actionLabel != null && onAction != null) {
             PrimaryButton(actionLabel, Modifier.padding(top = 2.dp), onClick = onAction)
@@ -257,12 +264,16 @@ fun EmptyState(
 @Composable
 fun ScreenBack(onBack: () -> Unit) {
     Row(
-        Modifier.clip(RoundedCornerShape(8.dp)).clickable { onBack() }.padding(vertical = 4.dp, horizontal = 2.dp),
+        Modifier
+            .clip(RoundedCornerShape(50))
+            .background(LocalDesign.current.accentWash)
+            .clickable { onBack() }
+            .padding(vertical = 9.dp, horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        LucideIcon(Lucide.ChevronLeft, LocalDesign.current.dim, Modifier.size(16.dp))
-        Text("Back", color = LocalDesign.current.dim, fontSize = 13.sp)
+        LucideIcon(Lucide.ChevronLeft, LocalDesign.current.accent, Modifier.size(16.dp))
+        Text("Back", color = LocalDesign.current.fg, fontSize = 13.sp, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -292,18 +303,19 @@ fun TrackRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(design.tileRadius))
+            .background(if (current) design.accentWash else Color.Transparent)
             .clickable { onClick() }
-            .padding(horizontal = 8.dp, vertical = 7.dp),
+            .padding(horizontal = 10.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(11.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        TrackCover(track)
+        TrackCover(track, 46.dp, 12.dp)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
                 track.title,
                 color = if (current) design.accent else design.fg,
-                fontSize = 14.sp,
+                fontSize = 15.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -311,7 +323,7 @@ fun TrackRow(
             Text(
                 subtitle ?: listOf(track.artist, track.album).filter { it.isNotBlank() }.joinToString(" · "),
                 color = design.dim,
-                fontSize = 11.sp,
+                fontSize = 12.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -333,17 +345,24 @@ fun MediaCard(
 ) {
     val design = LocalDesign.current
     Column(
-        modifier.width(width).clip(RoundedCornerShape(8.dp)).clickable { onClick() },
-        verticalArrangement = Arrangement.spacedBy(7.dp),
+        modifier.width(width).clip(RoundedCornerShape(design.tileRadius)).clickable { onClick() },
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Cover(
             url = coverUrl,
-            shape = if (round) CircleShape else RoundedCornerShape(6.dp),
+            shape = if (round) CircleShape else RoundedCornerShape(design.tileRadius),
             modifier = Modifier.size(width),
             fallback = design.accentSoft,
         )
-        Text(title, color = design.fg, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(subtitle, color = design.dim, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            title,
+            color = design.fg,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(subtitle, color = design.dim, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -387,13 +406,26 @@ fun SettingRow(
             }
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            Text(title, color = tint, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text(
+                title,
+                color = tint,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
             if (subtitle != null) {
                 Text(subtitle, color = design.dim, fontSize = 11.sp, lineHeight = 15.sp)
             }
         }
         if (value != null) {
-            Text(value, color = design.dim, fontSize = 12.sp, maxLines = 1)
+            Text(
+                value,
+                color = design.dim,
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
         trailing?.invoke()
     }

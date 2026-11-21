@@ -1,16 +1,19 @@
 package dev.mcmusic.app.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
@@ -27,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -96,7 +100,7 @@ fun LibraryScreen(onOpenPlaylists: () -> Unit, onOpenPlayer: () -> Unit) {
             .sortedBy { it.artist.lowercase() }
     }
 
-    Column(Modifier.fillMaxWidth()) {
+    Column(Modifier.fillMaxSize()) {
         Column(
             Modifier.fillMaxWidth().padding(start = design.screenPadding, end = design.screenPadding, top = 10.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -107,10 +111,10 @@ fun LibraryScreen(onOpenPlaylists: () -> Unit, onOpenPlayer: () -> Unit) {
                     val selected = tab == index
                     Box(
                         Modifier
-                            .clip(RoundedCornerShape(7.dp))
-                            .then(if (selected) Modifier.mcSurface(RoundedCornerShape(7.dp)) else Modifier)
+                            .clip(RoundedCornerShape(design.tileRadius))
+                            .background(if (selected) design.accentSoft else Color.Transparent)
                             .clickable { tab = index }
-                            .padding(horizontal = 12.dp, vertical = 7.dp),
+                            .padding(horizontal = 14.dp, vertical = 9.dp),
                     ) {
                         Text(
                             label,
@@ -125,66 +129,77 @@ fun LibraryScreen(onOpenPlaylists: () -> Unit, onOpenPlayer: () -> Unit) {
             }
         }
 
-        when {
-            error != null -> Column(Modifier.padding(design.screenPadding)) {
-                ErrorLine(error!!)
-                GhostButton("Retry", Modifier.padding(top = 8.dp), onClick = { reload++ })
-            }
-            tracks == null -> Loading("Loading the library…")
-            else -> when (tab) {
-                0 -> LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    contentPadding = PaddingValues(design.screenPadding, 12.dp, design.screenPadding, 24.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    items(albums, key = { it.album }) { entry ->
-                        MediaCard(
-                            title = entry.album,
-                            subtitle = "${entry.artist} · ${entry.count}",
-                            coverUrl = albumCoverUrl(entry.coverId),
-                            width = 150.dp,
-                            onClick = { album = entry },
-                        )
-                    }
-                    if (albums.isEmpty()) {
-                        item {
-                            EmptyState(
-                                icon = Lucide.Library,
-                                title = "No albums",
-                                body = "The library is empty on this server.",
+        Box(Modifier.weight(1f)) {
+            when {
+                error != null -> Column(Modifier.padding(design.screenPadding).fillMaxSize()) {
+                    ErrorLine(error!!)
+                    GhostButton("Retry", Modifier.padding(top = 8.dp), onClick = { reload++ })
+                }
+                tracks == null -> Loading("Loading the library…")
+                else -> when (tab) {
+                    0 -> LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 140.dp),
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(design.screenPadding, 12.dp, design.screenPadding, 24.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        items(albums, key = { it.album }) { entry ->
+                            MediaCard(
+                                title = entry.album,
+                                subtitle = "${entry.artist} · ${entry.count}",
+                                coverUrl = albumCoverUrl(entry.coverId),
+                                width = 150.dp,
+                                onClick = { album = entry },
                             )
                         }
-                    }
-                }
-                1 -> LazyColumn(contentPadding = PaddingValues(design.screenPadding, 12.dp, design.screenPadding, 24.dp)) {
-                    items(artists, key = { it.artist }) { entry ->
-                        Row(
-                            Modifier.fillMaxWidth().mcSurface(RoundedCornerShape(8.dp))
-                                .clickable { artist = entry }
-                                .padding(10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            Cover(
-                                url = albumCoverUrl(entry.coverId),
-                                shape = CircleShape,
-                                modifier = Modifier.size(40.dp),
-                                fallback = design.accentSoft,
-                            )
-                            Column(Modifier.weight(1f)) {
-                                Text(entry.artist, color = design.fg, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text("${entry.count} tracks · ${entry.albums} albums", color = design.dim, fontSize = 11.sp)
+                        if (albums.isEmpty()) {
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                EmptyState(
+                                    icon = Lucide.Library,
+                                    title = "No albums",
+                                    body = "The library is empty on this server.",
+                                )
                             }
                         }
                     }
-                }
-                else -> LazyColumn(contentPadding = PaddingValues(design.screenPadding, 8.dp, design.screenPadding, 24.dp)) {
-                    items(all, key = { it.id }) { track ->
-                        TrackRow(track, onClick = {
-                            Playback.play(all, all.indexOf(track))
-                            onOpenPlayer()
-                        })
+                    1 -> LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(design.screenPadding, 12.dp, design.screenPadding, 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        items(artists, key = { it.artist }) { entry ->
+                            Row(
+                                Modifier.fillMaxWidth().mcSurface()
+                                    .clickable { artist = entry }
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                Cover(
+                                    url = albumCoverUrl(entry.coverId),
+                                    shape = CircleShape,
+                                    modifier = Modifier.size(46.dp),
+                                    fallback = design.accentSoft,
+                                )
+                                Column(Modifier.weight(1f)) {
+                                    Text(entry.artist, color = design.fg, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text("${entry.count} tracks · ${entry.albums} albums", color = design.dim, fontSize = 12.sp)
+                                }
+                            }
+                        }
+                    }
+                    else -> LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(design.screenPadding, 8.dp, design.screenPadding, 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        items(all, key = { it.id }) { track ->
+                            TrackRow(track, onClick = {
+                                Playback.play(all, all.indexOf(track))
+                                onOpenPlayer()
+                            })
+                        }
                     }
                 }
             }

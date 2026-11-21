@@ -17,7 +17,7 @@ private data, and installs still require the user to open the file, that is a
 trade worth making for updates that actually work.
 
 Details: PKCS#12, alias `mcmusic`, store and key password `mcmusic` (see
-`app/build.gradle.kts`).
+`gui/android/app/build.gradle.kts`).
 
 Do not regenerate or replace this file. A new key is a new app as far as
 Android is concerned.

@@ -133,12 +133,23 @@ data class DownloadRequest(
  */
 object Api {
     private lateinit var cookies: PersistentCookieStore
+    private lateinit var appContext: Context
 
     val server: String get() = Prefs.server
 
+    /** Stable identity used for both device pairing and playback heartbeats. */
+    val deviceHash: String
+        get() = "android-" + android.provider.Settings.Secure.getString(
+            appContext.contentResolver,
+            android.provider.Settings.Secure.ANDROID_ID,
+        )
+
+    val deviceName: String get() = android.os.Build.MODEL ?: "Android"
+
     fun init(context: Context) {
         if (::cookies.isInitialized) return
-        cookies = PersistentCookieStore(context)
+        appContext = context.applicationContext
+        cookies = PersistentCookieStore(appContext)
         CookieHandler.setDefault(CookieManager(cookies, CookiePolicy.ACCEPT_ALL))
     }
 
@@ -166,23 +177,28 @@ object Api {
         val body = JSONObject()
             .put("username", username)
             .put("password", password)
-            .put("device", android.os.Build.MODEL ?: "Android")
-            .put("device_hash", "android-" + android.provider.Settings.Secure.ANDROID_ID)
+            .put("device", deviceName)
+            .put("device_hash", deviceHash)
             .toString()
         val json = JSONObject(post("/api/auth/app/login", body))
         val token = json.optString("token")
         if (token.isBlank()) throw ApiException(500, "the server did not return a sign-in token")
+        val previous = Prefs.token
         Prefs.saveToken(token)
         // The token only counts once the server accepts it as this account.
         val verified = runCatching { meOf(JSONObject(get("/api/me"))) }.getOrNull()
-            ?: throw ApiException(401, "Signed in, but the server did not accept the new token.")
+        if (verified == null) {
+            Prefs.saveToken(previous)
+            throw ApiException(401, "Signed in, but the server did not accept the new token.")
+        }
         Prefs.saveUsername(verified.username)
         verified
     }
 
     suspend fun logout() {
-        runCatching { post("/api/auth/app/logout", "{}") }
+        // Close presence while the token still resolves the user, then revoke it.
         runCatching { post("/api/logout", "{}") }
+        runCatching { post("/api/auth/app/logout", "{}") }
         cookies.clear()
         Prefs.saveToken(null)
         Prefs.saveUsername(null)
@@ -237,6 +253,59 @@ object Api {
 
     suspend fun toggleLike(id: Int): Result<Boolean> = call {
         JSONObject(post("/api/like/$id", "{}")).optBoolean("liked")
+    }
+
+    // --- playback presence ------------------------------------------------
+
+    /** Count one play so the server's Faves and admin stats stay honest. */
+    suspend fun recordPlay(trackId: Int, completed: Boolean = false): Result<Unit> = call {
+        request(
+            "/api/plays",
+            "POST",
+            JSONObject().put("track_id", trackId).put("completed", completed).toString(),
+        )
+        Unit
+    }
+
+    /** Keep this phone visible in Devices and public listening views. */
+    suspend fun heartbeat(trackId: Int?, positionMs: Long, paused: Boolean): Result<Unit> = call {
+        request(
+            "/api/devices/heartbeat",
+            "POST",
+            JSONObject()
+                .put("device_hash", deviceHash)
+                .put("name", deviceName)
+                .put("track_id", trackId)
+                .put("position", positionMs / 1000.0)
+                .put("paused", paused)
+                .toString(),
+        )
+        Unit
+    }
+
+    /** Publish the queue and transport state for bots, rooms and other devices. */
+    suspend fun pushPlayback(
+        trackId: Int?,
+        positionMs: Long,
+        durationMs: Long,
+        playing: Boolean,
+        queue: List<Int>,
+    ): Result<Unit> = call {
+        val ids = JSONArray()
+        queue.take(200).forEach(ids::put)
+        request(
+            "/api/playback",
+            "POST",
+            JSONObject()
+                .put("track_id", trackId)
+                .put("position", positionMs / 1000.0)
+                .put("duration", durationMs / 1000.0)
+                .put("playing", playing)
+                .put("queue", ids)
+                .put("device", deviceHash)
+                .toString(),
+        )
+        Unit
     }
 
     // --- admin ------------------------------------------------------------

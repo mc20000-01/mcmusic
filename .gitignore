@@ -115,8 +115,8 @@ web/apps/
 *.zip
 
 # --- repo-root build snapshots ----------------------------------------------
-# scripts/collect_builds.sh keeps exactly one current copy of each artifact
-# here so the newest APK/deb is visible without digging through Releases.
+# scripts/collect_builds.sh refreshes the current copy of each artifact here;
+# older versioned APKs can remain for rollback.
 !builds/
 !builds/*.apk
 !builds/*.deb

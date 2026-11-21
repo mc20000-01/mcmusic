@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -39,6 +40,7 @@ import dev.mcmusic.app.ui.Cover
 import dev.mcmusic.app.ui.EmptyState
 import dev.mcmusic.app.ui.IconButton
 import dev.mcmusic.app.ui.Lucide
+import dev.mcmusic.app.ui.LucideIcon
 import dev.mcmusic.app.ui.Muted
 import dev.mcmusic.app.ui.ScreenBack
 import dev.mcmusic.app.ui.SectionLabel
@@ -92,12 +94,20 @@ fun PlayerScreen(onBack: () -> Unit) {
         item { ScreenBack(onBack) }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                Cover(
-                    url = trackCoverUrl(track.id),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.size(248.dp),
-                    fallback = design.accentSoft,
-                )
+                Box(
+                    Modifier
+                        .size(264.dp)
+                        .clip(RoundedCornerShape(34.dp))
+                        .background(design.accentSoft),
+                    Alignment.Center,
+                ) {
+                    Cover(
+                        url = trackCoverUrl(track.id),
+                        shape = RoundedCornerShape(26.dp),
+                        modifier = Modifier.size(244.dp),
+                        fallback = design.accentWash,
+                    )
+                }
             }
         }
         item {
@@ -121,8 +131,8 @@ fun PlayerScreen(onBack: () -> Unit) {
                     fontSize = 12.sp,
                     textAlign = TextAlign.Center,
                 )
-                if (state.error != null) {
-                    Text(state.error!!, color = dev.mcmusic.app.ui.Danger, fontSize = 11.sp, textAlign = TextAlign.Center)
+                state.error?.let { message ->
+                    Text(message, color = dev.mcmusic.app.ui.Danger, fontSize = 11.sp, textAlign = TextAlign.Center)
                 }
             }
         }
@@ -174,36 +184,48 @@ fun PlayerScreen(onBack: () -> Unit) {
             }
         }
         item {
-            Row(
+            Column(
                 Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(
-                    when {
-                        state.sleepMinutes == 0 -> "Sleep timer off"
-                        state.sleepRemaining > 0 -> "Sleeping in ${((state.sleepRemaining / 60000) + 1)} min"
-                        else -> "Sleep timer"
-                    },
-                    color = design.dim,
-                    fontSize = 11.sp,
-                )
-                Spacer(Modifier.width(8.dp))
-                listOf(0, 15, 30, 60).forEach { minutes ->
-                    val selected = state.sleepMinutes == minutes
-                    Box(
-                        Modifier
-                            .padding(horizontal = 2.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(if (selected) design.accentSoft else design.palette.bg2)
-                            .clickable { Playback.setSleep(minutes) }
-                            .padding(horizontal = 8.dp, vertical = 5.dp),
-                    ) {
-                        Text(
-                            if (minutes == 0) "Off" else "${minutes}m",
-                            color = if (selected) design.accent else design.dim,
-                            fontSize = 10.sp,
-                        )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    LucideIcon(Lucide.Clock, design.dim, Modifier.size(14.dp))
+                    Text(
+                        when {
+                            state.sleepMinutes == 0 -> "Sleep timer off"
+                            state.sleepRemaining > 0 -> "Sleeping in ${((state.sleepRemaining / 60000) + 1)} min"
+                            else -> "Sleep timer"
+                        },
+                        color = design.dim,
+                        fontSize = 12.sp,
+                    )
+                }
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    listOf(0, 15, 30, 60).forEach { minutes ->
+                        val selected = state.sleepMinutes == minutes
+                        Box(
+                            Modifier
+                                .padding(horizontal = 3.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(if (selected) design.accent else design.accentWash)
+                                .clickable { Playback.setSleep(minutes) }
+                                .padding(horizontal = 14.dp, vertical = 7.dp),
+                        ) {
+                            Text(
+                                if (minutes == 0) "Off" else "${minutes}m",
+                                color = if (selected) design.palette.bg else design.dim,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                            )
+                        }
                     }
                 }
             }
@@ -224,12 +246,22 @@ fun PlayerScreen(onBack: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(9.dp),
             ) {
-                Text(
-                    if (current) "▶" else "${state.queue.indexOf(item) + 1}",
-                    color = if (current) design.accent else design.dim,
-                    fontSize = 11.sp,
-                    modifier = Modifier.width(18.dp),
-                )
+                Box(Modifier.width(20.dp), Alignment.Center) {
+                    if (current) {
+                        LucideIcon(
+                            Lucide.Play,
+                            design.accent,
+                            Modifier.size(14.dp),
+                            contentDescription = "Now playing",
+                        )
+                    } else {
+                        Text(
+                            "${state.queue.indexOf(item) + 1}",
+                            color = design.dim,
+                            fontSize = 12.sp,
+                        )
+                    }
+                }
                 Column(Modifier.weight(1f)) {
                     Text(
                         item.title,

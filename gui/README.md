@@ -5,43 +5,40 @@ the backend is `src/` and the only contract between them is the HTTP API that
 `src/routes/` exposes.
 
 ```
-gui/            clients (the new Android app will be gui/android/)
+gui/android/    the native Android client (Kotlin + Compose + Media3)
 src/            backend: Flask app, routes, library, presence bridges
-web/            the existing web client, untouched while the new GUI is built
+web/            the web client served by the same server
 keystore/       the signing key every Android build must use
 .toolchain/     local JDK, Gradle and Android SDK (git-ignored)
 ```
 
-The previous Android client (`app/android/`, Kotlin + Compose + Media3) was
-removed in full, including its build files, resources and release wiring. Its
-history is still in git if anything needs to be recovered from it.
-
-`gui/android/` is the new client. It currently holds only scaffolding — one
-screen over a colourful stage so the glass is visible — while the real GUI is
-specified. Glass lives entirely in `ui/Glass.kt` (`Modifier.liquidGlass`), built
-on [Backdrop](https://github.com/Kyant0/AndroidLiquidGlass) 1.0.6, so the
-renderer can be replaced without touching a screen.
+`gui/android/` is a full client: five tabs, server playlists, admin tools,
+offline downloads, a Media3 player, and two home-screen widgets. Its visual
+language lives in `ui/design/Design.kt`; screens share the components in
+`ui/Components.kt` and the Lucide vector icons in `ui/Lucide.kt`.
 
 ```bash
 JAVA_HOME=$PWD/.toolchain/jdk ANDROID_HOME=$PWD/.toolchain/sdk \
   PATH=$PWD/.toolchain/jdk/bin:$PATH \
-  .toolchain/gradle/bin/gradle -p gui/android :app:assembleDebug
+  .toolchain/gradle/bin/gradle -p gui/android :app:assembleRelease
 ```
 
-The APK lands in `gui/android/app/build/outputs/apk/debug/` and is signed with
-`keystore/mcmusic.p12`, so it installs over the 2.7.0 copy.
+The signed APK lands in `gui/android/app/build/outputs/apk/release/`. Run
+`./scripts/publish_apps.sh` from the repo root to copy it into `apps/android/`
+(what `/get` and `/api/builds` serve) and snapshot it into `builds/`.
 
 Playback is a real Media3 session (`playback/`): the service owns an ExoPlayer,
-the app holds a controller, and audio streams from `/api/tracks/<id>/stream`
-with the same session cookie as the rest of the client. It keeps playing in the
-background from a media notification, and the queue, shuffle, repeat and
-scrubbing all run locally. Tapping a track in Library replaces the queue with
-the visible list; the arrow on a row stores an offline copy (Downloads), which
-the player prefers over the network.
+the app holds a controller, and every stream request reads the current auth
+token. It keeps playing in the background from a media notification that opens
+the app when tapped. The queue, shuffle, repeat and scrubbing run locally, while
+track starts, heartbeats and playback snapshots are pushed to the server so
+Faves, Devices, rooms and bots see the phone's real state. The sleep timer is
+persisted and checked from the background loop, so it still pauses playback
+after leaving the player screen. Tapping a track in Library replaces the queue;
+the arrow on a row stores an offline copy (Downloads), which the player prefers
+over the network.
 
 Home screen widgets (`widget/`) are the web embeds ported to RemoteViews: a
 now-playing card and a compact bar, both fed by `/api/public/now/<user>` and
-painted from the same seven palettes. They refresh every 30 minutes, when the
-app is opened and whenever the palette or design language changes. RemoteViews
-cannot render Backdrop glass, so the surface is a palette gradient — the iOS or
-One UI corner radius depending on the selected language.
+painted from the shared flufi palette. Each widget can follow a different
+account, and tapping its controls opens the app.

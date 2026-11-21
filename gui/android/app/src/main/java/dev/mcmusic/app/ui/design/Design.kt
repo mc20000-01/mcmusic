@@ -3,8 +3,11 @@ package dev.mcmusic.app.ui.design
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -14,26 +17,31 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * The client ships exactly one visual language: the flufi-ui palette the web
- * client uses. The old iOS/One UI switcher is gone, so every screen, sheet and
- * widget renders with the same flat, dark tokens.
+ * One visual language: the violet-on-ink flufi theme the web client uses.
+ * The old iOS/One UI switcher is gone, so every screen, sheet and widget renders
+ * with the same palette and the same soft, elevated surfaces.
  */
 enum class DesignLanguage(val id: String, val label: String, val blurb: String) {
-    Flufi("flufi", "Flufi", "Flat panels, thin borders, one accent");
+    Flufi("flufi", "Flufi", "Soft violet glow, deep ink, one accent");
 
     companion object {
         fun from(id: String?): DesignLanguage = Flufi
     }
 }
 
-/** One palette. Kept as a data class so screens can read bg/accent by name. */
+/** Palette kept as a data class so screens can read bg/accent by name. */
 @Immutable
 data class McPalette(
     val id: String,
@@ -47,17 +55,16 @@ data class McPalette(
     val dark: Boolean,
 )
 
-/** flufi-ui's tokens, darkened to match the web client's env.css overrides. */
 object Palettes {
     val flufi = McPalette(
         id = "flufi",
         label = "Flufi",
-        bg = Color(0xFF08080A),
-        bg2 = Color(0xFF0D0D10),
-        fg = Color(0xFFCFCFD6),
-        dim = Color(0xFF8B8B93),
-        line = Color(0xFF1B1B20),
-        accent = Color(0xFF9D91D6),
+        bg = Color(0xFF08060D),
+        bg2 = Color(0xFF141120),
+        fg = Color(0xFFF4F1FA),
+        dim = Color(0xFFA49DB8),
+        line = Color(0xFF262137),
+        accent = Color(0xFFA06BFF),
         dark = true,
     )
 
@@ -72,24 +79,24 @@ object Palettes {
 }
 
 /**
- * Radii, sizes and surface treatment shared by every screen, so screens never
- * hard-code a corner radius or a colour.
+ * Radii, sizes and surface treatment shared by every screen. Keeping these in
+ * one place is what makes the app read as one product instead of ten pages.
  */
 @Immutable
 class McDesign(
     val language: DesignLanguage,
     val palette: McPalette,
 ) {
-    /** flufi-ui is flat; retained so older call sites still compile. */
+    /** Retained so older call sites still compile. */
     val ios: Boolean get() = false
 
-    val cardRadius = 12.dp
-    val tileRadius = 8.dp
-    val screenPadding = 16.dp
-    val gap = 12.dp
+    val cardRadius = 22.dp
+    val tileRadius = 16.dp
+    val screenPadding = 18.dp
+    val gap = 14.dp
 
-    val titleSize = 26.sp
-    val titleWeight = FontWeight.SemiBold
+    val titleSize = 30.sp
+    val titleWeight = FontWeight.Bold
     val sectionSize = 11.sp
     val sectionWeight = FontWeight.SemiBold
 
@@ -97,25 +104,53 @@ class McDesign(
     val dim = palette.dim
     val accent = palette.accent
     val accentSoft = palette.accent.copy(alpha = 0.16f)
+    val accentWash = palette.accent.copy(alpha = 0.08f)
     val hairline = palette.line
 
-    /** Flat card fill: no glass, no gradients. */
-    val cardFill = palette.bg2
+    /** Slightly lifted, translucent panel fill. */
+    val cardFill = palette.bg2.copy(alpha = 0.92f)
 }
 
 val LocalDesign = compositionLocalOf { McDesign(DesignLanguage.Flufi, Palettes.flufi) }
 
-/** Palette/window stage: one flat background, no glow gradients. */
+/** The ink stage with two quiet violet glows, so flat panels have depth. */
 @Composable
 private fun Stage(modifier: Modifier, design: McDesign) {
     androidx.compose.foundation.Canvas(modifier) {
         drawRect(color = design.palette.bg)
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(design.accent.copy(alpha = 0.17f), Color.Transparent),
+                center = Offset(size.width * 0.86f, size.height * -0.04f),
+                radius = size.maxDimension * 0.72f,
+            ),
+            radius = size.maxDimension * 0.72f,
+            center = Offset(size.width * 0.86f, size.height * -0.04f),
+        )
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(design.accent.copy(alpha = 0.09f), Color.Transparent),
+                center = Offset(size.width * 0.08f, size.height * 1.04f),
+                radius = size.maxDimension * 0.62f,
+            ),
+            radius = size.maxDimension * 0.62f,
+            center = Offset(size.width * 0.08f, size.height * 1.04f),
+        )
     }
 }
 
+private val McTypography = Typography(
+    bodyLarge = TextStyle(fontFamily = FontFamily.Default, fontSize = 16.sp, lineHeight = 24.sp),
+    bodyMedium = TextStyle(fontFamily = FontFamily.Default, fontSize = 14.sp, lineHeight = 20.sp),
+    bodySmall = TextStyle(fontFamily = FontFamily.Default, fontSize = 12.sp, lineHeight = 17.sp),
+    titleLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 22.sp),
+    titleMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold, fontSize = 16.sp),
+    labelLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold, fontSize = 14.sp),
+)
+
 /**
- * Wraps the app in the flufi palette and a matching Material scheme so dialogs,
- * switches and text fields inherit the same colours.
+ * Wraps the app in the flufi palette, the glow stage and a matching Material
+ * scheme so dialogs, switches and text fields inherit the same colours.
  */
 @Composable
 fun McTheme(
@@ -129,6 +164,8 @@ fun McTheme(
         darkColorScheme(
             primary = palette.accent,
             onPrimary = palette.bg,
+            primaryContainer = design.accentSoft,
+            onPrimaryContainer = palette.fg,
             background = palette.bg,
             onBackground = palette.fg,
             surface = palette.bg2,
@@ -137,6 +174,8 @@ fun McTheme(
             onSurfaceVariant = palette.dim,
             outline = palette.line,
             secondary = palette.accent,
+            onSecondary = palette.bg,
+            error = Color(0xFFFF6B72),
         )
     } else {
         lightColorScheme(
@@ -149,13 +188,16 @@ fun McTheme(
         )
     }
     CompositionLocalProvider(LocalDesign provides design) {
-        MaterialTheme(colorScheme = scheme) {
-            content()
+        MaterialTheme(colorScheme = scheme, typography = McTypography) {
+            Box(Modifier.fillMaxSize()) {
+                Stage(Modifier.fillMaxSize(), design)
+                content()
+            }
         }
     }
 }
 
-/** Flat flufi surface: fill + hairline, never a blur or a gradient. */
+/** Elevated panel: soft shadow, translucent fill and a hairline edge. */
 @Composable
 fun Modifier.mcSurface(
     shape: Shape = RoundedCornerShape(LocalDesign.current.cardRadius),
@@ -163,7 +205,13 @@ fun Modifier.mcSurface(
 ): Modifier {
     val design = LocalDesign.current
     val fill = if (tint == Color.Transparent) design.cardFill else tint
-    return clip(shape)
+    return shadow(
+        elevation = 10.dp,
+        shape = shape,
+        ambientColor = Color.Black.copy(alpha = 0.45f),
+        spotColor = design.accent.copy(alpha = 0.10f),
+    )
+        .clip(shape)
         .background(fill, shape)
         .border(1.dp, design.hairline, shape)
 }

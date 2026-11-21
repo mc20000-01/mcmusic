@@ -12,12 +12,13 @@ Use GitHub Actions CI which runs on JDK 17 (Temurin distribution). The workflow 
 ## Local Development
 For local development, set the proper JDK:
 ```bash
-# Use JDK 17 specifically
-export JAVA_HOME=/usr/lib/jvm/java-21-openjdk
-export ANDROID_SDK_ROOT=/usr/local/android
+# Use the repository's pinned JDK 17 and Android SDK
+export JAVA_HOME="$PWD/.toolchain/jdk"
+export ANDROID_HOME="$PWD/.toolchain/sdk"
+export ANDROID_SDK_ROOT="$ANDROID_HOME"
+export PATH="$JAVA_HOME/bin:$PATH"
 
-# Or install Android SDK Command Line Tools
-# and configure ANDROID_HOME appropriately
+(cd gui/android && ./gradlew :app:assembleRelease --no-daemon)
 ```
 
 ## GitHub Actions Workflow

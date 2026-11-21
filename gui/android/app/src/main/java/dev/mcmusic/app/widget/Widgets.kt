@@ -39,9 +39,10 @@ import kotlin.math.roundToInt
  */
 object Widgets {
 
-    fun user(context: Context): String? {
+    fun user(context: Context, id: Int? = null): String? {
         Prefs.init(context)
-        return Prefs.widgetUser ?: Prefs.username
+        val perWidget = id?.let { Prefs.widgetUserFor(it) }
+        return perWidget ?: Prefs.widgetUser ?: Prefs.username
     }
 
     private fun palette(context: Context): McPalette {
@@ -75,31 +76,34 @@ object Widgets {
         tall: Boolean,
     ) {
         if (ids.isEmpty()) return
-        val user = user(context)
+        val users = ids.associateWith { user(context, it) }
         val local = Playback.state
-        if (user == null && local.track == null) {
-            ids.forEach { id -> manager.updateAppWidget(id, signedOut(context, manager, id, tall)) }
-            return
-        }
         Thread {
             val track = local.track
-            val server: Listener? = if (track == null && user != null) {
-                runCatching { runBlocking { Api.now(user) }.getOrNull() }.getOrNull()
-            } else null
-            val cover = when {
-                track != null -> coverForLocal(track)
-                server?.coverUrl?.isNotBlank() == true -> runCatching {
-                    runBlocking { Api.cover(server.coverUrl) }?.let { bytes ->
-                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                    }
-                }.getOrNull()
-                else -> null
+            val names = users.values.filterNotNull().distinct()
+            val byUser = names.associateWith { name ->
+                runCatching { runBlocking { Api.now(name) }.getOrNull() }.getOrNull()
             }
             ids.forEach { id ->
+                val name = users[id]
+                if (name == null && track == null) {
+                    manager.updateAppWidget(id, signedOut(context, manager, id, tall))
+                    return@forEach
+                }
+                val server: Listener? = if (track == null) name?.let { byUser[it] } else null
+                val cover = when {
+                    track != null -> coverForLocal(track)
+                    server?.coverUrl?.isNotBlank() == true -> runCatching {
+                        runBlocking { Api.cover(server.coverUrl) }?.let { bytes ->
+                            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                        }
+                    }.getOrNull()
+                    else -> null
+                }
                 val views = if (tall) {
-                    nowViews(context, manager, id, user, server, track, local.playing, cover)
+                    nowViews(context, manager, id, name, server, track, local.playing, cover)
                 } else {
-                    barViews(context, manager, id, user, server, track, local.playing, cover)
+                    barViews(context, manager, id, name, server, track, local.playing, cover)
                 }
                 manager.updateAppWidget(id, views)
             }

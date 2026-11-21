@@ -66,8 +66,7 @@ fun DownloadsScreen(onOpenPlayer: () -> Unit) {
                     body = "Audio comes from the authenticated stream endpoint, so downloads need an account.",
                 )
             }
-        }
-        if (items.isNotEmpty()) {
+        } else if (items.isNotEmpty()) {
             item {
                 SectionLabel("On this device") {
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -104,7 +103,7 @@ fun DownloadsScreen(onOpenPlayer: () -> Unit) {
                     IconButton(Lucide.Trash) { Downloads.remove(download.id) }
                 }
             }
-        } else {
+        } else if (Account.me != null && items.isEmpty()) {
             item {
                 EmptyState(
                     icon = Lucide.Download,
@@ -113,6 +112,8 @@ fun DownloadsScreen(onOpenPlayer: () -> Unit) {
                 )
             }
         }
-        item { Muted("Downloads are not synced between devices.") }
+        if (Account.me != null) {
+            item { Muted("Downloads are not synced between devices.") }
+        }
     }
 }

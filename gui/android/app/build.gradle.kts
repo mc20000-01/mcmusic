@@ -12,14 +12,15 @@ android {
         applicationId = "dev.mcmusic.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 39
-        versionName = "3.0.0"
+        versionCode = 40
+        versionName = "3.1.0"
         buildConfigField("String", "DEFAULT_SERVER", "\"https://mcmusic.sdisk.us\"")
     }
 
     // Same key as every previous release, so an update installs over an existing
     // copy instead of failing with "conflicts with another package".
     val projectKey = file("../../../keystore/mcmusic.p12")
+    if (!projectKey.exists()) error("Missing keystore/mcmusic.p12 — refusing unsigned release")
     signingConfigs {
         create("mcmusic") {
             storeFile = projectKey
