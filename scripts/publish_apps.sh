@@ -39,7 +39,8 @@ if [ -z "$aapt" ] || [ -z "$apksigner" ]; then
   echo "Android build tools not found under $sdk (set ANDROID_HOME)" >&2
   exit 1
 fi
-apk_version=$("$aapt" dump badging "$apk" | head -1 | grep -o "versionName='[^']*'" | cut -d"'" -f2 || true)
+badging=$("$aapt" dump badging "$apk" || true)
+apk_version=$(grep -m1 -o "versionName='[^']*'" <<<"$badging" | cut -d"'" -f2 || true)
 if [ "$apk_version" != "$version" ]; then
   echo "refusing to publish $apk: embedded version '$apk_version' != Gradle version '$version'" >&2
   exit 1

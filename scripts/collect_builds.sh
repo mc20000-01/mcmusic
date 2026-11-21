@@ -25,7 +25,8 @@ if [ -f "$apk" ]; then
   sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$PWD/.toolchain/sdk}}"
   aapt=$(find "$sdk/build-tools" -type f -name aapt 2>/dev/null | sort -V | tail -n 1 || true)
   if [ -n "$aapt" ]; then
-    apk_version=$("$aapt" dump badging "$apk" | head -1 | grep -o "versionName='[^']*'" | cut -d"'" -f2 || true)
+    badging=$("$aapt" dump badging "$apk" || true)
+    apk_version=$(grep -m1 -o "versionName='[^']*'" <<<"$badging" | cut -d"'" -f2 || true)
     if [ "$apk_version" != "$android_version" ]; then
       echo "refusing to collect $apk: embedded version '$apk_version' != Gradle version '$android_version'" >&2
       exit 1
