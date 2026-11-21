@@ -1,77 +1,306 @@
-import { useEffect, useRef, useState } from "preact/hooks";
-import { Container, Header3, IconButton, Text } from "flufi-ui/components";
-import { X } from "lucide-preact";
+/** Synced lyrics panel.
+ *
+ * Fetches (cached server-side) lyrics for a track, parses LRC into
+ * {time, text} lines and highlights the current line as the track plays.
+ * Renders a right-side drawer above the player bar (full screen on mobile)
+ * with a slide animation, text-size control and per-track open/closed state.
+ */
+import { useEffect, useRef, useState, useCallback } from "preact/hooks";
+import {
+    Container,
+    Header3,
+    IconButton,
+    Text,
+    TextIconButton,
+} from "flufi-ui/components";
+import { X, ChevronLeft, ChevronRight } from "lucide-preact";
 import { API } from "../../common/net/api";
+import { position, seekTo } from "../../common/player";
 
 import "./style.css";
 
-/**
- * Lyrics drawer over the player bar. The server returns either synced LRC or
- * plain text; both are shown verbatim in a <pre> so line breaks and timestamps
- * are preserved.
- */
-export function LyricsPanel(props: { trackId: string, onClose: () => void }) {
-    const [text, setText] = useState<string | null>(null);
-    const [source, setSource] = useState<string>("");
-    const [error, setError] = useState<string | null>(null);
-    const [attempt, setAttempt] = useState(0);
+type LrcLine = { time: number; text: string };
 
-    // Keep the latest onClose in a ref so the key listener is registered once
-    // instead of every time the player redraws its position.
-    const onClose = useRef(props.onClose);
-    onClose.current = props.onClose;
+const OPEN_KEY = "mcmusic:lyricsOpen";
+const SIZE_KEY = "mcmusic:lyricsSize";
+
+function parseLrc(text: string): LrcLine[] {
+    const lines = text.split(/\r?\n/);
+    const out: LrcLine[] = [];
+    const tagRe = /\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]/g;
+
+    for (const raw of lines) {
+        const times: number[] = [];
+        let lastIndex = 0;
+        let m: RegExpExecArray | null = null;
+        tagRe.lastIndex = 0;
+        while ((m = tagRe.exec(raw)) !== null) {
+            const min = parseInt(m[1], 10);
+            const sec = parseInt(m[2], 10);
+            const ms = m[3] ? parseInt(String(m[3]).padEnd(3, "0"), 10) : 0;
+            times.push(min * 60 + sec + ms / 1000);
+            lastIndex = tagRe.lastIndex;
+        }
+        const lyric = raw.slice(lastIndex).trim();
+
+        // Skip metadata lines like [ar:], [ti:], [al:], [by:], [offset:]
+        if (/^\[(ar|ti|al|by|offset|re|ue):/i.test(raw)) continue;
+
+        if (times.length && lyric) {
+            for (const t of times) out.push({ time: t, text: lyric });
+        } else if (!times.length && lyric) {
+            out.push({ time: -1, text: lyric });
+        }
+    }
+
+    out.sort((a, b) => a.time - b.time);
+    return out;
+}
+
+function sourceLabel(source: string, synced: boolean): string {
+    const s = (source || "").toLowerCase();
+    const via = s.includes("lrclib") ? "via LRCLIB" : s.includes("stored") ? "stored" : "";
+    return synced ? `Synced${via ? ` · ${via}` : ""}` : `Plain${via ? ` · ${via}` : ""}`;
+}
+
+export function LyricsPanel(props: {
+    trackId: string;
+    open: boolean;
+    onOpen: () => void;
+    onClose: () => void;
+}) {
+    const { trackId, open, onOpen, onClose } = props;
+    const [lines, setLines] = useState<LrcLine[]>([]);
+    const [synced, setSynced] = useState(false);
+    const [source, setSource] = useState("");
+    const [error, setError] = useState<string | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [size, setSize] = useState(() => {
+        const v = localStorage.getItem(SIZE_KEY);
+        return v ? parseFloat(v) : 1;
+    });
+    const [manualScroll, setManualScroll] = useState(false);
+    const [activeIndex, setActiveIndex] = useState(-1);
+
+    const containerRef = useRef<HTMLDivElement>(null);
+    const scrollTimeoutRef = useRef<number>(0);
+    const sizeRef = useRef(size);
+    sizeRef.current = size;
+    const prevOpenRef = useRef(open);
+    useEffect(() => {
+        if (!prevOpenRef.current && open) onOpen();
+        prevOpenRef.current = open;
+    }, [open, onOpen]);
 
     useEffect(() => {
-        const onKey = (e: KeyboardEvent) => {
-            if (e.key === "Escape") onClose.current();
-        };
-        window.addEventListener("keydown", onKey);
-        return () => window.removeEventListener("keydown", onKey);
+        localStorage.setItem(SIZE_KEY, String(size));
+    }, [size]);
+
+    const changeSize = useCallback((delta: number) => {
+        setSize((s) => {
+            return Math.min(1.8, Math.max(0.6, s + delta));
+        });
     }, []);
+
+    const jumpToCurrent = useCallback(() => {
+        setManualScroll(false);
+        scrollToActive();
+    }, []);
+
+    const scrollToActive = useCallback(() => {
+        const el = containerRef.current;
+        if (!el || activeIndex < 0) return;
+        const node = el.querySelector(`[data-line="${activeIndex}"]`);
+        if (!node) return;
+        const elRect = el.getBoundingClientRect();
+        const nodeRect = node.getBoundingClientRect();
+        const offset =
+            nodeRect.top - elRect.top + el.scrollTop - elRect.height / 2 + nodeRect.height / 2;
+        el.scrollTo({ top: offset, behavior: "smooth" });
+    }, [activeIndex]);
 
     useEffect(() => {
         let cancelled = false;
-        setText(null);
+        setLoading(true);
         setError(null);
-        setSource("");
-        API.lyrics(props.trackId)
-            .then(d => {
+        API.lyrics(trackId)
+            .then((d) => {
                 if (cancelled) return;
-                setText(d.lyrics || "");
+                const text = d.lyrics || "";
+                const parsed = parseLrc(text);
+                setLines(parsed);
+                setSynced(parsed.some((l) => l.time >= 0));
                 setSource(d.source || "");
+                setLoading(false);
             })
-            .catch(e => {
-                if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+            .catch((e) => {
+                if (cancelled) return;
+                setError(e instanceof Error ? e.message : String(e));
+                setLoading(false);
             });
         return () => { cancelled = true; };
-    }, [props.trackId, attempt]);
+    }, [trackId]);
+
+    useEffect(() => {
+        if (!open) return;
+        let scheduled = false;
+        function onTime() {
+            if (manualScroll) return;
+            if (scheduled) return;
+            scheduled = true;
+            requestAnimationFrame(() => {
+                scheduled = false;
+                const now = position.value;
+                let idx = -1;
+                for (let i = lines.length - 1; i >= 0; i--) {
+                    if (lines[i].time >= 0 && lines[i].time <= now) {
+                        idx = i;
+                        break;
+                    }
+                }
+                setActiveIndex(idx);
+                if (idx >= 0) scrollToActive();
+            });
+        }
+        const unsub = position.subscribe(onTime);
+        onTime();
+        return () => {
+            unsub();
+            window.clearTimeout(scrollTimeoutRef.current);
+        };
+    }, [open, lines, manualScroll, scrollToActive]);
+
+    function onContainerScroll() {
+        setManualScroll(true);
+        window.clearTimeout(scrollTimeoutRef.current);
+        scrollTimeoutRef.current = window.setTimeout(() => setManualScroll(false), 400);
+    }
+
+    const isMobile = window.matchMedia("(max-width: 720px)").matches;
+
+    if (!open) return null;
+
+    const plain = lines.length > 0 && !synced;
+    const missing = loading === false && lines.length === 0 && !error;
 
     return (
-        <Container class="lyrics-panel" other={{ role: "dialog", "aria-label": "Lyrics" }}>
+        <Container
+            class="lyrics-panel"
+            other={{
+                role: "dialog",
+                "aria-modal": "true",
+                "aria-label": "Lyrics",
+                onScroll: onContainerScroll,
+                ref: containerRef,
+            }}
+        >
             <Container horizontal centered_y class="head">
-                <Header3>Lyrics</Header3>
-                {source && <Text dim class="source" content={source} />}
-                <IconButton title="Close lyrics" onClick={props.onClose}>
+                <TextIconButton
+                    variant="always-transparent"
+                    title="Close lyrics"
+                    onClick={onClose}
+                >
                     <X size={15} />
-                </IconButton>
+                </TextIconButton>
+                <Header3 class="title">Lyrics</Header3>
+                <Container horizontal class="controls" gap>
+                    {source && (
+                        <Text dim class="source" content={sourceLabel(source, synced)} />
+                    )}
+                    <TextIconButton
+                        variant="always-transparent"
+                        title="Smaller text"
+                        onClick={() => changeSize(-0.15)}
+                        disabled={size <= 0.6}
+                    >
+                        <ChevronLeft size={14} />
+                    </TextIconButton>
+                    <TextIconButton
+                        variant="always-transparent"
+                        title="Larger text"
+                        onClick={() => changeSize(0.15)}
+                        disabled={size >= 1.8}
+                    >
+                        <ChevronRight size={14} />
+                    </TextIconButton>
+                    {manualScroll && synced && (
+                        <TextIconButton
+                            variant="accent-subtle"
+                            title="Jump to current line"
+                            onClick={jumpToCurrent}
+                        >
+                            Jump to current
+                        </TextIconButton>
+                    )}
+                </Container>
             </Container>
+
             {error && (
                 <Container class="lyrics-state">
                     <Text class="error" content={error} />
                     <button
                         type="button"
                         class="retry"
-                        onClick={() => setAttempt(a => a + 1)}
+                        onClick={() => {
+                            setLoading(true);
+                            setError(null);
+                            void API.lyrics(trackId)
+                                .then((d) => {
+                                    const parsed = parseLrc(d.lyrics || "");
+                                    setLines(parsed);
+                                    setSynced(parsed.some((l) => l.time >= 0));
+                                    setSource(d.source || "");
+                                    setLoading(false);
+                                })
+                                .catch((e) => {
+                                    setError(e instanceof Error ? e.message : String(e));
+                                    setLoading(false);
+                                });
+                        }}
                     >
                         Try again
                     </button>
                 </Container>
             )}
-            {text == null && !error && <Text dim class="lyrics-state" content="Loading lyrics…" />}
-            {text != null && text.trim() == "" && (
-                <Text dim class="lyrics-state" content="No lyrics found for this track." />
+            {loading && !error && (
+                <Container class="lyrics-state">
+                    <Text dim content="Loading lyrics…" />
+                </Container>
             )}
-            {text != null && text.trim() != "" && <pre class="lyrics-text">{text}</pre>}
+            {missing && !error && !loading && (
+                <Container class="lyrics-state">
+                    <Text dim content="No lyrics found for this track." />
+                </Container>
+            )}
+            {lines.length > 0 && !error && !loading && (
+                <div class="lyrics-text" style={{ fontSize: `${sizeRef.current}rem` }}>
+                    {lines.map((line, i) => {
+                        const active = i === activeIndex;
+                        return (
+                            <div
+                                key={i}
+                                data-line={i}
+                                class={`lyrics-line${active ? " lyrics-line-active" : ""}`}
+                                onClick={() => {
+                                    if (line.time >= 0) {
+                                        setManualScroll(false);
+                                        seekTo(line.time);
+                                        setActiveIndex(i);
+                                        scrollToActive();
+                                    }
+                                }}
+                            >
+                                {line.text}
+                            </div>
+                        );
+                    })}
+                    {synced && activeIndex < 0 && position.value > 0 && (
+                        <Container class="lyrics-state" centered_x>
+                            <Text dim content="Waiting for the track to start…" />
+                        </Container>
+                    )}
+                </div>
+            )}
         </Container>
-    )
+    );
 }

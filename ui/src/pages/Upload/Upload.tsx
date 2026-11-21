@@ -18,6 +18,18 @@ function isYouTubeLink(value: string): boolean {
     }
 }
 
+function statusLabel(status: string): string {
+    switch (status) {
+        case "pending": return "Waiting for approval";
+        case "running": return "Downloading…";
+        case "done": return "Finished";
+        case "failed": return "Failed";
+        case "rejected": return "Rejected";
+        case "approved": return "Approved";
+        default: return status;
+    }
+}
+
 /**
  * "Add music": submit a YouTube link as a download request. Admins get it
  * started immediately, everyone else queues it for approval.
@@ -53,7 +65,7 @@ export function UploadPage() {
         setSent(null);
         if (link == "") return;
         if (!isYouTubeLink(link)) {
-            setError("Paste a YouTube or YouTube Music link.");
+            setError("Please paste a YouTube or YouTube Music link (like https://youtube.com/watch?v=...).");
             return;
         }
 
@@ -61,8 +73,8 @@ export function UploadPage() {
         try {
             const res = await API.requestDownload(link);
             setSent(res.status == "running"
-                ? "Request accepted — downloading now."
-                : "Request sent. An admin will start the download.");
+                ? "Got it — downloading now. Check Requests below for progress."
+                : "Request sent. An admin will review it, then it’ll download automatically.");
             url.value = "";
             refreshLibrary();
             loadRequests();
@@ -77,7 +89,7 @@ export function UploadPage() {
         <Content class="upload" wrapped>
             <Container extra_gap>
                 <Header2>Add music</Header2>
-                <Text dim content="Paste a YouTube / YouTube Music video or playlist link. Admins download it right away; everyone else's request waits for approval." />
+                <Text dim content="Paste a YouTube or YouTube Music link (video or playlist). If you’re an admin it starts right away; otherwise an admin will approve it first." />
                 <FormalInput label="YouTube link">
                     <Input
                         value={url}
@@ -95,15 +107,15 @@ export function UploadPage() {
                     <CloudUpload size={20} /> {sending ? "Sending…" : "Request download"}
                 </TextIconButton>
 
-                <Header2>Requests</Header2>
+                <Header2>Your requests</Header2>
                 <Loading loaded={requests != null}>
                     {() => (
                         <Container class="upload-requests">
-                            {requests!.length == 0 && <Text dim content="No requests yet." />}
+                            {requests!.length == 0 && <Text dim content="Nothing here yet — paste a link above to add music." />}
                             {requests!.map(r => (
                                 <Container horizontal centered_y wrap class="upload-request">
                                     <Text class="req-url" content={`#${r.id} · ${r.url}`} />
-                                    <Text dim class="req-status" content={r.status} />
+                                    <Text dim class="req-status" content={statusLabel(r.status)} />
                                 </Container>
                             ))}
                         </Container>

@@ -26,26 +26,70 @@
     gap: 8px;
 }
 
-/* Device cards: the long user-agent/IP line truncates instead of stretching
-   the card or pushing its action off screen. */
+/* Device cards: icon, name, online dot, actions on one line; IP/track below. */
 .content-devices .device {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 4px;
+    gap: 6px;
     min-width: 0;
     margin-top: 8px;
 }
 
-.content-devices .device-name,
+.content-devices .device-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+.content-devices .device-icon {
+    font-size: 1.25rem;
+    flex: none;
+}
+
+.content-devices .device-name-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+    flex-wrap: wrap;
+}
+
+.content-devices .device-name {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+}
+
+.content-devices .online-dot {
+    color: var(--success);
+    flex: none;
+    line-height: 1;
+}
+
+.content-devices .rename-input {
+    flex: 1;
+    min-width: 0;
+    font: inherit;
+    font-size: var(--font-size);
+    color: inherit;
+    background: var(--prim);
+    border: 1px solid var(--back-border);
+    border-radius: var(--radius);
+    padding: 4px 8px;
+    max-width: 160px;
+}
+
 .content-devices .device-meta {
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
-
-.content-devices .device-meta {
     font-size: var(--font-size-small);
 }
 
@@ -54,5 +98,21 @@
     .content-devices .device-meta {
         white-space: normal;
         overflow-wrap: anywhere;
+    }
+
+    .content-devices .device-head {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .content-devices .device-name-wrap {
+        flex-direction: column;
+        align-items: flex-start;
+        width: 100%;
+    }
+
+    .content-devices .rename-input {
+        max-width: 100%;
+        width: 100%;
     }
 }

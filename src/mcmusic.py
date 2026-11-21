@@ -35,6 +35,11 @@ from config import (
 from database import init_db, _db, ensure_schema
 from library_scan import scan_library, yt_worker
 
+# Trust the reverse proxy (nginx/Caddy/cloudflared) so request.remote_addr and
+# request.scheme reflect the real client instead of 127.0.0.1. Set
+# X-Forwarded-For / X-Forwarded-Proto / X-Forwarded-Host at the proxy.
+from werkzeug.middleware.proxy_fix import ProxyFix  # noqa: E402
+
 def _pick_dir(*candidates):
     """First existing directory from the candidates (else the first one)."""
     for cand in candidates:
@@ -56,6 +61,7 @@ app = Flask(
     static_folder=WEB_DIR,
     static_url_path="/static",
 )
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 _kp = os.path.join(DATA_DIR, "secret.key")
 if not os.path.exists(_kp):
     with open(_kp, "w") as fh:
@@ -139,7 +145,13 @@ def _api_gate():
     if not request.path.startswith("/api/") or request.method == "OPTIONS":
         return None
     uid = _auth_uid()
-    if request.path in ("/api/login", "/api/register"):
+    # Stricter for login/register + pairing + download requests
+    if request.path in (
+        "/api/login", "/api/register", "/api/auth/app/login",
+        "/api/auth/reset/request",
+    ):
+        guard, key = AUTH_GUARD, "auth:" + (request.remote_addr or "?")
+    elif request.path in ("/api/devices/code", "/api/devices/claim") or request.path.startswith("/api/download") or request.path == "/api/requests":
         guard, key = AUTH_GUARD, "auth:" + (request.remote_addr or "?")
     else:
         guard = API_GUARD
@@ -150,6 +162,8 @@ def _api_gate():
         resp = jsonify(error="rate limited", retry_after=round(wait, 1), ban_seconds=round(wait, 1))
         resp.status_code = 429
         resp.headers["Retry-After"] = str(max(1, int(math.ceil(wait))))
+        resp.headers["X-RateLimit-Limit"] = str(guard.limit)
+        resp.headers["X-RateLimit-Remaining"] = "0"
         return resp
     return None
 

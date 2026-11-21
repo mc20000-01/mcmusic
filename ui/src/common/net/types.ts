@@ -39,6 +39,9 @@ export type Track = {
     
     artists: Signal<Uuid[]>,
     set: Option<Uuid>,
+    duration: Signal<number>,
+    year: Signal<Option<string>>,
+    trackNo: Signal<number>,
 };
 
 export type Playing = {

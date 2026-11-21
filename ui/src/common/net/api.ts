@@ -85,6 +85,9 @@ function trackFromJson(d: ApiJson, setUuid: string | null): Track {
         name: signal(String(d.title ?? "")),
         artists: signal(names.map((n) => artistUuid(n))),
         set: setUuid,
+        duration: signal(Number(d.duration ?? 0) || 0),
+        year: signal(d.year ?? null),
+        trackNo: signal(Number(d.track_no ?? 0) || 0),
     };
 }
 
@@ -305,7 +308,10 @@ export const API = {
     deviceCode: () => send("devices/code", "POST"),
     devices: () => get("devices"),
     activateDevice: (id: number) => send(`devices/${id}/activate`, "POST"),
+    renameDevice: (id: number, name: string) => send(`devices/${id}`, "PATCH", { name }),
+    forgetDevice: (id: number) => send(`devices/${id}`, "DELETE"),
     clearDevices: () => send("devices/clear", "POST"),
+    cleanupDevices: () => send("devices/cleanup", "POST"),
     deviceTokens: () => get("devices/tokens"),
     revokeDeviceToken: (id: number) => send(`devices/tokens/${id}/revoke`, "POST"),
 

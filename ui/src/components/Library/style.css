@@ -35,6 +35,8 @@
 .cover-wrap .library-img {
     width: 100%;
     height: 100%;
+    object-fit: contain;
+    background: var(--prim);
 }
 
 /* Two lines are always reserved, so a long album name cannot change the row

@@ -1,20 +1,34 @@
-import { useEffect, useState } from "preact/hooks";
+/** Device pairing: mint a one-time code, list the account's devices and
+ * long-lived tokens, and let the user promote, rename or forget them.
+ *
+ * Devices are de-duplicated by their stable device_hash (the identity a
+ * paired client re-uses on every heartbeat). A device counts as "online" when
+ * it was seen in the last 60 s. The list refreshes on a poll while the page
+ * is open.
+ */
+import { useEffect, useState, useRef } from "preact/hooks";
 import {
     Container, Content, Header2, Header3, IconButton, Loading, Seperator, Text, TextIconButton
 } from "flufi-ui/components";
-import { Check, Copy, KeyRound, MonitorSmartphone, RefreshCw, Trash2 } from "lucide-preact";
+import { Check, Copy, KeyRound, MonitorSmartphone, RefreshCw, Trash2, X } from "lucide-preact";
 import { API } from "../../common/net/api";
+import { formatTime } from "../../common/player";
 
 import "./style.css";
 
-/** Relative "x ago" label for the timestamps the device API returns (unix seconds). */
-function when(ts?: number | null): string {
-    if (!ts) return "—";
-    const diff = Date.now() / 1000 - ts;
-    if (diff < 90) return "just now";
-    if (diff < 3600) return `${Math.round(diff / 60)} min ago`;
-    if (diff < 86400) return `${Math.round(diff / 3600)} h ago`;
-    return new Date(ts * 1000).toLocaleDateString();
+/** Relative "x ago" label; under 7 days relative, otherwise an absolute date.
+   The full ISO timestamp goes in a tooltip. */
+function when(ts?: number | null): { label: string; title: string } {
+    if (!ts) return { label: "—", title: "never seen" };
+    const now = Date.now() / 1000;
+    const diff = now - ts;
+    const date = new Date(ts * 1000);
+    const title = date.toLocaleString();
+    if (diff < 90) return { label: "just now", title };
+    if (diff < 3600) return { label: `${Math.round(diff / 60)} min ago`, title };
+    if (diff < 86400) return { label: `${Math.round(diff / 3600)} h ago`, title };
+    if (diff < 7 * 86400) return { label: `${Math.round(diff / 86400)} d ago`, title };
+    return { label: date.toLocaleDateString(), title };
 }
 
 function countdown(seconds: number): string {
@@ -23,10 +37,18 @@ function countdown(seconds: number): string {
     return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-/**
- * Device pairing: mint a one-time code, list the account's devices and
- * long-lived tokens, and let the user promote or revoke them.
- */
+/** Guess a short OS/browser label from the user agent. */
+function deviceLabel(ua?: string | null): string {
+    const u = (ua || "").toLowerCase();
+    if (u.includes("iphone") || u.includes("ipad")) return "iOS";
+    if (u.includes("android")) return "Android";
+    if (u.includes("windows")) return "Windows";
+    if (u.includes("macintosh") || u.includes("mac os")) return "Mac";
+    if (u.includes("linux")) return "Linux";
+    if (u.includes("chromebook") || u.includes("cros")) return "ChromeOS";
+    return "Device";
+}
+
 export function DevicesPage() {
     const [code, setCode] = useState<{ code: string; expires: number; hint?: string } | null>(null);
     const [devices, setDevices] = useState<any[] | null>(null);
@@ -35,12 +57,27 @@ export function DevicesPage() {
     const [error, setError] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
     const [now, setNow] = useState(() => Date.now());
+    const [activating, setActivating] = useState<number | null>(null);
+    const [renaming, setRenaming] = useState<number | null>(null);
+    const renameInput = useRef<HTMLInputElement>(null);
+
+    // De-duplicate devices by their stable device_hash so the same phone
+    // doesn't appear twice under slightly different names.
+    function dedupe(list: any[]): any[] {
+        const seen = new Set<string>();
+        return list.filter(d => {
+            const key = d.device_hash || String(d.id);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+    }
 
     function load() {
         setLoading(true);
         setError(null);
         Promise.all([
-            API.devices().then(d => setDevices(d.devices ?? [])),
+            API.devices().then(d => setDevices(dedupe(d.devices ?? []))),
             API.deviceTokens().then(d => setTokens(d.tokens ?? [])),
         ])
             .catch(e => {
@@ -51,6 +88,12 @@ export function DevicesPage() {
             .finally(() => setLoading(false));
     }
     useEffect(load, []);
+
+    // Re-poll every ~10 s so presence and "now playing" stay fresh.
+    useEffect(() => {
+        const timer = setInterval(load, 10000);
+        return () => clearInterval(timer);
+    }, []);
 
     // The pairing code only lives five minutes; tick so the countdown and the
     // "expired" state are truthful without a refresh.
@@ -82,6 +125,44 @@ export function DevicesPage() {
             setTimeout(() => setCopied(false), 1500);
         } catch {
             // Clipboard access can be denied; the code is selectable anyway.
+        }
+    }
+
+    async function renameDevice(id: number) {
+        const input = renameInput.current;
+        const name = (input?.value ?? "").trim();
+        if (!name) return;
+        setRenaming(id);
+        try {
+            await API.renameDevice(id, name);
+            input.value = "";
+            setRenaming(null);
+            load();
+        } catch (e) {
+            setRenaming(null);
+            setError(e instanceof Error ? e.message : String(e));
+        }
+    }
+
+    async function forgetDevice(id: number) {
+        if (!window.confirm("Forget this device? It will need to be paired again.")) return;
+        try {
+            await API.forgetDevice(id);
+            load();
+        } catch (e) {
+            setError(e instanceof Error ? e.message : String(e));
+        }
+    }
+
+    async function activateDevice(id: number) {
+        setActivating(id);
+        try {
+            await API.activateDevice(id);
+            setActivating(null);
+            load();
+        } catch (e) {
+            setActivating(null);
+            setError(e instanceof Error ? e.message : String(e));
         }
     }
 
@@ -133,8 +214,8 @@ export function DevicesPage() {
                                 />
                             </Container>
                         )}
+                        {code?.hint && <Text dim content={code.hint} />}
                     </Container>
-                    {code?.hint && <Text dim content={code.hint} />}
                 </Container>
 
                 <Seperator />
@@ -147,6 +228,14 @@ export function DevicesPage() {
                         </IconButton>
                         <TextIconButton
                             onClick={() => confirmAct(
+                                "Remove devices not seen in 30+ days?",
+                                () => API.cleanupDevices(),
+                            )}
+                        >
+                            Clean up stale
+                        </TextIconButton>
+                        <TextIconButton
+                            onClick={() => confirmAct(
                                 "Forget every device? You will need to pair them again.",
                                 () => API.clearDevices(),
                             )}
@@ -155,26 +244,84 @@ export function DevicesPage() {
                         </TextIconButton>
                     </Container>
                     <Loading loaded={!loading || devices != null}>
-                        {() => devices == null || devices.length == 0
-                            ? <Text dim content="No devices yet." />
-                            : devices.map(d => (
-                                <Container box class="device">
-                                    <Text
-                                        class="device-name"
-                                        content={`${d.name || d.user_agent || "Unknown device"}${d.is_active ? " · active speaker" : ""}`}
-                                    />
-                                    <Text
-                                        dim
-                                        class="device-meta"
-                                        content={`${d.ip ?? "unknown IP"} · seen ${when(d.last_seen)}${d.track_title ? ` · ${d.track_title}` : ""}`}
-                                    />
-                                    {!d.is_active && (
-                                        <TextIconButton onClick={() => act(() => API.activateDevice(d.id))}>
-                                            <MonitorSmartphone size={15} /> Make active
-                                        </TextIconButton>
-                                    )}
-                                </Container>
-                            ))}
+                        {() => {
+                            const list = devices == null ? [] : devices;
+                            if (list.length == 0) return <Text dim content="No devices yet." />;
+                            return (
+                                <>
+                                    {list.map(d => {
+                                        const { label, title } = when(d.last_seen);
+                                        const online = d.last_seen && (Date.now() / 1000 - d.last_seen) < 60;
+                                        const isActive = d.is_active;
+                                        const track = d.track_title ? ` · ${d.track_title}` : "";
+                                        const displayName = d.name || d.user_agent || "Unknown device";
+                                        return (
+                                            <Container box key={d.id} class="device">
+                                                <Container horizontal centered_y wrap class="device-head">
+                                                    <span class="device-icon" title={deviceLabel(d.user_agent)} aria-hidden="true" />
+                                                    <Container horizontal centered_y class="device-name-wrap">
+                                                        {renaming === d.id ? (
+                                                            <input
+                                                                ref={renameInput}
+                                                                class="rename-input"
+                                                                defaultValue={displayName}
+                                                                autoFocus
+                                                                onBlur={() => renameDevice(d.id)}
+                                                                onKeyDown={(e: any) => {
+                                                                    if (e.key === "Enter") renameDevice(d.id);
+                                                                    if (e.key === "Escape") { setRenaming(null); load(); }
+                                                                }}
+                                                            />
+                                                        ) : (
+                                                            <>
+                                                                <Text
+                                                                    class="device-name"
+                                                                    content={`${displayName}${isActive ? " · active speaker" : ""}`}
+                                                                />
+                                                                {isActive && (
+                                                                    <Text dim class="online-dot" title="Online (seen in the last minute)">●</Text>
+                                                                )}
+                                                                {!isActive && online && (
+                                                                    <Text dim class="online-dot" title={title}>●</Text>
+                                                                )}
+                                                            </>
+                                                        )}
+                                                    </Container>
+                                                    <IconButton
+                                                        title={renaming === d.id ? "Cancel" : "Rename"}
+                                                        onClick={() => setRenaming(renaming === d.id ? null : d.id)}
+                                                        disabled={renaming != null && renaming !== d.id}
+                                                    >
+                                                        <X size={13} />
+                                                    </IconButton>
+                                                    {!isActive && (
+                                                        <TextIconButton
+                                                            disabled={activating != null && activating !== d.id}
+                                                            onClick={() => activateDevice(d.id)}
+                                                        >
+                                                            {activating === d.id ? "Activating…" : <MonitorSmartphone size={15} />}
+                                                        </TextIconButton>
+                                                    )}
+                                                    <IconButton
+                                                        title="Forget device"
+                                                        variant="danger-subtle"
+                                                        onClick={() => forgetDevice(d.id)}
+                                                    >
+                                                        <Trash2 size={15} />
+                                                    </IconButton>
+                                                </Container>
+                                                <Text
+                                                    dim
+                                                    class="device-meta"
+                                                    title={title}
+                                                    content={`${deviceIp(d)}${track} · seen ${label}`}
+                                                />
+                                            </Container>
+                                        );
+                                    })}
+                                </>
+                            );
+                        }}
                     </Loading>
                 </Container>
 
@@ -192,7 +339,7 @@ export function DevicesPage() {
                                     <Text
                                         dim
                                         class="device-meta"
-                                        content={`created ${when(t.created)} · last used ${when(t.last_used)}${t.revoked ? " · revoked" : ""}`}
+                                        content={`created ${when(t.created).label} · last used ${when(t.last_used).label}${t.revoked ? " · revoked" : ""}`}
                                     />
                                     {!t.revoked && (
                                         <IconButton
@@ -212,5 +359,12 @@ export function DevicesPage() {
                 </Container>
             </Container>
         </Content>
-    )
+    );
+}
+
+function deviceIp(d: any): string {
+    const ip = d.ip ?? "unknown IP";
+    // Show the real client IP; 127.0.0.1 means the reverse proxy isn't
+    // forwarding X-Forwarded-For (see ProxyFix in mcmusic.py).
+    return ip;
 }

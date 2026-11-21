@@ -193,7 +193,18 @@ def albums():
         f"{where} group by album having count(*) >= ?)",
         (*params, min_tracks),
     ).fetchone()["n"]
-    return jsonify(albums=[dict(r) for r in rows], total=total, limit=limit, offset=offset)
+    # Cheap ETag so clients/proxies can revalidate quickly.
+    fp = f"{total}:{rows[0]['added_id'] if rows else 0}:{min_tracks}:{sort}:{q}:{offset}:{limit}"
+    etag = f'W/"albums-{abs(hash(fp)) & 0x7fffffff:x}"'
+    if request.headers.get("If-None-Match") == etag:
+        resp = Response(status=304)
+        resp.headers["Cache-Control"] = "private, max-age=30"
+        resp.headers["ETag"] = etag
+        return resp
+    resp = jsonify(albums=[dict(r) for r in rows], total=total, limit=limit, offset=offset)
+    resp.headers["Cache-Control"] = "private, max-age=30"
+    resp.headers["ETag"] = etag
+    return resp
 
 
 @bp.get("/api/album")
@@ -351,4 +362,17 @@ def cover(tid):
     c = read_cover(p) if p else None
     if not c:
         return jsonify(error="no cover"), 404
-    return Response(c[0], mimetype=c[1], headers={"Cache-Control": "private, max-age=86400"})
+    try:
+        st = os.stat(p)
+        etag = f'W/"{st.st_mtime_ns}-{st.st_size}"'
+    except OSError:
+        etag = None
+    inm = request.headers.get("If-None-Match")
+    if etag and inm and inm == etag:
+        resp = Response(status=304)
+    else:
+        resp = Response(c[0], mimetype=c[1])
+    resp.headers["Cache-Control"] = "private, max-age=86400"
+    if etag:
+        resp.headers["ETag"] = etag
+    return resp

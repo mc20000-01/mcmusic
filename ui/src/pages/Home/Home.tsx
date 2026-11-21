@@ -7,7 +7,7 @@ import { TrackList } from "../../components/TrackList/TrackList";
 import { API } from "../../common/net/api";
 import type { Set, Track } from "../../common/net/types";
 import { parseArtistUuid } from "../../common/net/api";
-import { playTrack } from "../../common/player";
+import { playQueue } from "../../common/player";
 
 import "./style.css";
 
@@ -99,16 +99,27 @@ export function HomePage() {
     async function playAlbum(set: Set) {
         try {
             const full = await API.getSet(set.uuid);
-            const track = full.tracks.value[0];
-            if (!track) return;
-            playTrack(track.uuid, {
-                title: track.name.value,
-                artist: artistNames(full),
-            });
+            const ts = full.tracks.value;
+            if (ts.length === 0) return;
+            const list = ts
+                .filter(t => t.uuid)
+                .map(t => ({
+                    id: t.uuid,
+                    title: t.name.value,
+                    artist: t.artists.value.map(u => parseArtistUuid(u).name).join(", "),
+                    setUuid: full.uuid,
+                    artistUuid: t.artists.value[0] ?? null,
+                }));
+            if (list.length > 0) {
+                playQueue(list, 0);
+            }
         } catch {
             setError("Could not start that album.");
         }
     }
+
+    // Skeleton cards shown while the first page of albums loads.
+    const skeletonCount = loading && albums.length === 0 ? Math.min(total || PAGE, PAGE) : 0;
 
     return (
         <Content class="home">
@@ -142,9 +153,19 @@ export function HomePage() {
 
                     {error && <Text class="error" content={error} />}
 
-                    {loading && albums.length == 0
-                        ? <Text dim content="Loading albums…" />
-                        : albums.length == 0
+                    {loading && albums.length === 0
+                        ? (
+                            <div class="album-grid skeleton-grid">
+                                {[...Array(skeletonCount)].map((_, i) => (
+                                    <div key={i} class="skeleton-card">
+                                        <div class="skeleton-cover" />
+                                        <div class="skeleton-title" />
+                                        <div class="skeleton-sub" />
+                                    </div>
+                                ))}
+                            </div>
+                        )
+                        : albums.length === 0
                             ? (
                                 <Text
                                     dim
@@ -157,6 +178,7 @@ export function HomePage() {
                                 <div class="album-grid">
                                     {albums.map(a => (
                                         <SetCard
+                                            key={a.uuid.value}
                                             set={a}
                                             subtitle={a.artistName}
                                             onPlay={() => playAlbum(a)}

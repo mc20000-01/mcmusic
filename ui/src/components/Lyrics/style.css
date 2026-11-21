@@ -1,18 +1,33 @@
-/* Floating lyrics drawer. flufi-ui has no popover surface, so this is the
-   placement/z-order shell; everything inside it is a flufi component. */
+/* Synced lyrics drawer: a right-side panel above the player bar, full screen
+   on mobile, with a slide animation. */
 .lyrics-panel {
     position: fixed;
-    right: 12px;
-    bottom: 78px;
+    right: 0;
+    top: 50px;
+    bottom: 84px;
     z-index: 45;
-    width: min(420px, calc(100vw - 24px));
-    max-height: 60vh;
+    width: min(440px, calc(100vw - 24px));
+    max-height: none;
     overflow: auto;
     overscroll-behavior: contain;
     background: var(--prim);
     border: 1px solid var(--back-border);
-    border-radius: var(--radius);
+    border-radius: var(--radius) 0 0 var(--radius);
     box-shadow: var(--shadow-raised);
+    display: flex;
+    flex-direction: column;
+    animation: lyrics-slide-in 0.22s ease-out;
+}
+
+@keyframes lyrics-slide-in {
+    from {
+        opacity: 0;
+        transform: translateX(120%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
 }
 
 .lyrics-panel .head {
@@ -23,9 +38,26 @@
     padding: 10px 12px;
     background: var(--prim);
     border-bottom: 1px solid var(--back-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
 }
 
-/* The source label gives way first; the close button stays reachable. */
+.lyrics-panel .title {
+    margin: 0;
+    flex: 1;
+    min-width: 0;
+}
+
+.lyrics-panel .controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-left: 10px;
+}
+
 .lyrics-panel .source {
     flex: 1;
     min-width: 0;
@@ -35,7 +67,8 @@
     font-size: var(--font-size-small);
 }
 
-.lyrics-panel .head > button {
+.lyrics-panel .head > button,
+.lyrics-panel .head > .button {
     margin-left: auto;
     flex: none;
 }
@@ -55,28 +88,55 @@
     background: transparent;
     color: inherit;
     cursor: pointer;
+    font-size: var(--font-size-small);
 }
 
 .lyrics-panel .retry:hover {
-    background: var(--hover);
+    background: var(--flat-hover);
 }
 
 .lyrics-text {
     margin: 0;
     padding: 12px;
-    white-space: pre-wrap;
     overflow-wrap: anywhere;
     font-family: inherit;
-    font-size: var(--font-size);
-    line-height: 1.6;
+    line-height: 1.7;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
-@media (max-width: 600px) {
+.lyrics-line {
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    overflow-wrap: anywhere;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.lyrics-line:hover {
+    background: var(--flat-hover);
+}
+
+.lyrics-line.lyrics-line-active {
+    color: var(--accent);
+    font-weight: 600;
+    background: var(--prim-brighter);
+    font-size: 1.05em;
+}
+
+.lyrics-panel .lyrics-state.centered_x {
+    justify-content: center;
+    align-items: center;
+}
+
+@media (max-width: 720px) {
     .lyrics-panel {
-        right: 8px;
-        left: 8px;
-        width: auto;
+        right: 0;
+        left: 0;
+        top: 50px;
         bottom: 84px;
-        max-height: 55vh;
+        width: auto;
+        border-radius: 0;
     }
 }
