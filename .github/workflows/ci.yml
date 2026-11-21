@@ -21,8 +21,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Syntax-check web JavaScript
-        run: node --check web/js/app.js web/js/ui.js web/js/views.js web/js/player.js web/js/api.js web/js/cache.js web/js/mobile.js web/js/glass.js web/js/gfx.js web/js/icons.js web/js/auth.js web/js/rotur.js
       - name: Validate service worker is parseable
         run: node --check web/sw.js
 
@@ -54,6 +52,12 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Compile and package the debug APK
         run: (cd gui/android && ./gradlew :app:assembleDebug --no-daemon --stacktrace)
+      - name: Upload the debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcmusic-debug-apk
+          path: gui/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
 
   python-checks:
     name: Python checks

@@ -1,8 +1,7 @@
 """Run the browser-side outbox suite under unittest.
 
-The offline queue lives in web/js/api.js and has no browser runner in this repo,
-so the suite is a plain ESM script (tests/outbox.test.mjs) with IndexedDB and
-fetch stubbed. Wrapping it here means `python -m unittest discover -s tests`
+The offline queue has no browser runner in this repo, so the suite is a plain
+ESM script (tests/outbox.test.mjs) with IndexedDB and fetch stubbed. Wrapping it here means `python -m unittest discover -s tests`
 covers the client as well as the server, and the suite skips cleanly where Node
 is not installed.
 

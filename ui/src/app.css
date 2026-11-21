@@ -22,10 +22,10 @@ main[class^="content-"] {
     flex: 1;
     min-width: 0;
     overflow-y: auto;
-    padding: 18px 28px 104px;
+    padding: 20px 28px 104px;
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 16px;
 }
 
 /* Page actions should hug their label, not stretch across the pane. */
@@ -46,7 +46,7 @@ main[class^="content-"] .button {
 
 @media (max-width: 720px) {
     main[class^="content-"] {
-        padding: 14px 14px 110px;
+        padding: 16px 16px 112px;
     }
     .library-card,
     .library-card .library-img {

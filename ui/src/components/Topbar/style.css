@@ -14,19 +14,12 @@
         align-items: center;
 
         &.left {
-            width: 100px;
-            
-            > .logo {
-                margin-left: 10px;
-            }
+            padding-left: 10px;
         }
         &.middle {
             flex: 1;
             justify-content: center;
-            gap: 5px;
-            
-            /* counteract left side lol */
-            margin-right: 100px;
+            gap: 6px;
         }
     }
 }
@@ -37,7 +30,6 @@
         align-items: unset;
         
         > .middle {
-            margin-right: 0;
             width: 100%;
             
             > div:has(.search-bar) {

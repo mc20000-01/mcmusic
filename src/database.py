@@ -265,7 +265,16 @@ NEW_ROTUR_COLS = {"access_token": "text", "refresh_token": "text"}
 def _connect():
     c = sqlite3.connect(DB_PATH, timeout=30)
     c.row_factory = sqlite3.Row
-    c.execute("pragma journal_mode=wal")
+    # A busy handler is what makes concurrent writers wait instead of failing;
+    # set it explicitly so it also applies to the pragmas below.
+    c.execute("pragma busy_timeout=30000")
+    # The mode is stored in the database file, so this is a no-op after the
+    # first connection. It can still fail with "database is locked" when
+    # another thread is mid-write, and that must not turn into a 500.
+    try:
+        c.execute("pragma journal_mode=wal")
+    except sqlite3.OperationalError:
+        pass
     c.execute("pragma foreign_keys=on")
     return c
 
