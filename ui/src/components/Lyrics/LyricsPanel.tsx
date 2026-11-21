@@ -6,14 +6,9 @@
  * with a slide animation, text-size control and per-track open/closed state.
  */
 import { useEffect, useRef, useState, useCallback } from "preact/hooks";
-import {
-    Container,
-    Header3,
-    IconButton,
-    Text,
-    TextIconButton,
-} from "flufi-ui/components";
-import { X, ChevronLeft, ChevronRight } from "lucide-preact";
+import { Container, Header3, Text, TextIconButton } from "flufi-ui/components";
+import { AArrowDown, AArrowUp, LocateFixed, MicVocal, X } from "lucide-preact";
+import { EmptyState } from "../EmptyState/EmptyState";
 import { API } from "../../common/net/api";
 import { position, seekTo } from "../../common/player";
 
@@ -21,7 +16,6 @@ import "./style.css";
 
 type LrcLine = { time: number; text: string };
 
-const OPEN_KEY = "mcmusic:lyricsOpen";
 const SIZE_KEY = "mcmusic:lyricsSize";
 
 function parseLrc(text: string): LrcLine[] {
@@ -84,6 +78,7 @@ export function LyricsPanel(props: {
 
     const containerRef = useRef<HTMLDivElement>(null);
     const scrollTimeoutRef = useRef<number>(0);
+    const programmaticScrollRef = useRef(false);
     const sizeRef = useRef(size);
     sizeRef.current = size;
     const prevOpenRef = useRef(open);
@@ -116,7 +111,12 @@ export function LyricsPanel(props: {
         const nodeRect = node.getBoundingClientRect();
         const offset =
             nodeRect.top - elRect.top + el.scrollTop - elRect.height / 2 + nodeRect.height / 2;
+        programmaticScrollRef.current = true;
         el.scrollTo({ top: offset, behavior: "smooth" });
+        window.clearTimeout(scrollTimeoutRef.current);
+        scrollTimeoutRef.current = window.setTimeout(() => {
+            programmaticScrollRef.current = false;
+        }, 600);
     }, [activeIndex]);
 
     useEffect(() => {
@@ -171,16 +171,14 @@ export function LyricsPanel(props: {
     }, [open, lines, manualScroll, scrollToActive]);
 
     function onContainerScroll() {
+        if (programmaticScrollRef.current) return;
         setManualScroll(true);
         window.clearTimeout(scrollTimeoutRef.current);
         scrollTimeoutRef.current = window.setTimeout(() => setManualScroll(false), 400);
     }
 
-    const isMobile = window.matchMedia("(max-width: 720px)").matches;
-
     if (!open) return null;
 
-    const plain = lines.length > 0 && !synced;
     const missing = loading === false && lines.length === 0 && !error;
 
     return (
@@ -203,7 +201,7 @@ export function LyricsPanel(props: {
                     <X size={15} />
                 </TextIconButton>
                 <Header3 class="title">Lyrics</Header3>
-                <Container horizontal class="controls" gap>
+                <Container horizontal class="controls">
                     {source && (
                         <Text dim class="source" content={sourceLabel(source, synced)} />
                     )}
@@ -213,7 +211,7 @@ export function LyricsPanel(props: {
                         onClick={() => changeSize(-0.15)}
                         disabled={size <= 0.6}
                     >
-                        <ChevronLeft size={14} />
+                        <AArrowDown size={14} />
                     </TextIconButton>
                     <TextIconButton
                         variant="always-transparent"
@@ -221,7 +219,7 @@ export function LyricsPanel(props: {
                         onClick={() => changeSize(0.15)}
                         disabled={size >= 1.8}
                     >
-                        <ChevronRight size={14} />
+                        <AArrowUp size={14} />
                     </TextIconButton>
                     {manualScroll && synced && (
                         <TextIconButton
@@ -229,7 +227,7 @@ export function LyricsPanel(props: {
                             title="Jump to current line"
                             onClick={jumpToCurrent}
                         >
-                            Jump to current
+                            <LocateFixed size={14} /> Jump to current
                         </TextIconButton>
                     )}
                 </Container>
@@ -268,9 +266,12 @@ export function LyricsPanel(props: {
                 </Container>
             )}
             {missing && !error && !loading && (
-                <Container class="lyrics-state">
-                    <Text dim content="No lyrics found for this track." />
-                </Container>
+                <EmptyState
+                    class="lyrics-empty"
+                    icon={<MicVocal size={22} />}
+                    title="No lyrics found"
+                    body="This track does not have a synced or plain lyrics file yet."
+                />
             )}
             {lines.length > 0 && !error && !loading && (
                 <div class="lyrics-text" style={{ fontSize: `${sizeRef.current}rem` }}>

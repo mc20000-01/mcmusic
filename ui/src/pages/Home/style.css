@@ -20,6 +20,20 @@
     width: 170px;
 }
 
+.control-with-icon {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+    color: var(--text-dim);
+}
+
+.control-with-icon > svg {
+    flex: none;
+    color: var(--accent);
+}
+
+
 /* auto-fill keeps every column the same width, so the last card in a row can
    never overflow the pane or get clipped. min-width: 0 on cards lets them
    shrink below their content size inside grid cells. */

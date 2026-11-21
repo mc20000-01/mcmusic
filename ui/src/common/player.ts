@@ -1,6 +1,7 @@
 import { effect, signal } from "@preact/signals";
 import { API } from "./net/api";
-import { volume } from "./prefs";
+import { peekAuth } from "./auth";
+import { discordActivity, roturActivity, volume } from "./prefs";
 
 // One <audio> for the whole app, driven by signals so any track row and the
 // player bar stay in sync.
@@ -23,6 +24,8 @@ export const position = signal(0);
 export const duration = signal(0);
 /** Set when the stream fails, so the bar can say so instead of sitting silent. */
 export const playError = signal<string | null>(null);
+/** Last listening-activity delivery failure, surfaced in Settings. */
+export const activityError = signal<string | null>(null);
 
 /** The current queue (array of { id, title, artist }) and the index within it. */
 export const queue = signal<{ id: string; title: string; artist: string; setUuid?: string; artistUuid?: string }[]>([]);
@@ -31,10 +34,48 @@ export type RepeatMode = "off" | "all" | "one";
 export const repeatMode = signal<RepeatMode>("off");
 export const shuffleEnabled = signal(false);
 
-audio.addEventListener("play", () => { isPlaying.value = true; });
-audio.addEventListener("pause", () => { isPlaying.value = false; });
+/**
+ * Publish listening state to the linked sinks whose toggles are enabled.
+ * The signature de-duplicates repeats and throttles progress to 15s buckets;
+ * pausing and changing tracks always produce a new signature.
+ */
+let lastActivitySignature = "";
+async function publishActivity() {
+    if (!peekAuth() || (!roturActivity.value && !discordActivity.value)) {
+        activityError.value = null;
+        return;
+    }
+    const id = currentId.value;
+    const playing = !audio.paused;
+    if (!playing && !id) return;
+    const signature = `${id}:${playing}:${Math.floor(audio.currentTime / 15)}`;
+    if (signature === lastActivitySignature) return;
+    lastActivitySignature = signature;
+
+    const body = {
+        track_id: id == null ? null : Number(id),
+        playing,
+        position: Math.floor(audio.currentTime || 0),
+    };
+    const errors: string[] = [];
+    const message = (e: unknown) => e instanceof Error ? e.message : String(e);
+    const jobs: Promise<unknown>[] = [];
+    if (roturActivity.value) {
+        jobs.push(API.roturActivity(body).catch(e => { errors.push(`Rotur: ${message(e)}`); }));
+    }
+    if (discordActivity.value) {
+        jobs.push(API.discordActivity(body).catch(e => { errors.push(`Discord: ${message(e)}`); }));
+    }
+    // Activity is best effort; a dead Discord client must not break playback.
+    await Promise.allSettled(jobs);
+    activityError.value = errors.length ? errors.join(" · ") : null;
+}
+
+audio.addEventListener("play", () => { isPlaying.value = true; void publishActivity(); });
+audio.addEventListener("pause", () => { isPlaying.value = false; void publishActivity(); });
 audio.addEventListener("ended", () => {
     isPlaying.value = false;
+    void publishActivity();
     const q = queue.value;
     const idx = queueIndex.value;
     if (q.length === 0 || idx < 0) return;
@@ -58,13 +99,17 @@ audio.addEventListener("error", () => {
     isPlaying.value = false;
     playError.value = "Couldn't play this track.";
 });
-audio.addEventListener("timeupdate", () => { position.value = audio.currentTime; });
+audio.addEventListener("timeupdate", () => {
+    position.value = audio.currentTime;
+    void publishActivity();
+});
 audio.addEventListener("loadedmetadata", () => { duration.value = audio.duration || 0; });
 
 // Safari refuses a zero-volume autoplay, so clamp to a whisper, not silence.
 effect(() => { audio.volume = Math.max(0.001, Math.min(1, volume.value)); });
 
-const reported = new Set<string>();
+// Count a replay in a new listening session, but not every double-click.
+const lastPlayReport = new Map<string, number>();
 
 export function playTrack(id: string, meta?: Omit<NowPlaying, "id"> & { setUuid?: string; artistUuid?: string }) {
     if (currentId.value !== id) {
@@ -73,13 +118,16 @@ export function playTrack(id: string, meta?: Omit<NowPlaying, "id"> & { setUuid?
         audio.src = API.streamUrl(id);
     }
     if (meta) nowPlaying.value = { id, ...meta };
-    audio.play().catch(() => {
-        isPlaying.value = false;
-        playError.value = "Couldn't start playback. Try again.";
-    });
+    audio.play()
+        .then(() => { void publishActivity(); })
+        .catch(() => {
+            isPlaying.value = false;
+            playError.value = "Couldn't start playback. Try again.";
+        });
 
-    if (!reported.has(id)) {
-        reported.add(id);
+    const now = Date.now();
+    if (now - (lastPlayReport.get(id) ?? 0) > 60_000) {
+        lastPlayReport.set(id, now);
         fetch("/api/plays", {
             method: "POST",
             credentials: "same-origin",
@@ -94,6 +142,18 @@ export function playQueue(list: { id: string; title: string; artist: string; set
     queueIndex.value = Math.max(0, Math.min(startIndex, list.length - 1));
     const cur = list[queueIndex.value];
     playTrack(cur.id, { title: cur.title, artist: cur.artist, setUuid: cur.setUuid, artistUuid: cur.artistUuid });
+}
+
+/** Append a track to the current queue without interrupting playback. */
+export function enqueueTrack(id: string, meta?: Omit<NowPlaying, "id"> & { setUuid?: string; artistUuid?: string }) {
+    if (queue.value.some(t => t.id === id)) return;
+    queue.value = [...queue.value, {
+        id,
+        title: meta?.title ?? id,
+        artist: meta?.artist ?? "",
+        setUuid: meta?.setUuid,
+        artistUuid: meta?.artistUuid,
+    }];
 }
 
 export function playQueueIndex(index: number) {

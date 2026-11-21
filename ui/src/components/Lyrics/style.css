@@ -3,8 +3,8 @@
 .lyrics-panel {
     position: fixed;
     right: 0;
-    top: 50px;
-    bottom: 84px;
+    top: var(--topbar-h);
+    bottom: var(--player-h);
     z-index: 45;
     width: min(440px, calc(100vw - 24px));
     max-height: none;
@@ -71,6 +71,12 @@
 .lyrics-panel .head > .button {
     margin-left: auto;
     flex: none;
+}
+
+.lyrics-panel .lyrics-empty {
+    min-height: 110px;
+    margin: 12px;
+    border-style: solid;
 }
 
 .lyrics-panel .lyrics-state {

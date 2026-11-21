@@ -45,8 +45,8 @@ export function ArtistInput(props: {
     
     return (
         <SelectBox
-            value={value}
-            onChange={props.onChange}
+            value={value as any}
+            onChange={props.onChange as any}
             dirty={props.dirty}
             options={
                 maybeLoadedMap(list,
@@ -54,7 +54,7 @@ export function ArtistInput(props: {
                         value: a.uuid,
                         label: a.name
                     }))
-                )
+                ) as any
             }
         />
     )

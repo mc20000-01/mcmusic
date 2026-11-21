@@ -6,13 +6,11 @@ import {
     Container,
     Content,
     Header3,
-    Image,
     Loading,
     Text,
     WrapList
 } from "flufi-ui/components";
 
-import type { Uuid } from "flufi-ui/types";
 import type { Artist } from "../../common/net/types";
 
 import "./style.css";
@@ -24,7 +22,7 @@ export function ArtistPage(props: RoutePropsForPath<"/artist/:uuid">) {
     const [artist, setArtist] = useState<Artist | null>(null);
     
     useEffect(() => {
-        API.getArtist(props.uuid as Uuid)
+        API.getArtist(props.uuid)
             .then(r => {
                 setArtist(r);
             })

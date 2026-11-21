@@ -10,9 +10,8 @@ import { useEffect, useState, useRef } from "preact/hooks";
 import {
     Container, Content, Header2, Header3, IconButton, Loading, Seperator, Text, TextIconButton
 } from "flufi-ui/components";
-import { Check, Copy, KeyRound, MonitorSmartphone, RefreshCw, Trash2, X } from "lucide-preact";
+import { Check, Circle, Copy, KeyRound, MonitorSmartphone, RefreshCw, Trash2, X } from "lucide-preact";
 import { API } from "../../common/net/api";
-import { formatTime } from "../../common/player";
 
 import "./style.css";
 
@@ -130,7 +129,8 @@ export function DevicesPage() {
 
     async function renameDevice(id: number) {
         const input = renameInput.current;
-        const name = (input?.value ?? "").trim();
+        if (!input) return;
+        const name = input.value.trim();
         if (!name) return;
         setRenaming(id);
         try {
@@ -170,7 +170,7 @@ export function DevicesPage() {
         <Content class="devices">
             <Container extra_gap>
                 <Header2>Devices</Header2>
-                {error && <Text class="error" role="status" content={error} />}
+                {error && <span class="error status-line" role="status">{error}</span>}
 
                 <Container>
                     <Header3>Pair a device</Header3>
@@ -181,7 +181,7 @@ export function DevicesPage() {
                             onClick={async () => {
                                 setError(null);
                                 try {
-                                    setCode(await API.deviceCode());
+                                    setCode(await API.deviceCode() as { code: string; expires: number; hint?: string });
                                     setCopied(false);
                                 } catch (e) {
                                     setError(e instanceof Error ? e.message : String(e));
@@ -258,7 +258,9 @@ export function DevicesPage() {
                                         return (
                                             <Container box key={d.id} class="device">
                                                 <Container horizontal centered_y wrap class="device-head">
-                                                    <span class="device-icon" title={deviceLabel(d.user_agent)} aria-hidden="true" />
+                                                    <span class="device-icon" title={deviceLabel(d.user_agent)} aria-label={deviceLabel(d.user_agent)}>
+                                                        <MonitorSmartphone size={18} />
+                                                    </span>
                                                     <Container horizontal centered_y class="device-name-wrap">
                                                         {renaming === d.id ? (
                                                             <input
@@ -279,10 +281,14 @@ export function DevicesPage() {
                                                                     content={`${displayName}${isActive ? " · active speaker" : ""}`}
                                                                 />
                                                                 {isActive && (
-                                                                    <Text dim class="online-dot" title="Online (seen in the last minute)">●</Text>
+                                                                    <span class="online-dot" title="Online (seen in the last minute)" aria-label="Online">
+                                                                        <Circle size={7} fill="currentColor" />
+                                                                    </span>
                                                                 )}
                                                                 {!isActive && online && (
-                                                                    <Text dim class="online-dot" title={title}>●</Text>
+                                                                    <span class="online-dot" title={title} aria-label="Online recently">
+                                                                        <Circle size={7} fill="currentColor" />
+                                                                    </span>
                                                                 )}
                                                             </>
                                                         )}
@@ -310,12 +316,9 @@ export function DevicesPage() {
                                                         <Trash2 size={15} />
                                                     </IconButton>
                                                 </Container>
-                                                <Text
-                                                    dim
-                                                    class="device-meta"
-                                                    title={title}
-                                                    content={`${deviceIp(d)}${track} · seen ${label}`}
-                                                />
+                                                <span class="device-meta dim" title={title}>
+                                                    {`${deviceIp(d)}${track} · seen ${label}`}
+                                                </span>
                                             </Container>
                                         );
                                     })}

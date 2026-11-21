@@ -4,22 +4,16 @@
  * keyboard controls (space, arrows).
  */
 import { useEffect, useRef, useState } from "preact/hooks";
+import { Container, FooterContainer, IconButton, Text } from "flufi-ui/components";
 import {
-    Container,
-    FooterContainer,
-    IconButton,
-    Slider,
-    Text,
-    TextIconButton,
-} from "flufi-ui/components";
-import {
-    ArrowLeft,
-    ArrowRight,
+    ListMusic,
     MicVocal,
     Pause,
     Play,
     Repeat,
     Shuffle,
+    SkipBack,
+    SkipForward,
     Volume2,
     VolumeX,
     X,
@@ -66,6 +60,7 @@ export function PlayerBar() {
     const [seekHover, setSeekHover] = useState<number | null>(null);
     const [seekDragging, setSeekDragging] = useState(false);
     const [volumeHover, setVolumeHover] = useState<number | null>(null);
+    const [volumeDragging, setVolumeDragging] = useState(false);
     const seekRef = useRef<HTMLDivElement>(null);
     const volRef = useRef<HTMLDivElement>(null);
 
@@ -79,6 +74,17 @@ export function PlayerBar() {
     useEffect(() => {
         localStorage.setItem("mcmusic:lyricsOpen", showLyrics ? "true" : "false");
     }, [showLyrics]);
+
+    // A drag can end outside the thin slider tracks; always release it.
+    useEffect(() => {
+        if (!seekDragging && !volumeDragging) return;
+        const stop = () => {
+            setSeekDragging(false);
+            setVolumeDragging(false);
+        };
+        window.addEventListener("mouseup", stop);
+        return () => window.removeEventListener("mouseup", stop);
+    }, [seekDragging, volumeDragging]);
 
     // Media Session API (lock screen, media keys, artwork).
     useEffect(() => {
@@ -129,30 +135,43 @@ export function PlayerBar() {
     const playedPct = duration.value > 0 ? (position.value / duration.value) * 100 : 0;
     const isMutedEffective = muted || volume.value <= 0;
 
-    function onSeekMove(clientX: number) {
+    function seekAt(clientX: number): number | null {
         const rect = seekRef.current?.getBoundingClientRect();
-        if (!rect) return;
+        if (!rect || rect.width <= 0) return null;
         const frac = (clientX - rect.left) / rect.width;
-        const t = Math.max(0, Math.min(duration.value, frac * duration.value));
+        return Math.max(0, Math.min(duration.value, frac * duration.value));
+    }
+
+    function volumeAt(clientX: number): number | null {
+        const rect = volRef.current?.getBoundingClientRect();
+        if (!rect || rect.width <= 0) return null;
+        const frac = (clientX - rect.left) / rect.width;
+        return Math.max(0, Math.min(1, frac));
+    }
+
+    function onSeekMove(clientX: number) {
+        const t = seekAt(clientX);
+        if (t == null) return;
         setSeekHover(t);
         if (seekDragging) seekTo(t);
     }
 
-    function onSeekClick(clientX: number) {
-        const rect = seekRef.current?.getBoundingClientRect();
-        if (!rect) return;
-        const frac = (clientX - rect.left) / rect.width;
-        seekTo(Math.max(0, Math.min(duration.value, frac * duration.value)));
-        setSeekDragging(false);
+    function onVolumeMove(clientX: number) {
+        const v = volumeAt(clientX);
+        if (v == null) return;
+        setVolumeHover(v);
+        if (volumeDragging) setVolume(v);
     }
 
-    function onVolumeMove(clientX: number) {
-        const rect = volRef.current?.getBoundingClientRect();
-        if (!rect) return;
-        const frac = (clientX - rect.left) / rect.width;
-        const v = Math.max(0, Math.min(1, frac));
-        setVolumeHover(v);
-        if (!muted) setVolume(v);
+    function toggleMuteButton() {
+        // A zero volume is silent even when audio.muted is false.
+        if (volume.value <= 0) {
+            setVolume(0.8);
+            if (muted) { toggleMute(); setMuted(false); }
+            return;
+        }
+        setMuted(!muted);
+        toggleMute();
     }
 
     const queueTracks = queue.value;
@@ -173,18 +192,18 @@ export function PlayerBar() {
                             class="art"
                             src={`/api/tracks/${currentId.value ?? track.id}/cover`}
                             alt=""
-                            draggable="false"
+                            draggable={false}
                             onClick={() => { if (setUuid) window.location.href = setLinkHref(setUuid); }}
                         />
                     </div>
 
                     {/* Transport controls. */}
-                    <Container horizontal centered_y class="transport" gap>
+                    <Container horizontal centered_y class="transport">
                         <IconButton
                             title="Previous"
                             onClick={playPrev}
                         >
-                            <ArrowLeft size={17} />
+                            <SkipBack size={17} />
                         </IconButton>
                         <IconButton
                             title={isPlaying.value ? "Pause" : "Play"}
@@ -195,12 +214,13 @@ export function PlayerBar() {
                         </IconButton>
                         <IconButton
                             title="Next"
-                            onClick={playNext}
+                            onClick={() => playNext()}
                         >
-                            <ArrowRight size={17} />
+                            <SkipForward size={17} />
                         </IconButton>
                         <IconButton
                             title={shuffleEnabled.value ? "Shuffle on" : "Shuffle off"}
+                            class="control-shuffle"
                             variant={shuffleEnabled.value ? "accent-subtle" : "always-transparent"}
                             onClick={() => setShuffle(!shuffleEnabled.value)}
                         >
@@ -208,6 +228,7 @@ export function PlayerBar() {
                         </IconButton>
                         <IconButton
                             title={repeatMode.value === "one" ? "Repeat one" : repeatMode.value === "all" ? "Repeat all" : "Repeat off"}
+                            class="control-repeat"
                             variant={repeatMode.value !== "off" ? "accent-subtle" : "always-transparent"}
                             onClick={() => cycleRepeat()}
                         >
@@ -244,7 +265,7 @@ export function PlayerBar() {
                             )}
                         </div>
                         {playError.value && (
-                            <Text class="play-error" role="status" content={playError.value} />
+                            <span class="play-error" role="status">{playError.value}</span>
                         )}
                     </Container>
 
@@ -254,10 +275,15 @@ export function PlayerBar() {
                             class="seek-track"
                             ref={seekRef}
                             onMouseMove={(e) => onSeekMove(e.clientX)}
-                            onMouseLeave={() => setSeekHover(null)}
-                            onMouseDown={(e) => { setSeekDragging(true); onSeekClick(e.clientX); }}
+                            onMouseLeave={() => { setSeekHover(null); setSeekDragging(false); }}
+                            onMouseDown={(e) => {
+                                const t = seekAt(e.clientX);
+                                if (t == null) return;
+                                seekTo(t);
+                                setSeekHover(t);
+                                setSeekDragging(true);
+                            }}
                             onMouseUp={() => setSeekDragging(false)}
-                            onClick={(e) => onSeekClick(e.clientX)}
                             role="slider"
                             aria-label="Seek"
                             aria-valuenow={position.value}
@@ -280,10 +306,10 @@ export function PlayerBar() {
                     </div>
 
                     {/* Volume with mute. */}
-                    <Container horizontal centered_y class="volume-wrap" gap>
+                    <Container horizontal centered_y class="volume-wrap">
                         <IconButton
                             title={isMutedEffective ? "Unmute" : "Mute"}
-                            onClick={() => { setMuted(!muted); toggleMute(); }}
+                            onClick={toggleMuteButton}
                         >
                             {isMutedEffective ? <VolumeX size={16} /> : <Volume2 size={16} />}
                         </IconButton>
@@ -292,8 +318,14 @@ export function PlayerBar() {
                             ref={volRef}
                             onMouseMove={(e) => onVolumeMove(e.clientX)}
                             onMouseLeave={() => setVolumeHover(null)}
-                            onMouseDown={(e) => { onVolumeMove(e.clientX); }}
-                            onClick={(e) => onVolumeMove(e.clientX)}
+                            onMouseDown={(e) => {
+                                const v = volumeAt(e.clientX);
+                                if (v == null) return;
+                                setVolume(v);
+                                setVolumeHover(v);
+                                setVolumeDragging(true);
+                            }}
+                            onMouseUp={() => setVolumeDragging(false)}
                         >
                             <div class="volume-fill" style={{ width: `${Math.max(0, volume.value) * 100}%` }} />
                             <div class="volume-thumb" style={{ left: `${Math.max(0, volume.value) * 100}%` }} />
@@ -305,11 +337,11 @@ export function PlayerBar() {
 
                     {/* Queue + lyrics. */}
                     <IconButton
-                        title="Queue"
+                        title={showQueue ? "Hide queue" : "Queue"}
                         variant={showQueue ? "accent-subtle" : "always-transparent"}
                         onClick={() => setShowQueue(!showQueue)}
                     >
-                        <X size={16} />
+                        <ListMusic size={16} />
                     </IconButton>
                     <IconButton
                         title={showLyrics ? "Hide lyrics" : "Lyrics"}
@@ -320,7 +352,7 @@ export function PlayerBar() {
                     </IconButton>
                 </Container>
 
-                {showQueue && queueTracks.length > 0 && (
+                {showQueue && (
                     <Container class="queue-drawer">
                         <Container horizontal centered_y class="queue-head">
                             <Text class="queue-title" content="Queue" />
@@ -329,23 +361,27 @@ export function PlayerBar() {
                                 <X size={14} />
                             </IconButton>
                         </Container>
-                        <div class="queue-list">
-                            {queueTracks.map((t, i) => (
-                                <Container
-                                    key={t.id}
-                                    horizontal centered_y
-                                    class={`queue-row${i === queueIndex.value ? " queue-row-active" : ""}`}
-                                    onClick={() => playQueueIndex(i)}
-                                >
-                                    <Text dim content={i + 1} class="queue-num" />
-                                    <div class="queue-info">
-                                        <div class="queue-title-text">{t.title}</div>
-                                        <div class="queue-artist-text">{t.artist}</div>
-                                    </div>
-                                    {i === queueIndex.value && <Text dim content={formatTime(position.value)} />}
-                                </Container>
-                            ))}
-                        </div>
+                        {queueTracks.length === 0 ? (
+                            <div class="queue-empty">Nothing queued — play an album to fill this up.</div>
+                        ) : (
+                            <div class="queue-list">
+                                {queueTracks.map((t, i) => (
+                                    <button
+                                        type="button"
+                                        key={t.id}
+                                        class={`queue-row${i === queueIndex.value ? " queue-row-active" : ""}`}
+                                        onClick={() => playQueueIndex(i)}
+                                    >
+                                        <Text dim content={i + 1} class="queue-num" />
+                                        <span class="queue-info">
+                                            <span class="queue-title-text">{t.title}</span>
+                                            <span class="queue-artist-text">{t.artist}</span>
+                                        </span>
+                                        {i === queueIndex.value && <Text dim content={formatTime(position.value)} />}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </Container>
                 )}
             </FooterContainer>

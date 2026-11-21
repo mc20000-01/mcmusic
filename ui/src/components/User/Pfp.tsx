@@ -25,12 +25,14 @@ export function UserPfp(props: UserPfpProps) {
     return (
         <Container
             class={addClass("pfp", props.class)}
-            style={addStyles(
-                props.size != null && {
-                    "width": props.size,
-                    "height": props.size
-                }
-            )}
+            other={{
+                style: addStyles(
+                    props.size != null && {
+                        "width": props.size,
+                        "height": props.size
+                    }
+                ),
+            }}
         >
             <Image class="pfp" src={`https://avatars.rotur.dev/${username}`} />
             <Image class="overlay" src={`https://avatars.rotur.dev/.overlay/${username}`} />

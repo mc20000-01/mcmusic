@@ -45,7 +45,10 @@
 }
 
 .content-devices .device-icon {
-    font-size: 1.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent);
     flex: none;
 }
 
@@ -67,6 +70,8 @@
 }
 
 .content-devices .online-dot {
+    display: inline-flex;
+    align-items: center;
     color: var(--success);
     flex: none;
     line-height: 1;

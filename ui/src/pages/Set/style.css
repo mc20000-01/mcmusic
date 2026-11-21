@@ -110,9 +110,8 @@
     }
 }
 
-/* Track list spans the content width, capped for readability. */
+/* The header and the track list now share the same full content width. */
 .content-set .track-list {
-    max-width: 900px;
-    margin: 0 auto;
     width: 100%;
+    min-width: 0;
 }

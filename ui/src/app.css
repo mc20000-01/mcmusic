@@ -29,7 +29,7 @@ main[class^="content-"] {
     flex: 1;
     min-width: 0;
     overflow-y: auto;
-    padding: 20px 28px 104px;
+    padding: 20px 28px calc(var(--player-h) + 20px);
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -56,7 +56,7 @@ main[class^="content-"] .button {
 
 @media (max-width: 720px) {
     main[class^="content-"] {
-        padding: 16px 16px 112px;
+        padding: 16px 16px calc(var(--player-h) + 24px);
     }
     .library-card {
         width: 122px;
@@ -70,7 +70,7 @@ main[class^="content-"] .button {
     text-decoration: none;
 }
 
-/* Visible keyboard focus everywhere, in the same monochrome accent. */
+/* Visible keyboard focus everywhere, in the same violet accent. */
 :where(a, button, input, textarea, select, [tabindex]):focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
@@ -89,6 +89,25 @@ main[class^="content-"] .button {
 /* Shared helpers for the few places where flufi-ui has no equivalent. */
 .error {
     color: var(--danger);
+}
+
+.status-line {
+    display: block;
+    font-size: var(--font-size-small);
+    line-height: 1.45;
+}
+
+.status,
+.status-ok {
+    color: var(--success);
+}
+
+.status-idle {
+    color: var(--text-dim);
+}
+
+.warning {
+    color: #ffbf69;
 }
 
 .sr-only {

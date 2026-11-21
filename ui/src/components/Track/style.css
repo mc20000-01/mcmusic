@@ -1,4 +1,14 @@
 
+.track-row-wrap {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+}
+
+.track-row-wrap > .track {
+    width: 100%;
+}
+
 .track {
     display: flex;
     align-items: center;
@@ -105,7 +115,7 @@
         min-width: 32px;
     }
 
-    /* Equaliser is shown only while the track plays; the gif animates itself. */
+    /* Equaliser is shown only while the track plays; CSS handles the pulse. */
     .equaliser {
         display: flex;
     }

@@ -1,18 +1,21 @@
-/** Client-side entity types. Names/fields are signals, matching flufi-ui, and
- * UUIDs are the strings produced by common/net/api.ts.
+/** Client-side entity types. Names/fields are signals, matching flufi-ui.
+ * mcmusic keys albums and artists by name, so client ids are ordinary strings
+ * ("album:<cover>:<name>" / "artist:<cover>:<name>"), not flufi's UUID shape.
  */
 import type { Signal } from "@preact/signals";
-import type { CalendarDate, Option, Uuid } from "flufi-ui/types";
+import type { CalendarDate, Option } from "flufi-ui/types";
+
+export type Uuid = string;
 
 // general
 export type Artist = {
     uuid: Uuid,
     serverUrl?: string
-    
+
     name: Signal<string>,
     bio: Signal<string>
     genres: Signal<string[]>,
-    
+
     sets: Signal<Set[]>,
 };
 
@@ -20,12 +23,12 @@ export type SetKind = "album" | "ep" | "single";
 export type Set = {
     uuid: Uuid,
     serverUrl?: string,
-    
+
     kind: Signal<SetKind>,
     name: Signal<string>,
     release: Signal<Option<CalendarDate>>,
     genres: Signal<string[]>, // set?
-    
+
     artist: Uuid,
     artistName?: string,
     tracks: Signal<Track[]>,
@@ -34,9 +37,9 @@ export type Set = {
 export type Track = {
     uuid: Uuid,
     serverUrl?: string,
-    
+
     name: Signal<string>,
-    
+
     artists: Signal<Uuid[]>,
     set: Option<Uuid>,
     duration: Signal<number>,
@@ -61,13 +64,24 @@ export type User = {
     avatar_url?: string,
     provider?: string,
     primary_token?: string,
-    
+    rotur_id?: string | null,
+    rotur_linked?: boolean,
+
     playing: Option<Playing>
 };
 
-export type RoturUser = {
-    username: string,
-    id: string,
+/** Response from GET /api/auth/rotur/status. */
+export type RoturStatus = {
+    linked: boolean;
+    configured: boolean;
+    has_tokens: boolean;
+    session_valid: boolean;
+    rotur_id: string | null;
+    rotur_username: string | null;
+    activity: {
+        ready: boolean;
+        reason: string;
+    };
 };
 
 // request specific
@@ -104,10 +118,10 @@ export type UploadSet = {
     cover?: Option<File>,
     release: Option<CalendarDate>,
     genres: string[], // set?
-    
+
     artist: Uuid,
     tracks: Uuid[]
-};;
+};
 export type UploadTrack = {
     name: string,
     artists: Uuid[],
