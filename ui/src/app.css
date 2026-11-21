@@ -1,18 +1,26 @@
 
+html, body, #app {
+    height: 100%;
+}
+
 #app > div {
     position: fixed;
     inset: 0;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
     
     display: flex;
     flex-direction: column;
     
-    max-height: 100vh;
+    max-height: 100dvh;
     
     /* flufi's .container is a column; the shell's middle row is a row. */
     > main {
         flex-direction: row;
         flex: 1;
         min-height: 0;
+        overflow: hidden;
     }
 }
 
@@ -33,39 +41,71 @@ main[class^="content-"] .button {
     width: fit-content;
 }
 
-/* Library cards keep the v3 tile size instead of growing with the pane. */
+/* Library cards keep the v3 tile size instead of growing with the pane; the
+   grid overrides the width so columns share the row evenly. */
 .library-card {
     width: 150px;
     flex: none;
+    min-width: 0;
 }
 
 .library-card .library-img {
-    width: 150px;
-    height: 150px;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
 }
 
 @media (max-width: 720px) {
     main[class^="content-"] {
         padding: 16px 16px 112px;
     }
-    .library-card,
-    .library-card .library-img {
+    .library-card {
         width: 122px;
-    }
-    .library-card .library-img {
-        height: 122px;
     }
 }
 
 .logo {
     font-family: 'Lexend';
-    font-size: 1.25em;
+    font-size: 1.4em;
     font-weight: 600;
+}
+
+/* Visible keyboard focus everywhere, in the same monochrome accent. */
+:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: var(--radius);
+}
+
+/* Icon-only controls stay comfortably tappable on phones. */
+@media (max-width: 720px) {
+    #topbar .button,
+    #left-sidebar .button {
+        min-width: 40px;
+        min-height: 40px;
+    }
 }
 
 /* Shared helpers for the few places where flufi-ui has no equivalent. */
 .error {
     color: var(--danger);
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.icon-tip {
+    display: inline-flex;
+    align-items: center;
 }
 
 .grow {

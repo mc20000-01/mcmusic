@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import { Search } from "lucide-preact";
+import { Search, X } from "lucide-preact";
 
 import "./style.css";
 import type { SearchItem } from "../../common/net/types";
@@ -20,27 +20,36 @@ export function SearchBar() {
     const results = useSignal<Option<SearchItem[]>>(null);
     const open = useSignal<boolean>(false);
 
-    function doFetch() {
-        if (query)
-            API.search(query)
-                .then((data) => {
-                    if (document.activeElement == inputRef.current) {
-                        results.value = data;
-                    }
-                })
-                .catch(() => {});
+    function doFetch(value: string = query) {
+        if (!value)
+            return;
+        API.search(value)
+            .then((data) => {
+                if (document.activeElement == inputRef.current) {
+                    results.value = data;
+                    open.value = data != null && data.length > 0;
+                }
+            })
+            .catch(() => {
+                results.value = null;
+                open.value = false;
+            });
     }
 
-    function resetResults() {
+    function clear() {
+        setQuery("");
         results.value = null;
+        open.value = false;
+        inputRef.current?.focus();
     }
 
     useEffect(() => {
         if (query) {
-            const timer = setTimeout(doFetch, 250);
+            const timer = setTimeout(() => doFetch(), 250);
             return () => clearTimeout(timer);
         } else {
-            resetResults();
+            results.value = null;
+            open.value = false;
         }
     }, [query]);
 
@@ -48,6 +57,23 @@ export function SearchBar() {
         results.subscribe((r) => {
             open.value = r != null && r.length > 0;
         })
+    }, []);
+
+    useEffect(() => {
+        const input = inputRef.current;
+        if (!input)
+            return;
+
+        function onKeyDown(e: KeyboardEvent) {
+            if (e.key == "Escape") {
+                e.preventDefault();
+                clear();
+                input!.blur();
+            }
+        }
+
+        input.addEventListener("keydown", onKeyDown);
+        return () => input.removeEventListener("keydown", onKeyDown);
     }, []);
 
     return (
@@ -71,12 +97,22 @@ export function SearchBar() {
                 <Input
                     class="search-input"
                     inputRef={inputRef}
+                    placeholder="Search"
                     value={query}
                     onInput={setQuery}
+                    onEnter={() => doFetch()}
                 />
-                <IconButton title="Search">
-                    <Search size={15} />
-                </IconButton>
+                {query
+                    ? (
+                        <IconButton title="Clear search" onClick={clear}>
+                            <X size={15} />
+                        </IconButton>
+                    )
+                    : (
+                        <IconButton title="Search" onClick={() => doFetch()}>
+                            <Search size={15} />
+                        </IconButton>
+                    )}
             </Container>
         </PopoutContainer>
     )

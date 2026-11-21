@@ -98,6 +98,7 @@ function setFromJson(album: string, tracks: ApiJson[], coverId: number | null, a
         release: signal(null),
         genres: signal([]),
         artist: artistUuid(artistName),
+        artistName,
         tracks: signal(tracks.map((t) => trackFromJson(t, uuid))),
     };
 }
@@ -148,14 +149,26 @@ export const API = {
         send("register", "POST", data),
     logout: () => send("logout", "POST"),
 
-    async listAlbums(): Promise<SetEntity[]> {
-        const d = await get("albums");
+    async listAlbums(opts: {
+        limit?: number, offset?: number, q?: string, sort?: string, minTracks?: number
+    } = {}): Promise<{ albums: SetEntity[], total: number }> {
+        const params = new URLSearchParams({
+            limit: String(opts.limit ?? 60),
+            offset: String(opts.offset ?? 0),
+            min_tracks: String(opts.minTracks ?? 1),
+        });
+        if (opts.q) params.set("q", opts.q);
+        if (opts.sort) params.set("sort", opts.sort);
+
+        const d = await get(`albums?${params}`);
         // Tracks with no album of their own list under their song name, which
-        // would turn the grid into 1,000 one-song "albums". Keep only real
-        // albums here; everything else is still in Songs and search.
-        return (d.albums ?? [])
-            .filter((a: ApiJson) => (a.n ?? 0) > 1)
-            .map((a: ApiJson) => setFromJson(a.album, [], a.cover_id ?? null, a.artist));
+        // would turn the grid into 1,000 one-song "albums". The server keeps
+        // those out unless the Singles filter asks for them.
+        return {
+            total: d.total ?? 0,
+            albums: (d.albums ?? []).map((a: ApiJson) =>
+                setFromJson(a.album, [], a.cover_id ?? null, a.artist)),
+        };
     },
 
     async listTracks(limit = 50): Promise<Track[]> {

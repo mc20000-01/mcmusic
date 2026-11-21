@@ -104,8 +104,11 @@ def _track_path(tid):
 def tracks():
     """Paginated track list; `q` matches title, artist or album."""
     q = request.args.get("q", "").strip()
-    limit = min(int(request.args.get("limit", 200)), 2000)
-    off = int(request.args.get("offset", 0))
+    try:
+        limit = min(max(int(request.args.get("limit", 200)), 1), 2000)
+        off = max(0, int(request.args.get("offset", 0)))
+    except ValueError:
+        return jsonify(error="bad paging parameters"), 400
     L = liked_ids(_db(), session["uid"])
     if q:
         like = f"%{q}%"
@@ -153,11 +156,44 @@ def search():
 @bp.get("/api/albums")
 @login_required
 def albums():
-    """Album rows with track count and a cover id; the client maps these to album sets."""
-    rows = _db().execute(
-        "select album, artist, count(*) n, min(id) cover_id from tracks group by album order by album collate nocase"
+    """Album rows with track count and a cover id, paged for the 1000+ grid.
+
+    q filters on album or artist, sort is name/artist/recent, and
+    min_tracks keeps one-song \"albums\" out of the default view.
+    """
+    q = request.args.get("q", "").strip()
+    sort = request.args.get("sort", "name")
+    try:
+        min_tracks = max(1, int(request.args.get("min_tracks", 1)))
+        limit = min(200, max(1, int(request.args.get("limit", 60))))
+        offset = max(0, int(request.args.get("offset", 0)))
+    except ValueError:
+        return jsonify(error="bad paging parameters"), 400
+
+    where = "where album <> ''"
+    params: list = []
+    if q:
+        where += " and (album like ? or artist like ?)"
+        params += [f"%{q}%", f"%{q}%"]
+
+    order = {
+        "artist": "artist collate nocase, album collate nocase",
+        "recent": "max(id) desc",
+    }.get(sort, "album collate nocase")
+
+    db = _db()
+    rows = db.execute(
+        "select album, artist, count(*) n, min(id) cover_id, max(id) added_id "
+        f"from tracks {where} group by album having count(*) >= ? "
+        f"order by {order} limit ? offset ?",
+        (*params, min_tracks, limit, offset),
     )
-    return jsonify(albums=[dict(r) for r in rows])
+    total = db.execute(
+        "select count(*) n from (select album from tracks "
+        f"{where} group by album having count(*) >= ?)",
+        (*params, min_tracks),
+    ).fetchone()["n"]
+    return jsonify(albums=[dict(r) for r in rows], total=total, limit=limit, offset=offset)
 
 
 @bp.get("/api/album")

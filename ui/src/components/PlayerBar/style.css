@@ -34,6 +34,15 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    max-width: 100%;
+}
+
+#player-bar .play-error {
+    color: var(--error, #e06c6c);
+    font-size: var(--font-size-small);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* flufi's Slider has no flex sizing of its own. */
@@ -43,4 +52,32 @@
 
 main {
     padding-bottom: 84px;
+}
+
+/* Phones cannot fit artwork, title, times, seek and lyrics on one line; the
+   seek bar drops below and the two time labels give up their space. */
+@media (max-width: 720px) {
+    #player-bar .player {
+        flex-wrap: wrap;
+        row-gap: 4px;
+    }
+
+    #player-bar .seek {
+        order: 5;
+        flex: 0 0 100%;
+    }
+
+    #player-bar .time {
+        display: none;
+    }
+
+    #player-bar .meta {
+        flex: 1;
+    }
+}
+
+@media (max-width: 380px) {
+    #player-bar .art {
+        display: none;
+    }
 }

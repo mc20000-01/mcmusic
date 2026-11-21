@@ -1,0 +1,58 @@
+.content-devices .pair-row {
+    gap: 12px;
+    margin-top: 10px;
+}
+
+.content-devices .pair-code {
+    gap: 8px;
+    min-width: 0;
+}
+
+.content-devices .code {
+    letter-spacing: 0.12em;
+    font-variant-numeric: tabular-nums;
+}
+
+.content-devices .code.expired {
+    opacity: 0.5;
+    text-decoration: line-through;
+}
+
+.content-devices .code-ttl {
+    font-size: var(--font-size-small);
+}
+
+.content-devices .section-head {
+    gap: 8px;
+}
+
+/* Device cards: the long user-agent/IP line truncates instead of stretching
+   the card or pushing its action off screen. */
+.content-devices .device {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    min-width: 0;
+    margin-top: 8px;
+}
+
+.content-devices .device-name,
+.content-devices .device-meta {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.content-devices .device-meta {
+    font-size: var(--font-size-small);
+}
+
+@media (max-width: 600px) {
+    .content-devices .device-name,
+    .content-devices .device-meta {
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+}

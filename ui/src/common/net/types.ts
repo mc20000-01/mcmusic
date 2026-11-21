@@ -27,6 +27,7 @@ export type Set = {
     genres: Signal<string[]>, // set?
     
     artist: Uuid,
+    artistName?: string,
     tracks: Signal<Track[]>,
 };
 
