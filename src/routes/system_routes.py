@@ -985,6 +985,11 @@ def worker():
             with open(logp, "a") as fh:
                 fh.write(f"\n[{time.strftime('%Y-%m-%d %H:%M:%S')}] exited with code {rc}\n")
         except Exception as e:
+            try:
+                from flask import current_app
+                current_app.logger.exception("download request %s failed", rid)
+            except Exception:
+                pass
             with open(logp, "a") as fh:
                 fh.write(f"\n[ERROR] {e}\n")
         finally:
@@ -1010,6 +1015,8 @@ def worker():
 def req_create():
     """Submit a download request; admins start it immediately."""
     url = str((request.get_json(silent=True) or {}).get("url", "")).strip()
+    if len(url) > 2048:
+        return jsonify(error="URL too long"), 400
     if not valid_yt(url):
         return jsonify(error="need an https YouTube / YouTube Music video or playlist link"), 400
     c = _db()
@@ -1123,6 +1130,44 @@ def devices_activate(did):
     _db().execute("update devices set is_active=1 where id=?", (did,))
     _db().commit()
     return jsonify(ok=True, active_device=did)
+
+
+@bp.patch("/api/devices/<int:did>")
+@login_required
+def devices_rename(did):
+    """Rename a single registered device."""
+    row = _db().execute("select id from devices where id=? and user_id=?", (did, session["uid"])).fetchone()
+    if not row:
+        return jsonify(error="not found"), 404
+    name = str((request.get_json(silent=True) or {}).get("name", "")).strip()[:64]
+    if not name:
+        return jsonify(error="name required"), 400
+    _db().execute("update devices set name=? where id=?", (name, did))
+    _db().commit()
+    return jsonify(ok=True, name=name)
+
+
+@bp.delete("/api/devices/<int:did>")
+@login_required
+def devices_forget(did):
+    """Forget (delete) a single registered device."""
+    row = _db().execute("select id from devices where id=? and user_id=?", (did, session["uid"])).fetchone()
+    if not row:
+        return jsonify(error="not found"), 404
+    _db().execute("delete from devices where id=?", (did,))
+    _db().commit()
+    return jsonify(ok=True, id=did)
+
+
+@bp.post("/api/devices/cleanup")
+@login_required
+def devices_cleanup():
+    """Drop devices not seen in 30+ days."""
+    c = _db()
+    cutoff = time.time() - 30 * 86400
+    c.execute("delete from devices where last_seen < ?", (cutoff,))
+    c.commit()
+    return jsonify(ok=True)
 
 
 @bp.post("/api/devices/clear")

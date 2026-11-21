@@ -1,16 +1,25 @@
 /** A single track row: number/play affordance, title, artist, duration and
  * per-row actions. The whole row is a transparent flufi-ui Button, so it is
  * keyboard-focusable and every child stays a flufi-ui component.
+ *
+ * Album-page behaviour:
+ *  - the artist is hidden when it matches the album artist (shown only for
+ *    featured / different artists);
+ *  - a duration column sits on the right;
+ *  - hovering shows a play icon in place of the number;
+ *  - the current track is highlighted (accent title) with an animated
+ *    equaliser while playing and a paused icon when paused;
+ *  - double-click plays; right-click opens a context menu via onContextMenu.
  */
 import type { Signal } from "@preact/signals";
 import type { Track } from "../../common/net/types";
-import { Button, Container, IconButton, If, Input, Text } from "flufi-ui/components";
+import { Button, Container, IconButton, If, Text } from "flufi-ui/components";
 import { addClass } from "flufi-ui/common";
 import type { Uuid } from "flufi-ui/types";
 import { TrackNumber } from "../TrackNumber/TrackNumber";
 import { GripVertical, Pause, Play, X } from "lucide-preact";
 import { Equaliser } from "../Equaliser/Equaliser";
-import { currentId, isPlaying, toggleTrack } from "../../common/player";
+import { currentId, formatTime, isPlaying, playTrack, toggleTrack } from "../../common/player";
 import { parseArtistUuid } from "../../common/net/api";
 
 import "./style.css";
@@ -19,9 +28,24 @@ import "./style.css";
 export type TrackWithOptionalUuid = Track & { uuid?: Uuid };
 export type TrackWithOptionalUuidAndSet = TrackWithOptionalUuid & { set?: string };
 
+export type TrackContext = {
+    /** Album artist name; the track's own artists are hidden when they match it. */
+    albumArtist?: string;
+    /** Show a right-aligned duration column. */
+    showDuration?: boolean;
+    /** Fired on right-click; the parent opens a context menu. */
+    onContextMenu?: (track: TrackWithOptionalUuid, event: MouseEvent) => void;
+};
+
 function artistNames(track: TrackWithOptionalUuid): string {
     const list = track.artists?.value ?? [];
     return list.map((u) => parseArtistUuid(u).name).join(", ");
+}
+
+function trackArtistsMatchAlbum(track: TrackWithOptionalUuid, albumArtist?: string): boolean {
+    if (!albumArtist) return false;
+    const names = (track.artists?.value ?? []).map((u) => parseArtistUuid(u).name);
+    return names.length > 0 && names.every((n) => n === albumArtist);
 }
 
 export function TrackElem(props: {
@@ -29,9 +53,31 @@ export function TrackElem(props: {
     index?: number,
     playing?: boolean,
     class?: string
-}) {
-    const active = props.track.uuid != null && currentId.value === props.track.uuid;
+} & TrackContext) {
+    const { track, index, albumArtist, showDuration, onContextMenu } = props;
+    const active = track.uuid != null && currentId.value === track.uuid;
     const playing = active && isPlaying.value;
+    const name = track.name.value;
+    const artists = artistNames(track);
+    const showArtist = Boolean(artists) && !trackArtistsMatchAlbum(track, albumArtist);
+    const dur = track.duration?.value ?? 0;
+    const setUuid = track.set ?? null;
+    const artistUuid = track.artists.value[0] ?? null;
+
+    function onDblClick() {
+        if (track.uuid == null) return;
+        playTrack(String(track.uuid), {
+            title: name,
+            artist: artists,
+            setUuid,
+            artistUuid,
+        });
+    }
+
+    function onContextMenuOpen(event: MouseEvent) {
+        event.preventDefault();
+        onContextMenu?.(track, event);
+    }
 
     return (
         <Button
@@ -40,24 +86,41 @@ export function TrackElem(props: {
             class={addClass(
                 "track",
                 playing && "playing",
+                active && "current",
                 props.class
             )}
-            disabled={props.track.uuid == null}
+            disabled={track.uuid == null}
             onClick={() => {
-                if (props.track.uuid == null) return;
-                toggleTrack(String(props.track.uuid), {
-                    title: props.track.name.value,
-                    artist: artistNames(props.track),
+                if (track.uuid == null) return;
+                toggleTrack(String(track.uuid), {
+                    title: name,
+                    artist: artists,
+                    setUuid,
+                    artistUuid,
                 });
             }}
+            onDoubleClick={onDblClick}
+            onContextMenu={onContextMenuOpen}
         >
             <Container horizontal no_gap centered_y class="left">
-                <TrackNumber index={props.index} />
-                {playing ? <Pause size={15} /> : <Play size={15} />}
-                {playing && <Equaliser size={15} />}
+                <TrackNumber index={index} />
+                {active && playing ? (
+                    <Equaliser size={15} class="equaliser" />
+                ) : active ? (
+                    <Pause size={15} class="pause-icon" />
+                ) : (
+                    <Play size={15} class="play-icon" />
+                )}
             </Container>
-            <Text class="name" content={props.track.name} />
-            <Text class="artist" dim content={artistNames(props.track)} />
+            <Container vertical class="center">
+                <Text class={addClass("name", playing && "playing")} content={track.name} />
+                {showArtist && (
+                    <Text class="artist" dim content={artists} />
+                )}
+            </Container>
+            {showDuration && dur > 0 && (
+                <Text class="duration" content={formatTime(dur)} />
+            )}
         </Button>
     )
 }

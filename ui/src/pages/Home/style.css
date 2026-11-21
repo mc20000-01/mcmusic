@@ -21,24 +21,84 @@
 }
 
 /* auto-fill keeps every column the same width, so the last card in a row can
-   never overflow the pane or get clipped. */
+   never overflow the pane or get clipped. min-width: 0 on cards lets them
+   shrink below their content size inside grid cells. */
 .album-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     gap: 16px;
     width: 100%;
+    overflow-x: hidden;
 }
 
 .album-grid .library-card {
     width: 100%;
+    min-width: 0;
 }
 
 .load-more {
     margin-top: 16px;
 }
 
+/* Skeleton cards shown while the first page of albums loads. */
+.skeleton-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 16px;
+    width: 100%;
+    overflow-x: hidden;
+}
+
+.skeleton-card {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.skeleton-cover {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: var(--radius);
+    background: var(--prim);
+    position: relative;
+    overflow: hidden;
+}
+
+.skeleton-cover::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, var(--prim) 25%, var(--prim-brighter) 50%, var(--prim) 75%);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s infinite linear;
+}
+
+.skeleton-title {
+    margin-top: 8px;
+    height: 1.3em;
+    border-radius: 4px;
+    background: var(--prim);
+    width: 70%;
+    animation: skeleton-shimmer 1.5s infinite linear;
+}
+
+.skeleton-sub {
+    margin-top: 4px;
+    height: 1em;
+    border-radius: 4px;
+    background: var(--prim);
+    width: 55%;
+    animation: skeleton-shimmer 1.5s infinite linear;
+}
+
+@keyframes skeleton-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
 @media (max-width: 720px) {
-    .album-grid {
+    .album-grid,
+    .skeleton-grid {
         grid-template-columns: repeat(auto-fill, minmax(122px, 1fr));
         gap: 12px;
     }

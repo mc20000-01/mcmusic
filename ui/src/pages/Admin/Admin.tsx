@@ -48,11 +48,15 @@ function Overview() {
     const [data, setData] = useState<any>(null);
     const [message, setMessage] = useState<string | null>(null);
     const [scanning, setScanning] = useState(false);
+    const [rooms, setRooms] = useState<any[] | null>(null);
 
     function load() {
         API.adminStats()
             .then(d => { setData(d); setMessage(null); })
             .catch(e => setMessage(e instanceof Error ? e.message : String(e)));
+        API.adminRooms()
+            .then(d => setRooms(d.rooms ?? []))
+            .catch(() => setRooms([]));
     }
     useEffect(load, []);
 
@@ -69,6 +73,20 @@ function Overview() {
             setScanning(false);
         }
     }
+
+    async function closeRoom(code: string) {
+        if (!window.confirm(`Close room ${code}?`)) return;
+        try {
+            await API.adminCloseRoom(code);
+            load();
+        } catch (e) {
+            setMessage(e instanceof Error ? e.message : String(e));
+        }
+    }
+
+    const diskPct = data && data.disk_total
+        ? Math.round((data.disk_used / data.disk_total) * 100)
+        : 0;
 
     return (
         <Loading loaded={data != null}>
@@ -88,9 +106,30 @@ function Overview() {
                             ))}
                         </TableBody>
                     </Table>
-                    <Text dim content={`Requests: ${Object.entries(data.requests ?? {}).map(([k, v]) => `${k} ${v}`).join(", ") || "none"}`} />
-                    <Text dim content={`Disk: ${(data.disk_free / 1e9).toFixed(1)} GB free of ${(data.disk_total / 1e9).toFixed(1)} GB`} />
-                    <Container horizontal centered_y>
+                    <Header3>Requests by status</Header3>
+                    <Text dim content={Object.entries(data.requests ?? {}).map(([k, v]) => `${k}: ${v}`).join(", ") || "none"} />
+                    <Header3>Disk</Header3>
+                    <Text dim content={`${(data.disk_used / 1e9).toFixed(1)} GB used of ${(data.disk_total / 1e9).toFixed(1)} GB (${diskPct}%) • ${(data.disk_free / 1e9).toFixed(1)} GB free`} />
+                    <Header3>Active downloads</Header3>
+                    <Text dim content={`Queue length: ${data.queue ?? 0} • Running: ${Array.isArray(data.running) ? data.running.length : 0} • Rooms: ${data.rooms ?? 0}`} />
+                    <Header3>Rooms</Header3>
+                    {!rooms || rooms.length === 0 ? (
+                        <Text dim content="No active rooms." />
+                    ) : (
+                        rooms.map((r: any) => (
+                            <Container class="req">
+                                <Container horizontal centered_y wrap class="req-head">
+                                    <Text content={`${r.code} · host ${r.host ?? "?"}${r.track?.title ? ` · ${r.track.title}` : ""}`} />
+                                    <IconButton title="Close room" variant="danger-subtle" onClick={() => closeRoom(r.code)}>
+                                        <X size={14} />
+                                    </IconButton>
+                                </Container>
+                                <Text dim content={`${r.listeners ?? "?"} listeners · ${r.playing ? "playing" : "paused"}`} />
+                                <Seperator />
+                            </Container>
+                        ))
+                    )}
+                    <Container horizontal centered_y class="section-head">
                         <TextIconButton variant="accent" disabled={scanning} onClick={scan}>
                             <ScanLine size={18} /> {scanning ? "Scanning…" : "Scan library"}
                         </TextIconButton>
@@ -106,7 +145,7 @@ function Overview() {
 /** Download requests with approve/reject/cancel/retry and the live log. */
 function Requests() {
     const [rows, setRows] = useState<any[] | null>(null);
-    const [log, setLog] = useState<string | null>(null);
+    const [log, setLog] = useState<{ id: number; text: string } | null>(null);
     const [error, setError] = useState<string | null>(null);
 
     function load() {
@@ -137,7 +176,7 @@ function Requests() {
                             <Container horizontal centered_y wrap class="req-head">
                                 <Text
                                     class="req-url"
-                                    content={`#${r.id} ${r.status} · ${r.username ?? "?"} · ${r.url}`}
+                                    content={`#${r.id} · ${r.status}${r.running ? " (running)" : ""} · ${r.username ?? "?"} · ${r.url}`}
                                 />
                                 {(r.status == "pending" || r.status == "failed") && (
                                     <>
@@ -152,7 +191,7 @@ function Requests() {
                                 <IconButton
                                     title="Show log"
                                     onClick={() => API.adminRequestLog(r.id)
-                                        .then(d => setLog(d.log || "(empty)"))
+                                        .then(d => setLog({ id: r.id, text: d.log || "(empty)" }))
                                         .catch(e => setError(e instanceof Error ? e.message : String(e)))}
                                 >
                                     <FileText size={15} />
@@ -169,19 +208,19 @@ function Requests() {
                                     <Trash2 size={15} />
                                 </IconButton>
                             </Container>
-                            <Text dim content={`${when(r.created)}${r.elapsed ? ` · ${Math.round(r.elapsed)}s` : ""}`} />
+                            <Text dim content={`${when(r.created)}${r.elapsed ? ` · ${Math.round(r.elapsed)}s elapsed` : ""}${r.finished && r.status !== "running" ? ` · finished ${when(r.finished)}` : ""}`} />
                             <Seperator />
                         </Container>
                     ))}
             </Loading>
             {log != null && (
-                <Container>
-                    <Container horizontal centered_y>
-                        <Header3>Log</Header3>
-                        <IconButton title="Close" onClick={() => setLog(null)}><X size={14} /></IconButton>
+                <Container class="req-log-wrap">
+                    <Container horizontal centered_y class="section-head">
+                        <Header3>Log (request #{log.id})</Header3>
+                        <IconButton title="Close log" onClick={() => setLog(null)}><X size={14} /></IconButton>
                     </Container>
                     {/* A log needs literal whitespace; no flufi-ui component renders that. */}
-                    <pre class="log">{log}</pre>
+                    <pre class="log">{log.text}</pre>
                 </Container>
             )}
         </Container>
@@ -234,7 +273,7 @@ function Users() {
                             </IconButton>
                         </Container>
                         <Text dim content={u.email ?? "no email"} />
-                        <Text dim content={`${u.plays} plays · ${u.likes} likes · ${u.playlists} playlists`} />
+                        <Text dim content={`${u.plays} plays · ${u.likes} likes · ${u.playlists} playlists · ${u.requests ?? 0} requests`} />
                         <Seperator />
                     </Container>
                 ))}

@@ -9,75 +9,367 @@
     /* One flat surface for the whole app: no blur, no translucency. */
     background: var(--back-raised);
     border-top: 1px solid var(--back-border);
+    display: flex;
+    align-items: center;
 }
 
 #player-bar .player {
+    display: flex;
+    align-items: center;
     gap: 12px;
+    width: 100%;
+    max-width: 100%;
+    flex-wrap: nowrap;
+}
+
+#player-bar .art-wrap {
+    position: relative;
+    flex: none;
+    cursor: pointer;
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--prim);
 }
 
 #player-bar .art {
-    width: 40px;
-    height: 40px;
+    width: 56px;
+    height: 56px;
     border-radius: var(--radius);
     object-fit: cover;
     background: var(--prim);
+    display: block;
+}
+
+#player-bar .transport {
+    gap: 6px;
     flex: none;
+}
+
+#player-bar .play-pause {
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
 }
 
 #player-bar .meta {
     min-width: 0;
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
-#player-bar .title,
-#player-bar .artist {
+#player-bar .title-row {
+    display: flex;
+}
+
+#player-bar .title-link {
+    flex: 1;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    max-width: 100%;
+    color: var(--text-bright);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+#player-bar .title-link:hover {
+    text-decoration: underline;
+}
+
+#player-bar .artist-row {
+    display: flex;
+}
+
+#player-bar .artist-link {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: var(--font-size-medium);
+}
+
+#player-bar .artist-link:hover {
+    text-decoration: underline;
 }
 
 #player-bar .play-error {
-    color: var(--error, #e06c6c);
+    color: var(--danger);
     font-size: var(--font-size-small);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-/* flufi's Slider has no flex sizing of its own. */
-#player-bar .seek {
+/* Seek bar: filled progress in the accent color. */
+#player-bar .seek-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 120px;
     flex: 2;
+}
+
+#player-bar .seek-track {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--prim-brighter);
+    cursor: pointer;
+}
+
+#player-bar .seek-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    height: 100%;
+    border-radius: 3px;
+    background: var(--accent);
+    width: 0%;
+    transition: width 0.1s linear;
+}
+
+#player-bar .seek-thumb {
+    position: absolute;
+    left: 0%;
+    top: 50%;
+    width: 12px;
+    height: 12px;
+    margin-top: -6px;
+    margin-left: -6px;
+    border-radius: 50%;
+    background: var(--text-bright);
+    transform: translateX(0);
+    transition: left 0.1s linear, width 0.1s, height 0.1s, margin-top 0.1s, margin-left 0.1s;
+}
+
+#player-bar .seek-track:hover .seek-thumb {
+    width: 16px;
+    height: 16px;
+    margin-top: -8px;
+    margin-left: -8px;
+    background: var(--accent-hover);
+}
+
+#player-bar .seek-preview {
+    position: absolute;
+    top: -20px;
+    transform: translateX(-50%);
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: var(--prim);
+    border: 1px solid var(--back-border);
+    color: var(--text-bright);
+    font-size: var(--font-size-small);
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+#player-bar .seek-times {
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+#player-bar .seek-times > * {
+    font-size: var(--font-size-small);
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Volume bar. */
+#player-bar .volume-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: none;
+    min-width: 110px;
+}
+
+#player-bar .volume-track {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--prim-brighter);
+    cursor: pointer;
+}
+
+#player-bar .volume-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    height: 100%;
+    border-radius: 3px;
+    background: var(--accent);
+    width: 0%;
+    transition: width 0.1s linear;
+}
+
+#player-bar .volume-thumb {
+    position: absolute;
+    left: 0%;
+    top: 50%;
+    width: 10px;
+    height: 10px;
+    margin-top: -5px;
+    margin-left: -5px;
+    border-radius: 50%;
+    background: var(--text);
+    transition: left 0.1s linear, width 0.1s, height 0.1s, margin-top 0.1s, margin-left 0.1s;
+}
+
+#player-bar .volume-track:hover .volume-thumb {
+    width: 14px;
+    height: 14px;
+    margin-top: -7px;
+    margin-left: -7px;
+    background: var(--accent-hover);
+}
+
+#player-bar .volume-preview {
+    font-size: var(--font-size-small);
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+}
+
+#player-bar .queue-drawer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 100%;
+    margin-bottom: 6px;
+    z-index: 46;
+    background: var(--prim);
+    border: 1px solid var(--back-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-raised);
+    width: min(460px, calc(100vw - 24px));
+    margin-left: auto;
+    margin-right: auto;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    animation: queue-slide-in 0.2s ease-out;
+}
+
+@keyframes queue-slide-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+#player-bar .queue-head {
+    gap: 8px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--back-border);
+}
+
+#player-bar .queue-title {
+    font-weight: 600;
+    margin: 0;
+}
+
+#player-bar .queue-list {
+    max-height: 260px;
+    overflow: auto;
+    overscroll-behavior: contain;
+}
+
+#player-bar .queue-row {
+    padding: 8px 12px;
+    gap: 10px;
+    cursor: pointer;
+}
+
+#player-bar .queue-row:hover {
+    background: var(--flat-hover);
+}
+
+#player-bar .queue-row-active {
+    background: var(--prim-brighter);
+}
+
+#player-bar .queue-num {
+    flex: none;
+    min-width: 20px;
+    text-align: right;
+    color: var(--text-dim);
+}
+
+#player-bar .queue-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+#player-bar .queue-title-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#player-bar .queue-artist-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--font-size-small);
+    color: var(--text-dim);
 }
 
 main {
     padding-bottom: 84px;
 }
 
-/* Phones cannot fit artwork, title, times, seek and lyrics on one line; the
-   seek bar drops below and the two time labels give up their space. */
 @media (max-width: 720px) {
     #player-bar .player {
-        flex-wrap: wrap;
-        row-gap: 4px;
+        gap: 8px;
     }
 
-    #player-bar .seek {
-        order: 5;
-        flex: 0 0 100%;
+    #player-bar .art {
+        width: 44px;
+        height: 44px;
     }
 
-    #player-bar .time {
-        display: none;
+    #player-bar .title-link {
+        font-size: var(--font-size-medium);
     }
 
-    #player-bar .meta {
+    #player-bar .seek-wrap {
         flex: 1;
+        min-width: 80px;
+    }
+
+    #player-bar .volume-wrap {
+        min-width: 70px;
+    }
+
+    #player-bar .transport {
+        gap: 4px;
+    }
+
+    #player-bar .seek-times {
+        display: none;
     }
 }
 
-@media (max-width: 380px) {
-    #player-bar .art {
+@media (max-width: 480px) {
+    #player-bar .volume-wrap {
+        display: none;
+    }
+    #player-bar .transport .Shuffle,
+    #player-bar .transport .Repeat {
         display: none;
     }
 }

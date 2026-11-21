@@ -2,28 +2,27 @@
 .track {
     display: flex;
     align-items: center;
-    padding: 5px;
-    gap: 5px;
+    padding: 6px 8px;
+    gap: 8px;
 
-    height: 30px;
+    height: 44px;
+    min-width: 0;
+
+    transition: background var(--transition-fast), color var(--transition-fast);
 
     &.border {
         border: 1px solid var(--back-border);
         border-radius: var(--radius);
     }
-    
+
+    &:hover {
+        background: var(--flat-hover);
+    }
+
     &:has(.grip) {
         padding-left: 10px;
     }
-    
-    > .name {
-        padding: 5px;
-        
-        flex: 1;
 
-        text-align: left;
-    }
-    
     > .left {
         position: relative;
         display: flex;
@@ -31,43 +30,83 @@
         min-width: 15px;
 
         > .track-number {
-            position: absolute;
-            right: 0;
+            position: relative;
             text-align: right;
         }
 
         > svg {
-            display: none;
-            position: absolute;
-            right: 0;
+            position: relative;
         }
 
         > .equaliser {
-            display: none;
             width: 15px;
         }
     }
-    
-    &:hover > .left {
-        > .track-number {
-            display: none;
-        }
-        > svg {
-            display: unset;
-        }
-        > .equaliser {
-            display: none;
-        }
+
+    /* Hover (not the current track): swap the number for a play icon. */
+    &:not(.current):hover > .left {
+        > .track-number { display: none; }
+        > svg.play-icon { display: unset; }
+        > svg.pause-icon { display: none; }
+        > .equaliser { display: none; }
     }
+
+    &:not(.current):hover > .left > svg.play-icon { display: unset; }
+
+    /* Current track (playing or paused): highlight the title. */
+    &.current > .center > .name {
+        color: var(--accent);
+        font-weight: 600;
+    }
+
+    &.current > .left {
+        > .track-number { display: none; }
+    }
+
     &.playing > .left {
-        > .track-number {
-            display: none;
-        }
-        > svg {
-            display: none;
-        }
-        > .equaliser {
-            display: flex;
-        }
+        > svg.play-icon { display: none; }
+        > svg.pause-icon { display: none; }
+        > .equaliser { display: flex; }
+    }
+
+    &.current:not(.playing) > .left {
+        > svg.play-icon { display: none; }
+        > svg.pause-icon { display: unset; }
+        > .equaliser { display: none; }
+    }
+
+    > .center {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-width: 0;
+        gap: 2px;
+    }
+
+    > .name {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    > .artist {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* Duration column, right-aligned. */
+    > .duration {
+        flex: none;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        min-width: 32px;
+    }
+
+    /* Equaliser is shown only while the track plays; the gif animates itself. */
+    .equaliser {
+        display: flex;
     }
 }

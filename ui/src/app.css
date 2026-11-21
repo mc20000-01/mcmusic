@@ -1,20 +1,18 @@
 
 html, body, #app {
-    height: 100%;
+    height: 100dvh;
+    overflow: hidden;
 }
 
 #app > div {
     position: fixed;
     inset: 0;
-    height: 100vh;
     height: 100dvh;
     overflow: hidden;
-    
     display: flex;
     flex-direction: column;
-    
     max-height: 100dvh;
-    
+
     /* flufi's .container is a column; the shell's middle row is a row. */
     > main {
         flex-direction: row;
@@ -25,7 +23,8 @@ html, body, #app {
 }
 
 /* Every page's Content renders <main class="content-*"> with no padding of
-   its own; the v3 shell expects the gutter here. */
+   its own; the v3 shell expects the gutter here. The bottom padding leaves
+   room for the pinned player bar. */
 main[class^="content-"] {
     flex: 1;
     min-width: 0;
@@ -66,8 +65,9 @@ main[class^="content-"] .button {
 
 .logo {
     font-family: 'Lexend';
-    font-size: 1.4em;
+    font-size: 1.5em;
     font-weight: 600;
+    text-decoration: none;
 }
 
 /* Visible keyboard focus everywhere, in the same monochrome accent. */

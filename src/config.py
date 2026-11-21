@@ -65,12 +65,12 @@ ORIGINCHATS_CHANNEL = os.environ.get("ORIGINCHATS_CHANNEL", "")
 DASHBOARD_INTERVAL = float(os.environ.get("DASHBOARD_INTERVAL", "4"))
 
 # ------------------------------------------------------------------ rate limiting
-API_RATE_LIMIT = int(os.environ.get("API_RATE_LIMIT", "600"))
+API_RATE_LIMIT = int(os.environ.get("API_RATE_LIMIT", "1200"))
 API_RATE_WINDOW = float(os.environ.get("API_RATE_WINDOW", "60"))
-API_BAN_BASE = float(os.environ.get("API_BAN_BASE", "30"))
-API_BAN_MAX = float(os.environ.get("API_BAN_MAX", "3600"))
-API_BAN_WINDOW = float(os.environ.get("API_BAN_WINDOW", "3600"))
-API_AUTH_LIMIT = int(os.environ.get("API_AUTH_LIMIT", "20"))
+API_BAN_BASE = float(os.environ.get("API_BAN_BASE", "10"))
+API_BAN_MAX = float(os.environ.get("API_BAN_MAX", "600"))
+API_BAN_WINDOW = float(os.environ.get("API_BAN_WINDOW", "1800"))
+API_AUTH_LIMIT = int(os.environ.get("API_AUTH_LIMIT", "40"))
 API_AUTH_WINDOW = float(os.environ.get("API_AUTH_WINDOW", "300"))
 CORS_ORIGIN = os.environ.get("CORS_ORIGIN", "*")
 
