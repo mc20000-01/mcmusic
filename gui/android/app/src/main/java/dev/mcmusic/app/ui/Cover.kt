@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import android.util.LruCache
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -13,12 +14,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.dp
 import dev.mcmusic.app.data.Api
 
 private val cache = LruCache<String, Bitmap>(64)
@@ -46,7 +49,21 @@ fun Cover(
         }
     }
 
-    Box(modifier.clip(shape).background(fallback)) {
+    Box(
+        modifier
+            .clip(shape)
+            .background(fallback)
+            .border(1.dp, Color.White.copy(alpha = 0.06f), shape),
+    ) {
+        if (bitmap == null) {
+            Box(Modifier.fillMaxSize(), Alignment.Center) {
+                LucideIcon(
+                    Lucide.Play,
+                    Color.White.copy(alpha = 0.24f),
+                    Modifier.fillMaxSize(0.34f),
+                )
+            }
+        }
         bitmap?.let {
             Image(
                 bitmap = it.asImageBitmap(),

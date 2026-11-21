@@ -19,21 +19,26 @@ import dev.mcmusic.app.playback.PlaybackService
 class WidgetControlReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action ?: return
+        val pending = goAsync()
         val app = context.applicationContext
         val token = SessionToken(app, ComponentName(app, PlaybackService::class.java))
         val future = MediaController.Builder(app, token).buildAsync()
         val main = Handler(Looper.getMainLooper())
         future.addListener({
-            val controller = runCatching { future.get() }.getOrNull()
-            if (controller != null) {
-                when (action) {
-                    ACTION_TOGGLE -> if (controller.isPlaying) controller.pause() else controller.play()
-                    ACTION_NEXT -> controller.seekToNextMediaItem()
-                    ACTION_PREVIOUS -> controller.seekToPreviousMediaItem()
+            try {
+                val controller = runCatching { future.get() }.getOrNull()
+                if (controller != null) {
+                    when (action) {
+                        ACTION_TOGGLE -> if (controller.isPlaying) controller.pause() else controller.play()
+                        ACTION_NEXT -> controller.seekToNextMediaItem()
+                        ACTION_PREVIOUS -> controller.seekToPreviousMediaItem()
+                    }
+                    main.postDelayed({ runCatching { controller.release() } }, 600)
                 }
-                main.postDelayed({ runCatching { controller.release() } }, 600)
+                main.postDelayed({ runCatching { Widgets.refresh(app) } }, 900)
+            } finally {
+                pending.finish()
             }
-            main.postDelayed({ runCatching { Widgets.refresh(app) } }, 900)
         }, java.util.concurrent.Executor { runnable -> main.post(runnable) })
     }
 

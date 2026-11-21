@@ -1,5 +1,8 @@
 package dev.mcmusic.app.ui.screens
 
+import android.content.Intent
+import android.os.Build
+import android.provider.Settings as AndroidSettings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -7,7 +10,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -17,14 +19,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.mcmusic.app.BuildConfig
 import dev.mcmusic.app.data.Account
 import dev.mcmusic.app.data.Api
 import dev.mcmusic.app.data.Downloads
@@ -34,10 +35,10 @@ import dev.mcmusic.app.ui.GhostButton
 import dev.mcmusic.app.ui.Lucide
 import dev.mcmusic.app.ui.McField
 import dev.mcmusic.app.ui.Muted
-import dev.mcmusic.app.ui.PrimaryButton
 import dev.mcmusic.app.ui.ScreenTitle
 import dev.mcmusic.app.ui.SectionLabel
 import dev.mcmusic.app.ui.SettingCard
+import dev.mcmusic.app.ui.SignInCard
 import dev.mcmusic.app.ui.SettingDivider
 import dev.mcmusic.app.ui.SettingRow
 import dev.mcmusic.app.ui.SwitchRow
@@ -54,11 +55,9 @@ import kotlinx.coroutines.launch
 fun SettingsScreen(onAdmin: () -> Unit, onSignedOut: () -> Unit) {
     val design = LocalDesign.current
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val me = Account.me
 
-    var username by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
 
@@ -70,24 +69,6 @@ fun SettingsScreen(onAdmin: () -> Unit, onSignedOut: () -> Unit) {
 
     LaunchedEffect(me?.id) { email = me?.email.orEmpty() }
 
-    fun signIn() {
-        if (username.isBlank() || password.isBlank()) return
-        busy = true
-        error = null
-        notice = null
-        scope.launch {
-            Api.login(username.trim(), password).fold(
-                onSuccess = {
-                    password = ""
-                    Account.refresh()
-                    notice = "Signed in as ${it.username}."
-                },
-                onFailure = { error = it.message ?: "could not sign in" },
-            )
-            busy = false
-        }
-    }
-
     LazyColumn(
         contentPadding = PaddingValues(design.screenPadding, 10.dp, design.screenPadding, 32.dp),
         verticalArrangement = Arrangement.spacedBy(9.dp),
@@ -98,22 +79,7 @@ fun SettingsScreen(onAdmin: () -> Unit, onSignedOut: () -> Unit) {
 
         item { SectionLabel("Account") }
         if (me == null) {
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    McField(username, { username = it }, "Username")
-                    McField(
-                        password, { password = it }, "Password",
-                        password = true,
-                        keyboard = KeyboardOptions(imeAction = ImeAction.Done, keyboardType = KeyboardType.Password),
-                        actions = KeyboardActions(onDone = { signIn() }),
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        PrimaryButton(if (busy) "Signing in…" else "Sign in", enabled = !busy) { signIn() }
-                        Muted("Same account as the website.", Modifier.align(Alignment.CenterVertically))
-                    }
-                    Muted("New accounts need an invite from an admin.")
-                }
-            }
+            item { SignInCard() }
         } else {
             item {
                 SettingCard {
@@ -215,6 +181,21 @@ fun SettingsScreen(onAdmin: () -> Unit, onSignedOut: () -> Unit) {
                     "${Downloads.items.size} tracks · ${formatBytes(Downloads.totalBytes())}",
                     icon = Lucide.HardDrive,
                 )
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    SettingDivider()
+                    SettingRow(
+                        "Notifications",
+                        "Keep music playing when the screen is off",
+                        icon = Lucide.Info,
+                    ) {
+                        runCatching {
+                            context.startActivity(
+                                Intent(AndroidSettings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                    .putExtra(AndroidSettings.EXTRA_APP_PACKAGE, context.packageName),
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -229,7 +210,7 @@ fun SettingsScreen(onAdmin: () -> Unit, onSignedOut: () -> Unit) {
                     "Build",
                     "Compose · Media3",
                     icon = Lucide.Library,
-                    value = "1.0",
+                    value = BuildConfig.VERSION_NAME,
                 )
             }
         }

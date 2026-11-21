@@ -45,10 +45,10 @@ import dev.mcmusic.app.ui.GhostButton
 import dev.mcmusic.app.ui.Loading
 import dev.mcmusic.app.ui.Lucide
 import dev.mcmusic.app.ui.MediaCard
-import dev.mcmusic.app.ui.Muted
 import dev.mcmusic.app.ui.Pill
 import dev.mcmusic.app.ui.SectionLabel
 import dev.mcmusic.app.ui.ScreenTitle
+import dev.mcmusic.app.ui.SignInCard
 import dev.mcmusic.app.ui.TrackRow
 import dev.mcmusic.app.ui.design.LocalDesign
 import dev.mcmusic.app.ui.design.mcSurface
@@ -78,17 +78,18 @@ fun HomeScreen(onOpenSearch: () -> Unit, onOpenPlayer: () -> Unit) {
             onSuccess = { listeners = it },
             onFailure = { failures += "Listening now: ${it.message ?: "unavailable"}" },
         )
-        Api.tracks(limit = 60).fold(
-            onSuccess = { recent = it },
-            onFailure = { failures += "Library: ${it.message ?: "unavailable"}" },
-        )
         if (me != null) {
             Api.home().fold(
                 onSuccess = { feed = it },
                 onFailure = { failures += "Your mix: ${it.message ?: "unavailable"}" },
             )
+            Api.tracks(limit = 60).fold(
+                onSuccess = { recent = it },
+                onFailure = { failures += "Library: ${it.message ?: "unavailable"}" },
+            )
         } else {
             feed = null
+            recent = emptyList()
         }
         errors = failures
         loading = false
@@ -107,7 +108,7 @@ fun HomeScreen(onOpenSearch: () -> Unit, onOpenPlayer: () -> Unit) {
             ScreenTitle(
                 if (me != null) "Made for ${me.username}" else "mcmusic",
                 subtitle = if (me != null) "Your mix, the live room and what just landed."
-                else "Sign in from Settings for a personalised mix.",
+                else "Sign in below for your mix, playlists and downloads.",
             )
         }
 
@@ -160,28 +161,22 @@ fun HomeScreen(onOpenSearch: () -> Unit, onOpenPlayer: () -> Unit) {
         }
 
         if (me == null) {
-            item {
-                Column(
-                    Modifier.fillMaxWidth().mcSurface().padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text("Get your own mix", color = design.fg, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                    Muted("Signing in unlocks made-for-you sections, likes, playlists and downloads. Listening now stays public.")
-                    GhostButton("Search the library", onClick = onOpenSearch)
-                }
-            }
+            item { SignInCard(onSignedIn = { reload++ }) }
+            item { GhostButton("Search the library", onClick = onOpenSearch) }
         }
 
-        item { SectionLabel("All tracks") }
-        if (recent.isEmpty() && !loading) {
-            item {
-                EmptyState(
-                    icon = Lucide.Library,
-                    title = "No tracks yet",
-                    body = "The server has not returned any tracks.",
-                    actionLabel = "Retry",
-                    onAction = { reload++ },
-                )
+        if (me != null) {
+            item { SectionLabel("All tracks") }
+            if (recent.isEmpty() && !loading) {
+                item {
+                    EmptyState(
+                        icon = Lucide.Library,
+                        title = "No tracks yet",
+                        body = "The server has not returned any tracks.",
+                        actionLabel = "Retry",
+                        onAction = { reload++ },
+                    )
+                }
             }
         }
         items(recent, key = { it.id }) { track ->
@@ -214,7 +209,7 @@ private fun ListenerCard(listener: Listener) {
         horizontalArrangement = Arrangement.spacedBy(9.dp),
     ) {
         Cover(
-            url = listener.profileUrl,
+            url = listener.coverUrl.ifBlank { listener.profileUrl },
             shape = CircleShape,
             modifier = Modifier.size(38.dp),
             fallback = design.accentSoft,

@@ -115,9 +115,17 @@ object Playback {
         }, main)
     }
 
-    private fun publish(player: Player) {
+    /** ExoPlayer reorders indices when shuffle is on, so resolve by media id. */
+    private fun currentTrack(player: Player): Pair<Track?, Int> {
+        val id = player.currentMediaItem?.mediaId?.toIntOrNull()
+        val byId = if (id != null) queueTracks.indexOfFirst { it.id == id } else -1
+        if (byId >= 0) return queueTracks[byId] to byId
         val index = player.currentMediaItemIndex.coerceAtLeast(0)
-        val track = queueTracks.getOrNull(index)
+        return queueTracks.getOrNull(index) to index
+    }
+
+    private fun publish(player: Player) {
+        val (track, index) = currentTrack(player)
         val wasPlaying = state.playing
         val trackChanged = track?.id != reportedTrackId
         // Home screen widgets follow the phone's queue while it owns it.
@@ -306,8 +314,11 @@ class PlaybackService : MediaSessionService() {
                     Api.authHeaders().forEach { (name, value) -> httpSource.setRequestProperty(name, value) }
                 }
         }
+        // DefaultHttpDataSource cannot open file:// URIs. The delegate keeps the
+        // auth headers for streams while DefaultDataSource handles local files.
+        val sources = androidx.media3.datasource.DefaultDataSource.Factory(this, http)
         val player = androidx.media3.exoplayer.ExoPlayer.Builder(this)
-            .setMediaSourceFactory(androidx.media3.exoplayer.source.DefaultMediaSourceFactory(http))
+            .setMediaSourceFactory(androidx.media3.exoplayer.source.DefaultMediaSourceFactory(sources))
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(C.USAGE_MEDIA)
