@@ -97,7 +97,7 @@ export function UploadPage() {
                         onEnter={submit}
                     />
                 </FormalInput>
-                {error && <Text class="error" role="status" content={error} />}
+                {error && <span class="error status-line" role="status">{error}</span>}
                 {sent && <Text content={sent} />}
                 <TextIconButton
                     variant="accent"

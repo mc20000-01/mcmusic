@@ -2,6 +2,8 @@
  */
 import { useEffect, useState } from "preact/hooks";
 import { Button, Container, Content, Header2, Input, Loading, SelectBox, Text } from "flufi-ui/components";
+import { ArrowDownUp, Disc3, ListFilter } from "lucide-preact";
+import { EmptyState } from "../../components/EmptyState/EmptyState";
 import { SetCard } from "../../components/Library/Card";
 import { TrackList } from "../../components/TrackList/TrackList";
 import { API } from "../../common/net/api";
@@ -127,24 +129,30 @@ export function HomePage() {
                 <Container>
                     <Header2>Albums</Header2>
                     <Container horizontal centered_y class="album-controls">
-                        <Input
-                            class="album-filter"
-                            placeholder="Filter albums"
-                            value={query}
-                            onInput={changeQuery}
-                        />
-                        <SelectBox
-                            class="album-sort"
-                            options={SORTS}
-                            value={sort}
-                            onChange={changeSort}
-                        />
+                        <label class="control-with-icon">
+                            <ListFilter size={15} aria-hidden="true" />
+                            <Input
+                                class="album-filter"
+                                placeholder="Filter albums"
+                                value={query}
+                                onInput={changeQuery}
+                            />
+                        </label>
+                        <label class="control-with-icon">
+                            <ArrowDownUp size={15} aria-hidden="true" />
+                            <SelectBox
+                                class="album-sort"
+                                options={SORTS}
+                                value={sort}
+                                onChange={changeSort}
+                            />
+                        </label>
                         <Button
                             variant={singles ? "accent" : "panel"}
                             title="Include one-song albums"
                             onClick={toggleSingles}
                         >
-                            Singles
+                            <Disc3 size={15} /> Singles
                         </Button>
                         {!loading && (
                             <Text dim content={`${total} album${total == 1 ? "" : "s"}`} />
@@ -167,20 +175,21 @@ export function HomePage() {
                         )
                         : albums.length === 0
                             ? (
-                                <Text
-                                    dim
-                                    content={query
-                                        ? `No albums match “${query}”.`
-                                        : "No albums yet. Add music to get started."}
+                                <EmptyState
+                                    icon={<Disc3 size={22} />}
+                                    title={query ? "No matching albums" : "No albums yet"}
+                                    body={query
+                                        ? `Nothing matches “${query}”. Try a different filter.`
+                                        : "Add music from the top bar and it will show up here."}
                                 />
                             )
                             : (
                                 <div class="album-grid">
                                     {albums.map(a => (
                                         <SetCard
-                                            key={a.uuid.value}
+                                            key={a.uuid}
                                             set={a}
-                                            subtitle={a.artistName}
+                                            subtitle={artistNames(a) || a.artistName}
                                             onPlay={() => playAlbum(a)}
                                         />
                                     ))}

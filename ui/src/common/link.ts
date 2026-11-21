@@ -1,7 +1,6 @@
 /** URL builders for the UUID-based routes the v3 pages use.
  */
-import type { Uuid } from "flufi-ui/types";
-import type { Artist, Set } from "./net/types";
+import type { Artist, Set, Uuid } from "./net/types";
 
 export function artistLink(data: { uuid: Uuid, serverUrl: string } | { artist: Artist }): string {
     const uuid = "uuid" in data ? data.uuid : data.artist.uuid;

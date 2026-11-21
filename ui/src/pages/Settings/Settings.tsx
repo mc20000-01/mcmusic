@@ -1,12 +1,17 @@
-import { useEffect, useState } from "preact/hooks";
+import { useCallback, useEffect, useState } from "preact/hooks";
 import { useSignal } from "@preact/signals";
 import {
     Button, Container, Content, FormalInput, Header2, Header3, Loading,
-    Seperator, Slider, Text, TextIconButton, WrapList
+    Seperator, Slider, Text, TextIconButton, TextIconLinkButton, WrapList
 } from "flufi-ui/components";
-import { Check, KeyRound, LogOut, Save } from "lucide-preact";
+import {
+    Check, CircleCheck, CircleDashed, KeyRound, Link2, LogOut, RefreshCw,
+    Save, Unlink,
+} from "lucide-preact";
 import { API } from "../../common/net/api";
+import type { RoturStatus } from "../../common/net/types";
 import { currentUser, logout } from "../../common/auth";
+import { activityError } from "../../common/player";
 import { PasswordInput } from "../../components/PasswordInput/PasswordInput";
 import { applyPrefs, loadPrefs, type Settings as Prefs } from "../../common/prefs";
 
@@ -29,12 +34,12 @@ const TOGGLES: [string, string][] = [
 ];
 
 /**
- * Settings page: account, password, volume and the server-stored preference
- * flags. Only flufi-ui primitives are used here, so the page inherits the
- * package's spacing, colours and focus rings.
+ * Settings page: account, linked services, password, volume and the
+ * server-stored preference flags.
  */
 export function SettingsPage() {
     const [settings, setSettings] = useState<Prefs | null>(null);
+    const [loadFailed, setLoadFailed] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [dirty, setDirty] = useState(false);
@@ -42,16 +47,42 @@ export function SettingsPage() {
     const oldPw = useSignal("");
     const newPw = useSignal("");
 
-    useEffect(() => {
-        loadPrefs()
-            .then(s => setSettings(s ?? {}))
-            .catch(e => {
-                // Render the form with defaults rather than an endless spinner;
-                // saving will surface the real error if the server is down.
-                setSettings({});
-                setError(e instanceof Error ? e.message : String(e));
-            });
+    const [rotur, setRotur] = useState<RoturStatus | null>(null);
+    const [roturError, setRoturError] = useState<string | null>(null);
+
+    const loadRotur = useCallback(async () => {
+        try {
+            setRotur(await API.roturStatus());
+            setRoturError(null);
+        } catch (e) {
+            setRoturError(e instanceof Error ? e.message : String(e));
+        }
     }, []);
+
+    useEffect(() => {
+        loadPrefs().then(s => {
+            setSettings(s ?? {});
+            if (s == null) {
+                setLoadFailed(true);
+                setError("Could not load preferences. Saving is disabled so nothing is overwritten.");
+            }
+        });
+    }, []);
+
+    // The OAuth redirect returns here; refresh the status when the tab is
+    // visible or focused again so the link state is never stale.
+    useEffect(() => {
+        void loadRotur();
+        const refresh = () => {
+            if (document.visibilityState === "visible") void loadRotur();
+        };
+        document.addEventListener("visibilitychange", refresh);
+        window.addEventListener("focus", refresh);
+        return () => {
+            document.removeEventListener("visibilitychange", refresh);
+            window.removeEventListener("focus", refresh);
+        };
+    }, [loadRotur]);
 
     function set(key: string, value: unknown) {
         setSettings(s => ({ ...(s ?? {}), [key]: value }));
@@ -60,6 +91,7 @@ export function SettingsPage() {
     }
 
     async function save() {
+        if (loadFailed) return;
         setError(null);
         setMessage(null);
         setSaving(true);
@@ -88,6 +120,32 @@ export function SettingsPage() {
         }
     }
 
+    async function unlinkRotur() {
+        if (!window.confirm("Unlink Rotur from this account?")) return;
+        setRoturError(null);
+        try {
+            await API.roturUnlink();
+            await loadRotur();
+            setMessage("Rotur account unlinked.");
+        } catch (e) {
+            setRoturError(e instanceof Error ? e.message : String(e));
+        }
+    }
+
+    const roturLinked = rotur?.linked ?? false;
+    const roturLabel = roturLinked
+        ? `Linked as @${rotur?.rotur_username || rotur?.rotur_id || "Rotur"}`
+        : "Not linked";
+    const roturDetail = activityError.value
+        ? `Activity error: ${activityError.value}`
+        : !rotur
+            ? "Checking link status…"
+            : !rotur.configured
+                ? "RoturLink is not configured on this server."
+                : rotur.activity.ready
+                    ? "Activity sharing is ready."
+                    : rotur.activity.reason;
+
     return (
         <Content class="settings">
             <Loading loaded={settings != null}>
@@ -95,11 +153,9 @@ export function SettingsPage() {
                     <Container extra_gap>
                         <Header2>Settings</Header2>
                         {(message || error) && (
-                            <Text
-                                class={error ? "error" : "status"}
-                                role="status"
-                                content={error ?? message!}
-                            />
+                            <span class={error ? "error status-line" : "status status-line"} role="status">
+                                {error ?? message}
+                            </span>
                         )}
 
                         <Container>
@@ -110,6 +166,36 @@ export function SettingsPage() {
                             <TextIconButton onClick={() => logout().then(() => { window.location.href = "/auth"; })}>
                                 <LogOut size={18} /> Log out
                             </TextIconButton>
+                        </Container>
+
+                        <Seperator />
+
+                        <Container>
+                            <Header3>Rotur status</Header3>
+                            <Container horizontal centered_y class="status-line" other={{ role: "status" }}>
+                                {roturLinked
+                                    ? <CircleCheck size={18} class="status-ok" />
+                                    : <CircleDashed size={18} class="status-idle" />}
+                                <Text content={roturLabel} />
+                                <TextIconButton title="Refresh Rotur status" onClick={loadRotur}>
+                                    <RefreshCw size={14} />
+                                </TextIconButton>
+                            </Container>
+                            <Text dim class={roturLinked && !rotur?.activity.ready ? "warning" : ""}
+                                content={roturError ?? roturDetail} />
+                            <Container horizontal centered_y wrap class="status-actions">
+                                <TextIconLinkButton
+                                    variant="accent"
+                                    href={`/api/auth/rotur/authorize?next=${encodeURIComponent("/settings")}`}
+                                >
+                                    <Link2 size={16} /> {roturLinked ? "Reconnect Rotur" : "Sign in with Rotur"}
+                                </TextIconLinkButton>
+                                {roturLinked && (
+                                    <TextIconButton variant="danger-subtle" onClick={unlinkRotur}>
+                                        <Unlink size={16} /> Unlink
+                                    </TextIconButton>
+                                )}
+                            </Container>
                         </Container>
 
                         <Seperator />
@@ -160,12 +246,12 @@ export function SettingsPage() {
                             <Container horizontal centered_y class="save-row">
                                 <TextIconButton
                                     variant="accent"
-                                    disabled={saving || !dirty}
+                                    disabled={saving || !dirty || loadFailed}
                                     onClick={save}
                                 >
                                     <Save size={18} /> {saving ? "Saving…" : "Save preferences"}
                                 </TextIconButton>
-                                {dirty && <Text dim content="Unsaved changes" />}
+                                {dirty && !loadFailed && <Text dim content="Unsaved changes" />}
                             </Container>
                             <Text dim content="Stored on the server and shared with the Android/Qt/legacy clients." />
                         </Container>

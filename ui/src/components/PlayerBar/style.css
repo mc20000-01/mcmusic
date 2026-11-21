@@ -98,6 +98,7 @@
 }
 
 #player-bar .play-error {
+    display: block;
     color: var(--danger);
     font-size: var(--font-size-small);
     overflow: hidden;
@@ -286,9 +287,17 @@
 }
 
 #player-bar .queue-row {
+    display: flex;
+    align-items: center;
+    width: 100%;
     padding: 8px 12px;
     gap: 10px;
     cursor: pointer;
+    background: transparent;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    text-align: left;
 }
 
 #player-bar .queue-row:hover {
@@ -304,6 +313,13 @@
     min-width: 20px;
     text-align: right;
     color: var(--text-dim);
+}
+
+#player-bar .queue-empty {
+    padding: 20px 16px 24px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: var(--font-size-small);
 }
 
 #player-bar .queue-info {
@@ -326,10 +342,6 @@
     white-space: nowrap;
     font-size: var(--font-size-small);
     color: var(--text-dim);
-}
-
-main {
-    padding-bottom: 84px;
 }
 
 @media (max-width: 720px) {
@@ -368,8 +380,8 @@ main {
     #player-bar .volume-wrap {
         display: none;
     }
-    #player-bar .transport .Shuffle,
-    #player-bar .transport .Repeat {
+    #player-bar .transport .control-shuffle,
+    #player-bar .transport .control-repeat {
         display: none;
     }
 }

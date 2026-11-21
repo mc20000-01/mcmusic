@@ -1,6 +1,6 @@
 import { signal } from "@preact/signals";
 import type { Option } from "flufi-ui/types";
-import type { Artist, SearchItem, Set as SetEntity, Track, User } from "./types";
+import type { Artist, RoturStatus, SearchItem, Set as SetEntity, Track, User } from "./types";
 
 const BASE = "/api";
 
@@ -72,6 +72,8 @@ export function userFromJson(d: ApiJson): User {
         is_admin: !!d.is_admin,
         avatar_url: d.avatar_url,
         provider: d.provider,
+        rotur_id: d.rotur_id ?? null,
+        rotur_linked: d.rotur_linked ?? (d.rotur_id != null),
         playing: null,
     };
 }
@@ -304,6 +306,14 @@ export const API = {
     changePassword: (oldPw: string, newPw: string) =>
         send("password", "POST", { old: oldPw, new: newPw }),
 
+    // ---------------------------------------------------------- linked accounts
+    roturStatus: async (): Promise<RoturStatus> => (await get("auth/rotur/status")) as RoturStatus,
+    roturUnlink: () => send("auth/rotur/unlink", "POST"),
+    roturActivity: (body: { track_id: number | string | null; playing: boolean; position?: number }) =>
+        send("auth/rotur/activity", "POST", body),
+    discordActivity: (body: { track_id: number | string | null; playing: boolean; position?: number }) =>
+        send("auth/discord/activity", "POST", body),
+
     // -------------------------------------------------------------- devices
     deviceCode: () => send("devices/code", "POST"),
     devices: () => get("devices"),
@@ -317,6 +327,8 @@ export const API = {
 
     // ---------------------------------------------------------------- admin
     adminStats: () => get("admin/stats"),
+    adminRooms: () => get("admin/rooms"),
+    adminCloseRoom: (code: string) => send(`admin/rooms/${encodeURIComponent(code)}`, "DELETE"),
     adminRequests: () => get("admin/requests"),
     adminRequestLog: (id: number) => get(`admin/requests/${id}/log?tail=20000`),
     adminReqAction: (id: number, action: "approve" | "reject") => send(`requests/${id}/${action}`, "POST"),

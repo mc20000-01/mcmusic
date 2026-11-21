@@ -1,6 +1,6 @@
 /** Album page: cover, artist link, play control and the album's track list.
  */
-import { Button, Container, Content, Header3, Loading, Text, type Uuid } from "flufi-ui";
+import { Button, Container, Content, Loading, Text } from "flufi-ui";
 import { useEffect, useState } from "preact/hooks";
 import type { Artist, Set, Track } from "../../common/net/types";
 import { openContextMenu } from "flufi-ui/components";
@@ -10,9 +10,9 @@ import { ArtistPfp } from "../../components/Library/Image";
 import { SetCover } from "../../components/Library/Image";
 import { titleCase } from "../../common";
 import { TrackList } from "../../components/TrackList/TrackList";
-import { currentId, formatTime, isPlaying, playTrack, togglePlay } from "../../common/player";
+import { currentId, enqueueTrack, isPlaying, playQueue, playTrack, togglePlay } from "../../common/player";
 import { parseArtistUuid } from "../../common/net/api";
-import { Pause, Play, Shuffle, Menu } from "lucide-preact";
+import { ListPlus, Pause, Play, Shuffle } from "lucide-preact";
 
 import "./style.css";
 
@@ -40,7 +40,7 @@ export function SetPage(props: RoutePropsForPath<"/set/:uuid">) {
         setArtist(null);
         setError(null);
 
-        API.getSet(props.uuid as Uuid)
+        API.getSet(props.uuid)
             .then(async (r) => {
                 if (cancelled) return;
                 setSet(r);
@@ -58,7 +58,7 @@ export function SetPage(props: RoutePropsForPath<"/set/:uuid">) {
         API.listPlaylists()
             .then(d => {
                 if (cancelled) return;
-                setPlaylists((d.playlists ?? []).map(p => ({ id: p.id, name: p.name })));
+                setPlaylists((d.playlists ?? []).map((p: { id: number; name: string }) => ({ id: p.id, name: p.name })));
             })
             .catch(() => { /* playlists are optional */ });
 
@@ -106,8 +106,9 @@ export function SetPage(props: RoutePropsForPath<"/set/:uuid">) {
                             openContextMenu([
                                 {
                                     type: "button" as const,
-                                    label: "No playlists",
-                                    disabled: true,
+                                    label: "No playlists yet",
+                                    icon: <ListPlus size={14} />,
+                                    click: () => { window.location.href = "/playlists"; },
                                 },
                             ]);
                             return;
@@ -121,15 +122,20 @@ export function SetPage(props: RoutePropsForPath<"/set/:uuid">) {
                         openContextMenu([
                             {
                                 type: "button" as const,
-                                label: "Play next",
+                                label: "Play track",
                                 icon: <Play size={14} />,
-                                click: () => playTrack(track.uuid, { title: name, artist: artists, setUuid: s.uuid.value, artistUuid: track.artists.value[0] ?? null }),
+                                click: () => playTrack(track.uuid, { title: name, artist: artists, setUuid: s.uuid, artistUuid: track.artists.value[0] ?? undefined }),
                             },
                             {
                                 type: "button" as const,
                                 label: "Add to queue",
-                                icon: <Play size={14} />,
-                                click: () => { /* queued by the player */ },
+                                icon: <ListPlus size={14} />,
+                                click: () => enqueueTrack(track.uuid, {
+                                    title: name,
+                                    artist: artists,
+                                    setUuid: s.uuid,
+                                    artistUuid: track.artists.value[0] ?? undefined,
+                                }),
                             },
                             {
                                 type: "separator" as const,
@@ -137,7 +143,7 @@ export function SetPage(props: RoutePropsForPath<"/set/:uuid">) {
                             {
                                 type: "button" as const,
                                 label: "Add to playlist",
-                                icon: <Menu size={14} />,
+                                icon: <ListPlus size={14} />,
                                 click: () => openPlaylistMenu(track.uuid),
                             },
                             {
@@ -163,7 +169,7 @@ export function SetPage(props: RoutePropsForPath<"/set/:uuid">) {
                                     <h1 class="album-title" title={s.name.value}>
                                         {s.name.value}
                                     </h1>
-                                    <Container horizontal centered_y class="artist-credit" gap>
+                                    <Container horizontal centered_y class="artist-credit">
                                         <Text dim content="by" />
                                         <div class="artist-wrap">
                                             {artist
@@ -190,7 +196,7 @@ export function SetPage(props: RoutePropsForPath<"/set/:uuid">) {
                                                         title: t.name.value,
                                                         artist: trackArtists(t),
                                                         setUuid: s.uuid,
-                                                        artistUuid: t.artists.value[0] ?? null,
+                                                        artistUuid: t.artists.value[0] ?? undefined,
                                                     }));
                                                     playQueue(list, 0);
                                                 }}
@@ -217,8 +223,8 @@ export function SetPage(props: RoutePropsForPath<"/set/:uuid">) {
                                                 playTrack(t.uuid, {
                                                     title: t.name.value,
                                                     artist: trackArtists(t),
-                                                    setUuid: s.uuid.value,
-                                                    artistUuid: t.artists.value[0] ?? null,
+                                                    setUuid: s.uuid,
+                                                    artistUuid: t.artists.value[0] ?? undefined,
                                                 });
                                             }}
                                         >
@@ -230,7 +236,7 @@ export function SetPage(props: RoutePropsForPath<"/set/:uuid">) {
                                             title="Add album to playlist"
                                             onClick={() => first && openPlaylistMenu(first.uuid)}
                                         >
-                                            <Menu size={16} /> Add to playlist
+                                            <ListPlus size={16} /> Add to playlist
                                         </Button>
                                     </Container>
                                     <Container horizontal class="meta">

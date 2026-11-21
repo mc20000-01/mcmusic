@@ -11,13 +11,11 @@
  *    equaliser while playing and a paused icon when paused;
  *  - double-click plays; right-click opens a context menu via onContextMenu.
  */
-import type { Signal } from "@preact/signals";
 import type { Track } from "../../common/net/types";
-import { Button, Container, IconButton, If, Text } from "flufi-ui/components";
+import { Button, Container, Text } from "flufi-ui/components";
 import { addClass } from "flufi-ui/common";
-import type { Uuid } from "flufi-ui/types";
 import { TrackNumber } from "../TrackNumber/TrackNumber";
-import { GripVertical, Pause, Play, X } from "lucide-preact";
+import { Pause, Play } from "lucide-preact";
 import { Equaliser } from "../Equaliser/Equaliser";
 import { currentId, formatTime, isPlaying, playTrack, toggleTrack } from "../../common/player";
 import { parseArtistUuid } from "../../common/net/api";
@@ -25,7 +23,7 @@ import { parseArtistUuid } from "../../common/net/api";
 import "./style.css";
 
 // peak types???
-export type TrackWithOptionalUuid = Track & { uuid?: Uuid };
+export type TrackWithOptionalUuid = Track & { uuid?: string };
 export type TrackWithOptionalUuidAndSet = TrackWithOptionalUuid & { set?: string };
 
 export type TrackContext = {
@@ -61,8 +59,8 @@ export function TrackElem(props: {
     const artists = artistNames(track);
     const showArtist = Boolean(artists) && !trackArtistsMatchAlbum(track, albumArtist);
     const dur = track.duration?.value ?? 0;
-    const setUuid = track.set ?? null;
-    const artistUuid = track.artists.value[0] ?? null;
+    const setUuid = track.set ?? undefined;
+    const artistUuid = track.artists.value[0] ?? undefined;
 
     function onDblClick() {
         if (track.uuid == null) return;
@@ -79,100 +77,50 @@ export function TrackElem(props: {
         onContextMenu?.(track, event);
     }
 
+    // flufi's Button forwards only onClick/title/etc., so the mouse handlers
+    // live on a native wrapper that the button bubbles through.
     return (
-        <Button
-            variant="always-transparent"
-            noPadding
-            class={addClass(
-                "track",
-                playing && "playing",
-                active && "current",
-                props.class
-            )}
-            disabled={track.uuid == null}
-            onClick={() => {
-                if (track.uuid == null) return;
-                toggleTrack(String(track.uuid), {
-                    title: name,
-                    artist: artists,
-                    setUuid,
-                    artistUuid,
-                });
-            }}
-            onDoubleClick={onDblClick}
-            onContextMenu={onContextMenuOpen}
-        >
-            <Container horizontal no_gap centered_y class="left">
-                <TrackNumber index={index} />
-                {active && playing ? (
-                    <Equaliser size={15} class="equaliser" />
-                ) : active ? (
-                    <Pause size={15} class="pause-icon" />
-                ) : (
-                    <Play size={15} class="play-icon" />
+        <div class="track-row-wrap" onDblClick={onDblClick} onContextMenu={onContextMenuOpen}>
+            <Button
+                variant="always-transparent"
+                noPadding
+                class={addClass(
+                    "track",
+                    playing && "playing",
+                    active && "current",
+                    props.class
                 )}
-            </Container>
-            <Container vertical class="center">
-                <Text class={addClass("name", playing && "playing")} content={track.name} />
-                {showArtist && (
-                    <Text class="artist" dim content={artists} />
-                )}
-            </Container>
-            {showDuration && dur > 0 && (
-                <Text class="duration" content={formatTime(dur)} />
-            )}
-        </Button>
-    )
-}
-
-// NOTE: similar to tag component, X only shows when onDelete is assigned
-// NOTE: same with dragging
-export function TrackInput(props: {
-    track: TrackWithOptionalUuidAndSet,
-    index?: number,
-    name?: Signal<string>,
-    dirty?: Signal<boolean>,
-
-    onDelete?: () => void,
-
-    onDragStart?: () => void,
-    onDragOver?: () => void,
-    onTrackDroppedOn?: () => void
-
-    class?: string
-}) {
-    return (
-        <Container
-            other={{
-                draggable: props.onDragStart != null,
-                onDragStart: () => props.onDragStart?.(),
-                onDragOver: (ev: DragEvent) => {
-                    ev.preventDefault();
-                    props.onDragOver?.();
-                },
-                onDrop: () => props.onTrackDroppedOn?.(),
-            }}
-            class={addClass(
-                "track",
-                "track-input",
-                props.class
-            )}
-
-        >
-            <Container
-                horizontal no_gap centered_y
+                disabled={track.uuid == null}
+                onClick={() => {
+                    if (track.uuid == null) return;
+                    toggleTrack(String(track.uuid), {
+                        title: name,
+                        artist: artists,
+                        setUuid,
+                        artistUuid,
+                    });
+                }}
             >
-                <If cond={props.onDragStart != null}>
-                    <GripVertical class="grip" size={15} />
-                </If>
-                <TrackNumber index={props.index} />
-            </Container>
-            <Input dirty={props.dirty} value={props.track.name} class="flat name" />
-            {props.onDelete && (
-                <IconButton variant="danger-subtle" class="delete" onClick={props.onDelete}>
-                    <X size={13} />
-                </IconButton>
-            )}
-        </Container>
+                <Container horizontal no_gap centered_y class="left">
+                    <TrackNumber index={index} />
+                    {active && playing ? (
+                        <Equaliser size={15} class="equaliser" />
+                    ) : active ? (
+                        <Pause size={15} class="pause-icon" />
+                    ) : (
+                        <Play size={15} class="play-icon" />
+                    )}
+                </Container>
+                <Container vertical class="center">
+                    <Text class={addClass("name", playing && "playing")} content={track.name} />
+                    {showArtist && (
+                        <Text class="artist" dim content={artists} />
+                    )}
+                </Container>
+                {showDuration && dur > 0 && (
+                    <Text class="duration" content={formatTime(dur)} />
+                )}
+            </Button>
+        </div>
     )
 }

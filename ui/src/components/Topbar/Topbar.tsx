@@ -1,7 +1,7 @@
 /** Top bar: brand, search and navigation to add-music/settings.
  */
 import type { ComponentChildren } from "preact";
-import { Home, LogOut, Plus } from "lucide-preact";
+import { Home, LogOut, Music2, Plus } from "lucide-preact";
 import { Container, HeaderContainer, IconButton, IconLinkButton, If, LinkButton, Text } from "flufi-ui/components";
 import { MOBILE } from "flufi-ui/common";
 import { SearchBar } from "../SearchBar/SearchBar";
@@ -14,6 +14,13 @@ export function Topbar() {
         <HeaderContainer other={{ id: "topbar" }}>
             <If cond={!MOBILE.value}>
                 <Left />
+            </If>
+            <If cond={MOBILE.value}>
+                <span class="icon-tip" title="mcmusic">
+                    <LinkButton href="/" variant="always-transparent" class="mobile-brand">
+                        <span class="brand-mark"><Music2 size={18} /></span>
+                    </LinkButton>
+                </span>
             </If>
             <Middle />
         </HeaderContainer>
@@ -44,9 +51,11 @@ function IconLink(props: { href: string; label: string; children: ComponentChild
 function Middle() {
     return (
         <Container class="middle">
-            <IconLink href="/" label="Home">
-                <Home size={20} />
-            </IconLink>
+            <If cond={!MOBILE.value}>
+                <IconLink href="/" label="Home">
+                    <Home size={20} />
+                </IconLink>
+            </If>
             <SearchBar />
             <IconLink href="/upload" label="Add music">
                 <Plus size={20} />

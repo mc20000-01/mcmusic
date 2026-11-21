@@ -2,7 +2,7 @@
 #topbar {
     display: flex;
     
-    min-height: 50px;
+    min-height: var(--topbar-h);
 
     border-bottom: 1px solid var(--back-border);
 
@@ -22,6 +22,18 @@
             gap: 6px;
         }
     }
+}
+
+.brand-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+    border-radius: 9px;
 }
 
 .mobile {
