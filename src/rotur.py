@@ -41,6 +41,8 @@ from config import (
 from auth import (
     save_rotur_session, get_rotur_session, clear_rotur_session, _auth_uid,
     create_user, unique_username, link_channel_user, get_ticket, consume_ticket,
+    validate_email, email_taken, set_email,
+    create_device_code, claim_device_code,
 )
 from database import _db
 
@@ -120,11 +122,13 @@ def _stash_pending(c, pending):
     c.execute("delete from rotur_pending where created < ?", (now - _PENDING_TTL,))
     c.execute(
         "insert into rotur_pending(token, rotur_user_id, username, access_token,"
-        " refresh_token, token_expires, ticket, next_path, created)"
-        " values(?,?,?,?,?,?,?,?,?)",
+        " refresh_token, token_expires, ticket, next_path, email, app, device_hash, created)"
+        " values(?,?,?,?,?,?,?,?,?,?,?,?)",
         (token, pending["rid"], pending["name"], pending.get("access"),
          pending.get("refresh"), pending.get("expires_at") or 0,
-         pending.get("ticket") or "", pending.get("next") or "", now),
+         pending.get("ticket") or "", pending.get("next") or "",
+         pending.get("email") or "", "1" if pending.get("app") else "",
+         pending.get("device_hash") or "", now),
     )
     c.commit()
     session[PENDING_KEY] = token
@@ -152,6 +156,9 @@ def _pending_now(c):
         "expires_at": row["token_expires"],
         "ticket": row["ticket"] or "",
         "next": row["next_path"] or "",
+        "email": row["email"] if "email" in row.keys() else "",
+        "app": bool(row["app"]) if "app" in row.keys() else False,
+        "device_hash": row["device_hash"] if "device_hash" in row.keys() else "",
     }
 
 
@@ -159,10 +166,13 @@ def _activate_pending(c, pending, invite_row):
     """Create (or reuse) the account behind a verified Rotur sign-in."""
     rid = pending["rid"]
     existing = c.execute("select id from users where rotur_id=?", (rid,)).fetchone()
+    created = not existing
     if existing:
-        return existing["id"]
-    uid = create_user(c, pending["name"], secrets.token_urlsafe(48), rotur_id=rid)
-    if invite_row:
+        uid = existing["id"]
+    else:
+        uid = create_user(c, pending["name"], secrets.token_urlsafe(48), rotur_id=rid)
+    _store_rotur_email(c, uid, pending.get("email"))
+    if created and invite_row:
         c.execute("update invite_codes set uses=uses+1 where id=?", (invite_row["id"],))
         c.execute(
             "update users set invite_code=?, invited_by=? where id=?",
@@ -276,6 +286,48 @@ def profile_identity(profile):
     return str(rid), (name or "").strip()
 
 
+def profile_email(profile):
+    """Return the address Rotur shared with the `email` scope, if any."""
+    if not isinstance(profile, dict):
+        return ""
+    nested = profile.get("user") if isinstance(profile.get("user"), dict) else {}
+    for source in (profile, nested):
+        for key in ("email", "email_address"):
+            value = str(source.get(key) or "").strip()
+            if value:
+                return value
+    return ""
+
+
+def _store_rotur_email(c, uid, email):
+    """Keep Rotur's verified address for email sign-in and password resets."""
+    cleaned = validate_email(email)
+    if cleaned and not email_taken(c, cleaned, uid=uid):
+        set_email(c, uid, cleaned)
+
+
+def _native_redirect(c, uid, device_hash=""):
+    """Hand a verified Rotur session back to the Android app as a device token."""
+    from urllib.parse import urlencode
+
+    minted = create_device_code(c, uid)
+    claim = claim_device_code(
+        c, minted["code"],
+        name="Android",
+        ip=request.remote_addr or "",
+        ua=(request.headers.get("User-Agent") or "")[:200],
+        device_hash=str(device_hash or "")[:64],
+    )
+    if not claim:
+        return _html("Sign-in failed", "Could not create an Android session.", 500)
+    who = c.execute("select username from users where id=?", (uid,)).fetchone()
+    query = urlencode({
+        "token": claim["token"],
+        "username": who["username"] if who else "",
+    })
+    return redirect(f"mcmusic://oauth?{query}")
+
+
 class RoturError(Exception):
     def __init__(self, message, detail=""):
         super().__init__(message)
@@ -306,6 +358,8 @@ def authorize_route():
         "next": request.args.get("next", "")[:300],
         "invite": request.args.get("invite", "")[:80],
         "ticket": code or "",
+        "app": str(request.args.get("app", "")) == "1",
+        "device_hash": request.args.get("device_hash", "")[:64],
         "created": time.time(),
     }
     session.permanent = True
@@ -343,6 +397,7 @@ def callback_route():
             raise RoturError("no access_token in response", str(tokens)[:200])
         profile = fetch_user(access)
         rid, rname = profile_identity(profile)
+        email = validate_email(profile_email(profile))
     except RoturError as e:
         return _html("RoturLink failed", f"{e} {e.detail}".strip(), 400)
     except requests.RequestException as e:
@@ -355,9 +410,11 @@ def callback_route():
 
     if linked:
         uid = linked["id"]
+        _store_rotur_email(c, uid, email)
     elif uid:
         c.execute("update users set rotur_id=? where id=?", (rid, uid))
         c.commit()
+        _store_rotur_email(c, uid, email)
     else:
         # A new Rotur identity never mints an account on its own: the friend
         # code is checked first, and the pending link waits server-side.
@@ -370,6 +427,9 @@ def callback_route():
             "expires_at": expires_at,
             "ticket": ctx.get("ticket") or "",
             "next": ctx.get("next") or "",
+            "email": email,
+            "app": ctx.get("app"),
+            "device_hash": ctx.get("device_hash"),
         }
         invite = str(request.args.get("invite") or ctx.get("invite") or "").strip()
         problem, invite_row = _invite_problem(c, invite, name)
@@ -399,6 +459,9 @@ def callback_route():
                 "you can close this tab and go back to the channel.",
                 200,
             )
+
+    if ctx.get("app"):
+        return _native_redirect(c, uid, ctx.get("device_hash"))
 
     nxt = ctx.get("next") or ""
     if nxt.startswith("/") and not nxt.startswith("//"):
@@ -448,6 +511,9 @@ def claim_route():
                 "you can close this tab and go back to the channel.",
                 200,
             )
+
+    if pending.get("app"):
+        return _native_redirect(c, uid, pending.get("device_hash"))
 
     nxt = pending.get("next") or ""
     if nxt.startswith("/") and not nxt.startswith("//"):

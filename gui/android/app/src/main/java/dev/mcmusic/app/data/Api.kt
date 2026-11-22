@@ -127,9 +127,9 @@ data class DownloadRequest(
 )
 
 /**
- * The whole HTTP side of the client. Session cookies are kept the way the web
- * app keeps them (Flask session cookie), so a signed-in phone can use the same
- * authed endpoints the site does.
+ * The whole HTTP side of the client. The native app signs in with a long-lived
+ * device token, which every request sends as `Authorization: Bearer`. Cookies
+ * are still kept for web links, but they are never the app's credential.
  */
 object Api {
     private lateinit var cookies: PersistentCookieStore
@@ -151,6 +151,10 @@ object Api {
         appContext = context.applicationContext
         cookies = PersistentCookieStore(appContext)
         CookieHandler.setDefault(CookieManager(cookies, CookiePolicy.ACCEPT_ALL))
+    }
+
+    fun clearCookies() {
+        if (::cookies.isInitialized) cookies.clear()
     }
 
     suspend fun listening(): Result<List<Listener>> = call {
@@ -206,6 +210,20 @@ object Api {
         cookies.clear()
         Prefs.saveToken(null)
         Prefs.saveUsername(null)
+    }
+
+    /** Verify and store a device token handed back by the Rotur browser flow. */
+    suspend fun adoptToken(value: String): Result<Me> = call {
+        val previous = Prefs.token
+        cookies.clear()
+        Prefs.saveToken(value)
+        val verified = runCatching { meOf(JSONObject(get("/api/me"))) }.getOrNull()
+        if (verified == null || verified.id <= 0) {
+            Prefs.saveToken(previous)
+            throw ApiException(401, "Rotur sign-in was not accepted by the server.")
+        }
+        Prefs.saveUsername(verified.username)
+        verified
     }
 
     suspend fun changePassword(old: String, new: String): Result<Unit> = call {

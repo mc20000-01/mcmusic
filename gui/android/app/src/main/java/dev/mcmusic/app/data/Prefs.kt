@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import dev.mcmusic.app.BuildConfig
 
 /**
  * Small, synchronous settings store. Compose state so switching the palette or
@@ -14,7 +15,7 @@ object Prefs {
     private const val FILE = "mcmusic"
     private var sp: android.content.SharedPreferences? = null
 
-    const val DEFAULT_SERVER = "https://mcmusic.sdisk.us"
+    const val DEFAULT_SERVER = BuildConfig.DEFAULT_SERVER
 
     /** iOS-style or One UI-style layout and styling. */
     var language by mutableStateOf("ios")
@@ -112,8 +113,16 @@ object Prefs {
 
     fun saveServer(url: String) {
         val clean = url.trim().trimEnd('/').ifEmpty { DEFAULT_SERVER }
+        val changed = clean != server
         server = clean
         sp?.edit()?.putString("server", clean)?.apply()
+        // A token belongs to one server. Keeping it across a server switch made
+        // the app look signed in while every request was rejected.
+        if (changed) {
+            saveToken(null)
+            saveUsername(null)
+            Api.clearCookies()
+        }
     }
 
     fun saveToken(value: String?) {

@@ -50,7 +50,7 @@ export function AuthPage() {
                 <Text class="auth-word" content="mcmusic" />
                 <Text dim content={mode == "login" ? "Sign in." : "Create an account."} />
 
-                <FormalInput label="Username">
+                <FormalInput label="Email or username">
                     <Input value={username} />
                 </FormalInput>
 

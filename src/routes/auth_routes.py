@@ -94,10 +94,11 @@ def register():
 def login():
     """Password sign-in; sets the session cookie the web client uses."""
     d = request.get_json(silent=True) or {}
-    u = authenticate_user(_db(), str(d.get("username", "")), str(d.get("password", "")))
+    identifier = d.get("username") or d.get("email") or ""
+    u = authenticate_user(_db(), str(identifier), str(d.get("password", "")))
     if not u:
         time.sleep(0.5)
-        return jsonify(error="wrong username or password"), 401
+        return jsonify(error="wrong email/username or password"), 401
     session.permanent = True
     session["uid"] = u["id"]
     return jsonify(me_dict(u))
@@ -113,14 +114,41 @@ def app_login():
     this is the same credential, minted in one round trip.
     """
     d = request.get_json(silent=True) or {}
-    name = str(d.get("username", "")).strip()
+    identifier = d.get("username") or d.get("email") or ""
+    name = str(identifier).strip()
     pw = str(d.get("password", ""))
     c = _db()
     u = authenticate_user(c, name, pw)
     if not u:
         time.sleep(0.4)
-        return jsonify(error="wrong username or password"), 401
+        return jsonify(error="wrong email/username or password"), 401
     minted = create_device_code(c, u["id"])
+    claim = claim_device_code(
+        c, minted["code"],
+        name=str(d.get("device") or "Android")[:64],
+        ip=request.remote_addr or "",
+        ua=(request.headers.get("User-Agent") or "")[:200],
+        device_hash=str(d.get("device_hash") or "")[:64],
+    )
+    if not claim:
+        return jsonify(error="could not mint a device token"), 500
+    return jsonify(token=claim["token"], device_id=claim["device_id"], user=claim["user"])
+
+
+@bp.post("/api/auth/app/token")
+@login_required
+def app_token():
+    """Mint a device token for an existing web/Rotur session.
+
+    The native app opens Rotur OAuth in the browser and comes back with a
+    signed session cookie. This turns that cookie into the same bearer
+    credential the password flow returns, so both sign-in methods share one
+    app session.
+    """
+    d = request.get_json(silent=True) or {}
+    c = _db()
+    uid = _auth_uid()
+    minted = create_device_code(c, uid)
     claim = claim_device_code(
         c, minted["code"],
         name=str(d.get("device") or "Android")[:64],

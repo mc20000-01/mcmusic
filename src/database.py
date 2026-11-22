@@ -231,6 +231,9 @@ create table if not exists rotur_pending(
   token_expires real,
   ticket text,
   next_path text,
+  email text,
+  app text,
+  device_hash text,
   created real
 );
 """
@@ -260,6 +263,7 @@ NEW_USER_COLS = {
 # Access tokens are needed again for server-side Rotur calls, so they are kept on
 # the row (the hash columns stay for backwards compatibility).
 NEW_ROTUR_COLS = {"access_token": "text", "refresh_token": "text"}
+NEW_PENDING_COLS = {"email": "text", "app": "text", "device_hash": "text"}
 
 
 def _connect():
@@ -336,6 +340,10 @@ def _ensure_cols(c):
     for k, t in NEW_ROTUR_COLS.items():
         if k not in rhave:
             c.execute(f"alter table rotur_sessions add column {k} {t}")
+    phave = {r["name"] for r in c.execute("pragma table_info(rotur_pending)")}
+    for k, t in NEW_PENDING_COLS.items():
+        if k not in phave:
+            c.execute(f"alter table rotur_pending add column {k} {t}")
     ahave = {r["name"] for r in c.execute("pragma table_info(track_artists)")}
     if "artist_key" not in ahave:
         c.execute("alter table track_artists add column artist_key text")

@@ -166,11 +166,21 @@ def unique_username(c, base, suffix=""):
 
 
 def authenticate_user(c, name, pw):
-    # Usernames are stored as typed, but signing in should not depend on the
-    # phone's autocapitalisation: match case-insensitively, like the web does.
-    u = c.execute(
-        "select * from users where username=? collate nocase", (str(name or "").strip(),)
-    ).fetchone()
+    """Resolve a username or email address, then verify the password.
+
+    Usernames are stored as typed, but signing in should not depend on the
+    phone's autocapitalisation: match case-insensitively, like the web does.
+    Addresses work too, including the one supplied by RoturLink.
+    """
+    ident = str(name or "").strip()
+    if "@" in ident:
+        u = c.execute(
+            "select * from users where lower(email)=lower(?)", (ident,)
+        ).fetchone()
+    else:
+        u = c.execute(
+            "select * from users where username=? collate nocase", (ident,)
+        ).fetchone()
     if not u or not u["pw"] or not check_password_hash(u["pw"], pw):
         return None
     return u
