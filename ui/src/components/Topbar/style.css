@@ -1,27 +1,49 @@
-
+/* One horizontal chrome row. flufi's HeaderContainer is a column by default,
+   so override it here; the title must share the row with search and actions. */
 #topbar {
     display: flex;
-    
+    flex-direction: row;
+    align-items: center;
     min-height: var(--topbar-h);
-
+    height: var(--topbar-h);
+    padding: 0 12px;
     border-bottom: 1px solid var(--back-border);
+    background: var(--back);
+}
 
-    padding: 0 5px;
+#topbar > .middle {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+}
 
-    > div {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
+#topbar .brand-link {
+    gap: 8px;
+    padding: 0 6px 0 0;
+    flex: none;
+    text-decoration: none;
+}
 
-        &.left {
-            padding-left: 10px;
-        }
-        &.middle {
-            flex: 1;
-            justify-content: center;
-            gap: 6px;
-        }
-    }
+#topbar .brand-link .logo {
+    white-space: nowrap;
+}
+
+#topbar .search-bar {
+    width: min(340px, 32vw);
+    min-width: 160px;
+    margin-inline: auto;
+}
+
+#topbar .user {
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: none;
 }
 
 .brand-mark {
@@ -38,27 +60,42 @@
 
 .mobile {
     #topbar {
-        padding: 0 10px;
-        align-items: unset;
-        
-        > .middle {
-            width: 100%;
-            
-            > div:has(.search-bar) {
-                flex: 1;
-            }
-        }
+        padding: 0 6px;
     }
-}
 
-/* On phones the account label and the extra action crowd the search field. */
-.mobile {
+    #topbar > .middle {
+        gap: 3px;
+    }
+
     #topbar .user {
         display: none;
     }
-    .search-bar {
+
+    #topbar .brand-link {
+        padding-right: 2px;
+        gap: 0;
+    }
+
+    /* The wordmark stays visible on phones; the icon is redundant there. */
+    #topbar .brand-mark {
+        display: none;
+    }
+
+    #topbar .brand-link .logo {
+        font-size: 1.2em;
+    }
+
+    #topbar .search-bar {
         width: auto;
+        min-width: 70px;
         flex: 1;
-        min-width: 0;
+        margin-inline: 0;
+    }
+
+    #topbar .icon-tip .button,
+    #topbar > .middle > .button {
+        min-width: 32px;
+        min-height: 36px;
+        padding: 0 4px;
     }
 }

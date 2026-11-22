@@ -4,7 +4,7 @@
     position: fixed;
     right: 0;
     top: var(--topbar-h);
-    bottom: var(--player-h);
+    bottom: max(var(--player-h), 78px);
     z-index: 45;
     width: min(440px, calc(100vw - 24px));
     max-height: none;
@@ -136,12 +136,12 @@
     align-items: center;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 800px) {
     .lyrics-panel {
         right: 0;
         left: 0;
-        top: 50px;
-        bottom: 84px;
+        top: var(--topbar-h);
+        bottom: var(--player-h);
         width: auto;
         border-radius: 0;
     }

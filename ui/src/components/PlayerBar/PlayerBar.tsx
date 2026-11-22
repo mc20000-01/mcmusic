@@ -336,20 +336,22 @@ export function PlayerBar() {
                     </Container>
 
                     {/* Queue + lyrics. */}
-                    <IconButton
-                        title={showQueue ? "Hide queue" : "Queue"}
-                        variant={showQueue ? "accent-subtle" : "always-transparent"}
-                        onClick={() => setShowQueue(!showQueue)}
-                    >
-                        <ListMusic size={16} />
-                    </IconButton>
-                    <IconButton
-                        title={showLyrics ? "Hide lyrics" : "Lyrics"}
-                        variant={showLyrics ? "accent-subtle" : "always-transparent"}
-                        onClick={() => setShowLyrics(!showLyrics)}
-                    >
-                        <MicVocal size={16} />
-                    </IconButton>
+                    <Container horizontal centered_y class="player-actions">
+                        <IconButton
+                            title={showQueue ? "Hide queue" : "Queue"}
+                            variant={showQueue ? "accent-subtle" : "always-transparent"}
+                            onClick={() => setShowQueue(!showQueue)}
+                        >
+                            <ListMusic size={16} />
+                        </IconButton>
+                        <IconButton
+                            title={showLyrics ? "Hide lyrics" : "Lyrics"}
+                            variant={showLyrics ? "accent-subtle" : "always-transparent"}
+                            onClick={() => setShowLyrics(!showLyrics)}
+                        >
+                            <MicVocal size={16} />
+                        </IconButton>
+                    </Container>
                 </Container>
 
                 {showQueue && (

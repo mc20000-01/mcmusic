@@ -22,3 +22,29 @@
 .content-auth .button {
     margin: 0;
 }
+
+.content-auth > .container > .rotur-login {
+    width: 100%;
+}
+
+.content-auth .rotur-note {
+    font-size: var(--font-size-small);
+    line-height: 1.4;
+}
+
+.auth-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    color: var(--text-dim);
+    font-size: var(--font-size-small);
+}
+
+.auth-divider::before,
+.auth-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--back-border);
+}
