@@ -29,4 +29,11 @@ object Account {
             me = it
             loaded = true
         }
+
+    /** Finish a Rotur sign-in after the browser hands a device token back. */
+    suspend fun acceptRoturToken(token: String): Result<Me> =
+        Api.adoptToken(token).onSuccess {
+            me = it
+            loaded = true
+        }
 }

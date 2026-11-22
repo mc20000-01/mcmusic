@@ -211,6 +211,7 @@ private fun BottomBar(tab: Tab, onTab: (Tab) -> Unit) {
                     fontSize = 10.sp,
                     fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
                     maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }

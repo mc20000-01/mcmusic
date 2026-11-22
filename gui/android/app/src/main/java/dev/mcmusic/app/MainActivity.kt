@@ -1,9 +1,11 @@
 package dev.mcmusic.app
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
@@ -16,6 +18,9 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
+import dev.mcmusic.app.data.Account
 import dev.mcmusic.app.data.Api
 import dev.mcmusic.app.data.Downloads
 import dev.mcmusic.app.data.Prefs
@@ -33,6 +38,7 @@ class MainActivity : ComponentActivity() {
         Api.init(applicationContext)
         Downloads.init(applicationContext)
         Playback.init(applicationContext)
+        handleOAuthIntent(intent)
 
         // The playback notification is how a stream keeps running off-screen.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
@@ -72,6 +78,36 @@ class MainActivity : ComponentActivity() {
                     McShell()
                 }
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleOAuthIntent(intent)
+    }
+
+    private fun handleOAuthIntent(intent: Intent?) {
+        val data = intent?.data ?: return
+        if (data.scheme != "mcmusic" || data.host != "oauth") return
+        intent.data = null
+        val token = data.getQueryParameter("token")
+        if (token.isNullOrBlank()) {
+            Toast.makeText(this, "Rotur sign-in was cancelled", Toast.LENGTH_LONG).show()
+            return
+        }
+        lifecycleScope.launch {
+            Account.acceptRoturToken(token).fold(
+                onSuccess = {
+                    Toast.makeText(this@MainActivity, "Signed in as ${it.username}", Toast.LENGTH_LONG).show()
+                },
+                onFailure = {
+                    Toast.makeText(
+                        this@MainActivity,
+                        it.message ?: "Rotur sign-in failed",
+                        Toast.LENGTH_LONG,
+                    ).show()
+                },
+            )
         }
     }
 

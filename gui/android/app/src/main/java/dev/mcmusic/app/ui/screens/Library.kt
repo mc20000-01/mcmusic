@@ -138,7 +138,7 @@ fun LibraryScreen(onOpenPlaylists: () -> Unit, onOpenPlayer: () -> Unit) {
                 tracks == null -> Loading("Loading the library…")
                 else -> when (tab) {
                     0 -> LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 140.dp),
+                        columns = GridCells.Adaptive(minSize = 132.dp),
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(design.screenPadding, 12.dp, design.screenPadding, 24.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -149,7 +149,7 @@ fun LibraryScreen(onOpenPlaylists: () -> Unit, onOpenPlayer: () -> Unit) {
                                 title = entry.album,
                                 subtitle = "${entry.artist} · ${entry.count}",
                                 coverUrl = albumCoverUrl(entry.coverId),
-                                width = 150.dp,
+                                fill = true,
                                 onClick = { album = entry },
                             )
                         }

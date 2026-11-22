@@ -28,7 +28,7 @@ COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "0") == "1"
 ROTUR_APP = os.environ.get("ROTUR_APP", "")
 ROTUR_SECRET = os.environ.get("ROTUR_SECRET", "")  # server-side only
 ROTUR_BASE_URL = os.environ.get("ROTUR_BASE_URL", "https://api.rotur.dev").rstrip("/")
-ROTUR_SCOPE = os.environ.get("ROTUR_SCOPE", "profile account:profile")
+ROTUR_SCOPE = os.environ.get("ROTUR_SCOPE", "profile account:profile email")
 ROTUR_AUTHORIZE_PATH = "/oauth/authorize"
 ROTUR_TOKEN_PATH = "/oauth/token"
 ROTUR_USERINFO_PATH = "/oauth/userinfo"

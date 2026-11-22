@@ -17,6 +17,7 @@
 .content-auth .formal-input,
 .content-auth .button {
     width: 100%;
+    box-sizing: border-box;
 }
 
 .content-auth .button {
@@ -24,7 +25,8 @@
 }
 
 .content-auth > .container > .rotur-login {
-    width: 100%;
+    width: auto;
+    align-self: stretch;
 }
 
 .content-auth .rotur-note {
