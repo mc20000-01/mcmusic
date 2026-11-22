@@ -39,7 +39,7 @@
    shrink below their content size inside grid cells. */
 .album-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(clamp(150px, 12vw, 210px), 1fr));
     gap: 16px;
     width: 100%;
     overflow-x: hidden;
@@ -57,7 +57,7 @@
 /* Skeleton cards shown while the first page of albums loads. */
 .skeleton-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(clamp(150px, 12vw, 210px), 1fr));
     gap: 16px;
     width: 100%;
     overflow-x: hidden;
@@ -110,7 +110,7 @@
     100% { background-position: -200% 0; }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 800px) {
     .album-grid,
     .skeleton-grid {
         grid-template-columns: repeat(auto-fill, minmax(122px, 1fr));

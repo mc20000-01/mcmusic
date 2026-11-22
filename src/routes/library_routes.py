@@ -187,7 +187,7 @@ def albums():
         f"from tracks {where} group by album having count(*) >= ? "
         f"order by {order} limit ? offset ?",
         (*params, min_tracks, limit, offset),
-    )
+    ).fetchall()
     total = db.execute(
         "select count(*) n from (select album from tracks "
         f"{where} group by album having count(*) >= ?)",

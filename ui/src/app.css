@@ -54,7 +54,7 @@ main[class^="content-"] .button {
     aspect-ratio: 1 / 1;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 800px) {
     main[class^="content-"] {
         padding: 16px 16px calc(var(--player-h) + 24px);
     }
@@ -78,7 +78,7 @@ main[class^="content-"] .button {
 }
 
 /* Icon-only controls stay comfortably tappable on phones. */
-@media (max-width: 720px) {
+@media (max-width: 800px) {
     #topbar .button,
     #left-sidebar .button {
         min-width: 40px;

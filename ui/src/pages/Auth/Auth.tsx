@@ -1,7 +1,8 @@
 import { useState } from "preact/hooks";
 import { useSignal } from "@preact/signals";
 import { useLocation } from "preact-iso";
-import { Button, Container, Content, FormalInput, Input, Text } from "flufi-ui/components";
+import { Button, Container, Content, FormalInput, Input, Text, TextIconLinkButton } from "flufi-ui/components";
+import { Link2 } from "lucide-preact";
 
 import "./style.css";
 import { login, register } from "../../common/auth";
@@ -81,6 +82,21 @@ export function AuthPage() {
                 >
                     <Text dim content={mode == "login" ? "Create an account" : "Back to sign in"} />
                 </Button>
+
+                <div class="auth-divider"><span>or</span></div>
+
+                <TextIconLinkButton
+                    class="rotur-login"
+                    variant="panel"
+                    href="/api/auth/rotur/authorize?next=%2F"
+                >
+                    <Link2 size={16} /> Sign in with Rotur
+                </TextIconLinkButton>
+                <Text
+                    dim
+                    class="rotur-note"
+                    content="Use Rotur to sign in, or link it to an existing account in Settings."
+                />
             </Container>
         </Content>
     )

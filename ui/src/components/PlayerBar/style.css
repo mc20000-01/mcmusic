@@ -344,44 +344,91 @@
     color: var(--text-dim);
 }
 
-@media (max-width: 720px) {
+#player-bar .player-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: none;
+}
+
+/* Phones get two rows: art / title / transport / actions, then a full-width
+   seek line. A single row squeezed the title down to a few pixels. */
+@media (max-width: 800px) {
+    :root {
+        --player-h: 78px;
+    }
+
+    #player-bar {
+        padding: 6px 10px calc(6px + env(safe-area-inset-bottom));
+    }
+
     #player-bar .player {
-        gap: 8px;
+        display: grid;
+        grid-template-columns: 42px minmax(0, 1fr) auto auto;
+        grid-template-areas:
+            "art meta transport actions"
+            "seek seek seek seek";
+        column-gap: 8px;
+        row-gap: 4px;
+    }
+
+    #player-bar .art-wrap {
+        grid-area: art;
     }
 
     #player-bar .art {
-        width: 44px;
-        height: 44px;
+        width: 42px;
+        height: 42px;
     }
 
-    #player-bar .title-link {
-        font-size: var(--font-size-medium);
-    }
-
-    #player-bar .seek-wrap {
-        flex: 1;
-        min-width: 80px;
-    }
-
-    #player-bar .volume-wrap {
-        min-width: 70px;
+    #player-bar .meta {
+        grid-area: meta;
     }
 
     #player-bar .transport {
+        grid-area: transport;
         gap: 4px;
+    }
+
+    #player-bar .player-actions {
+        grid-area: actions;
+        gap: 4px;
+    }
+
+    #player-bar .seek-wrap {
+        grid-area: seek;
+        width: 100%;
+        min-width: 0;
+        flex: none;
     }
 
     #player-bar .seek-times {
         display: none;
     }
-}
 
-@media (max-width: 480px) {
-    #player-bar .volume-wrap {
-        display: none;
-    }
+    #player-bar .volume-wrap,
     #player-bar .transport .control-shuffle,
     #player-bar .transport .control-repeat {
+        display: none;
+    }
+
+    #player-bar .transport .button,
+    #player-bar .player-actions .button {
+        min-width: 36px;
+        min-height: 36px;
+        padding: 0 6px;
+    }
+}
+
+@media (max-width: 360px) {
+    #player-bar .player {
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        grid-template-areas:
+            "meta transport actions"
+            "seek seek seek";
+    }
+
+    #player-bar .art-wrap {
         display: none;
     }
 }
