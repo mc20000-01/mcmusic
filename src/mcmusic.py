@@ -211,6 +211,11 @@ def api_root():
 def api_docs():
     return jsonify(
         name="mcmusic API", version=3,
+        self_hosting={
+            "guide": "https://github.com/mc20000-01/mcmusic/blob/main/docs/selfhost.md",
+            "health": "GET /api/ping", "version": "GET /api/version",
+            "web_client_build": "./scripts/build_ui.sh",
+        },
         auth={
             "web": "POST /api/login for the bootstrap account, or GET "
                    "/api/auth/rotur/authorize for RoturLink. A session cookie follows.",
@@ -476,7 +481,11 @@ def _ui_response():
             "<h1 style=\"font-size:1.1rem;font-weight:600\">mcmusic</h1>"
             "<p>The web client has not been built on this server.</p>"
             "<pre style=\"background:#0f0f12;padding:.75rem;border-radius:10px\">"
-            "./scripts/build_ui.sh</pre></main>",
+            "./scripts/build_ui.sh</pre>"
+            "<p>Full setup and upgrade steps are in the "
+            "<a style=\"color:#A06BFF\" "
+            "href=\"https://github.com/mc20000-01/mcmusic/blob/main/docs/selfhost.md\">"
+            "self-hosting guide</a>.</p></main>",
             status=503,
             mimetype="text/html",
         )

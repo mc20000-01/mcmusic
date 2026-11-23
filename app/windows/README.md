@@ -9,6 +9,9 @@ build, packaged with PyInstaller. Only the platform glue differs:
 - Settings and the audio cache live under `%APPDATA%\mcmusic` and
   `%LOCALAPPDATA%\mcmusic`.
 
+New to mcmusic? The [self-hosting guide](../../docs/selfhost.md) covers server
+setup, HTTPS and connecting this desktop client.
+
 ```
 app/windows/
   launcher.py   # frozen-app entry point (imports mcmusic_linux.cli)

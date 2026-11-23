@@ -1,0 +1,32 @@
+[Unit]
+Description=mcmusic self-hosted music server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Adjust these four paths for your install.
+User=mcmusic
+Group=mcmusic
+WorkingDirectory=/srv/mcmusic/app
+EnvironmentFile=/srv/mcmusic/app/mcmusic.env
+
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONPATH=/srv/mcmusic/app:/srv/mcmusic/app/src
+
+# Build the web client before starting: ( cd ui && npm ci && npm run build )
+ExecStart=/srv/mcmusic/app/.venv/bin/gunicorn -w 1 --threads 8 \
+  -b 127.0.0.1:8000 --timeout 600 \
+  --access-logfile - --error-logfile - mcmusic:app
+
+Restart=always
+RestartSec=3
+TimeoutStopSec=20
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/srv/mcmusic/data /srv/mcmusic/music
+
+[Install]
+WantedBy=multi-user.target

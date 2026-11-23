@@ -2,6 +2,17 @@
     gap: 8px;
 }
 
+.admin .section-buttons {
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.admin .channel-form {
+    gap: 8px;
+    align-items: flex-end;
+}
+
 /* Request rows carry a long URL and up to six actions; let the actions wrap
    under the text instead of pushing the row wider than the page. */
 .admin .req-head {

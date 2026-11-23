@@ -1,0 +1,14 @@
+.search-page .search-page-field {
+    gap: 10px;
+    max-width: 640px;
+}
+
+.search-page .search-page-field > :last-child {
+    flex: 1;
+}
+
+.search-page .search-results {
+    border: 1px solid var(--back-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
