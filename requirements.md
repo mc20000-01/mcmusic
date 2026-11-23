@@ -49,16 +49,14 @@ fixes, and the old-client parity audit are consolidated here. Anything marked
   - Loop-one repeats only the current song and does not append anything.
   - Any repeat mode on turns autoplay off; autoplay on turns repeat off.
   - Server endpoint: `GET /api/radio/<id>`.
-- [ ] **Web queue and playback persistence.**
-  - Current v3 web has no queue persistence, no autoplay, no `/api/radio` call,
-    and no focus/reload restoration despite an unused `common/idb.ts`.
-  - Port legacy `player.js` snapshot/restore behavior into the v3 client.
-- [ ] **Rotur activity integration.**
-  - Port `old/web/js/rotur.js`: status/health/session validity, `describe()`,
-    link/unlink, and activity start/stop tied to playback.
-  - Current web has partial status/link/unlink/activity in Settings; extend it.
+- [x] **Web queue and playback persistence.** Queue, index, position, duration,
+      repeat, shuffle and autoplay now persist with paused restore, stale-position
+      reset and 7-day expiry. `npm run build` passes.
+- [x] **Rotur activity integration.** Ported `old/web/js/rotur.js` behavior:
+      status/health/session validity, describe text, link/unlink, and activity
+      start/stop tied to playback. Discord status/link/unlink was also added.
 - [ ] **Full web/Android parity with old commit `581b995f...`.**
-  - Audit complete; concrete gaps are below. Android first, then web.
+  - Web parity items are done; Android implementation is in progress.
   - Backend routes are mostly still present; these are client-surface gaps.
 
 ## Parity gaps from the audit (work list)
@@ -75,27 +73,28 @@ fixes, and the old-client parity audit are consolidated here. Anything marked
 
 ### Web — missing or regressed vs old commit
 
-- [ ] Full search page/route and `/` shortcut; Likes view; Downloads view.
-- [ ] Public profile links and listener info from `/api/public/listening`.
-- [ ] PWA service-worker registration, install prompt, update-ready handling.
-- [ ] Keyboard shortcuts: Space, Shift+Arrow keys, `/`, `m`, `l`, `q`, Escape.
-- [ ] Home via `/api/home`; playback presence `/api/playback`; device
+- [x] Full search page/route and `/` shortcut; Likes view; Downloads view.
+- [x] Public profile links and listener info from `/api/public/listening`.
+- [x] PWA service-worker registration, install prompt, update-ready handling.
+- [x] Keyboard shortcuts: Space, Shift+Arrow keys, `/`, `m`, `l`, `q`, Escape.
+- [x] Home via `/api/home`; playback presence `/api/playback`; device
       heartbeat/command polling; offline cache/outbox; build/version UI.
-- [ ] Discord link/unlink/status UI; richer Rotur health/session display.
-- [ ] Admin Devices/Channels/Enrich/Lyrics panels where backend routes exist.
-- [ ] Email change, track explicit-flag edit, track info/sources dialog.
+- [x] Discord link/unlink/status UI; richer Rotur health/session display.
+- [x] Admin Devices/Channels/Enrich/Lyrics panels where backend routes exist.
+- [x] Email change, track explicit-flag edit, track info/sources dialog.
 
 ## Emulator verification (time is not a constraint)
 
-- [ ] Fresh Android 14 (API 34) AVD `mcmusic34fresh`.
-  - First two attempts failed instantly because `-accel kvm` is invalid; valid
-    values are `on`, `off`, `auto`. Corrected command uses `-accel on`.
-  - Corrected boot is running with a 90-minute timeout.
-- [ ] Install newest signed APK once booted.
-- [ ] Verify: sign-in gate, email sign-in, settings opens, login persists after
-      app close/background, queue persists, autoplay/loop behavior, and Rotur
-      deep-link return.
-- [ ] Capture screenshot/UI dumps for the report.
+- [x] Fresh Android 14 (API 34) AVD `mcmusic34fresh` booted successfully after
+      switching from invalid `-accel kvm` to `-accel on`.
+- [x] Installed the `3.3.4` signed hotfix APK and launched the app. Android's
+      POST_NOTIFICATIONS prompt appeared as expected and was accepted.
+- [ ] Verify after the next full build: sign-in gate, email sign-in, Settings
+      opens, login persists after app close/background, queue persists,
+      autoplay/loop behavior, and Rotur deep-link return.
+- [ ] Capture screenshot/UI dumps for the report. The emulator is extremely
+      slow on this host (no xsave/avx), and `uiautomator dump` intermittently
+      returns a null root or is killed; retry during final verification.
 
 ## Release and delivery steps (repeat after the next code change)
 
@@ -109,6 +108,49 @@ fixes, and the old-client parity audit are consolidated here. Anything marked
 - [ ] Verify `/api/builds` reports the new version and “Android 14 and newer.”
 - [ ] Verify package `dev.mcmusic.app`, `versionCode 46`, `minSdk 34`, and
       signer SHA-256 `0b0fd0fa35ff712901d42cab215d5e3cb706daef57bffa7ebef61cacda1dc4ce`.
+
+## UI research
+
+- [x] Research reusable references for web/Android/desktop GUI work and record
+      the shortlist in `docs/ui-references.md` (flufi upstream/mirror, `old/`
+      snapshot, lucide-preact, flufi-ui, Coil, ComposeReorderable, Qt/PySide6).
+- [x] Audit the Qt desktop client against `old/`, web and Android; the detailed
+      task source is `docs/desktop-parity.md`.
+
+## Self-hosting accessibility
+
+- [x] Add a dedicated `docs/selfhost.md` with install, env, systemd, HTTPS,
+      client setup, backups and troubleshooting.
+- [x] Link the self-hosting guide from the top of `README.md`.
+- [x] **Server tasks:** ship a generic deploy unit template with placeholders
+      (`deploy/mcmusic.service.example`), add a one-command bootstrap script
+      (`scripts/bootstrap_selfhost.sh`), confirm health/version endpoints
+      (`/api/ping`, `/api/version`), make `/api/docs` link to the self-hosting
+      guide, and link the guide from the “build the UI” 503 page.
+- [x] **Web tasks:** Settings now has a Self-hosting guide link, server origin,
+      public URL, room URL, ping/version metadata, and build/download links;
+      the 503 “build the UI” page and offline banner also link to the guide.
+- [ ] **Android tasks:** add a “Self-hosting” / server-info entry in Settings
+      that opens the public guide, show the configured server and version
+      clearly, and make the sign-in screen's server help text point to it.
+- [ ] **Desktop tasks:** add the same self-hosting link and server/version
+      information to the Qt desktop Settings screen.
+
+## Desktop parity (using `docs/desktop-parity.md`)
+
+- [x] Desktop audit completed and recorded in `docs/desktop-parity.md`.
+- [ ] Fix Settings room-link crash, lyrics button, settings-schema loss and
+      inconsistent version metadata.
+- [ ] Offline-resilient login, password reset/email, and Rotur sign-in.
+- [ ] Queue persistence/reorder, sleep timer, remote commands, activity
+      publishing, and `offline_audio` behavior.
+- [ ] Settings metadata: server/public URL, version, builds, outbox/sync,
+      Discord link, all activity/appearance toggles, and self-hosting link.
+- [ ] Downloads manager, public listening/profiles, devices, advanced requests
+      and admin panels, track sources.
+- [ ] Legacy shortcuts, offline cache/outbox, cache stats/prune.
+- [ ] macOS Now Playing and Windows SMTC hooks; register macOS/Windows builds
+      in `/api/builds`.
 
 ## Constraints to keep
 

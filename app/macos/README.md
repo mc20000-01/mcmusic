@@ -5,6 +5,9 @@ The macOS app is the **same native Qt client** as `app/linux`, packaged as a
 theme tokens and Lucide icon geometry are identical, and PySide6 ships a real
 Cocoa backend on macOS.
 
+New to mcmusic? The [self-hosting guide](../../docs/selfhost.md) covers server
+setup, HTTPS and connecting this desktop client.
+
 ```
 app/macos/
   launcher.py   # frozen-app entry point (imports mcmusic_linux.cli)

@@ -36,9 +36,13 @@ export function open(store: string): Promise<IDBDatabase> {
 
 export async function set<T>(key: IDBValidKey, value: T, storeName: string): Promise<void> {
     const db = await open(storeName);
-    const transaction = db.transaction(storeName, "readwrite");
-    const store = transaction.objectStore(storeName);
-    store.put(value, key);
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(storeName, "readwrite");
+        transaction.objectStore(storeName).put(value, key);
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+        transaction.onabort = () => reject(transaction.error);
+    });
 }
 
 export async function get<T>(key: IDBValidKey, storeName: string): Promise<T | undefined> {
@@ -55,9 +59,23 @@ export async function get<T>(key: IDBValidKey, storeName: string): Promise<T | u
 
 export async function del(key: IDBValidKey, storeName: string): Promise<void> {
     const db = await open(storeName);
-    const transaction = db.transaction(storeName, "readwrite");
-    const store = transaction.objectStore(storeName);
-    store.delete(key);
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(storeName, "readwrite");
+        transaction.objectStore(storeName).delete(key);
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+        transaction.onabort = () => reject(transaction.error);
+    });
+}
+
+export async function keys(storeName: string): Promise<IDBValidKey[]> {
+    const db = await open(storeName);
+    return new Promise((resolve, reject) => {
+        const request = db.transaction(storeName, "readonly")
+            .objectStore(storeName).getAllKeys();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
 }
 
 open("session");

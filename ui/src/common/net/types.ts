@@ -45,6 +45,8 @@ export type Track = {
     duration: Signal<number>,
     year: Signal<Option<string>>,
     trackNo: Signal<number>,
+    /** Present on endpoints that know the listener's likes. */
+    liked?: boolean;
 };
 
 export type Playing = {
@@ -70,6 +72,72 @@ export type User = {
     playing: Option<Playing>
 };
 
+/** GET /api/home — personalised shelves plus recent albums. */
+export type HomeSection = {
+    title: string;
+    tracks: Track[];
+};
+export type HomePayload = {
+    sections: HomeSection[];
+    albums: { album: string; artist: string; n: number; cover_id: number }[];
+};
+
+/** GET /api/public/listening — public "listening now" directory. */
+export type PublicListener = {
+    username: string;
+    listening: boolean;
+    position: number;
+    updated: number;
+    track: {
+        id: number;
+        title: string;
+        artist: string;
+        album: string;
+        duration: number;
+    } | null;
+    profile_url: string;
+    cover_url: string;
+};
+export type PublicListening = {
+    ok: boolean;
+    users: PublicListener[];
+    base_url: string;
+    now: number;
+};
+
+/** GET /api/public/now/<username> — the standalone profile payload. */
+export type PublicNow = {
+    ok: boolean;
+    user: { username: string };
+    listening: boolean;
+    position: number;
+    updated: number;
+    track: Track | null;
+    profile_url: string;
+    cover_url: string;
+    base_url: string;
+};
+
+/** GET /api/playback — account playback state and queued commands. */
+export type PlaybackCommand = {
+    id: number;
+    action: string;
+    arg: Record<string, any>;
+};
+export type PlaybackResponse = {
+    state: {
+        track_id: number | null;
+        position: number;
+        duration: number;
+        playing: boolean;
+        queue: number[];
+        device?: string;
+        device_name?: string;
+        track?: Track | null;
+    } | null;
+    commands: PlaybackCommand[];
+};
+
 /** Response from GET /api/auth/rotur/status. */
 export type RoturStatus = {
     linked: boolean;
@@ -82,6 +150,21 @@ export type RoturStatus = {
         ready: boolean;
         reason: string;
     };
+};
+
+/** Response from GET /api/auth/discord/status. */
+export type DiscordStatus = {
+    linked: boolean;
+    configured: boolean;
+    missing: string[];
+    discord_id: string | null;
+    discord_username: string | null;
+    session_valid: boolean;
+    presence: {
+        configured?: boolean;
+        available?: boolean;
+        [key: string]: any;
+    } | null;
 };
 
 // request specific

@@ -1,15 +1,17 @@
 /** Bottom player bar: artwork, transport (prev / play-pause / next / shuffle /
  * repeat / volume / queue), a seek bar with filled progress, the track title
  * and artist as links, and the lyrics toggle. Also installs Media Session and
- * keyboard controls (space, arrows).
+ * the full set of legacy keyboard shortcuts.
  */
 import { useEffect, useRef, useState } from "preact/hooks";
 import { Container, FooterContainer, IconButton, Text } from "flufi-ui/components";
 import {
+    Heart,
     ListMusic,
     MicVocal,
     Pause,
     Play,
+    Radio,
     Repeat,
     Shuffle,
     SkipBack,
@@ -19,7 +21,9 @@ import {
     X,
 } from "lucide-preact";
 import {
+    autoplay,
     currentId,
+    currentLiked,
     duration,
     formatTime,
     isPlaying,
@@ -30,12 +34,15 @@ import {
     playQueueIndex,
     queue,
     queueIndex,
+    queueOpen,
     repeatMode,
     seekTo,
+    setAutoplay,
     setShuffle,
     setVolume,
     shuffleEnabled,
     cycleRepeat,
+    toggleCurrentLike,
     togglePlay,
     toggleMute,
     position,
@@ -56,7 +63,7 @@ export function PlayerBar() {
         return v === "true";
     });
     const [muted, setMuted] = useState(false);
-    const [showQueue, setShowQueue] = useState(false);
+    const showQueue = queueOpen;
     const [seekHover, setSeekHover] = useState<number | null>(null);
     const [seekDragging, setSeekDragging] = useState(false);
     const [volumeHover, setVolumeHover] = useState<number | null>(null);
@@ -120,13 +127,51 @@ export function PlayerBar() {
         };
     }, [track.id, track.title, track.artist, album]);
 
-    // Global keyboard controls.
+    // Global keyboard controls — the full legacy shortcut set.
     useEffect(() => {
         function onKey(e: KeyboardEvent) {
-            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+            const target = e.target as HTMLElement | null;
+            const editing = target instanceof HTMLInputElement ||
+                target instanceof HTMLTextAreaElement ||
+                target instanceof HTMLSelectElement ||
+                !!target?.isContentEditable;
+
+            if (e.key === "Escape") {
+                if (editing) target?.blur?.();
+                queueOpen.value = false;
+                setShowLyrics(false);
+                return;
+            }
+            if (editing) return;
+
             if (e.key === " ") { e.preventDefault(); togglePlay(); return; }
-            if (e.key === "ArrowLeft") { e.preventDefault(); seekTo(Math.max(0, position.value - 5)); return; }
-            if (e.key === "ArrowRight") { e.preventDefault(); seekTo(Math.min(duration.value, position.value + 5)); return; }
+            if (e.key === "ArrowLeft") {
+                e.preventDefault();
+                if (e.shiftKey) playPrev();
+                else seekTo(Math.max(0, position.value - 5));
+                return;
+            }
+            if (e.key === "ArrowRight") {
+                e.preventDefault();
+                if (e.shiftKey) playNext();
+                else seekTo(Math.min(duration.value, position.value + 5));
+                return;
+            }
+            if (e.shiftKey && e.key === "ArrowUp") {
+                e.preventDefault(); setVolume(Math.min(1, volume.value + 0.05)); return;
+            }
+            if (e.shiftKey && e.key === "ArrowDown") {
+                e.preventDefault(); setVolume(Math.max(0, volume.value - 0.05)); return;
+            }
+            if (e.key === "/") {
+                e.preventDefault();
+                document.getElementById("global-search")?.focus();
+                return;
+            }
+            const k = e.key.toLowerCase();
+            if (k === "m") { toggleMute(); return; }
+            if (k === "l") { void toggleCurrentLike(); return; }
+            if (k === "q") { queueOpen.value = !queueOpen.value; return; }
         }
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
@@ -335,12 +380,19 @@ export function PlayerBar() {
                         )}
                     </Container>
 
-                    {/* Queue + lyrics. */}
+                    {/* Like / queue / lyrics. */}
                     <Container horizontal centered_y class="player-actions">
                         <IconButton
-                            title={showQueue ? "Hide queue" : "Queue"}
-                            variant={showQueue ? "accent-subtle" : "always-transparent"}
-                            onClick={() => setShowQueue(!showQueue)}
+                            title={currentLiked.value ? "Unlike" : "Like"}
+                            variant={currentLiked.value ? "accent-subtle" : "always-transparent"}
+                            onClick={() => void toggleCurrentLike()}
+                        >
+                            <Heart size={16} fill={currentLiked.value ? "currentColor" : "none"} />
+                        </IconButton>
+                        <IconButton
+                            title={showQueue.value ? "Hide queue" : "Queue"}
+                            variant={showQueue.value ? "accent-subtle" : "always-transparent"}
+                            onClick={() => { queueOpen.value = !queueOpen.value; }}
                         >
                             <ListMusic size={16} />
                         </IconButton>
@@ -354,36 +406,49 @@ export function PlayerBar() {
                     </Container>
                 </Container>
 
-                {showQueue && (
+                {showQueue.value && (
                     <Container class="queue-drawer">
                         <Container horizontal centered_y class="queue-head">
                             <Text class="queue-title" content="Queue" />
                             <Text dim content={` · ${queueTracks.length} track${queueTracks.length == 1 ? "" : "s"}`} />
-                            <IconButton title="Close queue" onClick={() => setShowQueue(false)}>
+                            <IconButton title="Close queue" onClick={() => { queueOpen.value = false; }}>
                                 <X size={14} />
                             </IconButton>
                         </Container>
-                        {queueTracks.length === 0 ? (
+                        {queueTracks.length === 0 && (
                             <div class="queue-empty">Nothing queued — play an album to fill this up.</div>
-                        ) : (
-                            <div class="queue-list">
-                                {queueTracks.map((t, i) => (
-                                    <button
-                                        type="button"
-                                        key={t.id}
-                                        class={`queue-row${i === queueIndex.value ? " queue-row-active" : ""}`}
-                                        onClick={() => playQueueIndex(i)}
-                                    >
-                                        <Text dim content={i + 1} class="queue-num" />
-                                        <span class="queue-info">
-                                            <span class="queue-title-text">{t.title}</span>
-                                            <span class="queue-artist-text">{t.artist}</span>
-                                        </span>
-                                        {i === queueIndex.value && <Text dim content={formatTime(position.value)} />}
-                                    </button>
-                                ))}
-                            </div>
                         )}
+                        <div class="queue-list">
+                            {queueTracks.map((t, i) => (
+                                <button
+                                    type="button"
+                                    key={`${t.id}-${i}`}
+                                    class={`queue-row${i === queueIndex.value ? " queue-row-active" : ""}`}
+                                    onClick={() => playQueueIndex(i)}
+                                >
+                                    <Text dim content={i + 1} class="queue-num" />
+                                    <span class="queue-info">
+                                        <span class="queue-title-text">{t.title}</span>
+                                        <span class="queue-artist-text">{t.artist}</span>
+                                    </span>
+                                    {i === queueIndex.value && <Text dim content={formatTime(position.value)} />}
+                                </button>
+                            ))}
+                            <button
+                                type="button"
+                                class={`queue-row queue-autoplay${autoplay.value ? " queue-row-active" : ""}`}
+                                title={autoplay.value ? "Autoplay on — similar tracks are added at the end" : "Autoplay off"}
+                                onClick={() => setAutoplay(!autoplay.value)}
+                            >
+                                <Radio size={15} />
+                                <span class="queue-info">
+                                    <span class="queue-title-text">Autoplay</span>
+                                    <span class="queue-artist-text">
+                                        {autoplay.value ? "On — keep the music going" : "Off"}
+                                    </span>
+                                </span>
+                            </button>
+                        </div>
                     </Container>
                 )}
             </FooterContainer>

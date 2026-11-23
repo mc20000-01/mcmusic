@@ -1,0 +1,36 @@
+.downloads-page .downloads-head {
+    gap: 10px;
+}
+
+.downloads-page .downloads-head > :last-child {
+    margin-left: auto;
+}
+
+.downloads-page .download-list {
+    border: 1px solid var(--back-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.downloads-page .download-row {
+    gap: 8px;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--back-border);
+}
+
+.downloads-page .download-row:last-child {
+    border-bottom: 0;
+}
+
+.downloads-page .download-meta {
+    flex: 1;
+    min-width: 0;
+}
+
+.downloads-page .downloads-pending {
+    color: var(--accent);
+}
+
+.downloads-page .downloads-note {
+    gap: 8px;
+}
