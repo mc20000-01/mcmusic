@@ -235,7 +235,7 @@ final class Player: NSObject, ObservableObject {
 
     private func updateNowPlaying() {
         guard let track = current else { return }
-        var info: [AnyHashable: Any] = [
+        var info: [String: Any] = [
             MPMediaItemPropertyTitle: currentTitle,
             MPMediaItemPropertyArtist: currentArtist,
             MPNowPlayingInfoPropertyElapsedPlaybackTime: progress,
