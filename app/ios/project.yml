@@ -25,18 +25,20 @@ targets:
       - path: McMusic
     resources:
       - path: McMusic/Assets.xcassets
-    infoPlist:
-      CFBundleDisplayName: mcmusic
-      CFBundleIdentifier: dev.mcmusic.ios
-      CFBundleName: McMusic
-      UILaunchScreen: {}
-      UIBackgroundModes:
-        - audio
-      NSAppTransportSecurity:
-        NSAllowsArbitraryLoads: true
-      ITSAppUsesNonExemptEncryption: false
-      UIRequiredDeviceCapabilities:
-        - arm64
+    info:
+      path: McMusic/Info.plist
+      properties:
+        CFBundleDisplayName: mcmusic
+        CFBundleIdentifier: dev.mcmusic.ios
+        CFBundleName: McMusic
+        UILaunchScreen: {}
+        UIBackgroundModes:
+          - audio
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+        ITSAppUsesNonExemptEncryption: false
+        UIRequiredDeviceCapabilities:
+          - arm64
     settings:
       base:
         PRODUCT_NAME: McMusic
