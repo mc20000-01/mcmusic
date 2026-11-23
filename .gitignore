@@ -105,6 +105,7 @@ app/ios/*.xcodeproj/
 app/ios/*.xcworkspace/
 app/ios/build/
 app/ios/McMusic/Assets.xcassets/AppIcon.appiconset/*.png
+app/ios/McMusic/Info.plist
 
 # --- published binaries -----------------------------------------------------
 # Built by scripts/publish_apps.sh and attached to GitHub Releases.
