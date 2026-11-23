@@ -190,15 +190,18 @@ jobs:
       - name: Build and test unsigned iOS Simulator app
         run: |
           set -euo pipefail
+          # Build the shippable app on its own so XCTest frameworks do not end
+          # up embedded in the uploaded bundle.
           derived=build/ios
-          common=(-project app/ios/McMusic.xcodeproj -scheme McMusic -configuration Release -derivedDataPath "$derived" CODE_SIGNING_ALLOWED=NO)
-          xcodebuild "${common[@]}" -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' \
+          common=(-project app/ios/McMusic.xcodeproj -configuration Release CODE_SIGNING_ALLOWED=NO)
+          xcodebuild "${common[@]}" -target McMusic -derivedDataPath "$derived" \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
             ARCHS='arm64 x86_64' ONLY_ACTIVE_ARCH=NO build
+          # Tests get a separate derived-data path for the same reason.
           sim_id=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); devs=[x for r in d["devices"].values() for x in r if x.get("isAvailable") and x["name"].startswith("iPhone")]; print(devs[0]["udid"] if devs else "")')
           if [ -n "$sim_id" ]; then
-            xcodebuild "${common[@]}" -sdk iphonesimulator \
-              -destination "platform=iOS Simulator,id=$sim_id" \
+            xcodebuild "${common[@]}" -scheme McMusic -derivedDataPath build/ios-tests \
+              -sdk iphonesimulator -destination "platform=iOS Simulator,id=$sim_id" \
               test
           else
             echo "no iPhone simulator available; skipping test action" >&2
@@ -211,11 +214,11 @@ jobs:
           test -f "$app/McMusic"
           plutil -lint "$app/Info.plist"
           /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$app/Info.plist" | grep -qx 'dev.mcmusic.ios'
-          if find "$app" \( -iname '*WebView*' -o -iname 'index.html' \) | grep -q .; then
-            echo "iOS bundle contains a web view or HTML" >&2
+          if find "$app" \( -iname '*WebView*' -o -iname 'index.html' -o -iname '*XCTest*' \) | grep -q .; then
+            echo "iOS bundle contains a web view, HTML or test frameworks" >&2
             exit 1
           fi
-          echo "verified: native SwiftUI app, no HTML/WebView"
+          echo "verified: native SwiftUI app, no HTML/WebView/test frameworks"
       - uses: actions/upload-artifact@v4
         with:
           name: mcmusic-ios-simulator
