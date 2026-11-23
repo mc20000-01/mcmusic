@@ -1,7 +1,5 @@
 package dev.mcmusic.app.ui
 
-import android.content.Intent
-import android.net.Uri
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -32,7 +30,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,22 +37,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.mcmusic.app.data.Account
-import dev.mcmusic.app.data.Api
-import dev.mcmusic.app.data.Prefs
 import dev.mcmusic.app.data.Track
 import dev.mcmusic.app.ui.design.LocalDesign
 import dev.mcmusic.app.ui.design.mcSurface
-import kotlinx.coroutines.launch
 
 /* ── text ──────────────────────────────────────────────────────────────── */
 
@@ -272,81 +263,6 @@ fun EmptyState(
         if (actionLabel != null && onAction != null) {
             PrimaryButton(actionLabel, Modifier.padding(top = 2.dp), onClick = onAction)
         }
-    }
-}
-
-/**
- * One sign-in surface reused on Home and in Settings. A fresh install should
- * never have to hunt through settings to find the account form.
- */
-@Composable
-fun SignInCard(onSignedIn: () -> Unit = {}) {
-    val design = LocalDesign.current
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var identifier by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var busy by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-
-    fun submit() {
-        if (identifier.isBlank() || password.isBlank() || busy) return
-        busy = true
-        error = null
-        scope.launch {
-            Account.signIn(identifier.trim(), password).fold(
-                onSuccess = {
-                    password = ""
-                    onSignedIn()
-                },
-                onFailure = { error = it.message ?: "could not sign in" },
-            )
-            busy = false
-        }
-    }
-
-    fun openRotur() {
-        val url = "${Prefs.server}/api/auth/rotur/authorize?app=1" +
-            "&device_hash=${Uri.encode(Api.deviceHash)}"
-        runCatching {
-            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-        }.onFailure { error = it.message ?: "no browser available" }
-    }
-
-    Column(
-        Modifier.fillMaxWidth().mcSurface().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Box(Modifier.size(38.dp).clip(CircleShape).background(design.accentSoft), Alignment.Center) {
-                LucideIcon(Lucide.LogIn, design.accent, Modifier.size(18.dp))
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                Text("Sign in to mcmusic", color = design.fg, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                Muted("Same account as the website.", size = 12)
-            }
-        }
-        McField(
-            identifier, { identifier = it }, "Email or username",
-            keyboard = KeyboardOptions(imeAction = ImeAction.Next),
-        )
-        McField(
-            password, { password = it }, "Password",
-            password = true,
-            keyboard = KeyboardOptions(imeAction = ImeAction.Done, keyboardType = KeyboardType.Password),
-            actions = KeyboardActions(onDone = { submit() }),
-        )
-        error?.let { ErrorLine(it) }
-        PrimaryButton(
-            if (busy) "Signing in…" else "Sign in",
-            Modifier.fillMaxWidth(),
-            enabled = !busy,
-            onClick = { submit() },
-        )
-        Muted("or", size = 12)
-        GhostButton("Sign in with Rotur", Modifier.fillMaxWidth(), onClick = { openRotur() })
-        Muted("New accounts need an invite from an admin.", size = 11)
     }
 }
 

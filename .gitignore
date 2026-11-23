@@ -151,3 +151,6 @@ Liquid-Glass-Android/
 ui/node_modules/
 ui/dist/
 web/ui/
+
+# Archived pre-ui/ repo snapshot; kept locally only, never published.
+old/

@@ -43,7 +43,6 @@ import dev.mcmusic.app.ui.McField
 import dev.mcmusic.app.ui.Muted
 import dev.mcmusic.app.ui.SectionLabel
 import dev.mcmusic.app.ui.ScreenTitle
-import dev.mcmusic.app.ui.SignInCard
 import dev.mcmusic.app.ui.TrackRow
 import dev.mcmusic.app.ui.design.LocalDesign
 import dev.mcmusic.app.ui.design.mcSurface
@@ -101,10 +100,6 @@ fun SearchScreen(onPlaylist: (Int) -> Unit, onOpenPlayer: () -> Unit) {
                 keyboard = KeyboardOptions(imeAction = ImeAction.Search),
                 actions = KeyboardActions(onSearch = { }),
             )
-        }
-        if (Account.me == null) {
-            item { SignInCard() }
-            return@LazyColumn
         }
         if (searching) item { Loading("Searching…") }
         error?.let { item { ErrorLine(it) } }

@@ -41,14 +41,12 @@ import dev.mcmusic.app.playback.Playback
 import dev.mcmusic.app.ui.Cover
 import dev.mcmusic.app.ui.EmptyState
 import dev.mcmusic.app.ui.ErrorLine
-import dev.mcmusic.app.ui.GhostButton
 import dev.mcmusic.app.ui.Loading
 import dev.mcmusic.app.ui.Lucide
 import dev.mcmusic.app.ui.MediaCard
 import dev.mcmusic.app.ui.Pill
 import dev.mcmusic.app.ui.SectionLabel
 import dev.mcmusic.app.ui.ScreenTitle
-import dev.mcmusic.app.ui.SignInCard
 import dev.mcmusic.app.ui.TrackRow
 import dev.mcmusic.app.ui.design.LocalDesign
 import dev.mcmusic.app.ui.design.mcSurface
@@ -158,11 +156,6 @@ fun HomeScreen(onOpenSearch: () -> Unit, onOpenPlayer: () -> Unit) {
                     }
                 }
             }
-        }
-
-        if (me == null) {
-            item { SignInCard(onSignedIn = { reload++ }) }
-            item { GhostButton("Search the library", onClick = onOpenSearch) }
         }
 
         if (me != null) {

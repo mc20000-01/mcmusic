@@ -49,6 +49,8 @@ import dev.mcmusic.app.ui.screens.LibraryScreen
 import dev.mcmusic.app.ui.screens.PlaylistsScreen
 import dev.mcmusic.app.ui.screens.PlayerScreen
 import dev.mcmusic.app.ui.screens.SearchScreen
+import dev.mcmusic.app.ui.screens.AuthSplash
+import dev.mcmusic.app.ui.screens.SignInScreen
 import dev.mcmusic.app.ui.screens.SettingsScreen
 
 enum class Tab(val label: String, @param:DrawableRes val icon: Int) {
@@ -263,11 +265,22 @@ private fun TabContent(
  */
 @Composable
 fun McShell() {
+    // Verify the saved token before any screen can render. A cold start shows
+    // a short splash; a missing or rejected token shows only the sign-in gate.
+    LaunchedEffect(Unit) { Account.refresh() }
+    if (!Account.loaded) {
+        AuthSplash()
+        return
+    }
+    if (!Account.signedIn) {
+        SignInScreen()
+        return
+    }
+
     var tab by rememberSaveable { mutableStateOf(Tab.Home) }
     var previous by rememberSaveable { mutableStateOf(Tab.Home) }
     var playlistId by rememberSaveable { mutableStateOf<Int?>(null) }
 
-    LaunchedEffect(Unit) { Account.refresh() }
     LaunchedEffect(Account.isAdmin) {
         if (!Account.isAdmin && tab == Tab.Admin) tab = Tab.Home
     }
