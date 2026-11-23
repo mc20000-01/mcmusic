@@ -117,7 +117,7 @@ jobs:
       - name: Build native Qt .app and .dmg
         run: |
           set -euo pipefail
-          version=$(grep -oP '^version\s*=\s*"\K[^"]+' app/linux/pyproject.toml | head -1)
+          version=$(sed -n 's/^version[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' app/linux/pyproject.toml | head -1)
           MAKE_DMG=1 VERSION="$version" ./app/macos/build.sh
       - name: Verify the bundle contains no web engine or HTML
         run: |

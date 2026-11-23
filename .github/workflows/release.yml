@@ -107,7 +107,7 @@ jobs:
       - name: Build native .app and .dmg
         run: |
           set -euo pipefail
-          version=$(grep -oP '^version\s*=\s*"\K[^"]+' app/linux/pyproject.toml | head -1)
+          version=$(sed -n 's/^version[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' app/linux/pyproject.toml | head -1)
           MAKE_DMG=1 VERSION="$version" ./app/macos/build.sh
           mkdir -p artifacts
           ditto -c -k --sequesterRsrc --keepParent app/macos/dist/mcmusic.app "artifacts/mcmusic-macos-${version}.app.zip"
@@ -192,7 +192,7 @@ jobs:
       - name: Package simulator build
         run: |
           set -euo pipefail
-          version=$(grep -oP '^version\s*=\s*"\K[^"]+' app/linux/pyproject.toml | head -1)
+          version=$(sed -n 's/^version[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' app/linux/pyproject.toml | head -1)
           app=build/ios/Build/Products/Release-iphonesimulator/McMusic.app
           test -f "$app/McMusic"
           /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$app/Info.plist" | grep -qx 'dev.mcmusic.ios'
@@ -241,7 +241,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          desktop=$(grep -oP '^version\s*=\s*"\K[^"]+' app/linux/pyproject.toml | head -1 || echo "")
+          desktop=$(sed -n 's/^version[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' app/linux/pyproject.toml | head -1 || echo "")
           sha=$(git rev-parse --short=12 HEAD)
           android_version=$(grep -oP 'versionName\s*=\s*"\K[^"]+' gui/android/app/build.gradle.kts | head -1)
           current_apk="mcmusic-${android_version}.apk"

@@ -51,7 +51,7 @@ targets:
         PROVISIONING_PROFILE_SPECIFIER: ""
 
   McMusicTests:
-    type: bundle.unit.test
+    type: unitTestBundle
     platform: iOS
     deploymentTarget: "17.0"
     sources:
