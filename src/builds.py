@@ -25,7 +25,7 @@ BUILDS = {
         "ext": "apk",
         "maintype": "application",
         "subtype": "vnd.android.package-archive",
-        "note": "Android 8.0 and newer.",
+        "note": "Android 14 and newer.",
     },
     "linux-appimage": {
         "label": "Linux (AppImage)",
