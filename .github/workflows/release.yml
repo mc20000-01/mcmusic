@@ -4,6 +4,10 @@ name: Release builds
 # refreshes the rolling "latest" GitHub Release plus the repo-root builds/
 # snapshot. Pushes made by this workflow use GITHUB_TOKEN, which does not
 # trigger another run, so there is no build loop.
+#
+# The desktop and iOS builds need their own runners: PyInstaller cannot
+# cross-build a .app/.exe and Xcode only runs on macOS. Those jobs upload
+# their output and the publish job merges everything into one release.
 
 on:
   push:
@@ -18,8 +22,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
-    name: Build and publish
+  build-core:
+    name: Build web, Android and Linux
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -84,12 +88,153 @@ jobs:
       - name: Collect builds folder
         run: ./scripts/collect_builds.sh
 
-      - name: Upload workflow artifacts
+      - name: Upload core artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: mcmusic-builds-${{ github.sha }}
+          name: mcmusic-core-release
           path: builds/
           if-no-files-found: error
+
+  build-macos:
+    name: Build macOS Qt app
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build native .app and .dmg
+        run: |
+          set -euo pipefail
+          version=$(grep -oP '^version\s*=\s*"\K[^"]+' app/linux/pyproject.toml | head -1)
+          MAKE_DMG=1 VERSION="$version" ./app/macos/build.sh
+          mkdir -p artifacts
+          ditto -c -k --sequesterRsrc --keepParent app/macos/dist/mcmusic.app "artifacts/mcmusic-macos-${version}.app.zip"
+          cp app/macos/dist/mcmusic-*.dmg artifacts/
+      - name: Verify no web engine or HTML
+        run: |
+          set -euo pipefail
+          app=app/macos/dist/mcmusic.app
+          test -f "$app/Contents/MacOS/mcmusic"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$app/Contents/Info.plist" | grep -qx 'dev.mcmusic.app'
+          if find "$app" \( -iname 'QtWebEngine*' -o -iname 'QtWebKit*' -o -iname 'index.html' \) | grep -q .; then
+            echo "macOS bundle contains a web engine or HTML assets" >&2
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mcmusic-macos-release
+          path: artifacts/
+          if-no-files-found: error
+
+  build-windows:
+    name: Build Windows Qt app
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build native .exe and .zip
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path app/linux/pyproject.toml -Pattern '^version\s*=\s*"([^"]+)"').Matches[0].Groups[1].Value
+          ./app/windows/build.ps1 -Version $version -Zip
+          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+          Copy-Item "app/windows/dist/mcmusic-windows-x64.zip" "artifacts/mcmusic-windows-$version.zip"
+      - name: Verify no web engine or HTML
+        shell: pwsh
+        run: |
+          $exe = "app/windows/dist/mcmusic/mcmusic.exe"
+          if (-not (Test-Path $exe)) { throw "missing $exe" }
+          $web = Get-ChildItem -Path "app/windows/dist/mcmusic" -Recurse -File |
+            Where-Object { $_.Name -match 'QtWebEngine|QtWebKit|index\.html' }
+          if ($web) { throw "Windows build contains a web engine or HTML: $($web.FullName -join ', ')" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mcmusic-windows-release
+          path: artifacts/
+          if-no-files-found: error
+
+  build-ios:
+    name: Build iOS SwiftUI app
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Prepare app icon
+        run: |
+          set -euo pipefail
+          mkdir -p app/ios/McMusic/Assets.xcassets/AppIcon.appiconset
+          sips -z 1024 1024 web/icon-512.png --out app/ios/McMusic/Assets.xcassets/AppIcon.appiconset/icon-1024.png >/dev/null
+      - name: Generate Xcode project
+        run: xcodegen generate --spec app/ios/project.yml --project app/ios
+      - name: Build and test unsigned iOS Simulator app
+        run: |
+          set -euo pipefail
+          derived=build/ios
+          common=(-project app/ios/McMusic.xcodeproj -scheme McMusic -configuration Release -derivedDataPath "$derived" CODE_SIGNING_ALLOWED=NO)
+          xcodebuild "${common[@]}" -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            ARCHS='arm64 x86_64' ONLY_ACTIVE_ARCH=NO build
+          sim_id=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); devs=[x for r in d["devices"].values() for x in r if x.get("isAvailable") and x["name"].startswith("iPhone")]; print(devs[0]["udid"] if devs else "")')
+          if [ -n "$sim_id" ]; then
+            xcodebuild "${common[@]}" -sdk iphonesimulator \
+              -destination "platform=iOS Simulator,id=$sim_id" \
+              test
+          else
+            echo "no iPhone simulator available; skipping test action" >&2
+          fi
+      - name: Package simulator build
+        run: |
+          set -euo pipefail
+          version=$(grep -oP '^version\s*=\s*"\K[^"]+' app/linux/pyproject.toml | head -1)
+          app=build/ios/Build/Products/Release-iphonesimulator/McMusic.app
+          test -f "$app/McMusic"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$app/Info.plist" | grep -qx 'dev.mcmusic.ios'
+          if find "$app" \( -iname '*WebView*' -o -iname 'index.html' \) | grep -q .; then
+            echo "iOS bundle contains a web view or HTML" >&2
+            exit 1
+          fi
+          mkdir -p artifacts
+          ditto -c -k --sequesterRsrc --keepParent "$app" "artifacts/mcmusic-ios-simulator-${version}.app.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mcmusic-ios-release
+          path: artifacts/
+          if-no-files-found: error
+
+  publish:
+    name: Publish rolling release
+    runs-on: ubuntu-latest
+    needs: [build-core, build-macos, build-windows, build-ios]
+    timeout-minutes: 20
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Assemble builds folder
+        run: |
+          set -euo pipefail
+          mkdir -p builds
+          cp -R artifacts/mcmusic-core-release/. builds/
+          for f in artifacts/mcmusic-macos-release/* artifacts/mcmusic-windows-release/* artifacts/mcmusic-ios-release/*; do
+            [ -f "$f" ] || continue
+            cp "$f" builds/
+          done
+          ./scripts/collect_builds.sh
+          ls -lh builds
 
       - name: Publish rolling latest release
         env:
@@ -128,11 +273,14 @@ jobs:
             echo "### Notes"
             [ -n "$desktop" ] && echo "- Desktop package version: \`${desktop}\`."
             echo "- Android: \`${current_apk}\` (v${android_version})."
+            echo "- macOS: native Qt \`.app\` (zip) and \`.dmg\`."
+            echo "- Windows: native Qt portable \`.exe\` (zip)."
+            echo "- iOS: unsigned SwiftUI **Simulator** build \`.app.zip\` — needs Xcode/iOS Simulator, cannot be installed on a physical iPhone."
             echo "- Linux deb: \`sudo apt install ./file.deb\`. AppImage: \`chmod +x\` then run."
             echo "- Full checksums: \`SHA256SUMS\`."
             echo
             echo "### Recent changes"
-            git log -n 8 --pretty=format:'- %s (`%h`)' || true
+            git log -n 8 --pretty=format:'- %s (\`%h\`)' || true
             echo
           } > "$notes"
 
