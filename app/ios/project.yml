@@ -67,9 +67,12 @@ targets:
 schemes:
   McMusic:
     build:
-      targets: [McMusic, McMusicTests]
+      targets:
+        McMusic: all
+        McMusicTests: [test, run]
     test:
-      targets: [McMusicTests]
+      targets:
+        - McMusicTests
     run:
       target: McMusic
     profile:

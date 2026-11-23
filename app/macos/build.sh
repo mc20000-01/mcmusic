@@ -74,7 +74,7 @@ python -m PyInstaller \
   --icon build/mcmusic.icns \
   --osx-bundle-identifier dev.mcmusic.app \
   --collect-data mcmusic_linux \
-  "${arch_args[@]}" \
+  ${arch_args[@]+"${arch_args[@]}"} \
   launcher.py
 
 # Put a readable version in the bundle so About/Finder agree with the build.
