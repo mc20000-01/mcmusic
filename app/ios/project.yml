@@ -68,6 +68,20 @@ targets:
         CODE_SIGNING_ALLOWED: NO
 
 schemes:
+  # App-only scheme: builds the shippable bundle without XCTest frameworks.
+  McMusicApp:
+    build:
+      targets:
+        McMusic: all
+    run:
+      target: McMusic
+    profile:
+      target: McMusic
+    analyze:
+      target: McMusic
+    archive:
+      target: McMusic
+
   McMusic:
     build:
       targets:
