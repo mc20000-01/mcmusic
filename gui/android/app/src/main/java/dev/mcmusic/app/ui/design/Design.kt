@@ -17,9 +17,6 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.TextStyle
@@ -59,11 +56,12 @@ object Palettes {
     val flufi = McPalette(
         id = "flufi",
         label = "Flufi",
+        // Exact flufimusic v3 web tokens: one ink scale, one violet accent.
         bg = Color(0xFF08060D),
-        bg2 = Color(0xFF141120),
-        fg = Color(0xFFF4F1FA),
-        dim = Color(0xFFA49DB8),
-        line = Color(0xFF262137),
+        bg2 = Color(0xFF100C18),
+        fg = Color(0xFFFFFFFF),
+        dim = Color(0xFF948AA6),
+        line = Color(0xFF2A2040),
         accent = Color(0xFFA06BFF),
         dark = true,
     )
@@ -90,52 +88,35 @@ class McDesign(
     /** Retained so older call sites still compile. */
     val ios: Boolean get() = false
 
-    val cardRadius = 22.dp
-    val tileRadius = 16.dp
-    val screenPadding = 18.dp
-    val gap = 14.dp
+    // v3 uses one corner radius and flat surfaces, not a stack of rounded tiers.
+    val cardRadius = 10.dp
+    val tileRadius = 10.dp
+    val screenPadding = 16.dp
+    val gap = 12.dp
 
-    val titleSize = 30.sp
-    val titleWeight = FontWeight.Bold
+    val titleSize = 28.sp
+    val titleWeight = FontWeight.SemiBold
     val sectionSize = 11.sp
     val sectionWeight = FontWeight.SemiBold
 
     val fg = palette.fg
     val dim = palette.dim
     val accent = palette.accent
-    val accentSoft = palette.accent.copy(alpha = 0.16f)
-    val accentWash = palette.accent.copy(alpha = 0.08f)
+    val accentSoft = Color(0xFF241A38)
+    val accentWash = Color(0xFF181226)
     val hairline = palette.line
 
-    /** Slightly lifted, translucent panel fill. */
-    val cardFill = palette.bg2.copy(alpha = 0.92f)
+    /** Flat v3 panel fill; depth comes from the one-pixel border instead. */
+    val cardFill = palette.bg2
 }
 
 val LocalDesign = compositionLocalOf { McDesign(DesignLanguage.Flufi, Palettes.flufi) }
 
-/** The ink stage with two quiet violet glows, so flat panels have depth. */
+/** The flat v3 ink stage: solid ink, no gradients and no blur. */
 @Composable
 private fun Stage(modifier: Modifier, design: McDesign) {
     androidx.compose.foundation.Canvas(modifier) {
         drawRect(color = design.palette.bg)
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(design.accent.copy(alpha = 0.17f), Color.Transparent),
-                center = Offset(size.width * 0.86f, size.height * -0.04f),
-                radius = size.maxDimension * 0.72f,
-            ),
-            radius = size.maxDimension * 0.72f,
-            center = Offset(size.width * 0.86f, size.height * -0.04f),
-        )
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(design.accent.copy(alpha = 0.09f), Color.Transparent),
-                center = Offset(size.width * 0.08f, size.height * 1.04f),
-                radius = size.maxDimension * 0.62f,
-            ),
-            radius = size.maxDimension * 0.62f,
-            center = Offset(size.width * 0.08f, size.height * 1.04f),
-        )
     }
 }
 
@@ -197,7 +178,7 @@ fun McTheme(
     }
 }
 
-/** Elevated panel: soft shadow, translucent fill and a hairline edge. */
+/** Flat v3 panel: solid fill and a single hairline edge, no shadow. */
 @Composable
 fun Modifier.mcSurface(
     shape: Shape = RoundedCornerShape(LocalDesign.current.cardRadius),
@@ -205,13 +186,7 @@ fun Modifier.mcSurface(
 ): Modifier {
     val design = LocalDesign.current
     val fill = if (tint == Color.Transparent) design.cardFill else tint
-    return shadow(
-        elevation = 10.dp,
-        shape = shape,
-        ambientColor = Color.Black.copy(alpha = 0.45f),
-        spotColor = design.accent.copy(alpha = 0.10f),
-    )
-        .clip(shape)
+    return clip(shape)
         .background(fill, shape)
         .border(1.dp, design.hairline, shape)
 }

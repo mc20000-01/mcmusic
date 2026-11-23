@@ -237,7 +237,7 @@ object Api {
         meOf(JSONObject(post("/api/auth/email", body)))
     }
 
-    suspend fun me(): Me? = runCatching { meOf(JSONObject(get("/api/me"))) }.getOrNull()
+    suspend fun me(): Result<Me> = call { meOf(JSONObject(get("/api/me"))) }
 
     /** Personalised feed: made-for-you sections plus recently added albums. */
     suspend fun home(): Result<HomeFeed> = call {

@@ -11,10 +11,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -28,8 +30,10 @@ import androidx.compose.ui.unit.sp
 import dev.mcmusic.app.BuildConfig
 import dev.mcmusic.app.data.Account
 import dev.mcmusic.app.data.Api
+import dev.mcmusic.app.data.AppUpdate
 import dev.mcmusic.app.data.Downloads
 import dev.mcmusic.app.data.Prefs
+import dev.mcmusic.app.data.Updater
 import dev.mcmusic.app.ui.ErrorLine
 import dev.mcmusic.app.ui.GhostButton
 import dev.mcmusic.app.ui.Lucide
@@ -38,7 +42,6 @@ import dev.mcmusic.app.ui.Muted
 import dev.mcmusic.app.ui.ScreenTitle
 import dev.mcmusic.app.ui.SectionLabel
 import dev.mcmusic.app.ui.SettingCard
-import dev.mcmusic.app.ui.SignInCard
 import dev.mcmusic.app.ui.SettingDivider
 import dev.mcmusic.app.ui.SettingRow
 import dev.mcmusic.app.ui.SwitchRow
@@ -67,7 +70,47 @@ fun SettingsScreen(onAdmin: () -> Unit, onSignedOut: () -> Unit) {
     var newPassword by remember { mutableStateOf("") }
     var showAccountTools by remember { mutableStateOf(false) }
 
+    var update by remember { mutableStateOf<AppUpdate?>(null) }
+    var checking by remember { mutableStateOf(false) }
+    var downloading by remember { mutableStateOf(false) }
+    var progress by remember { mutableIntStateOf(0) }
+    var updateError by remember { mutableStateOf<String?>(null) }
+
     LaunchedEffect(me?.id) { email = me?.email.orEmpty() }
+
+    fun checkUpdate() {
+        checking = true
+        updateError = null
+        scope.launch {
+            Updater.check().fold(
+                onSuccess = { update = it },
+                onFailure = { updateError = it.message ?: "could not check for updates" },
+            )
+            checking = false
+        }
+    }
+
+    fun installUpdate() {
+        val found = update ?: return
+        downloading = true
+        progress = 0
+        updateError = null
+        scope.launch {
+            Updater.download(context, found) { progress = it }.fold(
+                onSuccess = { file ->
+                    runCatching { Updater.install(context, file) }
+                        .onFailure { updateError = it.message ?: "could not start the installer" }
+                    downloading = false
+                },
+                onFailure = {
+                    updateError = it.message ?: "download failed"
+                    downloading = false
+                },
+            )
+        }
+    }
+
+    LaunchedEffect(Unit) { checkUpdate() }
 
     LazyColumn(
         contentPadding = PaddingValues(design.screenPadding, 10.dp, design.screenPadding, 32.dp),
@@ -78,9 +121,7 @@ fun SettingsScreen(onAdmin: () -> Unit, onSignedOut: () -> Unit) {
         notice?.let { item { Muted(it) } }
 
         item { SectionLabel("Account") }
-        if (me == null) {
-            item { SignInCard() }
-        } else {
+        if (me != null) {
             item {
                 SettingCard {
                     SettingRow("Signed in as ${me.username}", me.email ?: "no email on file", icon = Lucide.User)
@@ -129,8 +170,7 @@ fun SettingsScreen(onAdmin: () -> Unit, onSignedOut: () -> Unit) {
                 SettingCard {
                     SettingRow("Sign out", danger = true, icon = Lucide.LogOut) {
                         scope.launch {
-                            Api.logout()
-                            Account.refresh()
+                            Account.signOut()
                             onSignedOut()
                         }
                     }
@@ -196,6 +236,44 @@ fun SettingsScreen(onAdmin: () -> Unit, onSignedOut: () -> Unit) {
                         }
                     }
                 }
+            }
+        }
+
+        item { SectionLabel("Update") }
+        item {
+            SettingCard {
+                SettingRow(
+                    "Version",
+                    if (checking) "checking the server…"
+                    else update?.let { "Update available: ${it.version}" } ?: "You are on the newest build",
+                    icon = Lucide.RefreshCw,
+                    value = Updater.currentVersion,
+                )
+                SettingDivider()
+                if (update != null && !downloading) {
+                    SettingRow(
+                        "Install update",
+                        "Downloads the signed APK from this server",
+                        icon = Lucide.Download,
+                        onClick = { installUpdate() },
+                    )
+                } else {
+                    SettingRow(
+                        if (downloading) "Downloading $progress%" else "Check for updates",
+                        "Uses the same build the website serves",
+                        icon = Lucide.RefreshCw,
+                        onClick = { if (!downloading) checkUpdate() },
+                    )
+                }
+                if (downloading) {
+                    LinearProgressIndicator(
+                        progress = { progress / 100f },
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+                        color = design.accent,
+                        trackColor = design.hairline,
+                    )
+                }
+                updateError?.let { ErrorLine(it) }
             }
         }
 

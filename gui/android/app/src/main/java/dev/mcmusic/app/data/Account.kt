@@ -16,10 +16,48 @@ object Account {
     var loaded by mutableStateOf(false)
         private set
 
+    /** Why a stored token could not be verified, shown on the sign-in gate. */
+    var gateError by mutableStateOf<String?>(null)
+        private set
+
     val isAdmin: Boolean get() = me?.isAdmin == true
 
+    /** The shell uses this to keep every screen behind the sign-in gate. */
+    val signedIn: Boolean get() = me != null
+
     suspend fun refresh() {
-        me = Api.me()
+        loaded = false
+        gateError = null
+        // No credential means there is nothing to verify: go straight to the
+        // sign-in gate instead of asking /api/me and showing an empty shell.
+        if (Prefs.token.isNullOrBlank()) {
+            me = null
+            loaded = true
+            return
+        }
+        Api.me().fold(
+            onSuccess = { me = it },
+            onFailure = { failure ->
+                me = null
+                if (failure is ApiException && failure.code == 401) {
+                    // A revoked token must not leave a phantom session or an
+                    // endless retry loop; the password gate is the way back.
+                    Prefs.saveToken(null)
+                    Prefs.saveUsername(null)
+                    Api.clearCookies()
+                } else {
+                    // Wi-Fi blips must not throw away a perfectly good token.
+                    gateError = failure.message ?: "could not reach the server"
+                }
+            },
+        )
+        loaded = true
+    }
+
+    /** End the session everywhere in the app; the shell falls back to sign-in. */
+    suspend fun signOut() {
+        Api.logout()
+        me = null
         loaded = true
     }
 
