@@ -51,7 +51,7 @@ targets:
         PROVISIONING_PROFILE_SPECIFIER: ""
 
   McMusicTests:
-    type: unitTestBundle
+    type: bundle.unit-test
     platform: iOS
     deploymentTarget: "17.0"
     sources:
@@ -63,3 +63,18 @@ targets:
         PRODUCT_NAME: McMusicTests
         SWIFT_VERSION: "5.10"
         CODE_SIGNING_ALLOWED: NO
+
+schemes:
+  McMusic:
+    build:
+      targets: [McMusic, McMusicTests]
+    test:
+      targets: [McMusicTests]
+    run:
+      target: McMusic
+    profile:
+      target: McMusic
+    analyze:
+      target: McMusic
+    archive:
+      target: McMusic
