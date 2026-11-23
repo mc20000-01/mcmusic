@@ -168,12 +168,17 @@ fun SettingsScreen(onAdmin: () -> Unit, onSignedOut: () -> Unit) {
             }
             item {
                 SettingCard {
-                    SettingRow("Sign out", danger = true, icon = Lucide.LogOut) {
-                        scope.launch {
-                            Account.signOut()
-                            onSignedOut()
-                        }
-                    }
+                    SettingRow(
+                        "Sign out",
+                        danger = true,
+                        icon = Lucide.LogOut,
+                        onClick = {
+                            scope.launch {
+                                Account.signOut()
+                                onSignedOut()
+                            }
+                        },
+                    )
                 }
             }
         }
@@ -227,14 +232,15 @@ fun SettingsScreen(onAdmin: () -> Unit, onSignedOut: () -> Unit) {
                         "Notifications",
                         "Keep music playing when the screen is off",
                         icon = Lucide.Info,
-                    ) {
-                        runCatching {
-                            context.startActivity(
-                                Intent(AndroidSettings.ACTION_APP_NOTIFICATION_SETTINGS)
-                                    .putExtra(AndroidSettings.EXTRA_APP_PACKAGE, context.packageName),
-                            )
-                        }
-                    }
+                        onClick = {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(AndroidSettings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                        .putExtra(AndroidSettings.EXTRA_APP_PACKAGE, context.packageName),
+                                )
+                            }
+                        },
+                    )
                 }
             }
         }
