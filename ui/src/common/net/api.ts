@@ -154,6 +154,12 @@ export const API = {
         send("register", "POST", data),
     logout: () => send("logout", "POST"),
 
+    // ------------------------------------------------------------- password resets
+    requestReset: (email: string) => send("auth/reset/request", "POST", { email }),
+    checkReset: (token: string) => send("auth/reset/check", "POST", { token }),
+    confirmReset: (token: string, password: string) =>
+        send("auth/reset/confirm", "POST", { token, password }),
+
     async listAlbums(opts: {
         limit?: number, offset?: number, q?: string, sort?: string, minTracks?: number
     } = {}): Promise<{ albums: SetEntity[], total: number }> {

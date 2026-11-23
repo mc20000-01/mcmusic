@@ -76,6 +76,15 @@ export function AuthPage() {
                     {busy ? "..." : mode == "login" ? "Sign in" : "Create account"}
                 </Button>
 
+                {mode == "login" && (
+                    <Button
+                        variant="always-transparent"
+                        onClick={() => { loc.route("/forgot"); setError(null); }}
+                    >
+                        <Text dim content="Forgot password?" />
+                    </Button>
+                )}
+
                 <Button
                     variant="always-transparent"
                     onClick={() => { setMode(mode == "login" ? "register" : "login"); setError(null); }}

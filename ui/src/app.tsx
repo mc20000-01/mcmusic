@@ -10,6 +10,7 @@ import { Container, MainContainer } from "flufi-ui/components";
 import { HomePage } from "./pages/Home/Home";
 import { NotFoundPage } from "./pages/NotFound/NotFound";
 import { AuthPage } from "./pages/Auth/Auth";
+import { ResetPage } from "./pages/Auth/Reset";
 import { Topbar } from "./components/Topbar/Topbar";
 import { LeftSidebar } from "./components/LeftSidebar/LeftSidebar";
 import { UploadPage } from "./pages/Upload/Upload";
@@ -42,11 +43,14 @@ export function Main() {
     let showTopbar: boolean = true;
     let showSidebar: boolean = true;
 
-    if (loc.path == "/auth" || loc.path == "/not-allowed")
+    const publicPage = loc.path == "/auth" || loc.path == "/forgot" ||
+        loc.path == "/reset" || loc.path == "/reset/" || loc.path == "/not-allowed";
+
+    if (publicPage)
         showTopbar = false,
         showSidebar = false;
 
-    if (authCheckDone.value && peekAuth() == null && loc.path != "/auth")
+    if (authCheckDone.value && peekAuth() == null && !publicPage)
         loc.route("/auth");
 
     useEffect(() => {
@@ -80,6 +84,9 @@ export function Main() {
                 <Router>
                     <Route path="/" component={HomePage} />
                     <Route path="/auth" component={AuthPage} />
+                    <Route path="/forgot" component={ResetPage} />
+                    <Route path="/reset" component={ResetPage} />
+                    <Route path="/reset/" component={ResetPage} />
                     <Route path="/upload" component={UploadPage} />
                     <Route path="/artists" component={ArtistsPage} />
                     <Route path="/artist/:uuid" component={ArtistPage} />

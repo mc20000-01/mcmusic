@@ -12,8 +12,8 @@ android {
         applicationId = "dev.mcmusic.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 42
-        versionName = "3.3.0"
+        versionCode = 43
+        versionName = "3.3.1"
         buildConfigField("String", "DEFAULT_SERVER", "\"https://mcmusic.sdisk.us\"")
     }
 
