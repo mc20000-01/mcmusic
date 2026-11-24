@@ -34,7 +34,7 @@ final class Player: NSObject, ObservableObject {
     var currentTitle: String { current?.first("title", "name", "song")?.string ?? "Nothing playing" }
     var currentArtist: String { current?.first("artist", "artist_name", "author")?.string ?? "" }
     var currentTrackID: Int? {
-        guard let value = Self.id(current) else { return nil }
+        guard let current, let value = Self.id(current) else { return nil }
         return Int(value)
     }
 

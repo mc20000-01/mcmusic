@@ -110,9 +110,13 @@ def split_artists(artist, title=""):
     return found
 
 
-def index_track(conn, track_id, artist, title=""):
-    """(Re)write track_artists, the artist_key index and tracks.artists JSON."""
-    names = split_artists(artist, title)
+def index_track(conn, track_id, artist, title="", names=None):
+    """(Re)write track_artists, the artist_key index and tracks.artists JSON.
+
+    The puller can pass the exact credited names it parsed; older callers fall
+    back to splitting the (possibly raw) artist tag here.
+    """
+    names = list(names) if names is not None else split_artists(artist, title)
     conn.execute("delete from track_artists where track_id=?", (track_id,))
     for pos, name in enumerate(names):
         conn.execute(

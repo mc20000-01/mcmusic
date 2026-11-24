@@ -26,38 +26,40 @@ import shutil
 import sqlite3
 import sys
 import time
-import unicodedata
 
 from config import DB_PATH, MUSIC_DIR
+from artists import norm_key, split_artists
+import song_meta
 
-BRACKETS_RE = re.compile(r"[\(\[\{]([^\)\]\}]*)[\)\]\}]")
-FEAT_RE = re.compile(r"\b(?:feat|ft|featuring)\.?\s+.*$", re.I)
-JUNK_RE = re.compile(r"\b(?:official|video|audio|lyrics?|hd|hq|remaster(?:ed)?|mv|4k|visuali[sz]er)\b", re.I)
-JUNK_WORDS = {"official", "video", "audio", "lyric", "lyrics", "hd", "hq",
-              "mv", "4k", "remaster", "remastered", "visualizer", "visualiser"}
-TOPIC_SUFFIX_RE = re.compile(r"\s*-\s*topic\s*$", re.I)
-WORD_RE = re.compile(r"[^a-z0-9]+")
-DURATION_SLACK = 3.0
+DURATION_SLACK = 5.0
 
 
-def _bracket(match):
-    """Keep version-defining brackets, drop only junk-only ones."""
-    words = set(WORD_RE.sub(" ", match.group(1).lower()).split())
-    return " " if words and words <= JUNK_WORDS else f" {match.group(1)} "
+def _row_get(row, key, default=None):
+    try:
+        return row[key]
+    except (IndexError, KeyError):
+        return default
 
 
 def norm(value):
-    text = unicodedata.normalize("NFKD", str(value or ""))
-    text = text.encode("ascii", "ignore").decode().lower()
-    text = TOPIC_SUFFIX_RE.sub("", text)
-    text = BRACKETS_RE.sub(_bracket, text)
-    text = FEAT_RE.sub(" ", text)
-    text = JUNK_RE.sub(" ", text)
-    return WORD_RE.sub(" ", text).strip()
+    """Matching key that keeps non-Latin titles and folds kana/romaji."""
+    return norm_key(song_meta.match_text(value))
+
+
+def _names(raw):
+    try:
+        value = json.loads(raw or "[]")
+    except (TypeError, ValueError):
+        return []
+    return [str(v) for v in value if str(v).strip()]
 
 
 def artist_key(row):
-    return norm(row["artist"]) or "unknown"
+    """Order-insensitive key over the credited artists, not the raw credit blob."""
+    names = _names(_row_get(row, "artists")) or split_artists(
+        _row_get(row, "artist", ""), _row_get(row, "title", ""))
+    keys = sorted({norm_key(n) for n in names if norm_key(n)})
+    return "|".join(keys) or norm(_row_get(row, "artist")) or "unknown"
 
 
 def duration_close(a, b):
@@ -103,14 +105,6 @@ def find_groups(rows):
     return [sorted(items, key=lambda r: r["id"]) for items in groups.values() if len(items) > 1]
 
 
-def _names(raw):
-    try:
-        value = json.loads(raw or "[]")
-    except (TypeError, ValueError):
-        return []
-    return [str(v) for v in value if str(v).strip()]
-
-
 def richness(row):
     score = 0
     if row["yt_id"]:
@@ -147,7 +141,7 @@ def quarantine(rel_path):
     except OSError as e:
         print(f"  ! could not move {rel_path}: {e}", file=sys.stderr)
         return None
-    for side in (".lrc", ".yt.json"):
+    for side in (".lrc", ".yt.json", ".meta.json"):
         side_src = os.path.splitext(src)[0] + side
         if os.path.exists(side_src):
             try:
@@ -168,7 +162,7 @@ def fill_missing(conn, keep, dup):
             and dup_album and dup_album != (dup["title"] or "").strip():
         updates["album"] = dup_album
     for column in ("genre", "year", "lyrics", "lyrics_source", "yt_likes",
-                   "yt_views", "yt_channel", "yt_date"):
+                   "yt_views", "yt_channel", "yt_date", "yt_tags", "themes"):
         if not keep[column] and dup[column]:
             updates[column] = dup[column]
     if not keep["duration"] and dup["duration"]:
@@ -176,7 +170,6 @@ def fill_missing(conn, keep, dup):
     if updates:
         sets = ", ".join(f"{k}=?" for k in updates)
         conn.execute(f"update tracks set {sets} where id=?", (*updates.values(), keep["id"]))
-        keep.update(updates)
 
 
 def repoint(conn, keep, dup):
@@ -213,9 +206,14 @@ def repoint(conn, keep, dup):
         except (TypeError, ValueError):
             continue
         if dup["id"] in ids:
+            merged = []
+            for track_id in ids:
+                real = keep["id"] if track_id == dup["id"] else track_id
+                if real not in merged:
+                    merged.append(real)
             conn.execute(
                 "update playback set queue=? where user_id=?",
-                (json.dumps([keep["id"] if i == dup["id"] else i for i in ids]), pb["user_id"]),
+                (json.dumps(merged), pb["user_id"]),
             )
     conn.execute(
         "update devices set current_track_id=? where current_track_id=?", (keep["id"], dup["id"])
@@ -226,23 +224,29 @@ def merge_artists(conn, keep, dup):
     names = _names(keep["artists"])
     seen = {n.casefold() for n in names}
     names += [n for n in _names(dup["artists"]) if n.casefold() not in seen]
-    if names != _names(keep["artists"]):
-        conn.execute("update tracks set artists=? where id=?", (json.dumps(names), keep["id"]))
     for pos, name in enumerate(names):
         conn.execute(
-            "insert or ignore into track_artists(track_id, artist, position) values(?,?,?)",
-            (keep["id"], name, pos),
+            "insert or ignore into track_artists(track_id, artist, artist_key, position) "
+            "values(?,?,?,?)",
+            (keep["id"], name, norm_key(name) or name.casefold(), pos),
         )
+    if names:
+        conn.execute("update tracks set artists=?, artist=? where id=?",
+                     (json.dumps(names), ", ".join(names), keep["id"]))
     conn.execute("delete from track_artists where track_id=?", (dup["id"],))
 
 
-def run(dry_run=True):
+def run(dry_run=True, quiet=False):
+    def say(message):
+        if not quiet:
+            print(message)
+
     conn = sqlite3.connect(DB_PATH, timeout=30)
     conn.row_factory = sqlite3.Row
     rows = conn.execute(
         "select id, path, title, artist, artists, album, genre, year, duration, "
-        "track_no, yt_id, yt_likes, yt_views, yt_channel, yt_date, lyrics, lyrics_source "
-        "from tracks order by id"
+        "track_no, yt_id, yt_likes, yt_views, yt_channel, yt_date, lyrics, lyrics_source, "
+        "yt_tags, themes from tracks order by id"
     ).fetchall()
     groups = find_groups(rows)
     folded = 0
@@ -263,7 +267,7 @@ def run(dry_run=True):
                         (keep["id"], item["yt_id"], url, item["title"], time.time()),
                     )
                     links += cur.rowcount
-            print(f"  merge #{item['id']} {item['title']!r} -> #{keep['id']} {keep['title']!r}")
+            say(f"  merge #{item['id']} {item['title']!r} -> #{keep['id']} {keep['title']!r}")
             if dry_run:
                 folded += 1
                 continue
@@ -277,8 +281,8 @@ def run(dry_run=True):
         conn.commit()
     conn.close()
     verb = "would fold" if dry_run else "folded"
-    print(f"{len(groups)} duplicate group(s) found; {verb} {folded} track(s), "
-          f"{links} link(s) kept on the survivor.")
+    say(f"{len(groups)} duplicate group(s) found; {verb} {folded} track(s), "
+        f"{links} link(s) kept on the survivor.")
     return 0
 
 

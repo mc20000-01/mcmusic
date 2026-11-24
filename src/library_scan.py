@@ -1,13 +1,14 @@
 """Library scan + YouTube enrichment background workers (extracted from monolith)."""
-import json, os, re, time, threading, queue, random
+import json, os, re, sys, time, threading, queue, random
 import mutagen
 from mutagen.id3 import ID3
 from mutagen.mp4 import MP4, MP4Cover
 from mutagen.flac import FLAC
 
-from config import MUSIC_DIR, AUDIO_EXTS, YT_ENRICH, YT_HOSTS
+from config import MUSIC_DIR, AUDIO_EXTS, YT_ENRICH, YT_HOSTS, DEDUPE_AFTER_SCAN
 from database import _db
 from artists import index_track
+import song_meta
 
 # Ensure tables exist for rotur_codes (kept for legacy code flow)
 CREATE_ROTUR_CODES = """
@@ -125,7 +126,8 @@ scan_lock = threading.Lock()
 def scan_library(conn):
     """Walk MUSIC_DIR, upsert tracks, remove deleted files, optionally enqueue YT enrichment."""
     with scan_lock:
-        known = {r["path"]: r["mtime"] for r in conn.execute("select path, mtime from tracks")}
+        known = {r["path"]: r for r in conn.execute(
+            "select path, mtime, themes from tracks")}
         seen = set()
         pending = 0
         for root, dirs, files in os.walk(MUSIC_DIR):
@@ -140,14 +142,27 @@ def scan_library(conn):
                     mt = os.path.getmtime(full)
                 except OSError:
                     continue
-                if known.get(rel) == mt:
+                prev = known.get(rel)
+                if prev and prev["mtime"] == mt and prev["themes"] is not None:
                     continue
                 title, artist, album, no, genre, year, dur, lyrics, lsrc = read_tags(full, rel)
                 yt = read_yt_sidecar(full) or {}
                 genre = genre or (yt.get("genre") or "") or ""
                 year = year or str(yt.get("upload_date") or "")[:4]
                 album = album if not yt.get("album") else yt["album"]
-                artist = (yt.get("artist") or yt.get("creator") or artist) or artist
+                meta = song_meta.parse_song_meta(
+                    title,
+                    artist=yt.get("artist") or artist,
+                    creator=yt.get("creator"),
+                    uploader=yt.get("uploader"),
+                    channel=yt.get("channel"),
+                    description=yt.get("description"),
+                    tags=yt.get("tags"),
+                    categories=yt.get("categories"),
+                    genre=genre,
+                )
+                title, artist, genre = meta["title"], meta["artist"], meta["genre"]
+                themes = json.dumps(meta["themes"])
                 yt_id = yt.get("id") or read_yt_id(full)
                 yt_tags = json.dumps(yt.get("tags") or []) if yt.get("tags") else None
                 for extra in (".lrc", ".yt.json"):
@@ -157,19 +172,20 @@ def scan_library(conn):
                         pass
                 conn.execute(
                     """insert into tracks(path,title,artist,album,track_no,genre,year,duration,
-                                          mtime,added,yt_id,lyrics,lyrics_source,yt_tags)
-                       values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                                          mtime,added,yt_id,lyrics,lyrics_source,yt_tags,themes)
+                       values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                        on conflict(path) do update set title=excluded.title, artist=excluded.artist,
                        album=excluded.album, track_no=excluded.track_no, genre=excluded.genre,
                        year=excluded.year, duration=excluded.duration, mtime=excluded.mtime,
                        yt_id=coalesce(excluded.yt_id, tracks.yt_id),
                        lyrics=excluded.lyrics, lyrics_source=excluded.lyrics_source,
-                       yt_tags=coalesce(excluded.yt_tags, tracks.yt_tags)""",
+                       yt_tags=coalesce(excluded.yt_tags, tracks.yt_tags),
+                       themes=excluded.themes""",
                     (rel, title, artist, album, no, genre, year, dur, mt, time.time(),
-                     yt_id, lyrics, lsrc, yt_tags),
+                     yt_id, lyrics, lsrc, yt_tags, themes),
                 )
                 tid = conn.execute("select id from tracks where path=?", (rel,)).fetchone()[0]
-                index_track(conn, tid, artist, title)
+                index_track(conn, tid, artist, title, names=meta["artists"])
                 # Commit in batches: a walk over a big library can take minutes,
                 # and holding the write lock that whole time makes every other
                 # write 500 with "database is locked".
@@ -193,6 +209,14 @@ def scan_library(conn):
             )
             conn.execute("delete from tracks where path=?", (rel,))
         conn.commit()
+    # Folding duplicates here (not just at the end of a downloader run) keeps
+    # the library clean after admin scans, startup scans and interrupted runs.
+    if DEDUPE_AFTER_SCAN:
+        try:
+            import dedupe_library
+            dedupe_library.run(dry_run=False, quiet=True)
+        except Exception as e:
+            print(f"[dedupe warn] {e}", file=sys.stderr)
     if YT_ENRICH:
         queue_enrich(conn)
 
@@ -239,7 +263,7 @@ def yt_worker():
                 if delay <= 0:
                     break
                 time.sleep(min(5.0, delay))
-            r = conn.execute("select yt_id from tracks where id=?", (tid,)).fetchone()
+            r = conn.execute("select yt_id, title, genre, themes from tracks where id=?", (tid,)).fetchone()
             if r and r["yt_id"]:
                 info = None
                 try:
@@ -254,13 +278,24 @@ def yt_worker():
                         yt_blocked_until = time.time() + yt_backoff * random.uniform(0.9, 1.1)
                         retry = True
                 if info:
-                    title = info.get("title") or ""
+                    title = info.get("title") or r["title"] or ""
                     ex = 1 if (info.get("age_limit") or 0) >= 18 or re.search(r"[\(\[]\s*explicit\s*[\)\]]", title, re.I) else 0
+                    meta = song_meta.parse_song_meta(
+                        title,
+                        artist=info.get("artist"), creator=info.get("creator"),
+                        uploader=info.get("uploader"), channel=info.get("channel"),
+                        description=info.get("description"), tags=info.get("tags"),
+                        categories=info.get("categories"), genre=r["genre"] or info.get("genre"),
+                    )
+                    yt_tags = json.dumps(info.get("tags")) if info.get("tags") else None
                     conn.execute("""update tracks set yt_likes=?, yt_views=?, yt_channel=?, yt_date=?,
-                                    explicit_auto=?, yt_checked=? where id=?""",
+                                    explicit_auto=?, yt_checked=?, yt_tags=coalesce(yt_tags, ?),
+                                    themes=coalesce(nullif(themes, ''), ?),
+                                    genre=coalesce(nullif(genre, ''), ?) where id=?""",
                                  (info.get("like_count"), info.get("view_count"),
                                   info.get("channel") or info.get("uploader"), info.get("upload_date"),
-                                  ex, time.time(), tid))
+                                  ex, time.time(), yt_tags, json.dumps(meta["themes"]),
+                                  meta["genre"], tid))
                 elif not retry:
                     conn.execute("update tracks set yt_checked=? where id=?", (time.time(), tid))
                 conn.commit()

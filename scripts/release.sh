@@ -25,7 +25,7 @@ while [ $# -gt 0 ]; do
 done
 
 android_version=$(grep -oP 'versionName\s*=\s*"\K[^"]+' gui/android/app/build.gradle.kts 2>/dev/null | head -1 || true)
-desktop_version=$(grep -oP '^version\s*=\s*"\K[^"]+' app/linux/pyproject.toml 2>/dev/null | head -1 || true)
+desktop_version=$(PYTHONPATH=app/linux python3 -c 'from mcmusic_linux.version import FALLBACK_VERSION; print(FALLBACK_VERSION)' 2>/dev/null || true)
 version=${android_version:-${desktop_version:-0.0.0}}
 tag="v${version}"
 sha=$(git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)

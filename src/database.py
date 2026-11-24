@@ -6,6 +6,7 @@ import time
 from flask import g
 
 from config import DB_PATH
+from song_meta import video_id
 
 # --------------------------------------------------------------------------- schema
 SCHEMA = """
@@ -37,7 +38,10 @@ create table if not exists tracks(
   yt_date text,
   yt_checked real,
   explicit_auto integer default 0,
-  explicit_ovr integer
+  explicit_ovr integer,
+  yt_tags text,
+  artists text,
+  themes text
 );
 create table if not exists playlists(
   id integer primary key,
@@ -253,6 +257,7 @@ NEW_COLS = {
     "lyrics_source": "text",
     "yt_tags": "text",
     "artists": "text",
+    "themes": "text",
 }
 NEW_USER_COLS = {
     "rotur_id": "text", "rotur_username": "text", "email": "text",
@@ -376,6 +381,41 @@ def liked_ids(c, uid):
         "select track_id from likes where user_id=?", (uid,))}
 
 
+# A link that is already queued or already in the library should not start a
+# second download. Playlist links have no single video id, so they are matched
+# on the exact URL instead.
+ACTIVE_REQUESTS = ("pending", "approved", "running")
+
+
+def find_repeat_request(c, url):
+    row = c.execute(
+        "select id,url,status from requests where url=? and status in (?,?,?) "
+        "order by id desc limit 1", (url, *ACTIVE_REQUESTS),
+    ).fetchone()
+    if row:
+        return row
+    vid = video_id(url)
+    if not vid:
+        return None
+    for other in c.execute(
+        "select id,url,status from requests where status in (?,?,?) order by id desc",
+        ACTIVE_REQUESTS,
+    ):
+        if video_id(other["url"]) == vid:
+            return other
+    return None
+
+
+def video_in_library(c, url):
+    vid = video_id(url)
+    if not vid:
+        return False
+    return bool(c.execute(
+        "select 1 from tracks where yt_id=? union "
+        "select 1 from track_sources where yt_id=? limit 1", (vid, vid),
+    ).fetchone())
+
+
 def _json_list(raw):
     try:
         v = json.loads(raw or "[]")
@@ -403,6 +443,7 @@ def track_dict(c, r, liked=()):
         "has_lyrics": bool(_row_get(r, "lyrics")),
         "lyrics_source": _row_get(r, "lyrics_source"),
         "yt_tags": _json_list(_row_get(r, "yt_tags")),
+        "themes": _json_list(_row_get(r, "themes")),
         "artists": _json_list(_row_get(r, "artists")) or ([r["artist"]] if r["artist"] else []),
     }
 

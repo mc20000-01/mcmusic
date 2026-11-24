@@ -200,7 +200,12 @@ struct SettingsView: View {
     }
 
     private func load() async {
-        let values = app.settings ?? (try? await app.client.settings())
+        let values: JSON?
+        if let cached = app.settings {
+            values = cached
+        } else {
+            values = try? await app.client.settings()
+        }
         density = values?["density"]?.string ?? density
         material = values?["material"]?.string ?? material
         realGlass = values?["real_glass"]?.string ?? realGlass

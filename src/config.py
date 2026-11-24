@@ -15,6 +15,8 @@ STAGING_DIR = os.environ.get("STAGING_DIR", os.path.join(MUSIC_DIR, ".staging"))
 INVITE_CODE = os.environ.get("INVITE_CODE", "")
 AUTO_APPROVE = os.environ.get("AUTO_APPROVE", "1") == "1"
 YT_ENRICH = os.environ.get("YT_ENRICH", "1") == "1"
+# Fold duplicates after every library scan, not only at the end of a download.
+DEDUPE_AFTER_SCAN = os.environ.get("DEDUPE_AFTER_SCAN", "1") == "1"
 # 0 keeps a deliberately emptied library empty: start-up will not re-import
 # files that are still on disk (downloads still trigger their own scan).
 SCAN_ON_START = os.environ.get("SCAN_ON_START", "1").lower() not in ("0", "false", "no")

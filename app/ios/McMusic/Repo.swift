@@ -6,7 +6,9 @@ import UIKit
 /// session cookie. Replay-safe writes fall back to the local outbox offline.
 extension APIClient {
     private func isOffline(_ error: Error) -> Bool {
-        (error as? APIError)?.status == 0
+        guard let apiError = error as? APIError else { return false }
+        if case APIError.status(let code, _) = apiError { return code == 0 }
+        return false
     }
 
     @discardableResult
