@@ -96,6 +96,7 @@ jobs:
             src/config.py \
             src/auth.py \
             src/database.py \
+            src/next_song_model.py \
             src/routes/system_routes.py \
             src/routes/library_routes.py \
             src/routes/personal_routes.py \
@@ -103,7 +104,9 @@ jobs:
             src/routes/channel_routes.py \
             src/discord_bot.py \
             src/music_channels.py \
-            src/originchats.py
+            src/originchats.py \
+            algo/encoding.py \
+            algo/mdl.py
 
   macos-checks:
     name: macOS native build

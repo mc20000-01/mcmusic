@@ -35,6 +35,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Prefs.init(applicationContext)
+        // Restore the last verified identity before the first composition, so a
+        // background/service blip never flashes the sign-in gate on cold start.
+        Account.restoreCached()
         Api.init(applicationContext)
         Downloads.init(applicationContext)
         Playback.init(applicationContext)
@@ -81,6 +84,16 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Revalidate in the background without dropping the cached identity.
+        // Account.refresh() keeps the saved Me on transient failures and only
+        // clears the session on a real 401.
+        if (!Prefs.token.isNullOrBlank() || !Prefs.pendingToken.isNullOrBlank()) {
+            lifecycleScope.launch { Account.refresh() }
+        }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleOAuthIntent(intent)
@@ -103,7 +116,7 @@ class MainActivity : ComponentActivity() {
                 onFailure = {
                     Toast.makeText(
                         this@MainActivity,
-                        it.message ?: "Rotur sign-in failed",
+                        Account.status ?: it.message ?: "Rotur sign-in failed",
                         Toast.LENGTH_LONG,
                     ).show()
                 },

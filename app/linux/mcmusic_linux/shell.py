@@ -1,14 +1,19 @@
 """The native window: rail, masthead, content stack, deck and overlays."""
 from __future__ import annotations
 
+import platform
 import time
 from dataclasses import replace
 from typing import Any, Callable, Optional, Sequence
 
 from shiboken6 import isValid
-from PySide6.QtCore import QPoint, QPointF, QRectF, QSize, Qt, QTimer, Signal
+from PySide6.QtCore import (
+    QPoint, QPointF, QRectF, QSize, Qt, QTimer, QUrl, QMimeData, Signal,
+)
 from PySide6.QtGui import (
     QColor,
+    QDesktopServices,
+    QDrag,
     QFont,
     QKeySequence,
     QLinearGradient,
@@ -25,26 +30,33 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMainWindow,
     QMenu,
+    QPlainTextEdit,
     QScrollArea,
     QSizePolicy,
     QStackedWidget,
+    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
 
 from . import icons, theme, widgets
-from .api import Api, Async, Repo, SessionStore, device_name
+from .api import Api, ApiError, Async, Repo, SessionStore, device_name
 from .art import ART
 from .icons import draw_icon
 from .login import LoginPage, SplashPage
-from .models import Me, PlaylistRef, Settings, Track, fmt_count, fmt_time
+from .models import (
+    Me, PlaylistRef, Settings, Track, fmt_bytes, fmt_count, fmt_time,
+)
 from .player import PlayerEngine
 from .screens import (
     AdminScreen,
     CollectionScreen,
+    DevicesScreen,
+    DownloadsScreen,
     HomeScreen,
     LibraryScreen,
     LikesScreen,
+    ListeningScreen,
     PlaylistScreen,
     PlaylistsScreen,
     RequestsScreen,
@@ -52,6 +64,7 @@ from .screens import (
     SettingsScreen,
     Screen,
 )
+from .version import VERSION
 from .widgets import (
     Artwork,
     Glyph,
@@ -231,6 +244,15 @@ class Rail(QWidget):
             ("likes", "Liked", "heart"),
             ("playlists", "Playlists", "list-music"),
             ("requests", "Requests", "download"),
+            ("downloads", "Downloads", "cloud-download"),
+        ):
+            layout.addWidget(self._nav_button(key, label, icon))
+
+        layout.addWidget(self._rule(12, 10, 12, 10))
+        layout.addWidget(self._label("SERVER"))
+        for key, label, icon in (
+            ("devices", "Devices", "smartphone"),
+            ("listening", "Listening", "users"),
         ):
             layout.addWidget(self._nav_button(key, label, icon))
 
@@ -309,7 +331,8 @@ class Rail(QWidget):
         active_key = {
             "album": "library", "artist": "library", "playlist": "playlists",
             "home": "home", "search": "search", "library": "library", "likes": "likes",
-            "playlists": "playlists", "requests": "requests", "settings": "settings",
+            "playlists": "playlists", "requests": "requests", "downloads": "downloads",
+            "devices": "devices", "listening": "listening", "settings": "settings",
             "admin": "admin",
         }.get(kind, "")
         for key, button in self._nav.items():
@@ -491,17 +514,29 @@ class Deck(QWidget):
         p.drawLine(card.topLeft() + QPointF(18, 1), card.topRight() + QPointF(-18, 1))
 
 
+QUEUE_MIME = "application/x-mcmusic-queue-index"
+
+
 class QueueRow(QWidget):
     def __init__(self, window: "McWindow", track: Track, index: int,
-                 *, current: bool = False, removable: bool = True, parent=None):
+                 *, current: bool = False, removable: bool = True,
+                 reorder: bool = False, parent=None):
         super().__init__(parent)
         self.window = window
         self.track = track
         self.index = index
         self.current = current
         self._hover = False
+        self._reorder = bool(reorder and not current)
+        self._drag_start: Optional[QPoint] = None
+        self._dragging = False
+        self._drop_target = False
         self.setFixedHeight(46)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+        if self._reorder:
+            self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+            self.setAcceptDrops(True)
+            self.setToolTip("Drag to reorder, or use Up/Down when focused")
         line = QHBoxLayout(self)
         line.setContentsMargins(6, 5, 6, 5)
         line.setSpacing(10)
@@ -519,15 +554,126 @@ class QueueRow(QWidget):
         artist.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         meta.addWidget(artist)
         line.addLayout(meta, 1)
+        if self._reorder:
+            up = IconButton("chevron-up", size=26, icon_size=13, tooltip="Move up")
+            up.setEnabled(index > window.player.index + 1)
+            up.clicked.connect(lambda: self._shift(-1))
+            line.addWidget(up)
+            down = IconButton("chevron-down", size=26, icon_size=13, tooltip="Move down")
+            down.setEnabled(index + 1 < len(window.player.queue))
+            down.clicked.connect(lambda: self._shift(1))
+            line.addWidget(down)
         if removable and not current:
             remove = IconButton("x", size=26, icon_size=13, tooltip="Remove from queue")
             remove.clicked.connect(lambda: window.player.remove_at(index))
             line.addWidget(remove)
 
+    def _shift(self, delta: int) -> None:
+        target = self.index + delta
+        if self.window.player.move(self.index, target):
+            self.window.drawer.focus_index(target)
+
+    @staticmethod
+    def _mime_index(event) -> Optional[int]:
+        if event.mimeData().hasFormat(QUEUE_MIME):
+            raw = bytes(event.mimeData().data(QUEUE_MIME)).decode("utf-8", "replace")
+        elif event.mimeData().hasText():
+            raw = event.mimeData().text()
+        else:
+            return None
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            return None
+
+    def _can_drop(self, event) -> bool:
+        source = self._mime_index(event)
+        player = self.window.player
+        return (source is not None and self._reorder
+                and source > player.index and self.index > player.index
+                and source != self.index)
+
+    def mousePressEvent(self, event) -> None:
+        if self._reorder and event.button() == Qt.MouseButton.LeftButton:
+            self._drag_start = event.position().toPoint()
+            self._dragging = False
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event) -> None:
+        if (self._reorder and self._drag_start is not None
+                and (event.position().toPoint() - self._drag_start).manhattanLength()
+                >= QApplication.startDragDistance()):
+            self._dragging = True
+            mime = QMimeData()
+            mime.setData(QUEUE_MIME, str(self.index).encode("ascii"))
+            mime.setText(str(self.index))
+            drag = QDrag(self)
+            drag.setMimeData(mime)
+            drag.setPixmap(self.grab())
+            drag.setHotSpot(self._drag_start)
+            drag.exec(Qt.DropAction.MoveAction)
+            self._drag_start = None
+            return
+        super().mouseMoveEvent(event)
+
     def mouseReleaseEvent(self, event) -> None:
-        if event.button() == Qt.MouseButton.LeftButton:
+        dragged = self._dragging
+        self._drag_start = None
+        self._dragging = False
+        if not dragged and event.button() == Qt.MouseButton.LeftButton:
             self.window.player.jump(self.index)
         super().mouseReleaseEvent(event)
+
+    def keyPressEvent(self, event) -> None:
+        if not self._reorder:
+            super().keyPressEvent(event)
+            return
+        if event.key() == Qt.Key.Key_Up:
+            self._shift(-1)
+            event.accept()
+        elif event.key() == Qt.Key.Key_Down:
+            self._shift(1)
+            event.accept()
+        elif event.key() in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace):
+            self.window.player.remove_at(self.index)
+            event.accept()
+        elif event.key() == Qt.Key.Key_Return:
+            self.window.player.jump(self.index)
+            event.accept()
+        else:
+            super().keyPressEvent(event)
+
+    def dragEnterEvent(self, event) -> None:
+        if self._can_drop(event):
+            self._drop_target = True
+            self.update()
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event) -> None:
+        if self._can_drop(event):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dragLeaveEvent(self, _event) -> None:
+        self._drop_target = False
+        self.update()
+
+    def dropEvent(self, event) -> None:
+        source = self._mime_index(event)
+        self._drop_target = False
+        self.update()
+        if source is None or not self._reorder:
+            event.ignore()
+            return
+        target = self.index
+        if self.window.player.move(source, target):
+            self.window.drawer.focus_index(target)
+            event.acceptProposedAction()
+        else:
+            event.ignore()
 
     def enterEvent(self, event) -> None:
         self._hover = True
@@ -540,13 +686,17 @@ class QueueRow(QWidget):
         super().leaveEvent(event)
 
     def paintEvent(self, _event) -> None:
-        if not self._hover:
-            return
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(theme.pal().q("surface"))
-        p.drawRoundedRect(QRectF(self.rect()).adjusted(0, 1, 0, -1), 4, 4)
+        palette = theme.pal()
+        if self._hover or self.hasFocus() or self._drop_target:
+            p = QPainter(self)
+            p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+            if self._hover or self.hasFocus():
+                p.setPen(Qt.PenStyle.NoPen)
+                p.setBrush(palette.q("surface"))
+                p.drawRoundedRect(QRectF(self.rect()).adjusted(0, 1, 0, -1), 4, 4)
+            if self._drop_target:
+                p.setPen(QPen(palette.q("accent"), 2))
+                p.drawLine(QPoint(2, 1), QPoint(self.width() - 2, 1))
 
 
 class Scrim(QWidget):
@@ -594,10 +744,17 @@ class QueueDrawer(QWidget):
         self.body = QVBoxLayout(self.inner)
         self.body.setContentsMargins(12, 10, 12, 24)
         self.body.setSpacing(2)
+        self._rows: dict[int, QueueRow] = {}
         self.scroll.setWidget(self.inner)
         outer.addWidget(self.scroll, 1)
 
+    def focus_index(self, index: int) -> None:
+        row = self._rows.get(index)
+        if row is not None and isValid(row):
+            row.setFocus(Qt.FocusReason.OtherFocusReason)
+
     def refresh(self) -> None:
+        self._rows.clear()
         while self.body.count():
             item = self.body.takeAt(0)
             widget = item.widget()
@@ -613,8 +770,10 @@ class QueueDrawer(QWidget):
         label = Txt("NOW PLAYING", size=9, family="mono", token="dim2", spacing=1.6)
         label.setContentsMargins(6, 8, 6, 4)
         self.body.addWidget(label)
-        self.body.addWidget(QueueRow(self.window, current, player.index, current=True,
-                                     removable=False))
+        current_row = QueueRow(self.window, current, player.index, current=True,
+                               removable=False)
+        self._rows[player.index] = current_row
+        self.body.addWidget(current_row)
         upcoming = [(i, t) for i, t in enumerate(player.queue) if i > player.index]
         head = QWidget()
         head_line = QHBoxLayout(head)
@@ -628,9 +787,16 @@ class QueueDrawer(QWidget):
             head_line.addWidget(clear)
         self.body.addWidget(head)
         for index, track in upcoming[:80]:
-            self.body.addWidget(QueueRow(self.window, track, index))
+            row = QueueRow(self.window, track, index, reorder=True)
+            self._rows[index] = row
+            self.body.addWidget(row)
         if not upcoming:
             self.body.addWidget(Txt("Nothing queued", size=11, token="dim2"))
+        else:
+            hint = Txt("Drag to reorder or focus a row and press Up/Down", size=10,
+                       token="dim2")
+            hint.setContentsMargins(6, 8, 6, 0)
+            self.body.addWidget(hint)
         self.body.addStretch(1)
 
     def paintEvent(self, _event) -> None:
@@ -785,6 +951,11 @@ class NowPlayingOverlay(QWidget):
         lyrics = McButton("Lyrics", small=True, ghost=True, icon="text")
         lyrics.clicked.connect(window.show_lyrics)
         secondary.addWidget(lyrics)
+        self.sleep_button = McButton("Sleep", small=True, ghost=True, icon="clock")
+        self.sleep_button.clicked.connect(
+            lambda _=False, b=self.sleep_button: window.show_sleep_menu(b)
+        )
+        secondary.addWidget(self.sleep_button)
         queue = McButton("Queue", small=True, ghost=True, icon="list-music")
         queue.clicked.connect(window.toggle_queue)
         secondary.addWidget(queue)
@@ -843,6 +1014,12 @@ class NowPlayingOverlay(QWidget):
         self.pos.setText(fmt_time(player.position))
         self.dur.setText(fmt_time(player.duration))
         self.seek.set_values(player.position, player.duration)
+        timer = self.window.store.sleep_timer
+        try:
+            left = max(0, int((float(timer.get("ends_at", 0)) - time.time()) / 60))
+        except (TypeError, ValueError):
+            left = 0
+        self.sleep_button.set_text(f"Sleep {left}m" if left else "Sleep")
 
         key = tuple((i, t.id) for i, t in enumerate(player.queue) if i > player.index)[:8]
         if key != self._up_next_key:
@@ -870,6 +1047,63 @@ class NowPlayingOverlay(QWidget):
         grad.setColorAt(0, soft)
         grad.setColorAt(1, clear)
         p.fillRect(0, 0, self.width(), min(self.height(), 300), grad)
+
+
+class StatusStrip(QWidget):
+    """A quiet, persistent line for offline/pending/update notices."""
+
+    def __init__(self, window: "McWindow"):
+        super().__init__()
+        self.window = window
+        self._online = True
+        self._pending = 0
+        self._notice = ""
+        self.setFixedHeight(0)
+        line = QHBoxLayout(self)
+        line.setContentsMargins(30, 0, 26, 0)
+        line.setSpacing(8)
+        self.icon = Glyph("check", 13, "ok")
+        line.addWidget(self.icon)
+        self.label = Txt("", size=10, family="mono", token="dim", spacing=0.4)
+        line.addWidget(self.label, 1)
+        self.sync = McButton("Sync now", small=True, ghost=True, icon="refresh-cw")
+        self.sync.clicked.connect(window.sync_outbox)
+        self.sync.setVisible(False)
+        line.addWidget(self.sync)
+        self.update = McButton("Download", small=True, ghost=True, icon="download")
+        self.update.clicked.connect(window.open_update)
+        self.update.setVisible(False)
+        line.addWidget(self.update)
+
+    def set_state(self, *, online: bool, pending: int = 0, notice: str = "",
+                  has_update: bool = False) -> None:
+        self._online = online
+        self._pending = max(0, int(pending or 0))
+        self._notice = notice or ""
+        if not online:
+            text = "OFFLINE — using saved session"
+            self.icon.set_icon("wifi-off")
+        elif self._pending:
+            text = f"{self._pending} pending change" + ("s" if self._pending != 1 else "") + " — will sync"
+            self.icon.set_icon("refresh-cw")
+        elif self._notice:
+            text = self._notice
+            self.icon.set_icon("arrow-up-right")
+        else:
+            text = ""
+            self.icon.set_icon("check")
+        self.label.setText(text)
+        self.setVisible(bool(text))
+        self.setFixedHeight(24 if text else 0)
+        self.sync.setVisible(online and self._pending > 0)
+        self.update.setVisible(online and has_update)
+
+    def paintEvent(self, _event) -> None:
+        if not self.height():
+            return
+        p = QPainter(self)
+        p.fillRect(self.rect(), theme.pal().q("bg2"))
+        p.fillRect(0, self.height() - 1, self.width(), 1, theme.pal().q("line"))
 
 
 class ShellPage(QWidget):
@@ -901,6 +1135,14 @@ class McWindow(QMainWindow):
         self.back_stack: list[tuple] = []
         self.current_screen: Optional[Screen] = None
         self.playlists: list[PlaylistRef] = []
+        self._offline = False
+        self._activity_sig = ""
+        self._activity_at = 0.0
+        self._last_remote_command = 0
+        self._update_kind = ""
+        self._update_url = ""
+        self._notice = ""
+        self._radio_busy = False
 
         self.setWindowTitle("mcmusic")
         self.resize(1280, 830)
@@ -913,6 +1155,15 @@ class McWindow(QMainWindow):
         self._publish_timer = QTimer(self)
         self._publish_timer.setInterval(10_000)
         self._publish_timer.timeout.connect(self._publish_playback)
+        self._retry_timer = QTimer(self)
+        self._retry_timer.setInterval(15_000)
+        self._retry_timer.timeout.connect(self._retry_connection)
+        self._remote_timer = QTimer(self)
+        self._remote_timer.setInterval(3_000)
+        self._remote_timer.timeout.connect(self._poll_remote)
+        self._sleep_timer = QTimer(self)
+        self._sleep_timer.setInterval(1_000)
+        self._sleep_timer.timeout.connect(self._check_sleep_timer)
 
         self._build_pages()
         self._build_shortcuts()
@@ -923,17 +1174,42 @@ class McWindow(QMainWindow):
         self.player.changed.connect(self._refresh_playback)
         self.player.tick.connect(self._refresh_progress)
         self.player.error.connect(self.toast)
+        self.player.natural_end.connect(self._autoplay_radio)
         self.player.loading_changed.connect(lambda _busy: self._refresh_playback())
         self.player.changed.connect(self._update_window_title)
+        self.player.changed.connect(self._publish_activity)
 
         self.apply_settings(self.settings, persist=False)
 
-        if self.me is not None and self.api.cookies:
+        if self.me is not None and (self.api.cookies or self.api.token):
             self.stack.setCurrentWidget(self.splash)
-            self.run(self.repo.me, self.after_login,
-                     lambda _exc: self.show_login())
+            self.run(lambda: self.repo.me(force=True), self.after_login,
+                     self._restore_failed)
+        elif self.store.pending_token:
+            # A mcmusic://oauth?token=… deep link arrived before any session.
+            self.stack.setCurrentWidget(self.splash)
+            self.run(self._restore_token_session, self.after_login,
+                     self._token_restore_failed)
         else:
             self.show_login()
+
+    def _restore_token_session(self) -> Me:
+        token = self.store.pending_token
+        me = self.repo.adopt_token(token)
+        self.store.pending_token = ""
+        self.store.reset_token = ""
+        return me
+
+    def _token_restore_failed(self, exc: Exception) -> None:
+        offline = isinstance(exc, ApiError) and exc.offline
+        if not offline:
+            self.store.pending_token = ""
+        self.show_login()
+        if isValid(self) and hasattr(self, "login_page"):
+            self.login_page._show_error(
+                "Saved sign-in will be retried when the server is reachable"
+                if offline else (str(exc) or "That sign-in link could not be used")
+            )
 
     # ── construction ────────────────────────────────────────────────────
     def paintEvent(self, _event) -> None:
@@ -970,6 +1246,8 @@ class McWindow(QMainWindow):
         main_line.setSpacing(0)
         self.topbar = TopBar(self)
         main_line.addWidget(self.topbar)
+        self.status_strip = StatusStrip(self)
+        main_line.addWidget(self.status_strip)
         self.content_host = QWidget()
         self.content_host.setStyleSheet("background: transparent;")
         self.content_layout = QVBoxLayout(self.content_host)
@@ -988,28 +1266,58 @@ class McWindow(QMainWindow):
 
         self.toast_widget = widgets.Toast(self)
 
+    def _text_focused(self) -> bool:
+        focused = QApplication.focusWidget()
+        return isinstance(focused, (QLineEdit, QTextEdit, QPlainTextEdit))
+
     def _build_shortcuts(self) -> None:
+        # Keep the old direct keys alongside the Ctrl bindings. Every shortcut
+        # that could collide with typing is guarded so fields stay editable.
         shortcuts = [
-            ("Ctrl+F", lambda: self.topbar.search.focus()),
-            ("Ctrl+Space", self.player.toggle),
-            ("Ctrl+Left", self.player.prev),
-            ("Ctrl+Right", self.player.next),
-            ("Ctrl+M", self.player.toggle_mute),
-            ("Ctrl+Up", lambda: self.set_volume(self.player.volume + 0.05)),
-            ("Ctrl+Down", lambda: self.set_volume(self.player.volume - 0.05)),
-            ("Alt+Left", self.back),
-            ("Escape", self.close_overlays),
+            ("Ctrl+F", lambda: self.topbar.search.focus(), False),
+            ("Ctrl+Space", self.player.toggle, True),
+            ("Ctrl+Left", self.player.prev, True),
+            ("Ctrl+Right", self.player.next, True),
+            ("Ctrl+M", self.player.toggle_mute, True),
+            ("Ctrl+Up", lambda: self.set_volume(self.player.volume + 0.05), True),
+            ("Ctrl+Down", lambda: self.set_volume(self.player.volume - 0.05), True),
+            ("Alt+Left", self.back, False),
+            ("Escape", self.close_overlays, False),
+            ("Space", self.player.toggle, True),
+            ("Shift+Left", self.player.prev, True),
+            ("Shift+Right", self.player.next, True),
+            ("Up", lambda: self.set_volume(self.player.volume + 0.05), True),
+            ("Down", lambda: self.set_volume(self.player.volume - 0.05), True),
+            ("/", lambda: self.topbar.search.focus(), True),
+            ("m", self.player.toggle_mute, True),
+            ("l", self.like_current, True),
+            ("q", self.toggle_queue, True),
+            (QKeySequence(Qt.Key.Key_MediaPlay), self.player.toggle, True),
+            (QKeySequence(Qt.Key.Key_MediaPause), self.player.pause, True),
+            (QKeySequence(Qt.Key.Key_MediaNext), self.player.next, True),
+            (QKeySequence(Qt.Key.Key_MediaPrevious), self.player.prev, True),
         ]
         self._shortcuts = []
-        for keys, callback in shortcuts:
+        for keys, callback, guard in shortcuts:
             shortcut = QShortcut(QKeySequence(keys), self)
-            shortcut.activated.connect(callback)
+            shortcut.activated.connect(
+                (lambda cb=callback, guarded=guard: self._run_shortcut(cb, guarded))
+            )
             self._shortcuts.append(shortcut)
+
+    def _run_shortcut(self, callback: Callable[[], None], guarded: bool) -> None:
+        if guarded and self._text_focused():
+            return
+        callback()
 
     # ── session ─────────────────────────────────────────────────────────
     def show_login(self) -> None:
         self._device_timer.stop()
         self._publish_timer.stop()
+        self._retry_timer.stop()
+        self._remote_timer.stop()
+        self._sleep_timer.stop()
+        self._set_online(False, pending=self.api.pending_writes())
         if hasattr(self, "login_page") and self.login_page is not None:
             self.stack.removeWidget(self.login_page)
             self.login_page.deleteLater()
@@ -1022,22 +1330,109 @@ class McWindow(QMainWindow):
     def after_login(self, me: Me) -> None:
         self.me = me
         self.store.cached_me = me
+        self._offline = False
         self.rail.set_user(me)
         self.topbar.user.set_user(me.username)
         self.stack.setCurrentWidget(self.shell)
         self.back_stack = []
+        self._set_online(True, pending=self.api.pending_writes())
         self._load_settings()
         self.refresh_playlists()
         self.navigate(("home",), push=False)
+        self._restore_queue()
         self._device_timer.start()
         self._publish_timer.start()
+        self._retry_timer.stop()
+        self._remote_timer.start()
+        self._sleep_timer.start()
+        self.sync_outbox(quiet=True)
+        self._verify_pending_token()
+        self._check_updates()
         self.position_overlays()
         self.player.changed.emit()
 
+    def _restore_failed(self, exc: Exception) -> None:
+        if not isValid(self):
+            return
+        if isinstance(exc, ApiError) and exc.status == 401:
+            self.toast("Session expired — please sign in again")
+            self.sign_out()
+            return
+        if self.me is None:
+            self.show_login()
+            return
+        # Transport error or 5xx: keep the cached identity and session alive.
+        self._resume_offline(str(exc))
+
+    def _resume_offline(self, reason: str = "") -> None:
+        if self.me is None or not isValid(self):
+            return
+        self._offline = True
+        self.rail.set_user(self.me)
+        self.topbar.user.set_user(self.me.username)
+        self.stack.setCurrentWidget(self.shell)
+        self.back_stack = []
+        self._set_online(False, pending=self.api.pending_writes())
+        self.apply_settings(
+            Settings.from_json({**self.settings.to_json(),
+                                "theme": self.store.theme,
+                                "accent": self.store.accent,
+                                "volume": self.store.volume}),
+            persist=False,
+        )
+        if not isinstance(self.current_screen, Screen):
+            self.navigate(("home",), push=False)
+        self._restore_queue()
+        self._device_timer.stop()
+        self._publish_timer.stop()
+        self._remote_timer.stop()
+        self._retry_timer.start()
+        self._sleep_timer.start()
+        if reason:
+            self.toast("Offline — using saved session")
+
+    def _retry_connection(self) -> None:
+        if self.me is None or not self._offline:
+            self._retry_timer.stop()
+            return
+        self.run(lambda: self.repo.me(force=True), self._retry_ok,
+                 self._restore_failed)
+
+    def _retry_ok(self, me: Me) -> None:
+        self.toast("Back online")
+        self.after_login(me)
+
+    def _set_online(self, online: bool, *, pending: int = 0,
+                    notice: Optional[str] = None) -> None:
+        if notice is not None:
+            self._notice = notice
+        self.rail.set_online(online)
+        self.status_strip.set_state(
+            online=online,
+            pending=pending if online else self.api.pending_writes(),
+            notice=self._notice if online else "",
+            has_update=bool(self._update_url),
+        )
+
+    def open_update(self) -> None:
+        if not self._update_url:
+            return
+        if not confirm(self, "Update available",
+                       "Open the download page for this update in your browser?",
+                       confirm_label="Open"):
+            return
+        QDesktopServices.openUrl(QUrl(self._update_url))
+
     def sign_out(self) -> None:
-        self.run(self.repo.logout, lambda _: None, lambda _exc: None)
+        def job() -> None:
+            self.repo.logout()
+            self.repo.app_logout()
+
+        self.run(job, lambda _: None, lambda _exc: None)
         self.me = None
+        self._offline = False
         self.store.clear_session()
+        self.store.reset_token = ""
         self.api.cookies.clear()
         self.store.save_cookies({})
         self.ART_clear()
@@ -1080,15 +1475,20 @@ class McWindow(QMainWindow):
             self.toast(str(exc) or "Can't reach that server")
             self.sign_out()
 
-        self.run(self.repo.me, ok, fail)
+        self.run(lambda: self.repo.me(force=True), ok, fail)
 
     def _load_settings(self) -> None:
         local = Settings(theme=self.store.theme, accent=self.store.accent,
-                         volume=self.store.volume)
+                         volume=self.store.volume, room_url=self.store.room_url)
         self.apply_settings(local, persist=False)
-        self.run(self.repo.settings,
-                 lambda remote: self.apply_settings(remote, persist=False),
-                 lambda _exc: None)
+        self.run(self.repo.settings, self._settings_loaded, lambda _exc: None)
+
+    def _settings_loaded(self, remote: Settings) -> None:
+        if remote.room_url:
+            self.store.room_url = remote.room_url
+        else:
+            remote = replace(remote, room_url=self.store.room_url)
+        self.apply_settings(remote, persist=False)
 
     # ── appearance ──────────────────────────────────────────────────────
     def apply_settings(self, settings: Settings, persist: bool = True) -> None:
@@ -1111,8 +1511,12 @@ class McWindow(QMainWindow):
         self._refresh_deck()
         self._refresh_progress()
         if persist:
-            self.run(lambda: self.repo.save_settings(settings), lambda _: None,
-                     lambda _exc: None)
+            def save() -> int:
+                self.repo.save_settings(settings)
+                return self.api.pending_writes()
+
+            self.run(save, lambda pending: self._set_online(
+                not self._offline, pending=pending), lambda _exc: None)
 
     def set_volume(self, value: float) -> None:
         value = min(1.0, max(0.0, value))
@@ -1177,6 +1581,12 @@ class McWindow(QMainWindow):
             return PlaylistScreen(self, route[1])
         if kind == "requests":
             return RequestsScreen(self)
+        if kind == "downloads":
+            return DownloadsScreen(self)
+        if kind == "devices":
+            return DevicesScreen(self)
+        if kind == "listening":
+            return ListeningScreen(self)
         if kind == "settings":
             return SettingsScreen(self)
         if kind == "admin":
@@ -1262,20 +1672,64 @@ class McWindow(QMainWindow):
 
         self.run(lambda: self.repo.radio(track.id), ok)
 
+    def _autoplay_radio(self, seed_id: int) -> None:
+        """Refill from radio after the last track ends naturally (repeat off)."""
+        seed = self.player.current
+        if (seed is None or seed.id != seed_id or self._radio_busy
+                or not self.settings.autoplay or self.player.repeat != "off"):
+            return
+        if self.player.index != len(self.player.queue) - 1:
+            return
+        self._radio_busy = True
+
+        def ok(rest: list[Track]) -> None:
+            self._radio_busy = False
+            current = self.player.current
+            if (current is None or current.id != seed_id or self.player.playing
+                    or not self.settings.autoplay or self.player.repeat != "off"
+                    or self.player.index != len(self.player.queue) - 1):
+                return
+            have = {t.id for t in self.player.queue}
+            additions: list[Track] = []
+            for track in rest:
+                if track.id <= 0 or track.id in have:
+                    continue
+                have.add(track.id)
+                additions.append(track)
+                if len(additions) == 5:
+                    break
+            if not additions:
+                return
+            first_new = len(self.player.queue)
+            self.player.queue.extend(additions)
+            self.player.jump(first_new)
+
+        def fail(_exc: Exception) -> None:
+            self._radio_busy = False
+
+        self.run(lambda: self.repo.radio(seed_id), ok, fail)
+
     def like_current(self) -> None:
         track = self.player.current
         if track is not None:
             self.toggle_like(track)
 
     def toggle_like(self, track: Track) -> None:
-        self.run(lambda: self.repo.like(track.id),
-                 lambda liked: self._like_done(track.id, liked))
+        def ok(result) -> None:
+            if isinstance(result, dict) and result.get("queued"):
+                self._like_done(track.id, not track.liked, "Saved offline — will sync")
+                self._set_online(False)
+            else:
+                self._like_done(track.id, bool(result))
 
-    def _like_done(self, track_id: int, liked: bool) -> None:
+        self.run(lambda: self.repo.like(track.id), ok)
+
+    def _like_done(self, track_id: int, liked: bool,
+                   message: Optional[str] = None) -> None:
         self.player.mark_liked(track_id, liked)
         if self.current_screen is not None:
             self.current_screen.apply_like(track_id, liked)
-        self.toast("Liked" if liked else "Removed from liked")
+        self.toast(message or ("Liked" if liked else "Removed from liked"))
         self._refresh_deck()
 
     def toggle_shuffle(self) -> None:
@@ -1341,6 +1795,7 @@ class McWindow(QMainWindow):
             self.overlay.dur.setText(fmt_time(player.duration))
             self.overlay.seek.set_values(player.position, player.duration)
             self.overlay.play.set_playing(player.playing)
+        self._publish_activity()
 
     def _refresh_playback(self) -> None:
         self._refresh_deck()
@@ -1495,6 +1950,28 @@ class McWindow(QMainWindow):
             grid.addWidget(Txt(value, size=13, token="fg"), i, 1)
         grid.setColumnStretch(1, 1)
         sheet.body.addLayout(grid)
+
+        sheet.body.addSpacing(10)
+        sheet.body.addWidget(Txt("SOURCES", size=9, family="mono", token="dim2",
+                                 spacing=1.2))
+        sources = Txt("Reading source metadata…", size=11, token="dim", wrap=True)
+        sheet.body.addWidget(sources)
+
+        def sources_ok(rows: list[dict]) -> None:
+            if not isValid(sources):
+                return
+            if not rows:
+                sources.setText("No source metadata recorded")
+                return
+            lines = []
+            for row in rows[:10]:
+                name = str(row.get("source") or row.get("kind") or "source")
+                detail = row.get("url") or row.get("title") or row.get("id") or ""
+                lines.append(f"{name}: {detail}")
+            sources.setText("\n".join(lines))
+
+        self.run(lambda: self.repo.track_sources(track.id), sources_ok,
+                 error=lambda _e: sources.setText("Sources unavailable offline"))
         if track.yt_id:
             from PySide6.QtCore import QUrl
             from PySide6.QtGui import QDesktopServices
@@ -1588,6 +2065,272 @@ class McWindow(QMainWindow):
         if track is not None:
             self._add_to_playlist_dialog(track)
 
+    def show_lyrics(self) -> None:
+        track = self.player.current
+        if track is None:
+            self.toast("Play a track to see its lyrics")
+            return
+        sheet = Sheet(self, "Lyrics")
+        sheet.body.addWidget(Txt(f"{track.title} — {track.artist}", size=12,
+                                 token="dim", wrap=True))
+        view = QTextEdit()
+        view.setReadOnly(True)
+        view.setPlaceholderText("No lyrics have been found for this track yet.")
+        sheet.body.addWidget(view, 1)
+        sheet.resize(560, 520)
+
+        def ok(data: dict) -> None:
+            if not isValid(view):
+                return
+            text = str(data.get("lyrics") or data.get("text") or "")
+            source = str(data.get("source") or "")
+            view.setPlainText(text or "No lyrics have been found for this track yet.")
+            if source and hasattr(sheet, "setWindowTitle"):
+                sheet.setWindowTitle("Lyrics · " + source)
+
+        self.run(lambda: self.repo.lyrics(track.id), ok,
+                 error=lambda _e: view.setPlaceholderText("Lyrics are unavailable offline"))
+        sheet.exec()
+
+    def show_sleep_menu(self, button: QWidget) -> None:
+        menu = QMenu(self)
+        for label, minutes in (
+            ("Off", 0), ("5 minutes", 5), ("15 minutes", 15),
+            ("30 minutes", 30), ("45 minutes", 45), ("60 minutes", 60),
+        ):
+            action = menu.addAction(label)
+            action.triggered.connect(
+                lambda _=False, m=minutes: self.set_sleep_timer(m)
+            )
+        menu.exec(button.mapToGlobal(QPoint(0, button.height())))
+
+    def set_sleep_timer(self, minutes: int) -> None:
+        if minutes <= 0:
+            self.store.sleep_timer = {}
+            self.toast("Sleep timer off")
+        else:
+            self.store.sleep_timer = {
+                "ends_at": time.time() + minutes * 60, "minutes": minutes,
+            }
+            self.toast(f"Sleep timer set for {minutes} minutes")
+        if hasattr(self, "overlay"):
+            self.overlay.refresh()
+
+    def _check_sleep_timer(self) -> None:
+        timer = self.store.sleep_timer
+        if not timer:
+            return
+        try:
+            ends = float(timer.get("ends_at", 0))
+        except (TypeError, ValueError):
+            self.store.sleep_timer = {}
+            return
+        if time.time() < ends:
+            return
+        self.store.sleep_timer = {}
+        if self.player.playing:
+            self.player.pause()
+            self.toast("Sleep timer finished")
+        if hasattr(self, "overlay"):
+            self.overlay.refresh()
+
+    def sync_outbox(self, quiet: bool = False) -> None:
+        def job() -> tuple[int, int]:
+            return self.api.flush_outbox()
+
+        def ok(result: tuple[int, int]) -> None:
+            sent, pending = result
+            self._set_online(not self._offline, pending=pending)
+            if sent and not quiet:
+                self.toast(f"Synced {sent} offline change" + ("" if sent == 1 else "s"))
+
+        def fail(exc: Exception) -> None:
+            if isinstance(exc, ApiError) and exc.status == 401:
+                self.sign_out()
+            else:
+                self._set_online(False)
+
+        self.run(job, ok, fail)
+
+    def _restore_queue(self) -> None:
+        def ok(tracks: list[Track]) -> None:
+            ids = {t.id for t in tracks}
+            if self.player.restore_snapshot(ids):
+                self._refresh_playback()
+
+        def fail(_exc: Exception) -> None:
+            if self.player.restore_snapshot():
+                self._refresh_playback()
+
+        self.run(self.repo.tracks, ok, fail)
+
+    def _verify_pending_token(self) -> None:
+        token = self.store.pending_token
+        if not token:
+            return
+
+        def job() -> Me:
+            self.repo.verify_token(token)
+            return self.repo.adopt_token(token)
+
+        def ok(me: Me) -> None:
+            self.store.pending_token = ""
+            self.toast("Rotur sign-in restored")
+
+        def fail(exc: Exception) -> None:
+            if isinstance(exc, ApiError) and exc.status == 401:
+                self.store.pending_token = ""
+            elif not (isinstance(exc, ApiError) and exc.offline):
+                self.toast("Saved Rotur sign-in could not be verified")
+
+        self.run(job, ok, fail)
+
+    def _check_updates(self) -> None:
+        def job() -> tuple[list, dict]:
+            return self.repo.builds(), self.repo.version()
+
+        def ok(result: tuple[list, dict]) -> None:
+            builds, _version = result
+            kinds = {
+                "Darwin": ("macos-dmg", "macos"),
+                "Windows": ("windows-zip", "windows"),
+            }.get(platform.system(), ("linux-appimage", "linux-deb"))
+            for build in builds:
+                if getattr(build, "kind", "") in kinds and getattr(build, "available", False):
+                    if getattr(build, "version", "") and build.version != VERSION:
+                        self._update_kind = build.kind
+                        self._update_url = self.repo.build_url(build.url)
+                        self._set_online(not self._offline, pending=self.api.pending_writes(),
+                                         notice=f"Update available · {build.label}")
+                        return
+            self._update_kind = ""
+            self._update_url = ""
+            self._set_online(not self._offline, pending=self.api.pending_writes(),
+                             notice="")
+
+        self.run(job, ok, lambda _exc: None)
+
+    def _publish_activity(self) -> None:
+        settings = self.settings
+        track = self.player.current
+        playing = self.player.playing
+        bucket = int(self.player.position // 5)
+        if not (settings.rotur_activity or settings.discord_activity):
+            if self._activity_sig == "off":
+                return
+            self._activity_sig = "off"
+            sig = (None, False, 0)
+        else:
+            sig = (track.id if track else None, playing, bucket)
+            if sig == self._activity_sig:
+                return
+            now = time.time()
+            if now - self._activity_at < 5:
+                return
+            self._activity_at = now
+            self._activity_sig = sig
+
+        track_id = sig[0] if settings.rotur_activity or settings.discord_activity else None
+        position = self.player.position if sig[1] else 0.0
+        is_playing = bool(sig[1]) if settings.rotur_activity or settings.discord_activity else False
+
+        def job() -> None:
+            if settings.rotur_activity or not is_playing:
+                try:
+                    self.repo.rotur_activity(track_id, position, is_playing)
+                except ApiError:
+                    pass
+            if settings.discord_activity or not is_playing:
+                try:
+                    self.repo.discord_activity(track_id, position, is_playing)
+                except ApiError:
+                    pass
+
+        self.run(job, lambda _: None, lambda _exc: None)
+
+    def _clear_activity(self, *, sync: bool = False) -> None:
+        self._activity_sig = ""
+        if sync:
+            for send in (self.repo.rotur_activity, self.repo.discord_activity):
+                try:
+                    send(None, 0.0, False)
+                except Exception:
+                    pass
+        else:
+            self.run(lambda: self.repo.rotur_activity(None, 0.0, False),
+                     lambda _: None, lambda _exc: None)
+            self.run(lambda: self.repo.discord_activity(None, 0.0, False),
+                     lambda _: None, lambda _exc: None)
+
+    def _poll_remote(self) -> None:
+        if self.me is None:
+            return
+        self.run(self.repo.playback, self._apply_remote, lambda _exc: None)
+
+    def _apply_remote(self, data: dict) -> None:
+        if not isinstance(data, dict):
+            return
+        for command in data.get("commands") or []:
+            if not isinstance(command, dict):
+                continue
+            try:
+                cid = int(command.get("id") or 0)
+            except (TypeError, ValueError):
+                cid = 0
+            if cid and cid <= self._last_remote_command:
+                continue
+            if cid:
+                self._last_remote_command = cid
+            action = str(command.get("action") or "")
+            arg = command.get("arg") if isinstance(command.get("arg"), dict) else {}
+            if action == "play":
+                if not self.player.playing:
+                    self.player.toggle()
+            elif action == "pause":
+                if self.player.playing:
+                    self.player.pause()
+            elif action == "toggle":
+                self.player.toggle()
+            elif action in ("next", "skip"):
+                self.player.next()
+            elif action == "prev":
+                self.player.prev()
+            elif action == "seek":
+                try:
+                    self.player.seek(float(arg.get("position") or 0))
+                except (TypeError, ValueError):
+                    pass
+            elif action == "remove":
+                try:
+                    self.player.remove_at(int(arg.get("index") or 0))
+                except (TypeError, ValueError):
+                    pass
+            elif action in ("enqueue", "play_track"):
+                raw = arg.get("track")
+                if isinstance(raw, dict):
+                    track = Track.from_json(raw)
+                    if action == "enqueue":
+                        self.player.add(track)
+                    else:
+                        self.player.play([track], 0)
+                    continue
+                try:
+                    tid = int(arg.get("track_id") or 0)
+                except (TypeError, ValueError):
+                    tid = 0
+                if not tid:
+                    continue
+
+                def ok(track: Optional[Track], replace_queue=action == "play_track") -> None:
+                    if track is None:
+                        return
+                    if replace_queue:
+                        self.player.play([track], 0)
+                    else:
+                        self.player.add(track)
+
+                self.run(lambda t=tid: self.repo.find_track(t), ok)
+
     # ── background sync ─────────────────────────────────────────────────
     def _heartbeat(self) -> None:
         if self.me is None:
@@ -1599,7 +2342,8 @@ class McWindow(QMainWindow):
                 track.id if track else None, self.player.position,
                 not self.player.playing,
             ),
-            lambda _: None, lambda _exc: self.rail.set_online(False),
+            lambda _: self._set_online(True, pending=self.api.pending_writes()),
+            lambda _exc: self._set_online(False),
         )
 
     def _publish_playback(self) -> None:
@@ -1610,8 +2354,10 @@ class McWindow(QMainWindow):
             lambda: self.repo.publish_playback(
                 track.id if track else None, self.player.position,
                 self.player.duration, self.player.playing, self.player.queue_ids(),
+                self.store.device_hash,
             ),
-            lambda _: self.rail.set_online(True), lambda _exc: self.rail.set_online(False),
+            lambda _: self._set_online(True, pending=self.api.pending_writes()),
+            lambda _exc: self._set_online(False),
         )
 
     def run(self, fn: Callable[[], Any], ok: Optional[Callable[[Any], None]] = None,
@@ -1635,6 +2381,11 @@ class McWindow(QMainWindow):
         self.position_overlays()
 
     def closeEvent(self, event) -> None:
+        self._clear_activity(sync=True)
+        try:
+            self.api.flush_outbox()
+        except Exception:
+            pass
         self.player.shutdown()
         self.runner.shutdown()
         super().closeEvent(event)

@@ -10,7 +10,7 @@ struct NowPlayingView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 22) {
-                CoverView(url: app.client.coverURL(player.current?.coverID), size: 280, radius: 20)
+                CoverView(url: app.client.coverURL(player.current?.coverID), size: 280)
                     .padding(.top, 12)
 
                 VStack(spacing: 4) {
@@ -68,7 +68,23 @@ struct NowPlayingView: View {
             .navigationTitle("Now playing")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button { showQueue = true } label: { Image(systemName: "list.bullet") }
+                    HStack {
+                        Menu {
+                            Button("Sleep timer: off") { player.setSleepTimer(minutes: 0) }
+                            ForEach([5, 15, 30, 45, 60], id: \.self) { minutes in
+                                Button("Sleep timer: \(minutes) min") { player.setSleepTimer(minutes: minutes) }
+                            }
+                            if player.sleepMinutes > 0 {
+                                Button("Stop timer (\(player.sleepRemaining / 60)m left)", role: .destructive) {
+                                    player.cancelSleepTimer()
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "moon.zzz")
+                                .foregroundStyle(player.sleepMinutes > 0 ? Theme.violet : .secondary)
+                        }
+                        Button { showQueue = true } label: { Image(systemName: "list.bullet") }
+                    }
                 }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") { dismiss() }

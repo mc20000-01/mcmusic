@@ -57,6 +57,6 @@ servers; the Xcode project sets `NSAllowsArbitraryLoads` so a local server works
 without a certificate. The session cookie is stored by `HTTPCookieStorage` and
 survives app restarts.
 
-Audio uses `AVQueuePlayer` with the same stream URLs and session cookie as the
+Audio uses `AVPlayer` with the same stream URLs and session cookie as the
 other native clients, registers background audio, and publishes playback and
 device state to the server.

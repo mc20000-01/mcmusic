@@ -111,7 +111,11 @@ indirect enum JSON: Sendable {
     }
 }
 
-extension JSON {
+extension JSON: Identifiable {
+    var id: String {
+        first("id", "track_id", "username", "code", "prefix", "name")?.string ?? UUID().uuidString
+    }
+
     var trackID: Int { first("id", "track_id")?.int ?? 0 }
     var title: String { first("title", "name")?.string ?? "Unknown" }
     var artistName: String { first("artist", "artist_name")?.string ?? "Unknown Artist" }

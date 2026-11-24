@@ -8,6 +8,8 @@ struct SignInView: View {
     @State private var password = ""
     @State private var invite = ""
     @State private var busy = false
+    @State private var showingForgot = false
+    @State private var forgotEmail = ""
 
     var body: some View {
         ScrollView {
@@ -33,7 +35,12 @@ struct SignInView: View {
                     field("Username or email", text: $username, icon: "person")
                         .textInputAutocapitalization(.never)
                     SecureField("Password", text: $password)
-                        .textFieldStyle(.roundedBorder)
+                        .mcTextField()
+                    if mode == 0 {
+                        Button("Forgot password?") { showingForgot = true }
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                     if mode == 1 {
                         field("Invite code", text: $invite, icon: "key")
                             .textInputAutocapitalization(.never)
@@ -55,13 +62,34 @@ struct SignInView: View {
             }
             .padding(24)
         }
+        .sheet(isPresented: $showingForgot) {
+            NavigationStack {
+                Form {
+                    TextField("Email address", text: $forgotEmail)
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.emailAddress)
+                    Button("Send reset link") { Task { await sendReset() } }
+                }
+                .navigationTitle("Reset password")
+                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showingForgot = false } } }
+            }
+        }
     }
 
     private func field(_ title: String, text: Binding<String>, icon: String) -> some View {
         HStack {
             Image(systemName: icon).foregroundStyle(.secondary).frame(width: 20)
-            TextField(title, text: text).textFieldStyle(.roundedBorder)
+            TextField(title, text: text).mcTextField()
         }
+    }
+
+    private func sendReset() async {
+        do {
+            try await app.client.requestPasswordReset(email: forgotEmail)
+            app.show("If that address is registered, a reset link is on its way")
+            showingForgot = false
+            forgotEmail = ""
+        } catch { app.show(error) }
     }
 
     private func submit() async {

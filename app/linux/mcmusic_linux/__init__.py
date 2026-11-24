@@ -4,4 +4,4 @@ The package mirrors the server API used by the web and Android clients and
 shares their palette tokens and Lucide icon geometry. No web view is used.
 """
 
-__version__ = "1.0.0"
+from .version import VERSION as __version__

@@ -27,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -48,6 +49,7 @@ import dev.mcmusic.app.ui.Pill
 import dev.mcmusic.app.ui.SectionLabel
 import dev.mcmusic.app.ui.ScreenTitle
 import dev.mcmusic.app.ui.TrackRow
+import dev.mcmusic.app.ui.visibleTracks
 import dev.mcmusic.app.ui.design.LocalDesign
 import dev.mcmusic.app.ui.design.mcSurface
 import dev.mcmusic.app.ui.formatDuration
@@ -92,6 +94,8 @@ fun HomeScreen(onOpenSearch: () -> Unit, onOpenPlayer: () -> Unit) {
         errors = failures
         loading = false
     }
+
+    val shownRecent = recent.visibleTracks()
 
     LazyColumn(
         contentPadding = PaddingValues(
@@ -160,7 +164,7 @@ fun HomeScreen(onOpenSearch: () -> Unit, onOpenPlayer: () -> Unit) {
 
         if (me != null) {
             item { SectionLabel("All tracks") }
-            if (recent.isEmpty() && !loading) {
+            if (shownRecent.isEmpty() && !loading) {
                 item {
                     EmptyState(
                         icon = Lucide.Library,
@@ -172,9 +176,9 @@ fun HomeScreen(onOpenSearch: () -> Unit, onOpenPlayer: () -> Unit) {
                 }
             }
         }
-        items(recent, key = { it.id }) { track ->
-            TrackRow(track, onClick = {
-                Playback.play(recent, recent.indexOf(track))
+        items(shownRecent, key = { it.id }) { track ->
+            TrackRow(track, menu = true, onClick = {
+                Playback.play(shownRecent, shownRecent.indexOf(track))
                 onOpenPlayer()
             })
         }
@@ -193,10 +197,15 @@ fun HomeScreen(onOpenSearch: () -> Unit, onOpenPlayer: () -> Unit) {
 @Composable
 private fun ListenerCard(listener: Listener) {
     val design = LocalDesign.current
+    val uriHandler = LocalUriHandler.current
+    val track = listener.track
     Row(
         Modifier
             .width(210.dp)
             .mcSurface(RoundedCornerShape(8.dp))
+            .clickable(enabled = listener.profileUrl.isNotBlank()) {
+                runCatching { uriHandler.openUri(listener.profileUrl) }
+            }
             .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(9.dp),
@@ -207,19 +216,29 @@ private fun ListenerCard(listener: Listener) {
             modifier = Modifier.size(38.dp),
             fallback = design.accentSoft,
         )
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text(listener.username, color = design.fg, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                Text(listener.username, color = design.accent, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1)
                 dev.mcmusic.app.ui.LiveDot(listener.listening, 5.dp)
             }
             Text(
-                listener.track?.let { "${it.title} · ${it.artist}" }
+                track?.let { "${it.title} · ${it.artist}" }
                     ?: if (listener.listening) "listening" else "offline",
-                color = design.dim,
+                color = design.fg,
                 fontSize = 10.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Pill(if (listener.listening) "listening" else "paused", listener.listening)
+                if (track != null && track.duration > 0) {
+                    Text(
+                        "${formatDuration(listener.position)} / ${formatDuration(track.duration)}",
+                        color = design.dim,
+                        fontSize = 10.sp,
+                    )
+                }
+            }
         }
     }
 }

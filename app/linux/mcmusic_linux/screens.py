@@ -11,8 +11,10 @@ from dataclasses import replace
 from typing import Any, Callable, Optional, Sequence
 
 from shiboken6 import isValid
-from PySide6.QtCore import QRectF, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QDesktopServices, QFont, QLinearGradient, QPainter, QPen
+from PySide6.QtCore import QRectF, Qt, QTimer, QUrl, Signal
+from PySide6.QtGui import (
+    QColor, QDesktopServices, QFont, QGuiApplication, QPainter, QPen,
+)
 from PySide6.QtWidgets import (
     QAbstractButton,
     QColorDialog,
@@ -22,12 +24,17 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QScrollArea,
     QSizePolicy,
+    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
 
 from . import theme
+from .api import ApiError
 from .models import (
+    BuildInfo,
+    DeviceRow,
+    ListeningUser,
     AdminStats,
     AdminUser,
     AlbumRef,
@@ -58,6 +65,7 @@ from .widgets import (
     Shelf,
     Spinner,
     StatCard,
+    Sheet,
     StatusChip,
     Switch,
     TileGrid,
@@ -66,6 +74,7 @@ from .widgets import (
     message,
     prompt,
 )
+from .version import VERSION
 
 STATUS_TOKEN = {
     "done": "ok",
@@ -741,7 +750,8 @@ class PlaylistScreen(Screen):
 
 class RequestLine(QWidget):
     def __init__(self, row: RequestRow, is_admin: bool, last: bool,
-                 on_action: Callable[[int, str], None], parent=None):
+                 on_action: Callable[[int, str], None],
+                 on_log: Callable[[RequestRow], None], parent=None):
         super().__init__(parent)
         self._last = last
         line = QHBoxLayout(self)
@@ -771,6 +781,22 @@ class RequestLine(QWidget):
             line.addWidget(reject)
         elif row.status == "running":
             line.addWidget(Spinner(14))
+        if is_admin:
+            if row.status in ("pending", "running"):
+                cancel = IconButton("x", size=26, icon_size=12, tooltip="Cancel request")
+                cancel.clicked.connect(lambda: on_action(row.id, "cancel"))
+                line.addWidget(cancel)
+            if row.status in ("failed", "rejected", "cancelled"):
+                retry = IconButton("refresh-cw", size=26, icon_size=12,
+                                   tooltip="Retry request")
+                retry.clicked.connect(lambda: on_action(row.id, "retry"))
+                line.addWidget(retry)
+            delete = IconButton("trash-2", size=26, icon_size=12, tooltip="Delete request")
+            delete.clicked.connect(lambda: on_action(row.id, "delete"))
+            line.addWidget(delete)
+        log = IconButton("info", size=26, icon_size=13, tooltip="View log")
+        log.clicked.connect(lambda: on_log(row))
+        line.addWidget(log)
 
     def paintEvent(self, _event) -> None:
         if not self._last:
@@ -833,7 +859,8 @@ class RequestsScreen(Screen):
             return
         panel = Panel("Recent requests")
         for i, row in enumerate(rows):
-            panel.add_widget(RequestLine(row, is_admin, i == len(rows) - 1, self._act))
+            panel.add_widget(RequestLine(row, is_admin, i == len(rows) - 1,
+                                         self._act, self._log))
         self.llayout.addWidget(panel)
 
     def _add(self) -> None:
@@ -849,8 +876,36 @@ class RequestsScreen(Screen):
         self.load()
 
     def _act(self, request_id: int, action: str) -> None:
-        self.run(lambda: self.window.repo.request_act(request_id, action),
-                 lambda _: self.load())
+        def job():
+            if action == "cancel":
+                self.window.repo.request_cancel(request_id)
+            elif action == "retry":
+                self.window.repo.request_retry(request_id)
+            elif action == "delete":
+                self.window.repo.request_delete(request_id)
+            else:
+                self.window.repo.request_act(request_id, action)
+
+        self.run(job, lambda _: self.load())
+
+    def _log(self, row: RequestRow) -> None:
+        sheet = Sheet(self, f"Request #{row.id}")
+        view = QTextEdit()
+        view.setReadOnly(True)
+        view.setPlainText(row.log or "No log recorded yet.")
+        sheet.body.addWidget(view, 1)
+
+        def ok(data: dict) -> None:
+            if not isValid(view):
+                return
+            text = ""
+            if isinstance(data, dict):
+                text = str(data.get("log") or data.get("text") or "")
+            view.setPlainText(text or row.log or "No log recorded yet.")
+
+        self.run(lambda: self.window.repo.request_log(row.id), ok,
+                 error=lambda _e: None)
+        sheet.exec()
 
 
 # ── settings ───────────────────────────────────────────────────────────────
@@ -878,13 +933,12 @@ class ThemeCard(QAbstractButton):
         p.setPen(QPen(theme.pal().q("accent") if self._selected else
                       theme.pal().q("line2"), 1))
         p.setBrush(theme.pal().q("bg"))
-        p.drawRoundedRect(rect, 4, 4)
-        grad = QLinearGradient(rect.topLeft(), rect.bottomRight())
-        grad.setColorAt(0, QColor(surface))
-        grad.setColorAt(1, QColor(accent))
+        p.drawRoundedRect(rect, 10, 10)
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(grad)
-        p.drawRoundedRect(QRectF(rect.x() + 1, rect.y() + 1, rect.width() - 2, 38), 3, 3)
+        p.setBrush(QColor(surface))
+        p.drawRoundedRect(QRectF(rect.x() + 1, rect.y() + 1, rect.width() - 2, 38), 10, 10)
+        p.setBrush(QColor(accent))
+        p.drawRoundedRect(QRectF(rect.x() + 9, rect.y() + 29, 16, 4), 2, 2)
         p.setFont(theme.mono(9, spacing=0.5))
         p.setPen(QPen(theme.pal().q("dim")))
         p.drawText(QRectF(rect.x(), rect.y() + 40, rect.width(), rect.height() - 42),
@@ -923,6 +977,15 @@ class SettingsScreen(Screen):
         self._theme_cards: list[ThemeCard] = []
         self._swatches: list[Swatch] = []
         self._density: Optional[Segmented] = None
+        self._material: Optional[Segmented] = None
+        self._glass: Optional[Segmented] = None
+        self._rotur_layout: Optional[QHBoxLayout] = None
+        self._rotur_row = None
+        self._discord_layout: Optional[QHBoxLayout] = None
+        self._discord_row = None
+        self._builds_host: Optional[QWidget] = None
+        self._server_row = None
+        self._pending_row = None
         self.load()
 
     def load(self) -> None:
@@ -968,6 +1031,18 @@ class SettingsScreen(Screen):
                                   settings.density)
         self._density.changed.connect(lambda value: self._set(density=value))
         panel.add_row("Density", "Row height in track lists", self._density)
+        self._material = Segmented(
+            [("plane", "Plane"), ("glass", "Glass"), ("solid", "Solid")],
+            settings.material,
+        )
+        self._material.changed.connect(lambda value: self._set(material=value))
+        panel.add_row("Surface", "Background treatment shared with the web player",
+                      self._material)
+        self._glass = Segmented(
+            [("auto", "Auto"), ("on", "On"), ("off", "Off")], settings.real_glass
+        )
+        self._glass.changed.connect(lambda value: self._set(real_glass=value))
+        panel.add_row("Glass effect", "Let the desktop use real translucency", self._glass)
         covers = Switch(settings.covers)
         covers.toggled.connect(lambda value: self._set(covers=value))
         panel.add_row("Cover art", "Show embedded artwork", covers, last=True)
@@ -981,7 +1056,21 @@ class SettingsScreen(Screen):
             ("yt_stats", "YouTube stats", "Show like counts in track lists", settings.yt_stats),
             ("remember_volume", "Remember volume", "Restore the last volume on start", settings.remember_volume),
             ("prefetch", "Prefetch next track", "Cache the next track in the background", settings.prefetch),
-            ("offline_audio", "Offline audio cache", "Keep streamed audio on disk", settings.offline_audio),
+            ("offline_audio", "Stream cache", "Keep played audio on disk for offline replay", settings.offline_audio),
+        ]
+        for index, (key, title, subtitle, value) in enumerate(options):
+            toggle = Switch(value)
+            toggle.toggled.connect(lambda checked, k=key: self._set(**{k: checked}))
+            panel.add_row(title, subtitle, toggle, last=index == len(options) - 1)
+        self.add(panel, 16)
+
+        # privacy / activity ----------------------------------------------
+        panel = Panel("Privacy & activity")
+        options = [
+            ("private", "Private listening", "Hide what you play from other listeners", settings.private),
+            ("rotur_activity", "RoturLink activity", "Publish your current track to RoturLink", settings.rotur_activity),
+            ("discord_activity", "Discord activity", "Show your current track in Discord", settings.discord_activity),
+            ("show_room_url", "Show room link", "Expose your listen-along invite link in Settings", settings.show_room_url),
         ]
         for index, (key, title, subtitle, value) in enumerate(options):
             toggle = Switch(value)
@@ -993,48 +1082,54 @@ class SettingsScreen(Screen):
         panel = Panel("Account")
         panel.add_row("Username", "Signed in to this server",
                       Txt(user.username if user else "", size=13, token="dim"))
-        # room link row
-        room_row = QWidget()
-        rline = QHBoxLayout(room_row)
-        rline.setContentsMargins(0, 0, 0, 0)
-        rline.setSpacing(8)
-        from PySide6.QtCore import QUrl, QDesktopServices
-        room_url = self.window.settings.room_url or ""
-        if room_url:
-            room_display = room_url.rstrip('/') + "#room=" + (self.window.me.rotur_user_id[:8] if self.window.me else "C0de")
-            room_txt = Txt(room_display, size=11, token="dim", family="mono", wrap=True)
-            copy_btn = McButton("Copy", small=True, ghost=True)
-            copy_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(room_url)))
-            rline.addWidget(room_txt)
-            rline.addWidget(copy_btn)
-        else:
-            room_txt = Txt("Generating room link…", size=11, token="dim")
-            rline.addWidget(room_txt)
-        room_row.setEnabled(False)  # greyed out until ready
-        rline.addStretch(1)
 
         server_row = QWidget()
         sline = QHBoxLayout(server_row)
         sline.setContentsMargins(0, 0, 0, 0)
         sline.setSpacing(8)
         sline.addWidget(Txt(self.window.api.base_url, size=11, family="mono",
-                            token="dim"))
+                            token="dim", wrap=True))
         change = McButton("Change", small=True, ghost=True)
         change.clicked.connect(self._change_server)
         sline.addWidget(change)
-        panel.add_row("Server", "Where the library lives", server_row)
+        self._server_row = panel.add_row("Server", "Where the library lives", server_row)
+
+        email = McButton("Change", small=True, ghost=True)
+        email.clicked.connect(self._change_email)
+        panel.add_row("Email", user.email or "No email on this account", email)
+
         password = McButton("Change password", small=True)
         password.clicked.connect(self._change_password)
         panel.add_row("Password", "Update your local account password", password)
+
+        room_trailing = QWidget()
+        rline = QHBoxLayout(room_trailing)
+        rline.setContentsMargins(0, 0, 0, 0)
+        rline.setSpacing(6)
+        copy_room = McButton("Copy", small=True, ghost=True)
+        copy_room.clicked.connect(self._copy_room_url)
+        open_room = McButton("Open", small=True, ghost=True, icon="arrow-up-right")
+        open_room.clicked.connect(self._open_room_url)
+        rline.addWidget(copy_room)
+        rline.addWidget(open_room)
+        self._room_row = panel.add_row(
+            "Room link", "Invite others to listen along", room_trailing
+        )
+
         self._rotur_trailing = QWidget()
         self._rotur_layout = QHBoxLayout(self._rotur_trailing)
         self._rotur_layout.setContentsMargins(0, 0, 0, 0)
         self._rotur_layout.setSpacing(8)
         self._rotur_trailing.setMinimumWidth(120)
-        self.add_panel_rotur = panel.add_row(
-            "RoturLink", "Checking…", self._rotur_trailing
-        )
-        self._rotur_row = self.add_panel_rotur
+        self._rotur_row = panel.add_row("RoturLink", "Checking…", self._rotur_trailing)
+
+        self._discord_trailing = QWidget()
+        self._discord_layout = QHBoxLayout(self._discord_trailing)
+        self._discord_layout.setContentsMargins(0, 0, 0, 0)
+        self._discord_layout.setSpacing(8)
+        self._discord_trailing.setMinimumWidth(120)
+        self._discord_row = panel.add_row("Discord", "Checking…", self._discord_trailing)
+
         if user and user.is_admin:
             admin = McButton("Open admin", small=True, ghost=True, icon="users")
             admin.clicked.connect(lambda: self.window.navigate(("admin",)))
@@ -1044,15 +1139,57 @@ class SettingsScreen(Screen):
         panel.add_row("Session", "Sign out of this desktop", signout, last=True)
         self.add(panel, 16)
 
+        # server metadata / builds ---------------------------------------
+        panel = Panel("Updates & builds")
+        panel.add_row("Client version", VERSION,
+                      Txt("Running now", size=11, token="dim2"))
+        self._server_version_row = panel.add_row(
+            "Server version", "Checking…", Txt("", size=11, family="mono", token="dim")
+        )
+        self._builds_host = QWidget()
+        build_line = QVBoxLayout(self._builds_host)
+        build_line.setContentsMargins(0, 0, 0, 0)
+        build_line.setSpacing(0)
+        panel.add_widget(self._builds_host)
+        guide = McButton("Self-hosting guide", small=True, ghost=True,
+                         icon="arrow-up-right")
+        guide.clicked.connect(self._open_selfhost)
+        panel.add_row("Run your own", "Docs for hosting a private server", guide,
+                      last=True)
+        self.add(panel, 16)
+
+        # offline state / cache ------------------------------------------
+        panel = Panel("Offline & cache")
+        self._pending_label = Txt("0 pending changes", size=11, token="dim")
+        sync = McButton("Sync now", small=True, ghost=True, icon="refresh-cw")
+        sync.clicked.connect(self.window.sync_outbox)
+        self._pending_row = panel.add_row("Offline writes",
+                                         "Queued until the server is reachable", sync)
+        self._cache_label = Txt("", size=11, token="dim")
+        panel.add_row("Cache", "Saved replies and streamed audio", self._cache_label)
+        downloads = McButton("Manage", small=True, ghost=True,
+                             icon="arrow-up-right")
+        downloads.clicked.connect(lambda: self.window.navigate(("downloads",)))
+        panel.add_row("Downloads", "Inspect, prune or clear cached files", downloads,
+                      last=True)
+        self.add(panel, 16)
+
         about = Txt(
-            "mcmusic desktop · native Qt 6 client. Same server API, palette and icons "
-            "as the web player and Android app.",
+            f"mcmusic desktop {VERSION} · native Qt 6 client. Same server API, "
+            "palette and icons as the web player and Android app.",
             size=11, token="dim2", wrap=True,
         )
         self.add(about)
 
+        self.refresh_sync_state()
         self.run(self.window.repo.rotur_status, self._render_rotur,
                  error=lambda _e: self._render_rotur({}))
+        self.run(self.window.repo.discord_status, self._render_discord,
+                 error=lambda _e: self._render_discord({}))
+        self.run(self.window.repo.version, self._render_version,
+                 error=lambda _e: None)
+        self.run(self.window.repo.builds, self._render_builds,
+                 error=lambda _e: None)
 
     # helpers ------------------------------------------------------------
     def _set(self, **changes) -> None:
@@ -1124,6 +1261,37 @@ class SettingsScreen(Screen):
         old.edit.setFocus()
         sheet.exec()
 
+    def _change_email(self) -> None:
+        current = self.window.me.email if self.window.me else ""
+        email = prompt(self, "Account email", "Email address", initial=current or "",
+                       placeholder="you@example.com", confirm="Save")
+        if not email:
+            return
+        self.run(lambda: self.window.repo.set_email(email),
+                 lambda me: (self.window.after_login(me), self.load(),
+                             self.window.toast("Email updated")))
+
+    def _room_url(self) -> str:
+        base = self.window.settings.room_url or self.window.store.room_url
+        if not base:
+            return ""
+        user = self.window.me
+        code = (user.rotur_user_id or user.rotur_id if user else "") or ""
+        return base.rstrip("/") + ("#room=" + code[:8] if code else "")
+
+    def _copy_room_url(self) -> None:
+        url = self._room_url()
+        if not url:
+            self.window.toast("No room link is available yet")
+            return
+        QGuiApplication.clipboard().setText(url)
+        self.window.toast("Room link copied")
+
+    def _open_room_url(self) -> None:
+        url = self._room_url()
+        if url:
+            QDesktopServices.openUrl(QUrl(url))
+
     def _render_rotur(self, status: dict) -> None:
         while self._rotur_layout.count():
             item = self._rotur_layout.takeAt(0)
@@ -1160,7 +1328,115 @@ class SettingsScreen(Screen):
         self.run(self.window.repo.unlink_rotur, lambda _: self.load())
 
     def _open_rotur(self) -> None:
-        QDesktopServices.openUrl(self.window.api.web_url("api/auth/rotur/authorize"))
+        QDesktopServices.openUrl(QUrl(self.window.repo.rotur_authorize_url(
+            self.window.store.device_hash
+        )))
+
+    def _render_discord(self, status: dict) -> None:
+        while self._discord_layout.count():
+            item = self._discord_layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+        if not isinstance(status, dict):
+            status = {}
+        configured = bool(status.get("configured"))
+        linked = bool(status.get("linked"))
+        if not configured:
+            self._discord_trailing.setVisible(False)
+            if self._discord_row.subtitle_label is not None:
+                self._discord_row.subtitle_label.setText(
+                    "Discord linking is not configured on this server"
+                )
+            return
+        self._discord_trailing.setVisible(True)
+        if self._discord_row.subtitle_label is not None:
+            self._discord_row.subtitle_label.setText(
+                f"Linked as {status.get('username') or status.get('discord_id')}"
+                if linked else "Not linked — connect a Discord account"
+            )
+        if linked:
+            unlink = McButton("Unlink", small=True, ghost=True, danger=True)
+            unlink.clicked.connect(self._unlink_discord)
+            self._discord_layout.addWidget(unlink)
+        else:
+            link = McButton("Connect", small=True, ghost=True, icon="link")
+            link.clicked.connect(self._open_discord)
+            self._discord_layout.addWidget(link)
+
+    def _unlink_discord(self) -> None:
+        self.run(self.window.repo.discord_unlink, lambda _: self.load())
+
+    def _open_discord(self) -> None:
+        QDesktopServices.openUrl(QUrl(self.window.repo.discord_authorize_url()))
+
+    def _render_version(self, data: dict) -> None:
+        if not self._server_row or not isinstance(data, dict):
+            return
+        build = str(data.get("build") or "")[:12]
+        label = f"build {build}" if build else "reachable"
+        if self._server_version_row.subtitle_label is not None:
+            self._server_version_row.subtitle_label.setText(label)
+        trailing = self._server_version_row.layout().itemAt(1)
+        if trailing is not None and trailing.widget() is not None:
+            trailing.widget().setText(str(data.get("shell") or VERSION))
+
+    def _render_builds(self, builds: list[BuildInfo]) -> None:
+        host = self._builds_host
+        if host is None or not isValid(host):
+            return
+        layout = host.layout()
+        while layout.count():
+            item = layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+        shown = [b for b in builds if b.available][:12]
+        if not shown:
+            layout.addWidget(Txt("No builds are published yet.", size=11,
+                                 token="dim2", wrap=True))
+            return
+        panel = Panel("Available builds")
+        for index, build in enumerate(shown):
+            trailing = QWidget()
+            line = QHBoxLayout(trailing)
+            line.setContentsMargins(0, 0, 0, 0)
+            line.setSpacing(6)
+            download = McButton("Download", small=True, ghost=True, icon="download")
+            download.clicked.connect(lambda _=False, b=build: QDesktopServices.openUrl(
+                QUrl(self.window.repo.build_url(b.url))))
+            email = McButton("Email", small=True, ghost=True)
+            email.clicked.connect(lambda _=False, b=build: self._email_build(b))
+            line.addWidget(download)
+            line.addWidget(email)
+            subtitle = " · ".join(x for x in [build.version, fmt_bytes(build.bytes),
+                                              build.built] if x)
+            panel.add_row(build.label, subtitle or build.note, trailing,
+                          last=index == len(shown) - 1)
+        layout.addWidget(panel)
+
+    def _email_build(self, build: BuildInfo) -> None:
+        email = prompt(self, "Email build", "Email address",
+                       placeholder="you@example.com", confirm="Send")
+        if not email:
+            return
+        self.run(lambda: self.window.repo.email_build(build.kind, email),
+                 lambda _: self.window.toast(f"{build.label} link sent"))
+
+    def _open_selfhost(self) -> None:
+        QDesktopServices.openUrl(QUrl(
+            "https://github.com/mc20000-01/mcmusic/blob/main/docs/selfhost.md"
+        ))
+
+    def refresh_sync_state(self) -> None:
+        pending = self.window.api.pending_writes()
+        if self._pending_label is not None and isValid(self._pending_label):
+            self._pending_label.setText(
+                f"{pending} pending change" + ("" if pending == 1 else "s")
+            )
+        if self._cache_label is not None and isValid(self._cache_label):
+            responses, audio = self.window.store.cache_stats()
+            self._cache_label.setText(f"{responses} replies · {audio} audio files")
 
     def apply_settings(self, settings: Settings) -> None:
         for card in self._theme_cards:
@@ -1170,15 +1446,52 @@ class SettingsScreen(Screen):
             swatch.set_selected(swatch.color.lower() == current)
         if self._density is not None:
             self._density.set_selected(settings.density)
+        if self._material is not None:
+            self._material.set_selected(settings.material)
+        if self._glass is not None:
+            self._glass.set_selected(settings.real_glass)
+        if self._room_row is not None:
+            self._room_row.setVisible(bool(settings.show_room_url and self._room_url()))
+        self.refresh_sync_state()
 
 
 # ── admin ──────────────────────────────────────────────────────────────────
 
 
 class AdminScreen(Screen):
+    """Sectioned server console matching the web/Android admin tools."""
+
     def __init__(self, window, parent=None):
         super().__init__(window, parent)
         self.load()
+
+    @staticmethod
+    def _clear(widget: QWidget) -> None:
+        layout = widget.layout()
+        if layout is None:
+            return
+        while layout.count():
+            item = layout.takeAt(0)
+            child = item.widget()
+            if child is not None:
+                child.setParent(None)
+                child.deleteLater()
+
+    @staticmethod
+    def _host(title: str) -> tuple[QWidget, QVBoxLayout, QWidget]:
+        """A permanent panel wrapper with a replaceable body layout."""
+        host = QWidget()
+        outer = QVBoxLayout(host)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+        panel = Panel(title)
+        outer.addWidget(panel)
+        body = QWidget()
+        line = QVBoxLayout(body)
+        line.setContentsMargins(0, 0, 0, 0)
+        line.setSpacing(0)
+        panel.add_widget(body)
+        return host, line, body
 
     def load(self) -> None:
         self.clear()
@@ -1191,37 +1504,63 @@ class AdminScreen(Screen):
         head.add_action(scan)
         self.add(head, 16)
         self.loading("Reading server stats…")
+
+        self._stats_host = QWidget()
+        self.add(self._stats_host, 16)
+        self._users_host, self._users_line, self._users_body = self._host("Users")
+        self.add(self._users_host, 16)
+        self._invites_host, self._invites_line, self._invites_body = self._host(
+            "Invite codes"
+        )
+        invite = McButton("New code", small=True, ghost=True, icon="plus")
+        invite.clicked.connect(self._create_invite)
+        head.add_action(invite)
+        self.add(self._invites_host, 16)
+        self._requests_host, self._requests_line, self._requests_body = self._host(
+            "Download requests"
+        )
+        self.add(self._requests_host, 16)
+        self._devices_host, self._devices_line, self._devices_body = self._host(
+            "Connected devices"
+        )
+        self.add(self._devices_host, 16)
+        self._channels_host, self._channels_line, self._channels_body = self._host(
+            "Control channels"
+        )
+        self.add(self._channels_host, 16)
+        self._rooms_host, self._rooms_line, self._rooms_body = self._host(
+            "Listening rooms"
+        )
+        self.add(self._rooms_host, 16)
+        self._jobs_host, self._jobs_line, self._jobs_body = self._host("Library jobs")
+        self.add(self._jobs_host, 16)
+
         self.run(self.window.repo.admin_stats, self._render_stats)
         self.run(self.window.repo.admin_users, self._render_users)
+        self.run(self.window.repo.admin_invites, self._render_invites)
+        self.run(self.window.repo.admin_requests, self._render_requests)
+        self.run(self.window.repo.admin_devices, self._render_devices)
+        self.run(self.window.repo.admin_channels, self._render_channels)
+        self.run(self.window.repo.admin_rooms, self._render_rooms)
+        self.run(self.window.repo.admin_enrich_status, self._render_enrich)
+        self.run(self.window.repo.admin_lyrics_status, self._render_lyrics)
+
+    def _done(self) -> None:
+        self.stop_loading()
 
     def _render_stats(self, stats: AdminStats) -> None:
         if not isValid(self):
             return
-        self.stop_loading()
-        # Replace only the stats block (it is the first content widget).
-        target = None
-        for i in range(self.layout.count()):
-            widget = self.layout.itemAt(i).widget()
-            if getattr(widget, "_mc_stats", False):
-                target = widget
-                break
-        if target is not None:
-            target.setParent(None)
-            target.deleteLater()
-        grid_widget = QWidget()
-        grid_widget._mc_stats = True  # type: ignore[attr-defined]
-        grid = QGridLayout(grid_widget)
-        grid.setContentsMargins(0, 0, 0, 18)
+        self._done()
+        self._clear(self._stats_host)
+        grid = QGridLayout(self._stats_host)
+        grid.setContentsMargins(0, 0, 0, 0)
         grid.setSpacing(8)
         cards = [
-            (str(stats.users), "users"),
-            (str(stats.admins), "admins"),
-            (str(stats.tracks), "tracks"),
-            (str(stats.albums), "albums"),
-            (str(stats.playlists), "playlists"),
-            (str(stats.plays), "plays"),
-            (str(stats.queue), "queue"),
-            (str(stats.rooms), "rooms"),
+            (str(stats.users), "users"), (str(stats.admins), "admins"),
+            (str(stats.tracks), "tracks"), (str(stats.albums), "albums"),
+            (str(stats.playlists), "playlists"), (str(stats.plays), "plays"),
+            (str(stats.queue), "queue"), (str(stats.rooms), "rooms"),
             (fmt_bytes(stats.music_bytes), "music"),
             (fmt_bytes(stats.disk_free), "disk free"),
             (fmt_uptime(stats.uptime), "uptime"),
@@ -1229,22 +1568,12 @@ class AdminScreen(Screen):
         columns = max(2, min(6, self.width() // 190))
         for i, (value, label) in enumerate(cards):
             grid.addWidget(StatCard(value, label), i // columns, i % columns)
-        self.layout.insertWidget(1, grid_widget)
 
     def _render_users(self, users: list[AdminUser]) -> None:
         if not isValid(self):
             return
-        target = None
-        for i in range(self.layout.count()):
-            widget = self.layout.itemAt(i).widget()
-            if getattr(widget, "_mc_users", False):
-                target = widget
-                break
-        if target is not None:
-            target.setParent(None)
-            target.deleteLater()
-        panel = Panel("Users")
-        panel._mc_users = True  # type: ignore[attr-defined]
+        self._done()
+        self._clear(self._users_body)
         for i, user in enumerate(users):
             trailing = QWidget()
             line = QHBoxLayout(trailing)
@@ -1253,15 +1582,39 @@ class AdminScreen(Screen):
             if user.is_admin:
                 line.addWidget(StatusChip("admin", "accent"))
             button = McButton("Revoke" if user.is_admin else "Make admin",
-                              small=True, ghost=True,
-                              danger=user.is_admin)
+                              small=True, ghost=True, danger=user.is_admin)
             button.clicked.connect(lambda _=False, u=user: self._toggle_admin(u))
+            delete = IconButton("trash-2", size=26, icon_size=13,
+                                tooltip="Delete user")
+            delete.clicked.connect(lambda _=False, u=user: self._delete_user(u))
             line.addWidget(button)
+            line.addWidget(delete)
             subtitle = (f"{user.plays} plays · {user.likes} likes · "
                         f"{user.playlists} playlists · {user.requests} requests")
-            panel.add_row(user.username, subtitle, trailing, last=i == len(users) - 1)
-        self.add(panel)
-        self.reset_scroll()
+            self._users_line.addWidget(self._row_widget(
+                user.username, subtitle, trailing, i == len(users) - 1))
+        if not users:
+            self._users_line.addWidget(self._row_widget(
+                "No users", "Nobody has signed in yet", None, True))
+
+    @staticmethod
+    def _row_widget(title: str, subtitle: str, trailing: Optional[QWidget],
+                    last: bool) -> QWidget:
+        host = QWidget()
+        line = QHBoxLayout(host)
+        line.setContentsMargins(16, 12, 16, 12)
+        line.setSpacing(16)
+        text = QVBoxLayout()
+        text.setContentsMargins(0, 0, 0, 0)
+        text.addWidget(Txt(title, size=13, token="fg"))
+        if subtitle:
+            text.addWidget(Txt(subtitle, size=11, token="dim2", wrap=True))
+        line.addLayout(text, 1)
+        if trailing is not None:
+            line.addWidget(trailing, 0, Qt.AlignmentFlag.AlignVCenter)
+        if not last:
+            host.setProperty("mcRow", True)
+        return host
 
     def _toggle_admin(self, user: AdminUser) -> None:
         self.run(
@@ -1270,8 +1623,515 @@ class AdminScreen(Screen):
                 "Admin removed" if user.is_admin else "Admin granted"), self.load()),
         )
 
+    def _delete_user(self, user: AdminUser) -> None:
+        if not confirm(self, "Delete user",
+                       f"Permanently delete @{user.username} and their library?",
+                       confirm_label="Delete"):
+            return
+        self.run(lambda: self.window.repo.admin_delete_user(user.id),
+                 lambda _: (self.window.toast("User deleted"), self.load()))
+
     def _rescan(self) -> None:
         self.run(
             self.window.repo.admin_scan,
             lambda result: self.window.toast(f"{result[0]} tracks · {result[1]} albums"),
         )
+
+    def _create_invite(self) -> None:
+        note = prompt(self, "New invite code", "Note (optional)",
+                      placeholder="For a friend", confirm="Create")
+        if note is None:
+            return
+        self.run(lambda: self.window.repo.admin_invite_create(1, 0, note),
+                 lambda data: (QGuiApplication.clipboard().setText(str(data.get("code", ""))),
+                               self.window.toast("Invite code copied"), self.load()))
+
+    def _render_invites(self, codes: list[dict]) -> None:
+        if not isValid(self):
+            return
+        self._done()
+        self._clear(self._invites_body)
+        for i, code in enumerate(codes[:50]):
+            trailing = QWidget()
+            line = QHBoxLayout(trailing)
+            line.setContentsMargins(0, 0, 0, 0)
+            copy = McButton("Copy", small=True, ghost=True)
+            copy.clicked.connect(lambda _=False, c=code: QGuiApplication.clipboard().setText(
+                str(c.get("code", ""))))
+            revoke = IconButton("x", size=26, icon_size=12, tooltip="Revoke code")
+            revoke.setEnabled(not code.get("expired") and not code.get("exhausted"))
+            revoke.clicked.connect(lambda _=False, c=code: self.run(
+                lambda: self.window.repo.admin_invite_revoke(int(c.get("id") or 0)),
+                lambda _: self.load()))
+            line.addWidget(copy)
+            line.addWidget(revoke)
+            state = "expired" if code.get("expired") else (
+                "used up" if code.get("exhausted") else "active")
+            subtitle = (f"{code.get('uses', 0)}/{code.get('max_uses', 0)} uses · "
+                        f"{code.get('note') or state}")
+            self._invites_line.addWidget(self._row_widget(
+                str(code.get("code", "")), subtitle, trailing, i == min(len(codes), 50) - 1))
+        if not codes:
+            self._invites_line.addWidget(self._row_widget(
+                "No invite codes", "Create one to invite a friend", None, True))
+
+    def _render_requests(self, rows: list[RequestRow]) -> None:
+        if not isValid(self):
+            return
+        self._done()
+        self._clear(self._requests_body)
+        open_requests = McButton("Open queue", small=True, ghost=True,
+                                 icon="arrow-up-right")
+        open_requests.clicked.connect(lambda: self.window.navigate(("requests",)))
+        self._requests_line.addWidget(self._row_widget(
+            f"{len(rows)} requests", "Approve, cancel, retry and read logs",
+            open_requests, True))
+
+    def _render_devices(self, devices: list[DeviceRow]) -> None:
+        if not isValid(self):
+            return
+        self._done()
+        self._clear(self._devices_body)
+        open_devices = McButton("Open devices", small=True, ghost=True,
+                                icon="arrow-up-right")
+        open_devices.clicked.connect(lambda: self.window.navigate(("devices",)))
+        self._devices_line.addWidget(self._row_widget(
+            f"{len(devices)} devices", "Rename, activate and revoke app passwords",
+            open_devices, True))
+
+    def _render_channels(self, channels: list[dict]) -> None:
+        if not isValid(self):
+            return
+        self._done()
+        self._clear(self._channels_body)
+        for i, channel in enumerate(channels[:50]):
+            trailing = QWidget()
+            line = QHBoxLayout(trailing)
+            line.setContentsMargins(0, 0, 0, 0)
+            unbind = McButton("Unbind", small=True, ghost=True, danger=True)
+            unbind.clicked.connect(lambda _=False, c=channel: self.run(
+                lambda: self.window.api.delete(f"channels/{int(c.get('id') or 0)}"),
+                lambda _: self.load()))
+            line.addWidget(unbind)
+            subtitle = (f"{channel.get('platform', 'chat')} · "
+                        f"{channel.get('channel_id', '')}")
+            self._channels_line.addWidget(self._row_widget(
+                str(channel.get("name") or channel.get("id") or "channel"),
+                subtitle, trailing, i == min(len(channels), 50) - 1))
+        if not channels:
+            self._channels_line.addWidget(self._row_widget(
+                "No control channels", "Bot channels appear here when bound", None, True))
+
+    def _render_rooms(self, rooms: list[dict]) -> None:
+        if not isValid(self):
+            return
+        self._done()
+        self._clear(self._rooms_body)
+        for i, room in enumerate(rooms[:40]):
+            trailing = QWidget()
+            line = QHBoxLayout(trailing)
+            line.setContentsMargins(0, 0, 0, 0)
+            close = McButton("Close", small=True, ghost=True, danger=True)
+            close.clicked.connect(lambda _=False, r=room: self.run(
+                lambda: self.window.repo.admin_room_close(str(r.get("code", ""))),
+                lambda _: self.load()))
+            line.addWidget(close)
+            track = room.get("track") or {}
+            subtitle = (f"@{room.get('host', '?')} · "
+                        f"{(track.get('title') if isinstance(track, dict) else '') or 'idle'}")
+            self._rooms_line.addWidget(self._row_widget(
+                str(room.get("code", "")), subtitle, trailing,
+                i == min(len(rooms), 40) - 1))
+        if not rooms:
+            self._rooms_line.addWidget(self._row_widget(
+                "No open rooms", "Listen-along rooms appear here", None, True))
+
+    def _render_enrich(self, status: dict) -> None:
+        if not isValid(self):
+            return
+        self._done()
+        self._clear(self._jobs_body)
+        status = status if isinstance(status, dict) else {}
+        row = QWidget()
+        line = QHBoxLayout(row)
+        line.setContentsMargins(16, 12, 16, 12)
+        line.setSpacing(8)
+        line.addWidget(Txt(
+            f"YouTube metadata: {status.get('linked', 0)}/{status.get('total', 0)} linked · "
+            f"{status.get('fetched', 0)} fetched", size=11, token="dim", wrap=True), 1)
+        start = McButton("Refresh stats", small=True, ghost=True)
+        start.clicked.connect(lambda: self.run(self.window.repo.admin_enrich_start,
+                                               lambda _: self.load()))
+        force = McButton("Re-fetch all", small=True, ghost=True, danger=True)
+        force.clicked.connect(lambda: self.run(
+            lambda: self.window.repo.admin_enrich_start(force=True),
+            lambda _: (self.window.toast("Metadata refresh queued"), self.load())))
+        lyric = McButton("Fetch lyrics", small=True, ghost=True)
+        lyric.clicked.connect(lambda: self.run(self.window.repo.admin_lyrics_start,
+                                               lambda _: (self.window.toast(
+                                                   "Lyrics fetch queued"), self.load())))
+        for button in (start, force, lyric):
+            line.addWidget(button)
+        self._jobs_line.addWidget(row)
+
+    def _render_lyrics(self, status: dict) -> None:
+        if not isValid(self):
+            return
+        status = status if isinstance(status, dict) else {}
+        row = QWidget()
+        line = QHBoxLayout(row)
+        line.setContentsMargins(16, 4, 16, 12)
+        line.addWidget(Txt("Lyrics: " + ", ".join(
+            f"{k}={v}" for k, v in list(status.items())[:4]
+        ) or "no status", size=11, token="dim2", wrap=True))
+        self._jobs_line.addWidget(row)
+
+
+# ── downloads / cache ────────────────────────────────────────────────────────
+
+
+class DownloadsScreen(Screen):
+    """The local audio cache: files, bytes, pruning and removal."""
+
+    def __init__(self, window, parent=None):
+        super().__init__(window, parent)
+        self.load()
+
+    def load(self) -> None:
+        self.clear()
+        from .player import cache_dir
+        self._dir = cache_dir()
+        head = PageHead("Downloads", "Local audio cache", "")
+        refresh = McButton("Refresh", small=True, ghost=True, icon="refresh-cw")
+        refresh.clicked.connect(self.load)
+        head.add_action(refresh)
+        self.add(head, 12)
+
+        from datetime import datetime
+        files = []
+        for p in sorted(self._dir.iterdir(), key=lambda f: f.stat().st_mtime, reverse=True):
+            if not p.is_file() or p.suffix == ".part":
+                continue
+            try:
+                st = p.stat()
+            except OSError:
+                continue
+            files.append((p, st))
+        total = sum(st.st_size for _, st in files)
+        responses, _ = self.window.store.cache_stats()
+
+        panel = Panel("Storage")
+        panel.add_row("Audio files", f"{len(files)} files · {fmt_bytes(total)}",
+                      Txt("on this device", size=11, token="dim2"))
+        panel.add_row("API responses", f"{responses} cached replies",
+                      Txt("offline reads", size=11, token="dim2"))
+        actions = QWidget()
+        line = QHBoxLayout(actions)
+        line.setContentsMargins(0, 0, 0, 0)
+        line.setSpacing(6)
+        prune = McButton("Prune old", small=True, ghost=True)
+        prune.clicked.connect(self._prune)
+        line.addWidget(prune)
+        clear = McButton("Clear cache", small=True, danger=True, icon="trash-2")
+        clear.clicked.connect(self._clear)
+        line.addWidget(clear)
+        folder = McButton("Open folder", small=True, ghost=True, icon="arrow-up-right")
+        folder.clicked.connect(lambda: QDesktopServices.openUrl(
+            QUrl.fromLocalFile(str(self._dir))))
+        line.addWidget(folder)
+        panel.add_row("Maintenance", "Old files and oversized caches can be removed", actions,
+                      last=True)
+        self.add(panel, 16)
+
+        panel = Panel("Cached tracks")
+        if not files:
+            panel.add_row("Nothing cached yet", "Tracks you play are kept here",
+                          last=True)
+        for index, (path, st) in enumerate(files[:200]):
+            trailing = QWidget()
+            row_line = QHBoxLayout(trailing)
+            row_line.setContentsMargins(0, 0, 0, 0)
+            row_line.setSpacing(6)
+            row_line.addWidget(Txt(fmt_bytes(st.st_size), size=11, family="mono", token="dim"))
+            play = McButton("Play", small=True, ghost=True, icon="play")
+            play.clicked.connect(lambda _=False, p=path: self._play_cached(p))
+            row_line.addWidget(play)
+            remove = IconButton("trash-2", size=26, icon_size=13, tooltip="Remove file")
+            remove.clicked.connect(lambda _=False, p=path: self._remove(p))
+            row_line.addWidget(remove)
+            when = datetime.fromtimestamp(st.st_mtime).strftime("%d %b %Y")
+            panel.add_row(path.stem, fmt_bytes(st.st_size) + " · " + when,
+                          trailing, last=index == min(len(files), 200) - 1)
+        self.add(panel, 16)
+        self.add(Txt("Downloads are the same stream cache the player uses. Turning off "
+                     "“Stream cache” in Settings discards files after playback.",
+                     size=11, token="dim2", wrap=True))
+
+    def _play_cached(self, path) -> None:
+        # Reuse the normal engine so MPRIS, activity and queue state stay in sync.
+        try:
+            track_id = int(path.stem.split(".")[0])
+        except ValueError:
+            return
+        if track_id in (t.id for t in self.window.player.queue):
+            self.window.player.jump(next(i for i, t in enumerate(self.window.player.queue)
+                                         if t.id == track_id))
+            return
+        self.run(
+            lambda: self.window.repo.find_track(track_id),
+            lambda track: (
+                self.window.player.play([track], 0) if track is not None
+                else self.window.toast("Track details are not cached — open it from your library")
+            ),
+            lambda _exc: self.window.toast("Track details are not cached — open it from your library"),
+        )
+
+    def _remove(self, path) -> None:
+        try:
+            path.unlink()
+            self.window.toast("Cache file removed")
+        except OSError as exc:
+            self.window.toast(str(exc))
+        self.load()
+
+    def _prune(self) -> None:
+        removed = self.window.store.cache_prune()
+        self.window.toast(f"Pruned {removed} files")
+        self.load()
+
+    def _clear(self) -> None:
+        if not confirm(self, "Clear cache",
+                       "Remove cached audio and offline API replies? You will need a "
+                       "connection to play those tracks again.", confirm_label="Clear"):
+            return
+        removed = self.window.store.cache_clear()
+        self.window.toast(f"Cleared {removed} cached items")
+        self.load()
+
+
+# ── devices ──────────────────────────────────────────────────────────────────
+
+
+class DevicesScreen(Screen):
+    def __init__(self, window, parent=None):
+        super().__init__(window, parent)
+        self.load()
+
+    def load(self) -> None:
+        self.clear()
+        head = PageHead("Devices", "Your signed-in players", "")
+        refresh = McButton("Refresh", small=True, ghost=True, icon="refresh-cw")
+        refresh.clicked.connect(self.load)
+        head.add_action(refresh)
+        pair = McButton("Pair device", small=True, icon="link")
+        pair.clicked.connect(self._pair)
+        head.add_action(pair)
+        self.add(head, 12)
+        self.loading("Reading devices…")
+        self.run(self.window.repo.devices, self._render_devices,
+                 error=lambda _e: self.stop_loading())
+        self.run(self.window.repo.device_tokens, self._render_tokens,
+                 error=lambda _e: None)
+
+    def _render_devices(self, devices: list[DeviceRow]) -> None:
+        self.stop_loading()
+        panel = Panel("Registered devices")
+        for index, device in enumerate(devices):
+            trailing = QWidget()
+            line = QHBoxLayout(trailing)
+            line.setContentsMargins(0, 0, 0, 0)
+            line.setSpacing(6)
+            if device.active:
+                line.addWidget(StatusChip("active", "accent"))
+            if not device.active:
+                activate = McButton("Activate", small=True, ghost=True)
+                activate.clicked.connect(lambda _=False, d=device: self._act(
+                    lambda: self.window.repo.device_activate(d.id), "Device activated"))
+                line.addWidget(activate)
+            rename = McButton("Rename", small=True, ghost=True)
+            rename.clicked.connect(lambda _=False, d=device: self._rename(d))
+            line.addWidget(rename)
+            forget = IconButton("trash-2", size=26, icon_size=13, tooltip="Forget device")
+            forget.clicked.connect(lambda _=False, d=device: self._forget(d))
+            line.addWidget(forget)
+            subtitle = (device.track_title or "No track") + (
+                " — " + device.track_artist if device.track_artist else "")
+            panel.add_row(device.name or device.device_hash[:12], subtitle, trailing,
+                          last=index == len(devices) - 1)
+        if not devices:
+            panel.add_row("No devices yet", "Play something to register this app", last=True)
+        self.add(panel, 16)
+
+        panel = Panel("Maintenance")
+        cleanup = McButton("Remove stale devices", small=True, ghost=True)
+        cleanup.clicked.connect(lambda: self._act(
+            self.window.repo.devices_cleanup, "Stale devices removed"))
+        panel.add_row("Cleanup", "Drop devices unseen for 30 days", cleanup)
+        clear = McButton("Forget all devices", small=True, danger=True)
+        clear.clicked.connect(self._clear_all)
+        panel.add_row("Reset", "Remove every device for this account", clear, last=True)
+        self.add(panel, 16)
+        self.reset_scroll()
+
+    def _render_tokens(self, tokens: list[dict]) -> None:
+        panel = Panel("App passwords")
+        for index, token in enumerate(tokens[:50]):
+            trailing = QWidget()
+            line = QHBoxLayout(trailing)
+            line.setContentsMargins(0, 0, 0, 0)
+            revoke = McButton("Revoke", small=True, danger=True)
+            from PySide6.QtCore import QObject
+            token_id = token.get("id", token.get("device_id", 0))
+            revoke.clicked.connect(lambda _=False, tid=token_id: self._act(
+                lambda: self.window.repo.device_token_revoke(int(tid)), "Token revoked"))
+            line.addWidget(revoke)
+            label = str(token.get("name") or token.get("prefix") or token.get("id") or "token")
+            panel.add_row(label, "Long-lived native client credential", trailing,
+                          last=index == min(len(tokens), 50) - 1)
+        if not tokens:
+            panel.add_row("No app passwords", "Pair a device to create one", last=True)
+        self.add(panel, 16)
+
+    def _act(self, fn, success: str) -> None:
+        self.run(fn, lambda _: (self.window.toast(success), self.load()))
+
+    def _rename(self, device: DeviceRow) -> None:
+        name = prompt(self, "Rename device", "Name", initial=device.name,
+                      placeholder="Living room speaker", confirm="Rename")
+        if name:
+            self._act(lambda: self.window.repo.device_rename(device.id, name),
+                      "Device renamed")
+
+    def _forget(self, device: DeviceRow) -> None:
+        if confirm(self, "Forget device", f"Remove {device.name or 'this device'}?",
+                   confirm_label="Forget"):
+            self._act(lambda: self.window.repo.device_forget(device.id), "Device forgotten")
+
+    def _clear_all(self) -> None:
+        if confirm(self, "Forget all devices", "Every device for this account will be "
+                   "signed out. This app will re-register on its next heartbeat.",
+                   confirm_label="Forget all"):
+            self._act(self.window.repo.devices_clear, "Devices cleared")
+
+    def _pair(self) -> None:
+        sheet = Sheet(self, "Pair a device")
+        code_label = Txt("Asking the server for a code…", size=13, token="dim", wrap=True)
+        sheet.body.addWidget(code_label)
+        hint = Txt("", size=11, token="dim2", wrap=True)
+        sheet.body.addWidget(hint)
+
+        def ok(data: dict) -> None:
+            if not isinstance(data, dict):
+                return
+            code = str(data.get("code") or "")
+            code_label.setText(code or "No code returned")
+            hint.setText(str(data.get("hint") or ""))
+
+        self.run(self.window.repo.device_code, ok,
+                 error=lambda e: code_label.setText(str(e)))
+
+        enter = McButton("I have a code", small=True)
+        sheet.body.addWidget(enter, 0, Qt.AlignmentFlag.AlignLeft)
+
+        def claim() -> None:
+            value = prompt(self, "Pair device", "One-time code", placeholder="XXXX-XXXX",
+                           confirm="Sign in")
+            if not value:
+                return
+            enter.setEnabled(False)
+
+            def done(data: dict) -> None:
+                token = str(data.get("token") or "")
+                if not token:
+                    self.window.toast("That code could not be used")
+                    enter.setEnabled(True)
+                    return
+                self.window.api.set_token(token)
+                me = self.window.repo.me()
+                sheet.accept()
+                self.window.after_login(me)
+                self.window.toast("Device paired")
+
+            self.run(lambda: self.window.repo.device_claim(value, "mcmusic desktop"),
+                     done, error=lambda _e: enter.setEnabled(True))
+
+        enter.clicked.connect(claim)
+        sheet.exec()
+
+
+# ── public listening ─────────────────────────────────────────────────────────
+
+
+class ListeningScreen(Screen):
+    def __init__(self, window, parent=None):
+        super().__init__(window, parent)
+        self.load()
+
+    def load(self) -> None:
+        self.clear()
+        head = PageHead("Listening", "What your server is playing", "")
+        refresh = McButton("Refresh", small=True, ghost=True, icon="refresh-cw")
+        refresh.clicked.connect(self.load)
+        head.add_action(refresh)
+        self.add(head, 12)
+        self.loading("Checking who is online…")
+        self.run(self.window.repo.public_listening,
+                 lambda value: self._render(value[0], value[1]),
+                 error=lambda _e: self.stop_loading())
+
+    def _render(self, users: list[ListeningUser], base: str) -> None:
+        self.stop_loading()
+        panel = Panel("Recently active")
+        for index, user in enumerate(users[:60]):
+            trailing = QWidget()
+            line = QHBoxLayout(trailing)
+            line.setContentsMargins(0, 0, 0, 0)
+            line.addWidget(StatusChip("listening" if user.listening else "paused",
+                                      "accent" if user.listening else "dim"))
+            profile = McButton("Profile", small=True, ghost=True, icon="arrow-up-right")
+            profile.clicked.connect(lambda _=False, u=user: self._profile(u.username))
+            line.addWidget(profile)
+            if user.track:
+                sub = f"{user.track.title} · {user.track.artist}"
+                if user.listening and user.track.duration:
+                    sub += f" · {fmt_time(user.position)}/{fmt_time(user.track.duration)}"
+            else:
+                sub = "Nothing playing"
+            panel.add_row(user.username, sub, trailing, last=index == min(len(users), 60) - 1)
+        if not users:
+            panel.add_row("Nobody listening right now",
+                          "Devices appear here while they are active", last=True)
+        self.add(panel, 16)
+        if base:
+            self.add(Txt("Public profiles: " + base + "/u/username",
+                         size=11, family="mono", token="dim2", wrap=True))
+        self.reset_scroll()
+
+    def _profile(self, username: str) -> None:
+        sheet = Sheet(self, "Profile")
+        label = Txt("Loading " + username + "…", size=13, token="dim", wrap=True)
+        sheet.body.addWidget(label)
+        open_web = McButton("Open profile", small=True, ghost=True, icon="arrow-up-right")
+        open_web.setEnabled(False)
+        sheet.body.addWidget(open_web, 0, Qt.AlignmentFlag.AlignLeft)
+
+        def ok(data: dict) -> None:
+            if not isinstance(data, dict):
+                return
+            track = data.get("track") or {}
+            if isinstance(track, dict):
+                label.setText(
+                    f"{data.get('username', username)}\n"
+                    f"{track.get('title', '')} — {track.get('artist', '')}\n"
+                    f"{fmt_time(float(data.get('position') or 0))}"
+                )
+            else:
+                label.setText(str(data.get("username") or username))
+            url = str(data.get("profile_url") or "")
+            if url:
+                open_web.setEnabled(True)
+                open_web.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(url)))
+
+        self.run(lambda: self.window.repo.public_now(username), ok,
+                 error=lambda e: label.setText(str(e)))
+        sheet.exec()

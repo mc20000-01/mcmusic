@@ -14,12 +14,18 @@ import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
 
+/** Public guide linked from Settings and the sign-in screen. */
+const val SELFHOST_GUIDE_URL =
+    "https://github.com/mc20000-01/mcmusic/blob/main/docs/selfhost.md"
+
 data class Track(
     val id: Int,
     val title: String,
     val artist: String,
     val album: String,
     val duration: Double,
+    val explicit: Boolean = false,
+    val liked: Boolean = false,
 )
 
 data class Listener(
@@ -275,6 +281,53 @@ object Api {
 
     suspend fun toggleLike(id: Int): Result<Boolean> = call {
         JSONObject(post("/api/like/$id", "{}")).optBoolean("liked")
+    }
+
+    /** Similar tracks from `/api/radio/<id>`; used to refill a finished queue. */
+    suspend fun radio(trackId: Int): Result<List<Track>> = call {
+        tracksOf(JSONObject(get("/api/radio/$trackId")).optJSONArray("tracks"))
+    }
+
+    /** Publish (or clear, when [playing] is false) the account's listening activity. */
+    suspend fun pushActivity(
+        sink: String,
+        trackId: Int?,
+        positionMs: Long,
+        playing: Boolean,
+    ): Result<Unit> = call {
+        request(
+            "/api/auth/$sink/activity",
+            "POST",
+            JSONObject()
+                .put("track_id", trackId)
+                .put("position", positionMs / 1000.0)
+                .put("playing", playing)
+                .toString(),
+        )
+        Unit
+    }
+
+    /**
+     * Verify a token handed back by the Rotur browser flow without throwing away
+     * the cookie jar or the currently saved token on a transient network error.
+     */
+    suspend fun verifyToken(value: String): Result<Me> = call {
+        val previous = Prefs.token
+        Prefs.saveToken(value)
+        val verified = runCatching { meOf(JSONObject(get("/api/me"))) }
+        verified.fold(
+            onSuccess = { me ->
+                if (me.id <= 0) {
+                    Prefs.saveToken(previous)
+                    throw ApiException(401, "Rotur sign-in was not accepted by the server.")
+                }
+                me
+            },
+            onFailure = { failure ->
+                Prefs.saveToken(previous)
+                throw failure
+            },
+        )
     }
 
     // --- playback presence ------------------------------------------------
@@ -579,6 +632,8 @@ object Api {
         artist = t.optString("artist"),
         album = t.optString("album"),
         duration = t.optDouble("duration", 0.0),
+        explicit = t.optBoolean("explicit"),
+        liked = t.optBoolean("liked"),
     )
 
     private fun tracksOf(arr: JSONArray?): List<Track> {

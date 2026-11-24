@@ -26,9 +26,10 @@ app/macos/
 ## What is Linux-only
 
 The Linux build registers an MPRIS2 D-Bus service for desktop media keys.
-macOS uses the system Now Playing panel instead; wiring `MPNowPlayingInfoCenter`
-is a follow-up, not a blocker. The Linux `.desktop` file and `install.sh` are
-not used on macOS.
+macOS publishes the same metadata and media controls through
+`MPNowPlayingInfoCenter` and the remote command center (supplied by the optional
+`macos-media` extra). The Linux `.desktop` file and `install.sh` are not used on
+macOS.
 
 ## Build
 
@@ -44,7 +45,7 @@ Output:
 
 ```
 dist/mcmusic.app        # drag to /Applications
-dist/mcmusic-1.1.dmg    # with MAKE_DMG=1
+dist/mcmusic-2.6.0.dmg  # with MAKE_DMG=1, from the shared version
 ```
 
 The script creates `.venv-macos/`, installs `app/linux` in editable mode plus
@@ -58,6 +59,7 @@ Useful switches:
 PYTHON=python3.12 ./build.sh          # pick an interpreter
 ARCH=universal2 ./build.sh            # universal binary (needs universal wheels)
 MAKE_DMG=1 ./build.sh                 # also write a .dmg
+PUBLISH_APPS=0 ./build.sh             # build only, do not copy into apps/macos
 VERSION=1.2 ./build.sh                # override the bundle version
 ```
 
@@ -80,5 +82,8 @@ xattr -dr com.apple.quarantine dist/mcmusic.app
 ```
 
 For distribution to other people, set `CODESIGN_ID` to a Developer ID
-certificate and add notarization (`xcrun notarytool`) to `build.sh`. That is a
-deliberate opt-in because it needs an Apple account and credentials.
+certificate. When `APPLE_ID`, `APPLE_TEAM_ID` and `APPLE_APP_PASSWORD` are also
+set, `build.sh` codesigns, notarizes and staples the `.app` before publishing
+the zip/DMG to `apps/macos`. Release verification should include the packaged
+`.app`, not just a source checkout: check Now Playing metadata and remote media
+keys in the Control Center and on the keyboard.

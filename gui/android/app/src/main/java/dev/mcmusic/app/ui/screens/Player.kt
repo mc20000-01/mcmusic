@@ -1,5 +1,6 @@
 package dev.mcmusic.app.ui.screens
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -14,8 +15,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Slider
@@ -24,12 +28,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -44,10 +50,12 @@ import dev.mcmusic.app.ui.LucideIcon
 import dev.mcmusic.app.ui.Muted
 import dev.mcmusic.app.ui.ScreenBack
 import dev.mcmusic.app.ui.SectionLabel
+import dev.mcmusic.app.ui.SwitchRow
 import dev.mcmusic.app.ui.design.LocalDesign
 import dev.mcmusic.app.ui.formatMillis
 import dev.mcmusic.app.ui.formatDuration
 import dev.mcmusic.app.ui.trackCoverUrl
+import dev.mcmusic.app.data.Track
 import kotlinx.coroutines.delay
 
 /**
@@ -234,47 +242,84 @@ fun PlayerScreen(onBack: () -> Unit) {
         if (state.queue.isEmpty()) {
             item { Muted("The queue is empty.") }
         }
-        items(state.queue, key = { it.id }) { item ->
-            val current = item.id == track.id
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(7.dp))
-                    .background(if (current) design.accentSoft else design.palette.bg)
-                    .clickable { Playback.play(state.queue, state.queue.indexOf(item)) }
-                    .padding(horizontal = 8.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(9.dp),
-            ) {
-                Box(Modifier.width(20.dp), Alignment.Center) {
-                    if (current) {
-                        LucideIcon(
-                            Lucide.Play,
-                            design.accent,
-                            Modifier.size(14.dp),
-                            contentDescription = "Now playing",
-                        )
-                    } else {
-                        Text(
-                            "${state.queue.indexOf(item) + 1}",
-                            color = design.dim,
-                            fontSize = 12.sp,
-                        )
-                    }
-                }
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        item.title,
-                        color = if (current) design.accent else design.fg,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(item.artist, color = design.dim, fontSize = 10.sp, maxLines = 1)
-                }
-                Muted(formatDuration(item.duration), size = 10)
+        itemsIndexed(state.queue, key = { index, item -> "${item.id}@$index" }) { index, item ->
+            QueueRow(index, item, state)
+        }
+        item {
+            SwitchRow(
+                title = "Autoplay",
+                subtitle = "When the last song ends, add up to 5 similar tracks",
+                icon = Lucide.Radio,
+                checked = state.autoplay,
+                onChange = { Playback.setAutoplay(it) },
+            )
+        }
+    }
+}
+
+/** One queue entry, keyed by occurrence so duplicate track ids stay visible. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun QueueRow(index: Int, item: Track, state: dev.mcmusic.app.playback.PlaybackState) {
+    val design = LocalDesign.current
+    val density = LocalDensity.current
+    val rowHeight = with(density) { 56.dp.toPx() }
+    var dragged by remember { mutableFloatStateOf(0f) }
+    val dragState = rememberDraggableState { delta ->
+        dragged += delta
+        val steps = (dragged / rowHeight).toInt()
+        if (steps != 0) {
+            val target = (index + steps).coerceIn(0, state.queue.lastIndex)
+            if (target != index) {
+                Playback.move(index, target)
+                dragged -= steps * rowHeight
             }
         }
+    }
+    val current = index == state.index
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(7.dp))
+            .background(if (current) design.accentSoft else design.palette.bg)
+            .clickable { Playback.play(state.queue, index) }
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(9.dp),
+    ) {
+        Box(Modifier.width(20.dp), Alignment.Center) {
+            if (current) {
+                LucideIcon(
+                    Lucide.Play,
+                    design.accent,
+                    Modifier.size(14.dp),
+                    contentDescription = "Now playing",
+                )
+            } else {
+                Text("${index + 1}", color = design.dim, fontSize = 12.sp)
+            }
+        }
+        Column(Modifier.weight(1f)) {
+            Text(
+                item.title,
+                color = if (current) design.accent else design.fg,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(item.artist, color = design.dim, fontSize = 10.sp, maxLines = 1)
+        }
+        Muted(formatDuration(item.duration), size = 10)
+        LucideIcon(
+            Lucide.GripVertical,
+            design.dim,
+            Modifier.size(16.dp).draggable(
+                state = dragState,
+                orientation = Orientation.Vertical,
+                onDragStopped = { dragged = 0f },
+            ),
+            contentDescription = "Drag to reorder",
+        )
     }
 }

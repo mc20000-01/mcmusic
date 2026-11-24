@@ -5,16 +5,22 @@
 #   MAKE_DMG=1 ./build.sh   -> dist/mcmusic.app + dist/mcmusic-<version>.dmg
 #
 # Everything is written under app/macos/{.venv-macos,build,dist}, none of which
-# is committed.
+# is committed. Release checklist: codesign/notarize with APPLE_ID,
+# APPLE_TEAM_ID and APPLE_APP_PASSWORD when available, publish to apps/macos,
+# and verify MPNowPlayingInfoCenter metadata plus remote media keys in the
+# packaged .app (source checkouts do not exercise the PyInstaller bundle).
 set -euo pipefail
 
 cd "$(dirname "$0")"
 ROOT="$(cd ../.. && pwd)"
 LINUX="$ROOT/app/linux"
-VERSION="${VERSION:-1.1}"
+# The shared client version.py is the single source of truth for every bundle.
+VERSION="${VERSION:-$(sed -n 's/^FALLBACK_VERSION = "\(.*\)"/\1/p' \
+  "$LINUX/mcmusic_linux/version.py" | head -n 1)}"
 PYTHON="${PYTHON:-python3}"
 ARCH="${ARCH:-}"
 MAKE_DMG="${MAKE_DMG:-0}"
+PUBLISH_APPS="${PUBLISH_APPS:-1}"
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
   echo "build.sh needs macOS: PyInstaller cannot cross-build a .app from Linux." >&2
@@ -36,7 +42,7 @@ fi
 # shellcheck disable=SC1091
 source .venv-macos/bin/activate
 python -m pip install --upgrade pip wheel >/dev/null
-python -m pip install -e "$LINUX" pyinstaller >/dev/null
+python -m pip install -e "$LINUX[macos-media]" pyinstaller >/dev/null
 
 echo "==> Icon"
 mkdir -p build
@@ -74,6 +80,7 @@ python -m PyInstaller \
   --icon build/mcmusic.icns \
   --osx-bundle-identifier dev.mcmusic.app \
   --collect-data mcmusic_linux \
+  --hidden-import Foundation --hidden-import MediaPlayer --hidden-import objc \
   ${arch_args[@]+"${arch_args[@]}"} \
   launcher.py
 
@@ -87,6 +94,14 @@ if [ -n "${CODESIGN_ID:-}" ]; then
   echo "==> Signing as $CODESIGN_ID"
   codesign --deep --force --options runtime \
     --sign "$CODESIGN_ID" dist/mcmusic.app
+  if [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ] \
+          && [ -n "${APPLE_APP_PASSWORD:-}" ]; then
+    echo "==> Notarizing"
+    xcrun notarytool submit dist/mcmusic.app \
+      --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
+      --password "$APPLE_APP_PASSWORD" --wait
+    xcrun stapler staple dist/mcmusic.app
+  fi
 fi
 
 if [ "$MAKE_DMG" = "1" ]; then
@@ -98,6 +113,18 @@ if [ "$MAKE_DMG" = "1" ]; then
     -ov -format UDZO "dist/mcmusic-$VERSION.dmg" >/dev/null
   rm -rf build/dmg
   echo "wrote dist/mcmusic-$VERSION.dmg"
+fi
+
+if [ "$PUBLISH_APPS" = "1" ]; then
+  echo "==> Publishing to apps/macos (PUBLISH_APPS=0 to skip)"
+  mkdir -p "$ROOT/apps/macos"
+  (cd dist && zip -qry "$ROOT/apps/macos/mcmusic-$VERSION-macos.zip" mcmusic.app)
+  cp "$ROOT/apps/macos/mcmusic-$VERSION-macos.zip" \
+    "$ROOT/apps/macos/mainbuild.zip"
+  if [ "$MAKE_DMG" = "1" ]; then
+    cp "dist/mcmusic-$VERSION.dmg" "$ROOT/apps/macos/mcmusic-$VERSION.dmg"
+    cp "dist/mcmusic-$VERSION.dmg" "$ROOT/apps/macos/mainbuild.dmg"
+  fi
 fi
 
 echo

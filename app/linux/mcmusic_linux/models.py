@@ -199,16 +199,33 @@ class Me:
     is_admin: bool = False
     rotur_id: Optional[str] = None
     rotur_linked: bool = False
+    # Servers and older clients use both names for the public Rotur identity.
+    rotur_user_id: Optional[str] = None
+    email: Optional[str] = None
 
     @staticmethod
     def from_json(o: dict) -> "Me":
+        rotur = _opt_s(o, "rotur_id") or _opt_s(o, "rotur_user_id")
         return Me(
             id=_i(o, "id"),
             username=_s(o, "username"),
             is_admin=_b(o, "is_admin"),
-            rotur_id=_opt_s(o, "rotur_id"),
-            rotur_linked=_b(o, "rotur_linked"),
+            rotur_id=rotur,
+            rotur_linked=_b(o, "rotur_linked", bool(rotur)),
+            rotur_user_id=rotur,
+            email=_opt_s(o, "email"),
         )
+
+    def to_json(self) -> dict:
+        return {
+            "id": self.id,
+            "username": self.username,
+            "is_admin": self.is_admin,
+            "rotur_id": self.rotur_id,
+            "rotur_user_id": self.rotur_user_id,
+            "rotur_linked": self.rotur_linked,
+            "email": self.email,
+        }
 
 
 @dataclass(frozen=True)
@@ -290,11 +307,18 @@ class AdminUser:
 
 @dataclass(frozen=True)
 class Settings:
-    """Mirrors DEFAULT_SETTINGS in mcmusic.py and the Android Settings class."""
+    """Mirrors every DEFAULT_SETTINGS key from the server.
+
+    ``room_url`` is derived server-side and is deliberately not persisted.
+    ``extras`` keeps keys this client does not render yet: the settings endpoint
+    replaces the whole document on PUT, so dropping unknown flags here would
+    silently revert web/Android preferences.
+    """
 
     theme: str = "dusk"
-    accent: str = "#d98a3d"
+    accent: str = "#a06bff"
     density: str = "comfy"
+    material: str = "plane"
     covers: bool = True
     autoplay: bool = True
     hide_explicit: bool = False
@@ -304,40 +328,129 @@ class Settings:
     volume: float = 0.8
     prefetch: bool = True
     offline_audio: bool = True
+    rotur_activity: bool = False
+    discord_activity: bool = False
+    show_room_url: bool = False
+    real_glass: str = "auto"
+    room_url: str = ""
+    extras: dict[str, Any] = field(default_factory=dict)
+
+    #: keys the server accepts on PUT (everything except derived room_url)
+    PERSISTED = (
+        "theme", "accent", "density", "material", "covers", "autoplay",
+        "hide_explicit", "private", "yt_stats", "remember_volume", "volume",
+        "prefetch", "offline_audio", "rotur_activity", "discord_activity",
+        "show_room_url", "real_glass",
+    )
 
     def to_json(self) -> dict[str, Any]:
-        return {
-            "theme": self.theme,
-            "accent": self.accent,
-            "density": self.density,
-            "covers": self.covers,
-            "autoplay": self.autoplay,
-            "hide_explicit": self.hide_explicit,
-            "private": self.private,
-            "yt_stats": self.yt_stats,
-            "remember_volume": self.remember_volume,
-            "volume": self.volume,
-            "prefetch": self.prefetch,
-            "offline_audio": self.offline_audio,
-        }
+        data = dict(self.extras)
+        for key in self.PERSISTED:
+            data[key] = getattr(self, key)
+        return data
 
     @staticmethod
     def from_json(o: dict) -> "Settings":
+        if not isinstance(o, dict):
+            o = {}
         d = Settings()
+        known = set(d.PERSISTED)
+        values = {k: o.get(k, getattr(d, k)) for k in d.PERSISTED}
+        values["theme"] = _s(o, "theme", d.theme)
+        values["accent"] = _s(o, "accent", d.accent)
+        values["density"] = _s(o, "density", d.density)
+        values["material"] = _s(o, "material", d.material)
+        values["real_glass"] = _s(o, "real_glass", d.real_glass)
+        values["volume"] = _f(o, "volume", d.volume)
+        for key in ("covers", "autoplay", "hide_explicit", "private", "yt_stats",
+                    "remember_volume", "prefetch", "offline_audio",
+                    "rotur_activity", "discord_activity", "show_room_url"):
+            values[key] = _b(o, key, getattr(d, key))
         return Settings(
-            theme=_s(o, "theme", d.theme),
-            accent=_s(o, "accent", d.accent),
-            density=_s(o, "density", d.density),
-            covers=_b(o, "covers", d.covers),
-            autoplay=_b(o, "autoplay", d.autoplay),
-            hide_explicit=_b(o, "hide_explicit", d.hide_explicit),
-            private=_b(o, "private", d.private),
-            yt_stats=_b(o, "yt_stats", d.yt_stats),
-            remember_volume=_b(o, "remember_volume", d.remember_volume),
-            volume=_f(o, "volume", d.volume),
-            prefetch=_b(o, "prefetch", d.prefetch),
-            offline_audio=_b(o, "offline_audio", d.offline_audio),
+            room_url=_s(o, "room_url"),
+            extras={k: v for k, v in o.items() if k not in known and k != "room_url"},
+            **values,
         )
+
+
+@dataclass(frozen=True)
+class BuildInfo:
+    kind: str = ""
+    label: str = ""
+    name: str = ""
+    hint: str = ""
+    note: str = ""
+    available: bool = False
+    file: str = ""
+    version: str = ""
+    url: str = ""
+    bytes: int = 0
+    built: str = ""
+    mimetype: str = ""
+
+    @staticmethod
+    def list_json(rows: Iterable[dict] | None) -> list["BuildInfo"]:
+        out = []
+        for r in rows or []:
+            if not isinstance(r, dict):
+                continue
+            out.append(BuildInfo(
+                kind=_s(r, "kind"), label=_s(r, "label"), name=_s(r, "name"),
+                hint=_s(r, "hint"), note=_s(r, "note"),
+                available=_b(r, "available"), file=_s(r, "file"),
+                version=_s(r, "version"), url=_s(r, "url"),
+                bytes=_i(r, "bytes"), built=_s(r, "built"),
+                mimetype=_s(r, "mimetype"),
+            ))
+        return out
+
+
+@dataclass(frozen=True)
+class DeviceRow:
+    id: int = 0
+    name: str = ""
+    device_hash: str = ""
+    ip: str = ""
+    active: bool = False
+    last_seen: float = 0.0
+    track_title: str = ""
+    track_artist: str = ""
+    username: str = ""
+
+    @staticmethod
+    def list_json(rows: Iterable[dict] | None) -> list["DeviceRow"]:
+        return [DeviceRow(
+            id=_i(r, "id"), name=_s(r, "name", "Unnamed device"),
+            device_hash=_s(r, "device_hash"), ip=_s(r, "ip"),
+            active=_b(r, "is_active"), last_seen=_f(r, "last_seen"),
+            track_title=_s(r, "track_title"), track_artist=_s(r, "track_artist"),
+            username=_s(r, "username"),
+        ) for r in (rows or []) if isinstance(r, dict)]
+
+
+@dataclass(frozen=True)
+class ListeningUser:
+    username: str = ""
+    listening: bool = False
+    position: float = 0.0
+    track: Optional[Track] = None
+    profile_url: str = ""
+    cover_url: str = ""
+
+    @staticmethod
+    def list_json(rows: Iterable[dict] | None) -> list["ListeningUser"]:
+        out = []
+        for r in rows or []:
+            if not isinstance(r, dict):
+                continue
+            track = r.get("track")
+            out.append(ListeningUser(
+                username=_s(r, "username"), listening=_b(r, "listening"),
+                position=_f(r, "position"),
+                track=Track.from_json(track) if isinstance(track, dict) else None,
+                profile_url=_s(r, "profile_url"), cover_url=_s(r, "cover_url"),
+            ))
+        return out
 
 
 # ── formatting (mirrors ui.js / Format.kt) ──────────────────────────────────

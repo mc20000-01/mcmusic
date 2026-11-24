@@ -42,4 +42,23 @@ final class McMusicTests: XCTestCase {
         let url = try XCTUnwrap(client.coverURL(9))
         XCTAssertEqual(url.absoluteString, "https://music.example.com/api/tracks/9/cover")
     }
+
+    func testOutboxQueuesAndClearsReplayableWrites() {
+        let suite = "McMusicTests"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        let outbox = Outbox(defaults: defaults)
+        outbox.enqueue("POST", "like/7", toggle: true)
+        outbox.enqueue("PUT", "settings", json: ["theme": "dusk"])
+        XCTAssertEqual(outbox.count, 2)
+        XCTAssertEqual(Outbox(defaults: defaults).count, 2)
+        outbox.clear()
+        XCTAssertEqual(outbox.count, 0)
+    }
+
+    func testAbsoluteURLAcceptsServerBuildPaths() throws {
+        let client = APIClient(baseURL: "https://music.example.com")
+        let url = try XCTUnwrap(URL(string: client.baseURL + "/apps/macos/mcmusic-2.6.0.dmg"))
+        XCTAssertEqual(url.host, "music.example.com")
+    }
 }

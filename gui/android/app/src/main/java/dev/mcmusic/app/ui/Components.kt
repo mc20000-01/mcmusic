@@ -20,6 +20,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -30,11 +32,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -44,9 +49,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.mcmusic.app.data.Api
+import dev.mcmusic.app.data.Playlist
+import dev.mcmusic.app.data.Prefs
 import dev.mcmusic.app.data.Track
 import dev.mcmusic.app.ui.design.LocalDesign
 import dev.mcmusic.app.ui.design.mcSurface
+import kotlinx.coroutines.launch
+import android.widget.Toast
 
 /* ── text ──────────────────────────────────────────────────────────────── */
 
@@ -287,13 +297,27 @@ fun ScreenBack(onBack: () -> Unit) {
 /** Square cover that falls back to a neutral tile when a track has no art. */
 @Composable
 fun TrackCover(track: Track, size: Dp = 44.dp, radius: Dp = 6.dp) {
+    val design = LocalDesign.current
+    if (!Prefs.showCovers) {
+        Box(
+            Modifier.size(size).clip(RoundedCornerShape(radius)).background(design.accentSoft),
+            Alignment.Center,
+        ) {
+            LucideIcon(Lucide.ListMusic, design.accent, Modifier.size(size / 2))
+        }
+        return
+    }
     Cover(
         url = trackCoverUrl(track.id),
         shape = RoundedCornerShape(radius),
         modifier = Modifier.size(size),
-        fallback = LocalDesign.current.accentSoft,
+        fallback = design.accentSoft,
     )
 }
+
+/** Appearance setting: filter tracks the server flagged explicit. */
+fun List<Track>.visibleTracks(): List<Track> =
+    if (Prefs.hideExplicit) filterNot { it.explicit } else this
 
 @Composable
 fun TrackRow(
@@ -301,6 +325,7 @@ fun TrackRow(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     trailing: (@Composable RowScope.() -> Unit)? = null,
+    menu: Boolean = false,
     onClick: () -> Unit,
 ) {
     val design = LocalDesign.current
@@ -334,6 +359,102 @@ fun TrackRow(
             )
         }
         trailing?.invoke(this)
+        if (menu) TrackActionsMenu(track)
+    }
+}
+
+/**
+ * Like / add-to-playlist actions, restored from the old Android client. The
+ * playlists are loaded when the menu opens so ordinary browsing makes no extra
+ * requests.
+ */
+@Composable
+fun TrackActionsMenu(track: Track, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var expanded by remember { mutableStateOf(false) }
+    var picker by remember { mutableStateOf(false) }
+    var playlists by remember { mutableStateOf<List<Playlist>>(emptyList()) }
+    var busy by remember { mutableStateOf(false) }
+
+    Box(modifier) {
+        IconButton(Lucide.Ellipsis, size = 16.dp, onClick = {
+            expanded = true
+            scope.launch {
+                Api.playlists().onSuccess { playlists = it }
+            }
+        })
+        DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text(if (track.liked) "Unlike" else "Like", fontSize = 13.sp) },
+                leadingIcon = { LucideIcon(Lucide.Heart, LocalDesign.current.accent, Modifier.size(16.dp)) },
+                onClick = {
+                    expanded = false
+                    scope.launch {
+                        Api.toggleLike(track.id).fold(
+                            onSuccess = {
+                                Toast.makeText(
+                                    context,
+                                    if (it) "Added to likes" else "Removed from likes",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            },
+                            onFailure = {
+                                Toast.makeText(context, it.message ?: "Could not update like", Toast.LENGTH_SHORT).show()
+                            },
+                        )
+                    }
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("Add to playlist", fontSize = 13.sp) },
+                leadingIcon = { LucideIcon(Lucide.ListPlus, LocalDesign.current.accent, Modifier.size(16.dp)) },
+                onClick = { expanded = false; picker = true },
+            )
+        }
+    }
+
+    if (picker) {
+        Dialog(onDismissRequest = { picker = false }) {
+            Column(
+                Modifier.fillMaxWidth().mcSurface(RoundedCornerShape(12.dp)).padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text("Add to playlist", color = LocalDesign.current.fg, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text(track.title, color = LocalDesign.current.dim, fontSize = 12.sp, maxLines = 1)
+                if (playlists.isEmpty()) {
+                    Muted("Create a playlist first, then add tracks from here.")
+                } else {
+                    playlists.forEach { playlist ->
+                        Row(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                                .clickable(enabled = !busy) {
+                                    busy = true
+                                    scope.launch {
+                                        Api.addToPlaylist(playlist.id, track.id).fold(
+                                            onSuccess = {
+                                                Toast.makeText(context, "Added to ${playlist.name}", Toast.LENGTH_SHORT).show()
+                                                picker = false
+                                            },
+                                            onFailure = {
+                                                Toast.makeText(context, it.message ?: "Could not add track", Toast.LENGTH_SHORT).show()
+                                            },
+                                        )
+                                        busy = false
+                                    }
+                                }
+                                .padding(horizontal = 10.dp, vertical = 11.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            LucideIcon(Lucide.ListMusic, LocalDesign.current.accent, Modifier.size(16.dp))
+                            Text(playlist.name, color = LocalDesign.current.fg, fontSize = 13.sp)
+                        }
+                    }
+                }
+                GhostButton("Close") { picker = false }
+            }
+        }
     }
 }
 

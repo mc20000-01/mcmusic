@@ -4,6 +4,7 @@ import android.app.PendingIntent
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import androidx.compose.runtime.getValue
@@ -19,17 +20,18 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
-import android.net.Uri
 import dev.mcmusic.app.MainActivity
 import dev.mcmusic.app.data.Api
 import dev.mcmusic.app.data.Downloads
 import dev.mcmusic.app.data.Prefs
+import dev.mcmusic.app.data.QueueSnapshot
 import dev.mcmusic.app.data.Track
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executor
+import kotlin.math.abs
 
 data class PlaybackState(
     val track: Track? = null,
@@ -41,6 +43,10 @@ data class PlaybackState(
     val duration: Long = 0,
     val shuffle: Boolean = false,
     val repeat: Boolean = false,
+    /** Media3 repeat mode: 0 off, 1 all, 2 one. */
+    val repeatMode: Int = Player.REPEAT_MODE_OFF,
+    /** Refill the queue from radio after the last track ends. */
+    val autoplay: Boolean = true,
     val ready: Boolean = false,
     val error: String? = null,
     /** Sleep timer length in minutes, 0 when off. */
@@ -64,14 +70,21 @@ object Playback {
     private var queueTracks: List<Track> = emptyList()
     private var appContext: Context? = null
     private var widgetSignature: String? = null
-    private var reportedTrackId: Int? = null
+    private var reportedTrackKey: String? = null
+    private var activitySignature: String? = null
+    private var lastSavedPosition = 0L
+    private var lastPositionSaveAt = 0L
+    private var autoplayBusy = false
+    private var autoplayDoneKey: String? = null
+    private var suppressAutoplayKey: String? = null
     private val reportScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val reportHandler = Handler(Looper.getMainLooper())
-    private val reportRunnable = object : Runnable {
+    private val reportRunnable: Runnable = object : Runnable {
         override fun run() {
             controller?.let { player ->
                 position(player)
                 checkSleep(player)
+                checkAutoplay(player)
                 if (state.track != null) report(player)
             }
             reportHandler.postDelayed(this, 5_000L)
@@ -82,6 +95,7 @@ object Playback {
         if (controller != null || future != null) return
         val app = context.applicationContext
         appContext = app
+        state = state.copy(autoplay = Prefs.autoplay)
         val savedSleep = Prefs.sleepEndsAt
         val now = System.currentTimeMillis()
         if (savedSleep > now) {
@@ -102,12 +116,23 @@ object Playback {
             c.addListener(object : Player.Listener {
                 override fun onEvents(player: Player, events: Player.Events) {
                     publish(player)
+                    if (events.contains(Player.EVENT_PLAYBACK_STATE_CHANGED)) checkAutoplay(player)
+                }
+
+                override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                    // A new item is a fresh chance for radio at its natural end.
+                    autoplayDoneKey = null
+                    suppressAutoplayKey = null
                 }
 
                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                     state = state.copy(error = error.message ?: "playback failed", playing = false)
                 }
             })
+            // Only restore when the service really came back empty. A live
+            // session in another activity or a notification restart must keep
+            // the queue it already owns.
+            if (queueTracks.isEmpty() && c.mediaItemCount == 0) restoreSavedQueue(c)
             state = state.copy(ready = true)
             publish(c)
             reportHandler.removeCallbacks(reportRunnable)
@@ -115,26 +140,70 @@ object Playback {
         }, main)
     }
 
-    /** ExoPlayer reorders indices when shuffle is on, so resolve by media id. */
+    /** Media ids carry the queue occurrence, so duplicate track ids stay distinct. */
+    private fun mediaId(trackId: Int, index: Int): String = "$trackId@$index"
+
+    private fun storedIndex(mediaId: String?): Int? {
+        if (mediaId == null) return null
+        val at = mediaId.lastIndexOf('@')
+        if (at <= 0) return null
+        val id = mediaId.substring(0, at).toIntOrNull() ?: return null
+        val index = mediaId.substring(at + 1).toIntOrNull() ?: return null
+        if (index !in queueTracks.indices || queueTracks[index].id != id) return null
+        return index
+    }
+
+    private fun trackKey(index: Int, track: Track?): String = "$index:${track?.id}"
+
+    /** Resolve the playing track by its stored queue index, never by a broad id search. */
     private fun currentTrack(player: Player): Pair<Track?, Int> {
-        val id = player.currentMediaItem?.mediaId?.toIntOrNull()
-        val byId = if (id != null) queueTracks.indexOfFirst { it.id == id } else -1
-        if (byId >= 0) return queueTracks[byId] to byId
-        val index = player.currentMediaItemIndex.coerceAtLeast(0)
-        return queueTracks.getOrNull(index) to index
+        if (queueTracks.isEmpty()) return null to 0
+        val index = storedIndex(player.currentMediaItem?.mediaId)
+            ?: player.currentMediaItemIndex.coerceAtLeast(0)
+        val safe = index.coerceIn(0, queueTracks.lastIndex)
+        return queueTracks[safe] to safe
+    }
+
+    private fun itemsOf(tracks: List<Track>): List<MediaItem> = tracks.mapIndexed { index, track ->
+        val local = Downloads.file(track.id)
+        val item = MediaItem.Builder().setMediaId(mediaId(track.id, index))
+        if (local != null) item.setUri(Uri.fromFile(local)) else item.setUri(Api.streamUrl(track.id))
+        item.setMediaMetadata(
+            MediaMetadata.Builder()
+                .setTitle(track.title)
+                .setArtist(track.artist)
+                .setAlbumTitle(track.album)
+                .build(),
+        ).build()
+    }
+
+    private fun restoreSavedQueue(player: Player) {
+        val saved = Prefs.savedQueue() ?: return
+        queueTracks = saved.tracks
+        reportedTrackKey = trackKey(saved.index, saved.tracks.getOrNull(saved.index))
+        player.setMediaItems(itemsOf(saved.tracks), saved.index, saved.positionMs)
+        player.shuffleModeEnabled = saved.shuffle
+        player.repeatMode = saved.repeatMode
+        Prefs.saveAutoplay(saved.autoplay)
+        state = state.copy(autoplay = saved.autoplay)
+        // Restoring is not a new play: don't double-count it as a stream.
+        player.prepare()
+        saveQueue(player, saved.positionMs)
     }
 
     private fun publish(player: Player) {
         val (track, index) = currentTrack(player)
         val wasPlaying = state.playing
-        val trackChanged = track?.id != reportedTrackId
+        val key = trackKey(index, track)
+        val trackChanged = key != reportedTrackKey
         // Home screen widgets follow the phone's queue while it owns it.
-        val signature = "${track?.id}:${player.isPlaying}"
+        val signature = "${track?.id}@$index:${player.isPlaying}"
         if (signature != widgetSignature) {
             widgetSignature = signature
             appContext?.let { ctx -> Thread { runCatching { dev.mcmusic.app.widget.Widgets.refresh(ctx) } }.start() }
         }
 
+        val repeatMode = player.repeatMode
         state = state.copy(
             track = track,
             queue = queueTracks,
@@ -143,27 +212,54 @@ object Playback {
             buffering = player.playbackState == Player.STATE_BUFFERING,
             duration = player.duration.takeIf { it > 0 } ?: ((track?.duration ?: 0.0) * 1000).toLong(),
             shuffle = player.shuffleModeEnabled,
-            repeat = player.repeatMode != Player.REPEAT_MODE_OFF,
+            repeat = repeatMode != Player.REPEAT_MODE_OFF,
+            repeatMode = repeatMode,
+            autoplay = Prefs.autoplay,
             error = null,
         )
         position(player)
         if (trackChanged && track != null) {
-            reportedTrackId = track.id
+            reportedTrackKey = key
+            autoplayDoneKey = null
             val id = track.id
             reportScope.launch { runCatching { Api.recordPlay(id) } }
         }
-        if (track != null && (trackChanged || wasPlaying != state.playing)) report(player)
+        if (track != null && (trackChanged || wasPlaying != state.playing)) {
+            report(player)
+            pushActivity(track, player.isPlaying, player.currentPosition)
+        } else if (track == null || !player.isPlaying) {
+            pushActivity(null, false, 0L)
+        }
     }
 
     private fun position(player: Player) {
-        state = state.copy(position = player.currentPosition.coerceAtLeast(0))
+        val pos = player.currentPosition.coerceAtLeast(0)
+        state = state.copy(position = pos)
+        val now = System.currentTimeMillis()
+        if (now - lastPositionSaveAt >= 3_000L || abs(pos - lastSavedPosition) >= 2_000L) {
+            lastPositionSaveAt = now
+            lastSavedPosition = pos
+            saveQueue(player, pos)
+        }
     }
 
-    /** Called by the UI while it is visible so the scrubber moves. */
-    fun tick() {
-        val c = controller ?: return
-        position(c)
-        checkSleep(c)
+    /** Snapshot everything needed to rebuild the exact queue after process death. */
+    private fun saveQueue(player: Player, positionMs: Long) {
+        if (queueTracks.isEmpty()) {
+            Prefs.saveQueue(null)
+            return
+        }
+        val (_, index) = currentTrack(player)
+        Prefs.saveQueue(
+            QueueSnapshot(
+                tracks = queueTracks,
+                index = index,
+                positionMs = positionMs,
+                repeatMode = player.repeatMode,
+                shuffle = player.shuffleModeEnabled,
+                autoplay = Prefs.autoplay,
+            ),
+        )
     }
 
     private fun checkSleep(player: Player) {
@@ -176,6 +272,58 @@ object Playback {
         } else if (end > 0) {
             state = state.copy(sleepRemaining = end - System.currentTimeMillis())
         }
+    }
+
+    /**
+     * Radio only when the last item actually ended. Being near the end of the
+     * queue is deliberately not enough, and manual Next is suppressed too.
+     */
+    private fun checkAutoplay(player: Player) {
+        if (!Prefs.autoplay || autoplayBusy || queueTracks.isEmpty()) return
+        if (player.repeatMode != Player.REPEAT_MODE_OFF) return
+        if (player.playbackState != Player.STATE_ENDED) return
+        val (track, index) = currentTrack(player)
+        if (track == null || index != queueTracks.lastIndex) return
+        val key = trackKey(index, track)
+        if (key == autoplayDoneKey || key == suppressAutoplayKey) return
+        autoplayBusy = true
+        reportScope.launch {
+            val suggestions = Api.radio(track.id).getOrElse { emptyList() }
+            val existing = queueTracks.map { it.id }.toHashSet()
+            val additions = suggestions
+                .filter { it.id > 0 && it.id !in existing }
+                .distinctBy { it.id }
+                .take(5)
+            if (additions.isNotEmpty()) play(queueTracks + additions, queueTracks.size)
+            autoplayDoneKey = key
+            autoplayBusy = false
+        }
+    }
+
+    /** Push (or clear) Rotur/Discord activity when the playing state changes. */
+    private fun pushActivity(track: Track?, playing: Boolean, positionMs: Long, force: Boolean = false) {
+        val sinks = buildList {
+            if (Prefs.roturActivity) add("rotur")
+            if (Prefs.discordActivity) add("discord")
+        }
+        val key = "${track?.id}:$playing:${sinks.joinToString()}"
+        if (!force && key == activitySignature) return
+        activitySignature = key
+        reportScope.launch {
+            sinks.forEach { sink ->
+                runCatching {
+                    if (track != null && playing) Api.pushActivity(sink, track.id, positionMs, true)
+                    else Api.pushActivity(sink, null, 0L, false)
+                }
+            }
+        }
+    }
+
+    /** Call after an activity toggle in Settings so a stale activity is cleared. */
+    fun activitySettingChanged() {
+        val player = controller ?: return
+        val (track, _) = currentTrack(player)
+        pushActivity(track, player.isPlaying, player.currentPosition, force = true)
     }
 
     /** Push the current track, position and queue to the server. */
@@ -204,23 +352,19 @@ object Playback {
         state = state.copy(sleepMinutes = minutes.coerceAtLeast(0), sleepRemaining = remaining)
     }
 
+    private fun installQueue(player: Player, tracks: List<Track>, startIndex: Int, positionMs: Long = 0L) {
+        if (tracks.isEmpty()) return
+        queueTracks = tracks
+        autoplayDoneKey = null
+        suppressAutoplayKey = null
+        player.setMediaItems(itemsOf(tracks), startIndex.coerceIn(0, tracks.lastIndex), positionMs)
+        saveQueue(player, positionMs)
+    }
+
     fun play(tracks: List<Track>, startIndex: Int = 0) {
         val c = controller ?: return
         if (tracks.isEmpty()) return
-        queueTracks = tracks
-        val items = tracks.map { track ->
-            val local = Downloads.file(track.id)
-            val item = MediaItem.Builder().setMediaId(track.id.toString())
-            if (local != null) item.setUri(Uri.fromFile(local)) else item.setUri(Api.streamUrl(track.id))
-            item.setMediaMetadata(
-                MediaMetadata.Builder()
-                    .setTitle(track.title)
-                    .setArtist(track.artist)
-                    .setAlbumTitle(track.album)
-                    .build(),
-            ).build()
-        }
-        c.setMediaItems(items, startIndex.coerceIn(0, items.lastIndex), 0)
+        installQueue(c, tracks, startIndex)
         c.prepare()
         c.play()
         publish(c)
@@ -228,7 +372,16 @@ object Playback {
 
     /** Plays a single track without replacing the rest of the queue. */
     fun playNow(track: Track, queue: List<Track> = listOf(track)) {
-        play(queue, queue.indexOfFirst { it.id == track.id }.coerceAtLeast(0))
+        val index = queue.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
+        play(queue, index)
+    }
+
+    /** UI-facing progress pump; the service also refreshes on its own timer. */
+    fun tick() {
+        val c = controller ?: return
+        position(c)
+        checkSleep(c)
+        checkAutoplay(c)
     }
 
     fun toggle() {
@@ -248,17 +401,31 @@ object Playback {
         val c = controller ?: return
         if (from == to) return
         if (from !in queueTracks.indices || to !in queueTracks.indices) return
+        val currentIndex = currentTrack(c).second
+        val currentPosition = c.currentPosition
         queueTracks = queueTracks.toMutableList().also { it.add(to, it.removeAt(from)) }
-        c.moveMediaItem(from, to)
+        // Rebuild media ids so each occurrence keeps its position in the moved queue.
+        installQueue(c, queueTracks, currentIndex, currentPosition)
+        c.prepare()
         publish(c)
     }
 
-    fun next() { controller?.seekToNextMediaItem() }
+    /** Manual Next never triggers radio, even when it happens on the last item. */
+    fun next() {
+        val c = controller ?: return
+        val (track, index) = currentTrack(c)
+        suppressAutoplayKey = trackKey(index, track)
+        c.seekToNextMediaItem()
+    }
+
     fun previous() { controller?.seekToPreviousMediaItem() }
 
     fun seekTo(ms: Long) {
         controller?.seekTo(ms.coerceAtLeast(0))
-        controller?.let { position(it) }
+        controller?.let {
+            position(it)
+            saveQueue(it, ms.coerceAtLeast(0))
+        }
     }
 
     fun seekFraction(fraction: Float) {
@@ -269,17 +436,38 @@ object Playback {
     fun toggleShuffle() {
         val c = controller ?: return
         c.shuffleModeEnabled = !c.shuffleModeEnabled
+        saveQueue(c, c.currentPosition)
         publish(c)
     }
 
-    fun cycleRepeat() {
-        val c = controller ?: return
-        c.repeatMode = when (c.repeatMode) {
+    fun cycleRepeat() = setRepeatMode(
+        when (state.repeatMode) {
             Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
             Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
             else -> Player.REPEAT_MODE_OFF
-        }
+        },
+    )
+
+    /** Any repeat mode turns autoplay off; loop-one only repeats the current item. */
+    fun setRepeatMode(mode: Int) {
+        val c = controller ?: return
+        c.repeatMode = mode
+        if (mode != Player.REPEAT_MODE_OFF && Prefs.autoplay) Prefs.saveAutoplay(false)
+        state = state.copy(autoplay = Prefs.autoplay)
+        saveQueue(c, c.currentPosition)
         publish(c)
+    }
+
+    fun setAutoplay(enabled: Boolean) {
+        val c = controller
+        Prefs.saveAutoplay(enabled)
+        if (enabled && c != null) c.repeatMode = Player.REPEAT_MODE_OFF
+        state = state.copy(autoplay = enabled, repeatMode = c?.repeatMode ?: state.repeatMode)
+        state = state.copy(repeat = state.repeatMode != Player.REPEAT_MODE_OFF)
+        if (c != null) {
+            saveQueue(c, c.currentPosition)
+            publish(c)
+        }
     }
 
     fun clearError() {
@@ -289,11 +477,15 @@ object Playback {
     fun stop() {
         controller?.let { report(it) }
         Prefs.saveSleepEndsAt(0L)
-        reportedTrackId = null
+        reportedTrackKey = null
+        autoplayDoneKey = null
+        suppressAutoplayKey = null
         controller?.stop()
         controller?.clearMediaItems()
         queueTracks = emptyList()
-        state = PlaybackState(ready = controller != null)
+        Prefs.saveQueue(null)
+        pushActivity(null, false, 0L, force = true)
+        state = PlaybackState(ready = controller != null, autoplay = Prefs.autoplay)
     }
 }
 

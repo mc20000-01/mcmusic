@@ -3,18 +3,21 @@ import SwiftUI
 /// The shared mcmusic design tokens (ink + violet), mirrored from the web and
 /// Android clients. All screens use these colours rather than system defaults.
 enum Theme {
+    // Exact flufi v3 tokens from ui/src/env.css.
     static let ink = Color(hex: "08060D")
     static let violet = Color(hex: "A06BFF")
-    static let surface = Color(hex: "14111C")
-    static let surface2 = Color(hex: "1D1927")
-    static let line = Color(hex: "2C2539")
-    static let text = Color(hex: "F2F0F7")
-    static let dim = Color(hex: "A6A0B5")
+    static let surface = Color(hex: "100C18")
+    static let surface2 = Color(hex: "19122A")
+    static let line = Color(hex: "2A2040")
+    static let text = Color(hex: "CFC9DA")
+    static let textBright = Color(hex: "FFFFFF")
+    static let dim = Color(hex: "948AA6")
+    static let success = Color(hex: "1DB954")
 
     static let palettes: [String: [Color]] = [
-        "dusk": [Color(hex: "08060D"), Color(hex: "14111C"), Color(hex: "A06BFF")],
+        "dusk": [ink, surface, violet],
         "paper": [Color(hex: "F6F4F1"), Color(hex: "FFFFFF"), Color(hex: "6A4BB5")],
-        "ink": [Color(hex: "050609"), Color(hex: "101318"), Color(hex: "7BD6A0")],
+        "ink": [Color(hex: "050609"), Color(hex: "101318"), violet],
         "tide": [Color(hex: "06151B"), Color(hex: "0B232E"), Color(hex: "56C7D8")],
         "copper": [Color(hex: "160E09"), Color(hex: "241710"), Color(hex: "E39B62")],
         "forest": [Color(hex: "08150E"), Color(hex: "102118"), Color(hex: "7BD6A0")],
@@ -69,7 +72,9 @@ struct Palette: ViewModifier {
     func body(content: Content) -> some View {
         let base = Theme.background(palette)
         let accent = accentHex.isEmpty ? Theme.accent(palette) : Color(hex: accentHex)
+        let foreground = palette == "paper" ? Color(hex: "08060D") : Theme.text
         content
+            .foregroundStyle(foreground)
             .background(base.ignoresSafeArea())
             .tint(accent)
             .environment(\.mcAccent, accent)

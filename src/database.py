@@ -59,6 +59,7 @@ create table if not exists plays(
   completed integer
 );
 create index if not exists plays_u on plays(user_id, ts);
+create index if not exists plays_uid_id on plays(user_id, id);
 create table if not exists likes(
   user_id integer references users(id) on delete cascade,
   track_id integer references tracks(id) on delete cascade,
