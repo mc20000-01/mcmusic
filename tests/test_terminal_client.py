@@ -116,7 +116,8 @@ class TerminalClientIntegration(unittest.TestCase):
         name, items = admin.playlist(night)
         self.assertEqual(name, "Late Night")
         self.assertEqual([t.id for t in items], [track.id])
-        self.assertEqual(admin.playlists()[0].n, 1)
+        late = next(p for p in admin.playlists() if p.name == "Late Night")
+        self.assertEqual(late.n, 1)
 
         admin.remove_from_playlist(night, track.id)
         self.assertEqual(admin.playlist(night)[1], [])

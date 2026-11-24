@@ -16,7 +16,7 @@ dependencies = [
 
 [project.optional-dependencies]
 macos-media = ["pyobjc-framework-MediaPlayer>=9.0; sys_platform == 'darwin'"]
-windows-media = ["winsdk>=1.0; sys_platform == 'win32'"]
+windows-media = ["winsdk>=1.0.0b10; sys_platform == 'win32'"]
 
 [project.scripts]
 mcmusic-desktop = "mcmusic_linux.cli:main"

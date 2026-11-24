@@ -51,7 +51,8 @@ struct ListeningView: View {
             .navigationTitle("Listening")
             .refreshable { await load() }
             .mcmusicNavigation()
-        .task { await load() }
+            .task { await load() }
+        }
     }
 
     private func load() async {

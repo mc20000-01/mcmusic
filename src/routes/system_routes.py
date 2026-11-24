@@ -28,6 +28,19 @@ from config import (
     PUBLIC_URL,
 )
 
+@bp.get("/health")
+def health():
+    """Unauthenticated liveness probe for monitors and reverse proxies.
+
+    Deliberately touches no database and reads no session, so it stays fast
+    even while the library importer is saturating the worker.
+    """
+    return jsonify(
+        ok=True, service="mcmusic",
+        uptime=round(time.time() - START_TIME, 1),
+    )
+
+
 @bp.get("/api/ping")
 def api_ping():
     """Cheap health check that also tells a native client whether a token works."""

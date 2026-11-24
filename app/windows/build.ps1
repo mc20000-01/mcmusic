@@ -39,7 +39,9 @@ if (-not (Test-Path ".venv-windows")) {
 }
 $VenvPython = Join-Path $PWD ".venv-windows\Scripts\python.exe"
 & $VenvPython -m pip install --upgrade pip wheel | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "could not upgrade pip/wheel" }
 & $VenvPython -m pip install -e "$Linux[windows-media]" pyinstaller pillow | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "could not install Windows build dependencies" }
 
 Write-Host "==> Icon"
 New-Item -ItemType Directory -Force -Path "build" | Out-Null
