@@ -111,15 +111,15 @@ fixes, and the old-client parity audit are consolidated here. Anything marked
 
 ## Release and delivery steps (repeat after the next code change)
 
-- [ ] Bump Android version to `3.3.7`, code `49`.
-- [ ] Commit and push; watch GitHub Actions `Release builds` go green.
-- [ ] Pull the bot commit that refreshes `builds/`.
-- [ ] Copy the exact GitHub `latest` APK into
-  `apps/android/mainbuild.apk`, `apps/android/mcmusic-3.3.7.apk`, and a hashed
+- [x] Bump Android version to `3.3.8`, code `50`.
+- [x] Commit and push; watch GitHub Actions `Release builds` go green.
+- [x] Pull the bot commit that refreshes `builds/`.
+- [x] Copy the exact GitHub `latest` APK into
+  `apps/android/mainbuild.apk`, `apps/android/mcmusic-3.3.8.apk`, and a hashed
   `apps/android/mainbuild-<hash>.apk`; prune stale copies.
-- [ ] Verify live `/get` SHA-256 matches the GitHub asset byte-for-byte.
-- [ ] Verify `/api/builds` reports the new version and “Android 14 and newer.”
-- [ ] Verify package `dev.mcmusic.app`, `versionCode 49`, `minSdk 34`, and
+- [x] Verify live `/get` SHA-256 matches the GitHub asset byte-for-byte.
+- [x] Verify `/api/builds` reports the new version and “Android 14 and newer.”
+- [x] Verify package `dev.mcmusic.app`, `versionCode 50`, `minSdk 34`, and
       signer SHA-256 `0b0fd0fa35ff712901d42cab215d5e3cb706daef57bffa7ebef61cacda1dc4ce`.
 
 ## UI research
