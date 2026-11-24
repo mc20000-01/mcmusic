@@ -315,6 +315,22 @@
     color: var(--text-dim);
 }
 
+/* Autoplay is the last queue row; a separator makes it read as a setting
+   rather than another track. */
+#player-bar .queue-autoplay {
+    border-top: 1px solid var(--back-border);
+    color: var(--text-dim);
+}
+
+#player-bar .queue-autoplay.queue-row-active {
+    color: var(--accent);
+}
+
+#player-bar .queue-autoplay > svg {
+    flex: none;
+    min-width: 20px;
+}
+
 #player-bar .queue-empty {
     padding: 20px 16px 24px;
     text-align: center;

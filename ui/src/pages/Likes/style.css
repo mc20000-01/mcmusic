@@ -1,0 +1,7 @@
+.likes-page .likes-head {
+    gap: 10px;
+}
+
+.likes-page .likes-head > :last-child {
+    margin-left: auto;
+}

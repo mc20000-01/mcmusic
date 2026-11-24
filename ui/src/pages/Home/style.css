@@ -5,6 +5,15 @@
     justify-content: flex-start;
 }
 
+.home-shelf .shelf-head {
+    gap: 10px;
+    margin-bottom: 6px;
+}
+
+.home-shelf .shelf-head > :last-child {
+    margin-left: auto;
+}
+
 .album-controls {
     gap: 10px;
     flex-wrap: wrap;

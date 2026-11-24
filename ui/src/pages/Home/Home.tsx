@@ -1,13 +1,13 @@
 /** Home: the albums grid plus the most recently added tracks.
  */
 import { useEffect, useState } from "preact/hooks";
-import { Button, Container, Content, Header2, Input, Loading, SelectBox, Text } from "flufi-ui/components";
-import { ArrowDownUp, Disc3, ListFilter } from "lucide-preact";
+import { Button, Container, Content, Header2, Header3, Input, Loading, SelectBox, Text } from "flufi-ui/components";
+import { ArrowDownUp, Disc3, ListFilter, Play } from "lucide-preact";
 import { EmptyState } from "../../components/EmptyState/EmptyState";
 import { SetCard } from "../../components/Library/Card";
 import { TrackList } from "../../components/TrackList/TrackList";
 import { API } from "../../common/net/api";
-import type { Set, Track } from "../../common/net/types";
+import type { HomeSection, Set, Track } from "../../common/net/types";
 import { parseArtistUuid } from "../../common/net/api";
 import { playQueue } from "../../common/player";
 
@@ -44,9 +44,13 @@ export function HomePage() {
     const [count, setCount] = useState(PAGE);
 
     const [tracks, setTracks] = useState<Track[] | null>(null);
+    const [shelves, setShelves] = useState<HomeSection[]>([]);
 
     useEffect(() => {
         API.listTracks(50).then(setTracks).catch(() => setTracks([]));
+        API.home()
+            .then(d => setShelves(d.sections.filter(s => s.tracks.length > 0).slice(0, 3)))
+            .catch(() => { /* personalised shelves are optional */ });
     }, []);
 
     useEffect(() => {
@@ -120,12 +124,35 @@ export function HomePage() {
         }
     }
 
+    function playShelf(section: HomeSection) {
+        const list = section.tracks.map(t => ({
+            id: t.uuid,
+            title: t.name.value,
+            artist: t.artists.value.map(u => parseArtistUuid(u).name).join(", "),
+            setUuid: t.set ?? undefined,
+            artistUuid: t.artists.value[0],
+        }));
+        if (list.length) playQueue(list, 0);
+    }
+
     // Skeleton cards shown while the first page of albums loads.
     const skeletonCount = loading && albums.length === 0 ? Math.min(total || PAGE, PAGE) : 0;
 
     return (
         <Content class="home">
             <Container extra_gap>
+                {shelves.map(section => (
+                    <Container key={section.title} class="home-shelf">
+                        <Container horizontal centered_y class="shelf-head">
+                            <Header3>{section.title}</Header3>
+                            <Button variant="panel" title={`Play ${section.title}`} onClick={() => playShelf(section)}>
+                                <Play size={14} /> Play
+                            </Button>
+                        </Container>
+                        <TrackList tracks={section.tracks.slice(0, 8)} showDuration={true} />
+                    </Container>
+                ))}
+
                 <Container>
                     <Header2>Albums</Header2>
                     <Container horizontal centered_y class="album-controls">

@@ -131,3 +131,35 @@ main[class^="content-"] .button {
     flex: 1;
     min-width: 0;
 }
+
+/* System banners sit above the topbar and never push the shell out of view. */
+.system-banners {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    pointer-events: none;
+}
+
+.system-banner {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: var(--prim);
+    border-bottom: 1px solid var(--back-border);
+    font-size: var(--font-size-small);
+}
+
+.system-banner a {
+    color: var(--accent);
+}
+
+.system-banner > span {
+    flex: 1;
+}

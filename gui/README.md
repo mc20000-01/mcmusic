@@ -4,6 +4,9 @@ Front-end clients live here. Nothing in this folder may contain server logic:
 the backend is `src/` and the only contract between them is the HTTP API that
 `src/routes/` exposes.
 
+New to mcmusic? The [self-hosting guide](../docs/selfhost.md) covers server
+setup, HTTPS and connecting the clients in this folder.
+
 ```
 gui/android/    the native Android client (Kotlin + Compose + Media3)
 src/            backend: Flask app, routes, library, presence bridges

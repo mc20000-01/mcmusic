@@ -11,8 +11,9 @@ import {
 } from "flufi-ui/components";
 import { addClass, MOBILE } from "flufi-ui/common";
 import {
-    Home, ListMusic, MonitorSmartphone, PanelLeftClose, PanelLeftOpen,
-    Settings, ShieldCheck, Upload, UserRound, X,
+    Download, Headphones, Heart, Home, ListMusic, MonitorSmartphone,
+    PanelLeftClose, PanelLeftOpen, Search, Settings, ShieldCheck, Upload,
+    UserRound, X,
 } from "lucide-preact";
 import { LeftSidebarDesktopClosedContent, LeftSidebarDesktopOpenedContent } from "./Desktop";
 import { currentUser } from "../../common/auth";
@@ -102,8 +103,12 @@ function MobileContent() {
 
             <MiniHeader dim>Library</MiniHeader>
             <MobileLink href="/" icon={<Home size={18} />}>Home</MobileLink>
+            <MobileLink href="/search" icon={<Search size={18} />}>Search</MobileLink>
+            <MobileLink href="/likes" icon={<Heart size={18} />}>Liked songs</MobileLink>
             <MobileLink href="/artists" icon={<UserRound size={18} />}>Artists</MobileLink>
             <MobileLink href="/playlists" icon={<ListMusic size={18} />}>Playlists</MobileLink>
+            <MobileLink href="/downloads" icon={<Download size={18} />}>Downloads</MobileLink>
+            <MobileLink href="/listeners" icon={<Headphones size={18} />}>Listening now</MobileLink>
             <MobileLink href="/upload" icon={<Upload size={18} />}>Add music</MobileLink>
 
             <MiniHeader dim>Account</MiniHeader>

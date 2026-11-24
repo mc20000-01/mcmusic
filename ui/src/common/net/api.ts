@@ -1,18 +1,32 @@
 import { signal } from "@preact/signals";
 import type { Option } from "flufi-ui/types";
-import type { Artist, RoturStatus, SearchItem, Set as SetEntity, Track, User } from "./types";
+import type {
+    Artist, HomePayload, PlaybackResponse, PublicListening, PublicNow, RoturStatus,
+    SearchItem, Set as SetEntity, Track, User,
+} from "./types";
+import * as idb from "../idb";
 
 const BASE = "/api";
 
-type ApiJson = Record<string, any>;
+export type ApiJson = Record<string, any>;
 
-async function get(path: string): Promise<ApiJson> {
-    const res = await fetch(`${BASE}/${path}`, { credentials: "same-origin" });
-    if (!res.ok) throw new Error(`${path} -> HTTP ${res.status}`);
-    return res.json();
+function emit(name: string, detail?: unknown) {
+    try {
+        window.dispatchEvent(new CustomEvent(name, { detail }));
+    } catch { /* no window during tests */ }
 }
 
-async function send(path: string, method: string, body?: unknown): Promise<ApiJson> {
+function offline(e: unknown): boolean {
+    const message = e instanceof Error ? e.message : String(e);
+    return (typeof navigator !== "undefined" && navigator.onLine === false) ||
+        e instanceof TypeError ||
+        // The service worker answers cacheable GETs with a 503 JSON body while
+        // offline; that error must use the same CacheStorage fallback as a
+        // genuine network failure.
+        message === "offline" || /HTTP 503$/.test(message);
+}
+
+async function once(path: string, method: string, body?: unknown): Promise<ApiJson> {
     const res = await fetch(`${BASE}/${path}`, {
         method,
         credentials: "same-origin",
@@ -22,6 +36,108 @@ async function send(path: string, method: string, body?: unknown): Promise<ApiJs
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `${method} ${path} -> HTTP ${res.status}`);
     return data;
+}
+
+async function get(path: string): Promise<ApiJson> {
+    try {
+        return await once(path, "GET");
+    } catch (e) {
+        // The service worker caches the same read-only GETs the legacy client
+        // used; serve that body when the network is gone instead of an error.
+        if (!offline(e) || typeof caches === "undefined") throw e;
+        const url = new URL(`${BASE}/${path}`, location.origin).toString();
+        const hit = await caches.match(url).catch(() => undefined);
+        if (hit) {
+            emit("mc:cachehit", { path });
+            return hit.json();
+        }
+        emit("mc:offline", { path });
+        throw e;
+    }
+}
+
+/**
+ * Only replay-safe writes are queued. Likes are toggles, so every tap is kept;
+ * playlist adds/removes and renames converge when replayed. Others fail loudly.
+ */
+type OutboxEntry = { path: string; method: string; body?: unknown; at: number };
+const REPLAYABLE: { method: string; path: RegExp; toggle?: boolean }[] = [
+    { method: "POST", path: /^like\/\d+$/, toggle: true },
+    { method: "POST", path: /^playlists\/\d+\/tracks$/ },
+    { method: "PATCH", path: /^playlists\/\d+$/ },
+    { method: "DELETE", path: /^playlists\/\d+$/ },
+    { method: "DELETE", path: /^playlists\/\d+\/tracks\/\d+$/ },
+];
+function replayRule(method: string, path: string) {
+    return REPLAYABLE.find(r => r.method === method && r.path.test(path));
+}
+
+const OUTBOX_KEY = "outbox";
+const OUTBOX_STORE = "session";
+async function queued(): Promise<OutboxEntry[]> {
+    try {
+        const v = await idb.get<OutboxEntry[]>(OUTBOX_KEY, OUTBOX_STORE);
+        return Array.isArray(v) ? v : [];
+    } catch { return []; }
+}
+export async function pendingWrites(): Promise<number> {
+    return (await queued()).length;
+}
+async function enqueue(path: string, method: string, body?: unknown) {
+    const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+    const keepAll = !!replayRule(method, path)?.toggle;
+    const items = (await queued()).filter(e =>
+        keepAll || !(e.method === method && e.path === path && same(e.body, body)));
+    items.push({ path, method, ...(body === undefined ? {} : { body }), at: Date.now() });
+    const kept = items.slice(-100);
+    await idb.set(OUTBOX_KEY, kept, OUTBOX_STORE);
+    emit("mc:queued", { path, method, pending: kept.length });
+}
+
+async function send(path: string, method: string, body?: unknown): Promise<ApiJson> {
+    try {
+        return await once(path, method, body);
+    } catch (e) {
+        if (!offline(e) || !replayRule(method, path)) throw e;
+        await enqueue(path, method, body);
+        return { queued: true, offline: true };
+    }
+}
+
+let flushInFlight: Promise<number> | null = null;
+/** Replay queued writes oldest-first; a network error stops the run. */
+export function flushOutbox(): Promise<number> {
+    if (flushInFlight) return flushInFlight;
+    flushInFlight = (async () => {
+        if (typeof navigator !== "undefined" && navigator.onLine === false) return 0;
+        let list = await queued();
+        let sent = 0;
+        while (list.length) {
+            const item = list[0];
+            try {
+                await once(item.path, item.method, item.body);
+                sent += 1;
+            } catch (e) {
+                const gone = item.method === "DELETE" && /HTTP (404|410)$/.test(String(e));
+                const permanent = /HTTP 4\d\d$/.test(String(e)) && !/HTTP 429$/.test(String(e));
+                if (!gone && !permanent) break;
+                if (!gone) emit("mc:syncfail", { path: item.path, error: String(e) });
+            }
+            list = list.slice(1);
+            await idb.set(OUTBOX_KEY, list, OUTBOX_STORE);
+        }
+        if (sent) emit("mc:synced", { count: sent, pending: (await queued()).length });
+        return sent;
+    })().finally(() => { flushInFlight = null; });
+    return flushInFlight;
+}
+
+if (typeof window !== "undefined") {
+    window.addEventListener("online", () => { void flushOutbox().catch(() => {}); });
+    window.addEventListener("load", () => { void flushOutbox().catch(() => {}); });
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") void flushOutbox().catch(() => {});
+    });
 }
 
 // ---------------------------------------------------------------- ids
@@ -78,7 +194,7 @@ export function userFromJson(d: ApiJson): User {
     };
 }
 
-function trackFromJson(d: ApiJson, setUuid: string | null): Track {
+export function trackFromJson(d: ApiJson, setUuid: string | null): Track {
     const names: string[] = (Array.isArray(d.artists) && d.artists.length
         ? d.artists
         : d.artist ? [d.artist] : []) as string[];
@@ -90,7 +206,15 @@ function trackFromJson(d: ApiJson, setUuid: string | null): Track {
         duration: signal(Number(d.duration ?? 0) || 0),
         year: signal(d.year ?? null),
         trackNo: signal(Number(d.track_no ?? 0) || 0),
+        liked: d.liked == null ? undefined : !!d.liked,
     };
+}
+
+/** Raw track row for the track-info dialog and the admin explicit flag. */
+export async function getTrackInfo(uuid: string): Promise<ApiJson> {
+    const t = (await libraryIndex()).get(String(uuid));
+    if (!t) throw new Error(`no track ${uuid}`);
+    return t;
 }
 
 function setFromJson(album: string, tracks: ApiJson[], coverId: number | null, artist?: string): SetEntity {
@@ -234,6 +358,54 @@ export const API = {
     streamUrl: (uuid: string) => `${BASE}/tracks/${uuid}/stream`,
     getTrackCoverUrl: (uuid: string) => coverUrl(Number(uuid)) || fallbackCover(uuid, "track"),
     lyrics: (uuid: string) => get(`tracks/${uuid}/lyrics`),
+    trackSources: (uuid: string): Promise<{ sources: ApiJson[] }> =>
+        get(`tracks/${uuid}/sources`) as Promise<{ sources: ApiJson[] }>,
+    patchTrack: (uuid: string, patch: { explicit?: boolean | null }) =>
+        send(`tracks/${uuid}`, "PATCH", patch),
+
+    // ------------------------------------------------------ home / likes / radio
+    async home(): Promise<HomePayload> {
+        const d = await get("home");
+        const sections: HomePayload["sections"] = (d.sections ?? []).map((s: ApiJson) => ({
+            title: String(s.title ?? ""),
+            tracks: (s.tracks ?? []).map((t: ApiJson) =>
+                trackFromJson(t, t.album ? albumUuid(t.album, t.id) : null)),
+        }));
+        return { sections, albums: d.albums ?? [] };
+    },
+
+    async likes(): Promise<Track[]> {
+        const d = await get("likes");
+        return (d.tracks ?? []).map((t: ApiJson) =>
+            trackFromJson(t, t.album ? albumUuid(t.album, t.id) : null));
+    },
+    like: (uuid: string): Promise<{ liked?: boolean; queued?: boolean }> =>
+        send(`like/${uuid}`, "POST"),
+
+    async radio(uuid: string): Promise<Track[]> {
+        const d = await get(`radio/${uuid}`);
+        return (d.tracks ?? []).map((t: ApiJson) =>
+            trackFromJson(t, t.album ? albumUuid(t.album, t.id) : null));
+    },
+
+    // ---------------------------------------------------------- public / social
+    publicListening: (): Promise<PublicListening> => get("public/listening") as Promise<PublicListening>,
+    publicNow: (username: string): Promise<PublicNow> =>
+        get(`public/now/${encodeURIComponent(username)}`) as Promise<PublicNow>,
+
+    // --------------------------------------------------------------- playback
+    playback: (device?: string): Promise<PlaybackResponse> =>
+        get(device ? `playback?device=${encodeURIComponent(device)}` : "playback") as Promise<PlaybackResponse>,
+    playbackPush: (body: ApiJson) => send("playback", "POST", body),
+    deviceHeartbeat: (body: ApiJson) => send("devices/heartbeat", "POST", body),
+    version: () => get("version"),
+    ping: () => get("ping"),
+
+    // --------------------------------------------------------------- builds
+    builds: () => get("builds"),
+    emailBuild: (email: string, kind: string) =>
+        send("builds/email", "POST", { email, build: kind }),
+    setEmail: (email: string) => send("auth/email", "POST", { email }),
 
     async getTrackAudio(uuid: string): Promise<Blob> {
         const res = await fetch(API.streamUrl(uuid), { credentials: "same-origin" });
@@ -315,10 +487,24 @@ export const API = {
     // ---------------------------------------------------------- linked accounts
     roturStatus: async (): Promise<RoturStatus> => (await get("auth/rotur/status")) as RoturStatus,
     roturUnlink: () => send("auth/rotur/unlink", "POST"),
+    roturAuthorizeUrl: (next = "/settings") =>
+        `${BASE}/auth/rotur/authorize?next=${encodeURIComponent(next)}`,
     roturActivity: (body: { track_id: number | string | null; playing: boolean; position?: number }) =>
         send("auth/rotur/activity", "POST", body),
+
+    discordStatus: () => get("auth/discord/status"),
+    discordUnlink: () => send("auth/discord/unlink", "POST"),
+    discordAuthorizeUrl: (next = "/settings") =>
+        `${BASE}/auth/discord/authorize?next=${encodeURIComponent(next)}`,
     discordActivity: (body: { track_id: number | string | null; playing: boolean; position?: number }) =>
         send("auth/discord/activity", "POST", body),
+
+    // -------------------------------------------------------- control channels
+    channels: (state = false) => get(`channels${state ? "?state=1" : ""}`),
+    bindChannel: (body: { platform: string; channel_id: string; mode?: string; guild_id?: string }) =>
+        send("channels", "POST", body),
+    unbindChannel: (id: number) => send(`channels/${id}`, "DELETE"),
+    channelState: (id: number) => get(`channels/${id}/state`),
 
     // -------------------------------------------------------------- devices
     deviceCode: () => send("devices/code", "POST"),
@@ -333,6 +519,11 @@ export const API = {
 
     // ---------------------------------------------------------------- admin
     adminStats: () => get("admin/stats"),
+    adminDevices: () => get("admin/devices"),
+    adminEnrich: () => get("admin/enrich"),
+    startEnrich: (force = false) => send("admin/enrich", "POST", { force }),
+    adminLyrics: () => get("admin/lyrics"),
+    startLyrics: () => send("admin/lyrics", "POST"),
     adminRooms: () => get("admin/rooms"),
     adminCloseRoom: (code: string) => send(`admin/rooms/${encodeURIComponent(code)}`, "DELETE"),
     adminRequests: () => get("admin/requests"),

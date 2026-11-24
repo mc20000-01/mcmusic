@@ -1,0 +1,63 @@
+.dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: rgba(8, 6, 13, 0.72);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.track-info-dialog {
+    width: min(520px, 100%);
+    max-height: min(80vh, 720px);
+    overflow: auto;
+    background: var(--prim);
+    border: 1px solid var(--back-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-raised);
+}
+
+.track-info-dialog .dialog-head {
+    gap: 8px;
+    padding: 12px 14px;
+}
+
+.track-info-dialog .dialog-title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.track-info-dialog .dialog-body {
+    padding: 14px;
+}
+
+.track-info-dialog .kv {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 6px 16px;
+}
+
+.track-info-dialog .kv-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 0;
+}
+
+.track-info-dialog .kv-row > * {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.track-info-dialog .source-row {
+    justify-content: space-between;
+    gap: 10px;
+    padding: 4px 0;
+}

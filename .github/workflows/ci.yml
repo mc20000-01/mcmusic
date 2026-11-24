@@ -104,3 +104,123 @@ jobs:
             src/discord_bot.py \
             src/music_channels.py \
             src/originchats.py
+
+  macos-checks:
+    name: macOS native build
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build native Qt .app and .dmg
+        run: |
+          set -euo pipefail
+          version=$(sed -n 's/^version[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' app/linux/pyproject.toml | head -1)
+          MAKE_DMG=1 VERSION="$version" ./app/macos/build.sh
+      - name: Verify the bundle contains no web engine or HTML
+        run: |
+          set -euo pipefail
+          app=app/macos/dist/mcmusic.app
+          test -f "$app/Contents/MacOS/mcmusic"
+          test -f "$app/Contents/Info.plist"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$app/Contents/Info.plist" | grep -qx 'dev.mcmusic.app'
+          if find "$app" \( -iname 'QtWebEngine*' -o -iname 'QtWebKit*' -o -iname 'index.html' \) | grep -q .; then
+            echo "macOS bundle contains a web engine or HTML assets" >&2
+            exit 1
+          fi
+          echo "verified: native Qt bundle, no HTML/WebView"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mcmusic-macos
+          path: |
+            app/macos/dist/mcmusic.app
+            app/macos/dist/mcmusic-*.dmg
+          if-no-files-found: error
+
+  windows-checks:
+    name: Windows native build
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build native Qt .exe and .zip
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path app/linux/pyproject.toml -Pattern '^version\s*=\s*"([^"]+)"').Matches[0].Groups[1].Value
+          ./app/windows/build.ps1 -Version $version -Zip
+      - name: Verify the build contains no web engine or HTML
+        shell: pwsh
+        run: |
+          $exe = "app/windows/dist/mcmusic/mcmusic.exe"
+          if (-not (Test-Path $exe)) { throw "missing $exe" }
+          $web = Get-ChildItem -Path "app/windows/dist/mcmusic" -Recurse -File |
+            Where-Object { $_.Name -match 'QtWebEngine|QtWebKit|index\.html' }
+          if ($web) { throw "Windows build contains a web engine or HTML: $($web.FullName -join ', ')" }
+          $meta = Get-Content "app/windows/dist/mcmusic/version.json" -Raw | ConvertFrom-Json
+          if ($meta.name -ne 'mcmusic') { throw "unexpected version metadata" }
+          Write-Host "verified: native Qt exe, no HTML/WebView"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mcmusic-windows
+          path: |
+            app/windows/dist/mcmusic
+            app/windows/dist/mcmusic-windows-*.zip
+          if-no-files-found: error
+
+  ios-checks:
+    name: iOS native build
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Prepare app icon
+        run: |
+          set -euo pipefail
+          mkdir -p app/ios/McMusic/Assets.xcassets/AppIcon.appiconset
+          sips -z 1024 1024 web/icon-512.png --out app/ios/McMusic/Assets.xcassets/AppIcon.appiconset/icon-1024.png >/dev/null
+      - name: Generate Xcode project
+        run: xcodegen generate --spec app/ios/project.yml --project app/ios
+      - name: Build and test unsigned iOS Simulator app
+        run: |
+          set -euo pipefail
+          # Build the shippable app on its own so XCTest frameworks do not end
+          # up embedded in the uploaded bundle.
+          derived=build/ios
+          common=(-project app/ios/McMusic.xcodeproj -configuration Release CODE_SIGNING_ALLOWED=NO)
+          xcodebuild "${common[@]}" -scheme McMusicApp -derivedDataPath "$derived" \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            ARCHS='arm64 x86_64' ONLY_ACTIVE_ARCH=NO build
+          # Tests get a separate derived-data path for the same reason.
+          sim_id=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); devs=[x for r in d["devices"].values() for x in r if x.get("isAvailable") and x["name"].startswith("iPhone")]; print(devs[0]["udid"] if devs else "")')
+          if [ -n "$sim_id" ]; then
+            xcodebuild "${common[@]}" -scheme McMusic -derivedDataPath build/ios-tests \
+              -sdk iphonesimulator -destination "platform=iOS Simulator,id=$sim_id" \
+              test
+          else
+            echo "no iPhone simulator available; skipping test action" >&2
+          fi
+      - name: Verify the iOS bundle is native
+        run: |
+          set -euo pipefail
+          app=$(find build/ios/Build/Products -maxdepth 2 -type d -name 'McMusic.app' | head -1)
+          test -n "$app"
+          test -f "$app/McMusic"
+          plutil -lint "$app/Info.plist"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$app/Info.plist" | grep -qx 'dev.mcmusic.ios'
+          if find "$app" \( -iname '*WebView*' -o -iname 'index.html' -o -iname '*XCTest*' \) | grep -q .; then
+            echo "iOS bundle contains a web view, HTML or test frameworks" >&2
+            exit 1
+          fi
+          echo "verified: native SwiftUI app, no HTML/WebView/test frameworks"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mcmusic-ios-simulator
+          path: build/ios/Build/Products/Release-iphonesimulator/McMusic.app
+          if-no-files-found: error

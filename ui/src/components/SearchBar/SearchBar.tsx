@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
+import { useLocation } from "preact-iso";
 import { Search, X } from "lucide-preact";
 
 import "./style.css";
@@ -16,6 +17,7 @@ import { useSignal } from "@preact/signals";
  */
 export function SearchBar() {
     const inputRef = useRef<HTMLInputElement>(null);
+    const loc = useLocation();
     const [query, setQuery] = useState("");
     const results = useSignal<Option<SearchItem[]>>(null);
     const open = useSignal<boolean>(false);
@@ -63,6 +65,8 @@ export function SearchBar() {
         const input = inputRef.current;
         if (!input)
             return;
+        // The global "/" shortcut focuses this field by id.
+        input.id = "global-search";
 
         function onKeyDown(e: KeyboardEvent) {
             if (e.key == "Escape") {
@@ -100,7 +104,13 @@ export function SearchBar() {
                     placeholder="Search"
                     value={query}
                     onInput={setQuery}
-                    onEnter={() => doFetch()}
+                    onEnter={(value: string) => {
+                        const q = (value ?? query).trim();
+                        if (q) {
+                            open.value = false;
+                            loc.route(`/search?q=${encodeURIComponent(q)}`);
+                        }
+                    }}
                 />
                 {query
                     ? (
