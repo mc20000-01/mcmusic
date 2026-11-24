@@ -54,12 +54,28 @@ def _names(raw):
     return [str(v) for v in value if str(v).strip()]
 
 
+def artist_credit(row):
+    """Every credited artist, from the indexed JSON or the raw tag."""
+    return [n for n in (_names(_row_get(row, "artists")) or split_artists(
+        _row_get(row, "artist", ""), _row_get(row, "title", ""))) if n]
+
+
 def artist_key(row):
     """Order-insensitive key over the credited artists, not the raw credit blob."""
-    names = _names(_row_get(row, "artists")) or split_artists(
-        _row_get(row, "artist", ""), _row_get(row, "title", ""))
-    keys = sorted({norm_key(n) for n in names if norm_key(n)})
+    keys = sorted({norm_key(n) for n in artist_credit(row) if norm_key(n)})
     return "|".join(keys) or norm(_row_get(row, "artist")) or "unknown"
+
+
+def artist_overlap(a, b):
+    """Two credits agree if they share a name; an unknown credit agrees with any.
+
+    A file scanned before YouTube enrichment often has no artist at all. That
+    is missing information, not a conflicting artist, so it must not stop a
+    merge -- but two *different* named artists with the same title stay apart.
+    """
+    ka = {norm_key(n) for n in artist_credit(a) if norm_key(n)}
+    kb = {norm_key(n) for n in artist_credit(b) if norm_key(n)}
+    return not (ka and kb) or bool(ka & kb)
 
 
 def duration_close(a, b):
@@ -90,12 +106,14 @@ def find_groups(rows):
             if other != i:
                 union(i, other)
 
-    # 2) same normalised title + artist, close length.
+    # 2) same normalised title + artist, close length. An uncredited file is
+    # allowed to merge with a credited one so a fresh rip can replace a row
+    # that was indexed before its YouTube metadata arrived.
     by_key = {}
     for i, row in enumerate(rows):
-        key = (norm(row["title"]), artist_key(row))
+        key = norm(row["title"])
         for j in by_key.get(key, []):
-            if duration_close(row, rows[j]):
+            if artist_overlap(row, rows[j]) and duration_close(row, rows[j]):
                 union(i, j)
         by_key.setdefault(key, []).append(i)
 
