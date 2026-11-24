@@ -127,7 +127,7 @@ def scan_library(conn):
     """Walk MUSIC_DIR, upsert tracks, remove deleted files, optionally enqueue YT enrichment."""
     with scan_lock:
         known = {r["path"]: r for r in conn.execute(
-            "select path, mtime, themes from tracks")}
+            "select path, mtime, themes, yt_id, artist from tracks")}
         seen = set()
         pending = 0
         for root, dirs, files in os.walk(MUSIC_DIR):
@@ -143,7 +143,11 @@ def scan_library(conn):
                 except OSError:
                     continue
                 prev = known.get(rel)
-                if prev and prev["mtime"] == mt and prev["themes"] is not None:
+                # A scan can race the downloader's sidecar write: the MP3 lands
+                # before its .yt.json, leaving yt_id/artist blank. Re-read those
+                # rows on the next scan instead of trusting the mtime alone.
+                if (prev and prev["mtime"] == mt and prev["themes"] is not None
+                        and prev["yt_id"] and prev["artist"]):
                     continue
                 title, artist, album, no, genre, year, dur, lyrics, lsrc = read_tags(full, rel)
                 yt = read_yt_sidecar(full) or {}
