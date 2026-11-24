@@ -139,10 +139,14 @@ def seed() -> None:
         c = _db()
         c.execute(
             "insert or ignore into tracks(path,title,artist,album,track_no,genre,"
-            "year,duration,mtime,added) values(?,?,?,?,?,?,?,?,?,?)",
+            "year,duration,mtime,added,themes) values(?,?,?,?,?,?,?,?,?,?,?)",
             (SEED_PATH, "Seeded Song", "Test Artist", "Test Album", 1, "",
-             "2026", 180.0, os.path.getmtime(full), time.time()),
+             "2026", 180.0, os.path.getmtime(full), time.time(), "[]"),
         )
+        # The artists API reads track_artists, which boot() indexed before the
+        # seed row existed. Index it the same way a library scan would.
+        from artists import backfill
+        backfill(c)
         c.commit()
         row = c.execute("select id from tracks where path=?", (SEED_PATH,)).fetchone()
         print(f"SEEDED {row['id']}", flush=True)

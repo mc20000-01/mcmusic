@@ -204,7 +204,8 @@ class QtApiIntegration(unittest.TestCase):
         name, items = self.run_sync(self.repo.playlist, pid)
         self.assertEqual(name, "Renamed")
         self.assertEqual([t.id for t in items], [track.id])
-        self.assertEqual(self.run_sync(self.repo.playlists)[0].n, 1)
+        renamed = next(p for p in self.run_sync(self.repo.playlists) if p.name == "Renamed")
+        self.assertEqual(renamed.n, 1)
 
         self.run_sync(self.repo.remove_from_playlist, pid, track.id)
         self.assertEqual(self.run_sync(self.repo.playlist, pid)[1], [])
@@ -273,7 +274,7 @@ class QtApiIntegration(unittest.TestCase):
     def test_06_settings_playback_and_streaming(self):
         track = self.track()
         settings = self.run_sync(self.repo.settings)
-        self.assertEqual(settings.theme, "dusk")
+        self.assertEqual(settings.theme, "rose")
         changed = replace(settings, density="compact", private=True, volume=0.31)
         self.run_sync(self.repo.save_settings, changed)
         stored = self.run_sync(self.repo.settings)

@@ -213,7 +213,8 @@ def api_docs():
         name="mcmusic API", version=3,
         self_hosting={
             "guide": "https://github.com/mc20000-01/mcmusic/blob/main/docs/selfhost.md",
-            "health": "GET /api/ping", "version": "GET /api/version",
+            "health": "GET /health (or GET /api/ping for token auth)",
+            "version": "GET /api/version",
             "web_client_build": "./scripts/build_ui.sh",
         },
         auth={
