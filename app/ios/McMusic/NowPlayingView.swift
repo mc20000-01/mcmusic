@@ -4,6 +4,8 @@ struct NowPlayingView: View {
     @EnvironmentObject private var app: AppState
     @Environment(\.dismiss) private var dismiss
     @State private var showQueue = false
+    @State private var showLyrics = false
+    @State private var lyricsText = "Loading…"
 
     private var player: Player { app.player }
 
@@ -53,10 +55,15 @@ struct NowPlayingView: View {
                 }
 
                 HStack {
-                    Image(systemName: "speaker.fill").foregroundStyle(.secondary)
+                    Button {
+                        app.player.volume = app.player.volume > 0 ? 0 : 0.8
+                    } label: {
+                        Image(systemName: app.player.volume > 0 ? "speaker.fill" : "speaker.slash.fill")
+                            .foregroundStyle(.secondary)
+                    }
                     Slider(value: Binding(
-                        get: { app.player.volume },
-                        set: { app.player.volume = $0 }
+                        get: { Double(app.player.volume) },
+                        set: { app.player.volume = Float($0) }
                     ), in: 0...1)
                     Image(systemName: "speaker.wave.3.fill").foregroundStyle(.secondary)
                 }
@@ -69,6 +76,9 @@ struct NowPlayingView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     HStack {
+                        Button { Task { await loadLyrics() } } label: {
+                            Image(systemName: "quote.bubble")
+                        }
                         Menu {
                             Button("Sleep timer: off") { player.setSleepTimer(minutes: 0) }
                             ForEach([5, 15, 30, 45, 60], id: \.self) { minutes in
@@ -91,6 +101,7 @@ struct NowPlayingView: View {
                 }
             }
             .sheet(isPresented: $showQueue) { queueView }
+            .sheet(isPresented: $showLyrics) { DetailText(title: "Lyrics", text: lyricsText) }
         }
     }
 
@@ -129,5 +140,16 @@ struct NowPlayingView: View {
     private func time(_ seconds: Double) -> String {
         let value = max(0, Int(seconds))
         return "\(value / 60):\(String(format: "%02d", value % 60))"
+    }
+
+    private func loadLyrics() async {
+        guard let id = player.currentTrackID else { lyricsText = "Nothing playing."; showLyrics = true; return }
+        do {
+            let value = try await app.client.lyrics(id)
+            lyricsText = value["lyrics"]?.string ?? value["text"]?.string ?? "No lyrics yet."
+        } catch {
+            lyricsText = "No lyrics yet."
+        }
+        showLyrics = true
     }
 }

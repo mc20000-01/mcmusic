@@ -102,10 +102,10 @@ struct SettingsView: View {
 
                 Section("Integrations") {
                     Toggle("Rotur activity", isOn: $roturActivity)
-                    if let ready = rotur?["activity"]?["ready"]?.bool ?? rotur?["ready"]?.bool {
-                        LabeledContent("Rotur", value: ready ? "Linked" : "Not linked")
+                    if let linked = rotur?["linked"]?.bool {
+                        LabeledContent("Rotur", value: linked ? "Linked" : "Not linked")
                     }
-                    if let reason = rotur?["activity"]?["reason"]?.string ?? rotur?["reason"]?.string {
+                    if let reason = rotur?["reason"]?.string {
                         Text(reason).font(.caption).foregroundStyle(.secondary)
                     }
                     if let url = URL(string: roturURL) {
@@ -118,8 +118,13 @@ struct SettingsView: View {
                     Button("Unlink Rotur", role: .destructive) { Task { await run { try await app.client.unlinkRotur() } } }
 
                     Toggle("Discord activity", isOn: $discordActivity)
-                    if let name = discord?["user"]?["username"]?.string ?? discord?["username"]?.string {
+                    if let name = discord?["username"]?.string {
                         LabeledContent("Discord", value: name)
+                    } else if let linked = discord?["linked"]?.bool {
+                        LabeledContent("Discord", value: linked ? "Linked" : "Not linked")
+                    }
+                    if let reason = discord?["presence"]?["reason"]?.string, discord?["presence"]?["available"]?.bool != true {
+                        Text(reason).font(.caption).foregroundStyle(.secondary)
                     }
                     if let url = URL(string: discordURL) {
                         Link("Link Discord", destination: url)
