@@ -388,6 +388,19 @@ export const API = {
             trackFromJson(t, t.album ? albumUuid(t.album, t.id) : null));
     },
 
+    /**
+     * MDL ordering for the current queue. Empty until the server's 76%
+     * work-rate gate opens; callers keep the existing order when it is empty.
+     */
+    async modelRank(current: string, ids: string[]): Promise<string[]> {
+        const d = await send("model/rank", "POST", {
+            current: Number(current) || 0,
+            ids: ids.map(Number).filter(n => Number.isInteger(n) && n > 0).slice(0, 500),
+        });
+        if (!d.active || !Array.isArray(d.ids)) return [];
+        return d.ids.map(String);
+    },
+
     // ---------------------------------------------------------- public / social
     publicListening: (): Promise<PublicListening> => get("public/listening") as Promise<PublicListening>,
     publicNow: (username: string): Promise<PublicNow> =>

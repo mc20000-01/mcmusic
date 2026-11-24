@@ -42,6 +42,8 @@ data class PlaybackState(
     val position: Long = 0,
     val duration: Long = 0,
     val shuffle: Boolean = false,
+    /** Shuffle decided by the model ordering rather than Media3's RNG. */
+    val modelShuffle: Boolean = false,
     val repeat: Boolean = false,
     /** Media3 repeat mode: 0 off, 1 all, 2 one. */
     val repeatMode: Int = Player.REPEAT_MODE_OFF,
@@ -75,6 +77,8 @@ object Playback {
     private var lastSavedPosition = 0L
     private var lastPositionSaveAt = 0L
     private var autoplayBusy = false
+    private var modelShuffle = false
+    private var videoPausedMusic = false
     private var autoplayDoneKey: String? = null
     private var suppressAutoplayKey: String? = null
     private val reportScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -211,7 +215,8 @@ object Playback {
             playing = player.isPlaying,
             buffering = player.playbackState == Player.STATE_BUFFERING,
             duration = player.duration.takeIf { it > 0 } ?: ((track?.duration ?: 0.0) * 1000).toLong(),
-            shuffle = player.shuffleModeEnabled,
+            shuffle = player.shuffleModeEnabled || modelShuffle,
+            modelShuffle = modelShuffle,
             repeat = repeatMode != Player.REPEAT_MODE_OFF,
             repeatMode = repeatMode,
             autoplay = Prefs.autoplay,
@@ -411,12 +416,62 @@ object Playback {
         publish(c)
     }
 
+    /**
+     * Remove one queue occurrence without touching the server library. Used by
+     * the swipe-to-dismiss gesture in the Player queue.
+     */
+    fun removeFromQueue(index: Int) {
+        val c = controller ?: return
+        if (index !in queueTracks.indices) return
+        val wasCurrent = index == state.index
+        val remaining = queueTracks.filterIndexed { i, _ -> i != index }
+        if (remaining.isEmpty()) {
+            queueTracks = emptyList()
+            autoplayDoneKey = null
+            suppressAutoplayKey = null
+            c.stop()
+            c.clearMediaItems()
+            Prefs.saveQueue(null)
+            state = PlaybackState(autoplay = Prefs.autoplay)
+            return
+        }
+        val target = if (wasCurrent) index.coerceAtMost(remaining.lastIndex)
+        else (c.currentMediaItemIndex - if (index < c.currentMediaItemIndex) 1 else 0)
+            .coerceIn(0, remaining.lastIndex)
+        val wasPlaying = c.isPlaying
+        val position = if (wasCurrent) 0L else c.currentPosition
+        installQueue(c, remaining, target, position)
+        c.prepare()
+        if (wasPlaying) c.play()
+        saveQueue(c, position)
+        publish(c)
+    }
+
     /** UI-facing progress pump; the service also refreshes on its own timer. */
     fun tick() {
         val c = controller ?: return
         position(c)
         checkSleep(c)
         checkAutoplay(c)
+    }
+
+    /** Pause music while a local video owns the speakers. */
+    fun duckForVideo() {
+        val c = controller ?: return
+        if (!c.isPlaying) return
+        videoPausedMusic = true
+        c.pause()
+        publish(c)
+    }
+
+    /** Resume music at the video's position after the video screen closes. */
+    fun unduckFromVideo(positionMs: Long?) {
+        val c = controller ?: return
+        if (!videoPausedMusic) return
+        videoPausedMusic = false
+        if (positionMs != null && positionMs > 0) seekTo(positionMs)
+        c.play()
+        publish(c)
     }
 
     fun toggle() {
@@ -470,8 +525,55 @@ object Playback {
 
     fun toggleShuffle() {
         val c = controller ?: return
-        c.shuffleModeEnabled = !c.shuffleModeEnabled
-        saveQueue(c, c.currentPosition)
+        if (modelShuffle || c.shuffleModeEnabled) {
+            modelShuffle = false
+            c.shuffleModeEnabled = false
+            saveQueue(c, c.currentPosition)
+            publish(c)
+            return
+        }
+        // With the 76% work-rate gate open, the server's MDL decides the order;
+        // otherwise Media3's random shuffle is the fallback.
+        modelShuffle = true
+        state = state.copy(shuffle = true, modelShuffle = true)
+        val currentId = state.track?.id ?: 0
+        val ids = queueTracks.map { it.id }
+        reportScope.launch {
+            Api.modelRank(currentId, ids).fold(
+                onSuccess = { ranked ->
+                    if (modelShuffle && ranked.active && ranked.ids.size > 1) {
+                        applyModelOrder(ranked.ids)
+                    } else if (modelShuffle) {
+                        c.shuffleModeEnabled = true
+                        publish(c)
+                    }
+                },
+                onFailure = {
+                    if (modelShuffle) {
+                        c.shuffleModeEnabled = true
+                        publish(c)
+                    }
+                },
+            )
+        }
+    }
+
+    /** Rebuild the live queue in the order the MDL chose, keeping the current song. */
+    private fun applyModelOrder(ids: List<Int>) {
+        val c = controller ?: return
+        val byId = queueTracks.associateBy { it.id }
+        val ranked = ids.mapNotNull { byId[it] }
+        if (ranked.size < 2) return
+        val seen = ranked.map { it.id }.toSet()
+        val ordered = ranked + queueTracks.filterNot { it.id in seen }
+        val currentId = state.track?.id
+        val index = ordered.indexOfFirst { it.id == currentId }.coerceAtLeast(0)
+        val position = c.currentPosition
+        val wasPlaying = c.isPlaying
+        installQueue(c, ordered, index, position)
+        c.prepare()
+        if (wasPlaying) c.play()
+        saveQueue(c, position)
         publish(c)
     }
 

@@ -53,12 +53,14 @@ import dev.mcmusic.app.ui.screens.SearchScreen
 import dev.mcmusic.app.ui.screens.AuthSplash
 import dev.mcmusic.app.ui.screens.SignInScreen
 import dev.mcmusic.app.ui.screens.SettingsScreen
+import dev.mcmusic.app.ui.screens.VideosScreen
 
 enum class Tab(val label: String, @param:DrawableRes val icon: Int) {
     Home("Home", Lucide.House),
     Search("Search", Lucide.Search),
     Library("Library", Lucide.Library),
     Downloads("Downloads", Lucide.Download),
+    Videos("Videos", Lucide.Film),
     Settings("Settings", Lucide.Settings),
     Playlists("Playlists", Lucide.ListMusic),
     Likes("Likes", Lucide.Heart),
@@ -66,7 +68,7 @@ enum class Tab(val label: String, @param:DrawableRes val icon: Int) {
     Admin("Admin", Lucide.User);
 
     val inBar: Boolean get() = this in listOf(Home, Search, Library, Downloads, Settings)
-    val fullScreen: Boolean get() = this == Player || this == Admin || this == Likes
+    val fullScreen: Boolean get() = this == Player || this == Admin || this == Likes || this == Videos
 }
 
 /** Brand mark plus account, kept above the scroll area like the site header. */
@@ -228,7 +230,11 @@ private fun TabContent(
     onTab: (Tab) -> Unit,
     onPlaylist: (Int) -> Unit,
     playlistId: Int?,
+    videoId: String?,
+    videoStartMs: Long,
     onBack: () -> Unit,
+    onVideo: (String?, Long) -> Unit,
+    onVideoClosed: (Long?) -> Unit,
 ) {
     val motion = Prefs.motion
     val appear = remember(tab) { Animatable(if (motion) 0f else 1f) }
@@ -258,9 +264,19 @@ private fun TabContent(
                 onOpenPlayer = { onTab(Tab.Player) },
                 onBack = onBack,
             )
-            Tab.Downloads -> DownloadsScreen(onOpenPlayer = { onTab(Tab.Player) })
+            Tab.Downloads -> DownloadsScreen(
+                onOpenPlayer = { onTab(Tab.Player) },
+                onOpenVideos = { onVideo(null, 0L) },
+            )
             Tab.Settings -> SettingsScreen(onAdmin = { onTab(Tab.Admin) }, onSignedOut = { onTab(Tab.Home) })
-            Tab.Player -> PlayerScreen(onBack = onBack)
+            Tab.Player -> PlayerScreen(onBack = onBack, onVideo = onVideo)
+            Tab.Videos -> VideosScreen(
+                ytId = videoId,
+                startMs = videoStartMs,
+                onBack = onBack,
+                onPlay = { id, start -> onVideo(id, start) },
+                onClosed = onVideoClosed,
+            )
             Tab.Admin -> AdminScreen(onBack = onBack)
         }
     }
@@ -287,6 +303,8 @@ fun McShell() {
     var tab by rememberSaveable { mutableStateOf(Tab.Home) }
     var previous by rememberSaveable { mutableStateOf(Tab.Home) }
     var playlistId by rememberSaveable { mutableStateOf<Int?>(null) }
+    var videoId by rememberSaveable { mutableStateOf<String?>(null) }
+    var videoStartMs by rememberSaveable { mutableStateOf(0L) }
 
     LaunchedEffect(Account.isAdmin) {
         if (!Account.isAdmin && tab == Tab.Admin) tab = Tab.Home
@@ -314,6 +332,19 @@ fun McShell() {
         open(Tab.Playlists)
     }
 
+    val openVideo: (String?, Long) -> Unit = { id, start ->
+        if (id != null) {
+            videoStartMs = start
+            videoId = id
+            tab = Tab.Videos
+        }
+    }
+    val closeVideo: (Long?) -> Unit = { _ ->
+        videoId = null
+        videoStartMs = 0L
+        back()
+    }
+
     Box(Modifier.fillMaxSize()) {
         if (tab.fullScreen) {
             Box(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
@@ -322,7 +353,11 @@ fun McShell() {
                     onTab = open,
                     onPlaylist = openPlaylist,
                     playlistId = playlistId,
-                    onBack = back,
+                    videoId = videoId,
+                    videoStartMs = videoStartMs,
+                    onBack = if (videoId != null) { { closeVideo(null) } } else back,
+                    onVideo = openVideo,
+                    onVideoClosed = closeVideo,
                 )
             }
         } else {
@@ -334,7 +369,11 @@ fun McShell() {
                         onTab = open,
                         onPlaylist = openPlaylist,
                         playlistId = playlistId,
-                        onBack = back,
+                        videoId = videoId,
+                        videoStartMs = videoStartMs,
+                        onBack = if (videoId != null) { { closeVideo(null) } } else back,
+                        onVideo = openVideo,
+                        onVideoClosed = closeVideo,
                     )
                 }
                 MiniPlayer(onOpen = { open(Tab.Player) })

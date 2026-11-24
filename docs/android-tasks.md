@@ -59,15 +59,30 @@ release verification.
       not destroyed; long-press opens the same menu in code but the slow
       emulator's injected long-press was read as a normal tap.
 
-- [x] **Version:** APK bumped to `3.3.6`, code `48`, so it installs over 3.3.5
+## 3.3.7 round
+
+- [x] **Account links:** Settings shows Rotur/Discord linked state, connect and
+      unlink controls. Native browser flows use one-use server tickets so the
+      OAuth callback can bind the account without an `Authorization` header.
+- [x] **Videos:** the Videos tab lists locally cached MP4s from request imports;
+      playback uses ExoPlayer over a `SurfaceView`, no YouTube embed. Viewing
+      slides the four-hour cache expiry forward. Music pauses while a video
+      plays and resumes at the returned song position.
+- [x] **Player:** horizontal cover/title swipes skip tracks, queue rows swipe
+      left to remove, LRC parsing/offsets and tap-to-seek were tightened, and a
+      current-line preview sits above the scrubber.
+- [x] **MDL:** shuffle asks `POST /api/model/rank` and only adopts the server
+      order once the 76% work-rate gate opens; Media3 random shuffle remains the
+      fallback. Radio-driven autoplay inherits the server's MDL ranking.
+- [x] **Lyrics visualizer:** Bars/Wave/Glow modes are available in the lyrics
+      panel, driven deterministically by playback position and active line.
+- [x] **Version:** APK bumped to `3.3.7`, code `49`, so it installs over 3.3.6
       with the same signing identity.
-- [x] **Release verification:** after CI publishes, install the signed APK and
-      confirm the link form, sign-in persistence, queue/player restore, Settings,
-      likes, lyrics, track menu and admin removal dialog still work. Autoplay,
-      loop-one and the external Rotur OAuth return were not re-driven on the
-      emulator this round.
-- [x] **Delivery verification:** GitHub `latest` and live `/get` serve the same
-      `3.3.6` bytes; package/signer/SDK versions match the release checklist.
+- [ ] **Release verification:** after CI publishes, install the signed APK and
+      confirm sign-in, Settings, likes, lyrics/visualizer, track menu, videos,
+      direct-link request form and queue gestures.
+- [ ] **Delivery verification:** GitHub `latest` and live `/get` serve the same
+      `3.3.7` bytes; package/signer/SDK versions match the release checklist.
 
 ## Verification commands
 

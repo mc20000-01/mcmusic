@@ -1,8 +1,9 @@
-# Next-song MDL: learning-only integration
+# Next-song MDL: work-rate gated integration
 
-The standalone `algo/` module is now wired into the server, but **only to
-learn**. It does not choose or reorder songs, does not affect radio, shuffle,
-autoplay, or queue extension, and its output is never sent to a client.
+The standalone `algo/` module is wired into the server through
+`src/next_song_model.py`. It always learns; it only **chooses** once it has
+proved itself. The gate is an exact-hit work rate of **76%** over at least ten
+observations.
 
 ## What happens
 
@@ -18,30 +19,46 @@ play to `src/next_song_model.py`. That module:
 5. Calls `NextSongMDL.observe(...)` and atomically saves the model to
    `data/next_song_mdl.json` under `DATA_DIR`.
 
-The internal `predict()` call is used only to score the click as exact / same
-artist or album / wrong, which is required for learning. Its result is
-discarded.
-
 Users are mapped to the model's 6-bit user code with `user_id % 64`. That is
 intentional for this experimental phase: it keeps the standalone format intact
-without creating a separate identity mapping. Large installations with more
-than 64 users will see code collisions until a real mapping is added.
+without creating a separate identity mapping.
+
+## Earning the switch
+
+`model.summary()["work_rate"]` is `correct / observations`. Once it reaches
+`0.76` with ten or more observations, `next_song_model.is_active()` returns true
+and the admin status note flips. From then on a single helper, `rank_for()`,
+orders:
+
+- `/api/home` recommendations (not the unplayed Discover list),
+- `/api/radio/<id>` (which also feeds natural-end autoplay on every client),
+- shuffle on web, Android and desktop through `POST /api/model/rank`,
+- the Android queue rebuild/autoplay path.
+
+A ranked pool is always followed by any unranked candidates, so no song is lost.
+If the model has no ranked candidates, the existing affinity/similarity order is
+the fallback. The chosen setting in the user's request was to switch **all**
+next-track choices together, never one at a time.
+
+`POST /api/model/rank` accepts `{ "current": <track id>, "ids": [...] }` and
+returns `{ "active": bool, "ids": [...] }`. It is a no-op while the gate is
+closed, so older clients keep their current behavior.
 
 ## Safety and operations
 
-- Learning failures are logged and ignored; they never fail a play count.
+- Learning or ranking failures are logged and ignored; they never fail a play
+  count or a queue response.
 - The model snapshot is written to a temp file and atomically renamed, so a
   crash cannot truncate it.
 - A corrupt snapshot is moved to `data/next_song_mdl.json.corrupt` and learning
   restarts from an empty model.
 - `data/` is gitignored. The model and its backup are never published.
 - Admins can inspect progress with `GET /api/admin/algo`. The response includes
-  observation counts, reward totals, per-expert costs, `learning_only: true`,
-  and `used_for_choices: false`.
+  `work_rate`, `threshold`, `active`, `learning_only`, `used_for_choices`, and a
+  human-readable `note`.
 
-## Explicitly not done yet
+## Status on this host
 
-- No endpoint returns a prediction to web, Android or desktop.
-- `/api/radio/<id>` still uses the existing recommendation path.
-- Queue-end autoplay still uses `/api/radio/<id>` only.
-- No client sends `algo_status` today; the field is accepted for future use.
+The persisted snapshot has far more wrong/exact-miss observations than exact
+hits (work rate around 3%), so `active` remains false and all next-track choices
+still use the original rankings. No behavior changes until the gate is earned.

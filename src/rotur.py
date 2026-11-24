@@ -23,6 +23,7 @@ import threading
 import time
 from typing import Optional
 
+import app_links
 import rotur_activity
 from flufi_pages import flufi_page
 from music_activity.config import ROTUR_WS
@@ -351,6 +352,17 @@ def authorize_route():
             return _html("Link expired",
                          "This login link is no longer valid. Ask the bot for a new one.", 410)
 
+    # The native app cannot send its bearer token to the browser redirect, so it
+    # hands over a one-use ticket instead. Burn it now and carry the uid in the
+    # OAuth state until the callback links the provider identity.
+    link_uid = None
+    link_ticket = request.args.get("link", "")
+    if link_ticket:
+        link_uid = app_links.consume(link_ticket)
+        if link_uid is None:
+            return _html("Link expired",
+                         "That link request expired. Open Settings and try again.", 410)
+
     verifier, challenge = _pkce_pair()
     state = secrets.token_urlsafe(24)
     session[STATE_KEY] = {
@@ -360,6 +372,8 @@ def authorize_route():
         "invite": request.args.get("invite", "")[:80],
         "ticket": code or "",
         "app": str(request.args.get("app", "")) == "1",
+        "app_link": link_uid is not None,
+        "link_uid": link_uid,
         "device_hash": request.args.get("device_hash", "")[:64],
         "created": time.time(),
     }
@@ -406,8 +420,12 @@ def callback_route():
 
     expires_at = time.time() + float(tokens.get("expires_in") or 3600)
     c = _db()
-    uid = _auth_uid()
+    link_uid = ctx.get("link_uid")
+    uid = link_uid or _auth_uid()
     linked = c.execute("select id from users where rotur_id=?", (rid,)).fetchone()
+    if link_uid and linked and linked["id"] != link_uid:
+        return _html("Already linked",
+                     "That Rotur account belongs to another mcmusic account.", 409)
 
     if linked:
         uid = linked["id"]
@@ -460,6 +478,9 @@ def callback_route():
                 "you can close this tab and go back to the channel.",
                 200,
             )
+
+    if ctx.get("app_link"):
+        return redirect("mcmusic://oauth?linked=rotur")
 
     if ctx.get("app"):
         return _native_redirect(c, uid, ctx.get("device_hash"))

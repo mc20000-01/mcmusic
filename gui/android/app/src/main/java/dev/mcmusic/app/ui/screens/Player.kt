@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,9 +25,13 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -38,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -48,6 +54,7 @@ import dev.mcmusic.app.data.Api
 import dev.mcmusic.app.data.Lyrics
 import dev.mcmusic.app.playback.Playback
 import dev.mcmusic.app.ui.Cover
+import dev.mcmusic.app.ui.Danger
 import dev.mcmusic.app.ui.EmptyState
 import dev.mcmusic.app.ui.ErrorLine
 import dev.mcmusic.app.ui.GhostButton
@@ -73,7 +80,7 @@ import kotlinx.coroutines.delay
  * controller when the clock runs out).
  */
 @Composable
-fun PlayerScreen(onBack: () -> Unit) {
+fun PlayerScreen(onBack: () -> Unit, onVideo: (String?, Long) -> Unit = { _, _ -> }) {
     val design = LocalDesign.current
     val state = Playback.state
     var scrub by remember { mutableStateOf<Float?>(null) }
@@ -116,7 +123,8 @@ fun PlayerScreen(onBack: () -> Unit) {
                     Modifier
                         .size(264.dp)
                         .clip(RoundedCornerShape(34.dp))
-                        .background(design.accentSoft),
+                        .background(design.accentSoft)
+                        .skipOnSwipe(track.id),
                     Alignment.Center,
                 ) {
                     Cover(
@@ -130,7 +138,7 @@ fun PlayerScreen(onBack: () -> Unit) {
         }
         item {
             Column(
-                Modifier.fillMaxWidth().padding(top = 6.dp),
+                Modifier.fillMaxWidth().padding(top = 6.dp).skipOnSwipe(track.id),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
@@ -149,10 +157,14 @@ fun PlayerScreen(onBack: () -> Unit) {
                     fontSize = 12.sp,
                     textAlign = TextAlign.Center,
                 )
+                Muted("Swipe artwork to skip · swipe a queue row left to remove", size = 10)
                 state.error?.let { message ->
                     Text(message, color = dev.mcmusic.app.ui.Danger, fontSize = 11.sp, textAlign = TextAlign.Center)
                 }
             }
+        }
+        if (!lyricsOpen && track.id > 0) {
+            item { NowLyric(track.id) { lyricsOpen = true } }
         }
         item {
             Slider(
@@ -207,6 +219,16 @@ fun PlayerScreen(onBack: () -> Unit) {
             }
         }
         if (lyricsOpen && track.id > 0) item { LyricsPanel(track.id) }
+        if (!track.ytId.isNullOrBlank()) {
+            item {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    GhostButton("Watch video") { onVideo(track.ytId, state.position) }
+                }
+            }
+        }
         item {
             Column(
                 Modifier.fillMaxWidth(),
@@ -273,8 +295,23 @@ fun PlayerScreen(onBack: () -> Unit) {
     }
 }
 
+/** Swipe the artwork or title: right = previous song, left = next song. */
+@Composable
+private fun Modifier.skipOnSwipe(trackId: Int): Modifier {
+    var total by remember(trackId) { mutableFloatStateOf(0f) }
+    return pointerInput(trackId) {
+        detectHorizontalDragGestures(
+            onDragEnd = {
+                if (total > 48) Playback.previous()
+                else if (total < -48) Playback.next()
+                total = 0f
+            },
+        ) { _, amount -> total += amount }
+    }
+}
+
 /** One queue entry, keyed by occurrence so duplicate track ids stay visible. */
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun QueueRow(index: Int, item: Track, state: dev.mcmusic.app.playback.PlaybackState) {
     val design = LocalDesign.current
@@ -293,6 +330,31 @@ private fun QueueRow(index: Int, item: Track, state: dev.mcmusic.app.playback.Pl
         }
     }
     val current = index == state.index
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value == SwipeToDismissBoxValue.EndToStart) {
+                Playback.removeFromQueue(index)
+                true
+            } else false
+        },
+    )
+    SwipeToDismissBox(
+        state = dismissState,
+        enableDismissFromStartToEnd = false,
+        backgroundContent = {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(7.dp))
+                    .background(Danger.copy(alpha = 0.16f))
+                    .padding(horizontal = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.End,
+            ) {
+                Text("Remove from queue", color = Danger, fontSize = 12.sp)
+            }
+        },
+        content = {
     Row(
         Modifier
             .fillMaxWidth()
@@ -338,18 +400,25 @@ private fun QueueRow(index: Int, item: Track, state: dev.mcmusic.app.playback.Pl
             contentDescription = "Drag to reorder",
         )
     }
+        },
+    )
 }
 
 private data class LyricLine(val time: Double, val text: String)
 
-/** LRC timestamps plus plain text, in the order the web panel displays them. */
+/** LRC timestamps plus plain text, honouring `[offset:]` and word stamps. */
 private fun parseLyrics(text: String): List<LyricLine> {
     val stamps = Regex("\\[(\\d{1,2}):(\\d{2})(?:[.:](\\d{1,3}))?\\]")
-    val metadata = Regex("^\\[(ar|ti|al|by|offset|re|ue):", RegexOption.IGNORE_CASE)
+    val metadata = Regex("^\\[(?:ar|ti|al|by|re|ue|length):", RegexOption.IGNORE_CASE)
+    val offsetLine = Regex("^\\[offset:([+-]?\\d+)\\]", RegexOption.IGNORE_CASE)
+    val inlineWords = Regex("<[^>]+>")
+    var offsetMs = 0
     return buildList {
         for (raw in text.lineSequence()) {
             val line = raw.trim()
-            if (line.isEmpty() || metadata.containsMatchIn(line)) continue
+            if (line.isEmpty()) continue
+            offsetLine.find(line)?.let { offsetMs = it.groupValues[1].toIntOrNull() ?: 0 }
+            if (metadata.containsMatchIn(line) || offsetLine.containsMatchIn(line)) continue
             val times = mutableListOf<Double>()
             var lastEnd = 0
             for (match in stamps.findAll(line)) {
@@ -358,10 +427,14 @@ private fun parseLyrics(text: String): List<LyricLine> {
                 times += match.groupValues[1].toDouble() * 60 + match.groupValues[2].toDouble() + fractionSeconds
                 lastEnd = match.range.last + 1
             }
-            val words = line.substring(lastEnd).trim()
+            val words = inlineWords.replace(line.substring(lastEnd).trim(), "").trim()
             if (words.isEmpty()) continue
-            if (times.isEmpty()) add(LyricLine(-1.0, words))
-            else times.forEach { add(LyricLine(it, words)) }
+            if (times.isEmpty()) {
+                add(LyricLine(-1.0, words))
+            } else {
+                val shift = offsetMs / 1000.0
+                times.forEach { add(LyricLine((it - shift).coerceAtLeast(0.0), words)) }
+            }
         }
     }.sortedBy { it.time }
 }
@@ -378,6 +451,7 @@ private fun LyricsPanel(trackId: Int) {
     var error by remember(trackId) { mutableStateOf<String?>(null) }
     var loading by remember(trackId) { mutableStateOf(true) }
     var reload by remember(trackId) { mutableIntStateOf(0) }
+    var visualizerMode by remember(trackId) { mutableStateOf(LyricVisualizerMode.Bars) }
     val listState = rememberLazyListState()
 
     LaunchedEffect(trackId, reload) {
@@ -420,6 +494,14 @@ private fun LyricsPanel(trackId: Int) {
             Box(Modifier.weight(1f))
             Muted(kind, size = 11)
         }
+        LyricVisualizer(
+            mode = visualizerMode,
+            positionMs = Playback.state.position,
+            activeLine = activeIndex,
+            playing = Playback.state.playing,
+            onCycle = { visualizerMode = visualizerMode.next() },
+        )
+        Muted("Visualizer: ${visualizerMode.label} · tap to change", size = 10)
         when {
             loading -> Loading("Loading lyrics…")
             error != null -> {
@@ -439,9 +521,47 @@ private fun LyricsPanel(trackId: Int) {
                         color = if (active) design.accent else design.dim,
                         fontSize = if (active) 15.sp else 13.sp,
                         fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                        modifier = Modifier.clickable(enabled = line.time >= 0) {
+                            Playback.seekTo((line.time * 1000).toLong())
+                        },
                     )
                 }
             }
         }
+    }
+}
+
+/** A single live lyric line above the scrubber; tap it to open the full pane. */
+@Composable
+private fun NowLyric(trackId: Int, onOpen: () -> Unit) {
+    val design = LocalDesign.current
+    var raw by remember(trackId) { mutableStateOf<String?>(null) }
+    LaunchedEffect(trackId) {
+        raw = Api.lyrics(trackId).getOrNull()?.text
+    }
+    val lines = remember(raw) { parseLyrics(raw.orEmpty()) }
+    val position = Playback.state.position / 1000.0
+    val current = lines.lastOrNull { it.time >= 0 && it.time <= position }?.text
+        ?: lines.firstOrNull { it.time < 0 }?.text
+    if (current.isNullOrBlank()) return
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(design.accentSoft)
+            .clickable(onClick = onOpen)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        LucideIcon(Lucide.ListMusic, design.accent, Modifier.size(14.dp))
+        Text(
+            current,
+            color = design.accent,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }

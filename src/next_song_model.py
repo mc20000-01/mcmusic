@@ -1,10 +1,11 @@
 """Server-side bridge for the standalone `algo/` next-song MDL model.
 
-For now this module is **learning only**. It turns each recorded play into one
-observation and persists the model under DATA_DIR. Nothing here is consulted by
-the radio endpoint, queue extension, shuffle, or any "what plays next" choice.
-The only prediction made is an internal one used to score the click (exact hit
-/ same artist / wrong), which is how the model learns.
+Every recorded play becomes one observation and the snapshot is persisted under
+DATA_DIR. The model scores its own prediction (exact hit / same artist / wrong)
+to learn an exact-hit **work rate**. Until that rate reaches 76% the model is
+learning only. Once it does, the server note flips and the model supplies the
+recommendation, radio, shuffle, queue-extension and autoplay ordering. The
+affinity fallback stays in place whenever the model has no ranked candidates.
 """
 
 from __future__ import annotations
@@ -15,10 +16,13 @@ import threading
 from typing import Any
 
 from config import DATA_DIR
+from database import _db
 
 from algo import STATUS_FLAGS, USER_COUNT, NextSongMDL, pack_state
 
 MODEL_PATH = os.path.join(DATA_DIR, "next_song_mdl.json")
+WORK_RATE_THRESHOLD = 0.76
+MIN_OBSERVATIONS = 10
 _LOCK = threading.RLock()
 _MODEL: NextSongMDL | None = None
 
@@ -139,14 +143,74 @@ def observe_play(c: Any, uid: int, next_track: int, play_id: int, status: int = 
     return True
 
 
+def is_active(model: NextSongMDL | None = None) -> bool:
+    """True once the model's exact-hit work rate earns the right to choose."""
+    with _LOCK:
+        summary = (model or _load()).summary()
+    observations = int(summary.get("observations", 0))
+    work_rate = float(summary.get("work_rate", 0.0))
+    return observations >= MIN_OBSERVATIONS and work_rate >= WORK_RATE_THRESHOLD
+
+
+def _played_before(c: Any, uid: int) -> tuple[int, ...]:
+    rows = c.execute(
+        "select track_id from plays where user_id=? order by id desc limit 5", (uid,)
+    ).fetchall()
+    return _occupancy([int(r["track_id"] or 0) for r in rows], 5)
+
+
+def rank_for(uid: int, current: int, candidates: list[int], c: Any = None) -> list[int]:
+    """Model-ordered candidates, or an empty list while it is still learning.
+
+    The server note in [algo_status] is the single switch: recommendations,
+    radio, queue order, shuffle and autoplay all call this helper.
+    """
+    unique = list(dict.fromkeys(int(i) for i in candidates if 0 < int(i) < (1 << 24)))
+    if len(unique) < 2 or not is_active():
+        return []
+    with _LOCK:
+        model = _load()
+        conn = c or _db()
+        current_id = int(current or 0)
+        if not 0 <= current_id < (1 << 24):
+            current_id = 0
+        state = pack_state(
+            uid % USER_COUNT,
+            current_id,
+            _played_before(conn, uid),
+            _queue_context(conn, uid, current_id),
+            0,
+        )
+        pool = set(unique)
+        ranked = model.predict_ranked(state, k=len(unique), candidates=pool)
+    return [int(song) for song, _ in ranked if int(song) in pool]
+
+
 def algo_status() -> dict:
-    """Read-only snapshot for the admin endpoint."""
+    """Read-only snapshot, including the note that gates model-driven choices."""
     with _LOCK:
         model = _load()
         summary = model.summary()
+    active = is_active(model)
+    if active:
+        note = (
+            f"Work rate {float(summary.get('work_rate', 0.0)):.0%} reached the "
+            f"{WORK_RATE_THRESHOLD:.0%} gate — this MDL now orders recommendations, "
+            "radio, shuffle, queue and autoplay."
+        )
+    else:
+        note = (
+            f"Learning only: work rate {float(summary.get('work_rate', 0.0)):.0%} "
+            f"is below {WORK_RATE_THRESHOLD:.0%}; affinity and similarity still "
+            "order choices."
+        )
     return {
         **summary,
-        "learning_only": True,
+        "work_rate": float(summary.get("work_rate", 0.0)),
+        "threshold": WORK_RATE_THRESHOLD,
+        "active": active,
+        "learning_only": not active,
+        "used_for_choices": active,
+        "note": note,
         "model_file": "data/next_song_mdl.json",
-        "used_for_choices": False,
     }

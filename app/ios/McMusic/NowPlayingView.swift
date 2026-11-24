@@ -101,7 +101,9 @@ struct NowPlayingView: View {
                 }
             }
             .sheet(isPresented: $showQueue) { queueView }
-            .sheet(isPresented: $showLyrics) { DetailText(title: "Lyrics", text: lyricsText) }
+            .sheet(isPresented: $showLyrics) {
+                LyricSheet(text: lyricsText, progress: player.progress, duration: player.duration, isPlaying: player.isPlaying)
+            }
         }
     }
 

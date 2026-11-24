@@ -24,6 +24,7 @@ import threading
 import time
 
 from flask import Flask, g, session, request, jsonify, Response, send_file, redirect
+from markupsafe import escape
 
 from config import (
     PROJECT_DIR,
@@ -438,6 +439,18 @@ def app_build(name):
     """Serve a published APK/desktop artifact."""
     base = os.path.realpath(APP_DIST)
     path = os.path.realpath(os.path.join(base, name))
+    if path.startswith(base + os.sep) and not os.path.isfile(path):
+        # A server that never built clients locally still serves the same URL:
+        # pull the exact artifact from the public GitHub Release first, then
+        # redirect to GitHub if this host cannot write or reach the network.
+        import github_builds
+        asset = github_builds.match_path(name)
+        if asset and github_builds.download(asset):
+            path = os.path.realpath(os.path.join(base, name))
+        elif asset:
+            resp = redirect(asset["url"], code=302)
+            resp.headers["Cache-Control"] = "no-store"
+            return resp
     if not path.startswith(base + os.sep) or not os.path.isfile(path):
         return jsonify(error="not found"), 404
     mime = "application/vnd.android.package-archive" if path.endswith(".apk") else None
@@ -445,6 +458,50 @@ def app_build(name):
                      as_attachment=True, download_name=os.path.basename(path))
     resp.headers["Cache-Control"] = "no-cache"
     return resp
+
+
+@app.get("/downloads")
+def downloads_page():
+    """Public build list — no account required, works from any browser."""
+    import builds
+    rows = []
+    for b in builds.all_builds():
+        if not b.get("available"):
+            continue
+        badge = "GitHub" if b.get("source") == "github" else "server"
+        rows.append(
+            "<li><div><strong>{label}</strong><small>{version} · {size} · {built} · {source}</small>"
+            "<p>{hint}</p></div><a class='download' href='{url}' download>Get it</a></li>".format(
+                label=escape(b.get("label") or b["kind"]),
+                version=escape(b.get("version") or "latest"),
+                size=f"{b.get('bytes', 0) / 1048576:.1f} MB",
+                built=escape(b.get("built") or ""),
+                source=badge,
+                hint=escape(b.get("hint") or b.get("note") or ""),
+                url=escape(b["url"]),
+            )
+        )
+    listing = "".join(rows) or "<li><div><strong>No builds yet</strong><p>Publish a release, then refresh this page.</p></div></li>"
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>mcmusic downloads</title>
+<style>
+:root{{color-scheme:dark;--ink:#08060D;--violet:#A06BFF;--fg:#F5F1FF;--dim:#B9B0CC}}
+*{{box-sizing:border-box}}body{{margin:0;background:radial-gradient(circle at 20% 0%,#24143d,var(--ink) 55%);color:var(--fg);font:15px/1.5 system-ui,sans-serif;min-height:100vh}}
+main{{max-width:760px;margin:auto;padding:40px 18px 64px}}h1{{font-size:34px;margin:0 0 6px}}p{{color:var(--dim)}}
+a{{color:var(--violet)}}ul{{list-style:none;padding:0;display:grid;gap:12px;margin-top:28px}}
+li{{display:flex;gap:16px;align-items:center;justify-content:space-between;background:#ffffff0d;border:1px solid #ffffff1a;border-radius:16px;padding:16px}}
+small{{display:block;color:var(--dim);font-size:12px}}li p{{margin:4px 0 0;font-size:13px}}
+.download{{flex:none;text-decoration:none;background:var(--violet);color:#08060D;font-weight:700;border-radius:999px;padding:10px 18px}}
+footer{{margin-top:30px;font-size:13px;color:var(--dim)}}
+</style></head><body><main>
+<h1>mcmusic downloads</h1>
+<p>Official clients for your phone, tablet and computer. No sign-in needed.</p>
+<ul>{listing}</ul>
+<p><a href="/get">/get</a> always opens the newest signed Android APK.</p>
+<footer>Builds are pulled from the public <a href="https://github.com/mc20000-01/mcmusic/releases/tag/latest">GitHub Release</a> when this server has no local build. See the <a href="https://github.com/mc20000-01/mcmusic/blob/main/docs/selfhost.md">self-hosting guide</a>.</footer>
+</main></body></html>"""
 
 
 @app.get("/get")
@@ -560,6 +617,20 @@ def boot():
     threading.Thread(target=_worker_with_ctx, daemon=True).start()
     threading.Thread(target=_yt_worker_with_ctx, daemon=True).start()
 
+    def _stall_watchdog_with_ctx():
+        with app.app_context():
+            from routes.system_routes import stall_watchdog
+            stall_watchdog()
+
+    threading.Thread(target=_stall_watchdog_with_ctx, daemon=True).start()
+
+    def _build_sync_with_ctx():
+        with app.app_context():
+            import github_builds
+            github_builds.start_sync()
+
+    threading.Thread(target=_build_sync_with_ctx, daemon=True).start()
+
     if DISCORD_BOT_TOKEN:
         import subprocess as _sp
         env = os.environ.copy()
@@ -576,13 +647,14 @@ def boot():
                       stdout=open(logp, "ab"), stderr=open(logp, "ab"))
 
 
-from routes import auth_bp, library_bp, personal_bp, system_bp, channel_bp
+from routes import auth_bp, library_bp, personal_bp, system_bp, channel_bp, video_bp
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(library_bp)
 app.register_blueprint(personal_bp)
 app.register_blueprint(system_bp)
 app.register_blueprint(channel_bp)
+app.register_blueprint(video_bp)
 
 init_db(app)
 boot()

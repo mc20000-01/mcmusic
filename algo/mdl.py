@@ -286,8 +286,13 @@ class NextSongMDL:
 
     def summary(self) -> dict:
         """Read-only view of how the model is doing."""
+        observations = int(self.stats.get("observations", 0))
         return {
             **self.stats,
+            # "work rate" = exact-hit rate: how often the model's own prediction
+            # was the song the listener actually chose. This is the gate the
+            # server uses before letting the model pick anything.
+            "work_rate": round(self.stats.get("correct", 0) / max(1, observations), 4),
             "experts": [
                 {
                     "name": e.name,

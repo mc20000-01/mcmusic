@@ -177,13 +177,37 @@ def describe(kind):
         return None
     path = _pick(spec)
     if not path:
+        # A self-hosted server may have no build output at all. The public
+        # GitHub Release is the fallback; /apps/... pulls it in on demand.
+        import github_builds
+        remote = github_builds.match(kind)
+        if not remote:
+            return {
+                "kind": kind,
+                "label": spec["label"],
+                "name": spec["name"],
+                "hint": spec["hint"],
+                "note": spec["note"],
+                "available": False,
+            }
+        file = remote["name"]
+        folder = os.path.basename(spec["dir"])
+        digest = (remote.get("digest") or "")[:16] or "latest"
+        match = re.search(r"mcmusic-([^/]+)\.[A-Za-z0-9]+$", file)
         return {
             "kind": kind,
             "label": spec["label"],
             "name": spec["name"],
             "hint": spec["hint"],
             "note": spec["note"],
-            "available": False,
+            "available": True,
+            "file": file,
+            "version": match.group(1) if match else None,
+            "url": f"/apps/{folder}/{file}?v={digest}",
+            "bytes": remote["size"],
+            "built": github_builds.built_stamp(remote),
+            "mimetype": f"{spec['maintype']}/{spec['subtype']}",
+            "source": "github",
         }
     file = _named(spec, path)
     served = os.path.join(spec["dir"], file)
@@ -204,6 +228,7 @@ def describe(kind):
         "bytes": os.path.getsize(path),
         "built": _stamp(path),
         "mimetype": f"{spec['maintype']}/{spec['subtype']}",
+        "source": "server",
     }
 
 
@@ -221,6 +246,11 @@ def attachment(kind):
     if not spec:
         return None
     path = _pick(spec)
+    if not path:
+        import github_builds
+        if not github_builds.ensure(kind):
+            return None
+        path = _pick(spec)
     if not path:
         return None
     return path, _named(spec, path), (spec["maintype"], spec["subtype"])

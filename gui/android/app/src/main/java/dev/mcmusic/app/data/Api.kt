@@ -26,6 +26,8 @@ data class Track(
     val duration: Double,
     val explicit: Boolean = false,
     val liked: Boolean = false,
+    /** YouTube id, when this track came from a video; used by the Videos pane. */
+    val ytId: String? = null,
 )
 
 /** Lyrics text plus the server's source label (for example LRCLIB or stored). */
@@ -133,6 +135,31 @@ data class DownloadRequest(
     val running: Boolean,
     val elapsed: Long,
     val log: String,
+)
+
+/** Linked-account state shown in Settings for Rotur and Discord. */
+data class LinkStatus(
+    val linked: Boolean,
+    val configured: Boolean,
+    val username: String? = null,
+    val sessionValid: Boolean = false,
+    val reason: String = "",
+    val missing: List<String> = emptyList(),
+)
+
+/** Server's answer when the MDL has earned the right to order a queue. */
+data class ModelRank(val active: Boolean, val ids: List<Int>)
+
+/** A locally cached video. `state` is ready, preparing or missing. */
+data class VideoInfo(
+    val ytId: String,
+    val state: String,
+    val title: String,
+    val artist: String,
+    val trackId: Int?,
+    val expires: Long,
+    val bytes: Long,
+    val url: String?,
 )
 
 /**
@@ -248,6 +275,44 @@ object Api {
 
     suspend fun me(): Result<Me> = call { meOf(JSONObject(get("/api/me"))) }
 
+    // ---------------------------------------------------------------- linked accounts
+    suspend fun linkStatus(provider: String): Result<LinkStatus> = call {
+        linkStatusOf(JSONObject(get("/api/auth/$provider/status")))
+    }
+
+    /** One-use browser ticket: the redirect cannot carry a bearer header. */
+    suspend fun linkTicket(provider: String): Result<String> = call {
+        val code = JSONObject(request("/api/auth/$provider/link-ticket", "POST", null))
+            .optString("code")
+        if (code.isBlank()) throw ApiException(500, "the server did not issue a link ticket")
+        code
+    }
+
+    fun linkAuthorizeUrl(provider: String, ticket: String): String =
+        "$server/api/auth/$provider/authorize?link=${enc(ticket)}"
+
+    suspend fun unlink(provider: String): Result<Unit> = call {
+        request("/api/auth/$provider/unlink", "POST", null)
+        Unit
+    }
+
+    // ---------------------------------------------------------------- cached videos
+    suspend fun videos(): Result<List<VideoInfo>> = call {
+        val arr = JSONObject(get("/api/videos")).optJSONArray("videos")
+        buildList {
+            if (arr != null) {
+                for (i in 0 until arr.length()) arr.optJSONObject(i)?.let { add(videoOf(it)) }
+            }
+        }
+    }
+
+    suspend fun video(ytId: String, prepare: Boolean = false): Result<VideoInfo> = call {
+        val suffix = if (prepare) "?prepare=1" else ""
+        videoOf(JSONObject(get("/api/videos/${enc(ytId)}$suffix")))
+    }
+
+    fun videoUrl(ytId: String): String = "$server/video-cache/${enc(ytId)}.mp4"
+
     /** Personalised feed: made-for-you sections plus recently added albums. */
     suspend fun home(): Result<HomeFeed> = call {
         val json = JSONObject(get("/api/home"))
@@ -295,6 +360,26 @@ object Api {
     suspend fun lyrics(trackId: Int): Result<Lyrics> = call {
         val json = JSONObject(get("/api/tracks/$trackId/lyrics"))
         Lyrics(json.optString("lyrics"), json.optString("source"))
+    }
+
+    /** MDL ordering of candidate ids, once its 76% work-rate gate is open. */
+    suspend fun modelRank(current: Int, ids: List<Int>): Result<ModelRank> = call {
+        val idArray = JSONArray()
+        ids.forEach { idArray.put(it) }
+        val body = JSONObject()
+            .put("current", current)
+            .put("ids", idArray)
+            .toString()
+        val json = JSONObject(post("/api/model/rank", body))
+        val arr = json.optJSONArray("ids")
+        ModelRank(
+            active = json.optBoolean("active"),
+            ids = buildList {
+                if (arr != null) {
+                    for (i in 0 until arr.length()) add(arr.optInt(i))
+                }
+            },
+        )
     }
 
     /** Similar tracks from `/api/radio/<id>`; used to refill a finished queue. */
@@ -679,6 +764,7 @@ object Api {
         duration = t.optDouble("duration", 0.0),
         explicit = t.optBoolean("explicit"),
         liked = t.optBoolean("liked"),
+        ytId = t.optString("yt_id").takeIf { it.isNotBlank() },
     )
 
     private fun tracksOf(arr: JSONArray?): List<Track> {
@@ -721,6 +807,35 @@ object Api {
             }
         }
     }
+
+    private fun linkStatusOf(j: JSONObject): LinkStatus {
+        val missing = j.optJSONArray("missing")
+        return LinkStatus(
+            linked = j.optBoolean("linked"),
+            configured = j.optBoolean("configured"),
+            username = j.optString("rotur_username", j.optString("discord_username"))
+                .takeIf { it.isNotBlank() },
+            sessionValid = j.optBoolean("session_valid"),
+            reason = j.optJSONObject("activity")?.optString("reason").orEmpty(),
+            missing = buildList {
+                if (missing != null) {
+                    for (i in 0 until missing.length()) missing.optString(i).takeIf { it.isNotBlank() }
+                        ?.let { add(it) }
+                }
+            },
+        )
+    }
+
+    private fun videoOf(j: JSONObject) = VideoInfo(
+        ytId = j.optString("yt_id"),
+        state = j.optString("state", "missing"),
+        title = j.optString("title"),
+        artist = j.optString("artist"),
+        trackId = j.optInt("track_id").takeIf { it > 0 },
+        expires = j.optLong("expires"),
+        bytes = j.optLong("bytes"),
+        url = j.optString("url").takeIf { it.isNotBlank() },
+    )
 
     private fun meOf(j: JSONObject) = Me(
         id = j.optInt("id"),

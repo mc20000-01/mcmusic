@@ -14,6 +14,7 @@ from urllib.parse import urlencode
 import requests
 from flask import Response, redirect, request, session
 
+import app_links
 from auth import _auth_uid, link_channel_user
 from flufi_pages import flufi_page
 from config import (
@@ -79,7 +80,15 @@ def _upsert(c, uid, did, username, access, refresh, expires):
 
 
 def authorize_route():
-    uid = _auth_uid()
+    link_uid = None
+    link_ticket = request.args.get("link", "")
+    if link_ticket:
+        link_uid = app_links.consume(link_ticket)
+        if link_uid is None:
+            return _html("Link expired",
+                         "That link request expired. Open Settings and try again.", 410)
+
+    uid = link_uid or _auth_uid()
     if uid is None:
         return _html("Sign in first", "Open mcmusic, sign in, then link Discord from Settings.", 401)
     if not configured():
@@ -91,6 +100,8 @@ def authorize_route():
     session[_STATE_KEY] = {
         "state": state,
         "next": request.args.get("next", "")[:300],
+        "link_uid": link_uid,
+        "app_link": link_uid is not None,
         "created": time.time(),
     }
     session.permanent = True
@@ -152,7 +163,7 @@ def callback_route():
     except ValueError:
         return _html("Discord linking failed", "Discord returned an invalid response.", 502)
 
-    uid = _auth_uid()
+    uid = ctx.get("link_uid") or _auth_uid()
     if uid is None:
         return _html("Sign in first", "Your mcmusic session expired; sign in and try again.", 401)
     did = str(profile.get("id") or "")
@@ -173,6 +184,9 @@ def callback_route():
     _upsert(c, uid, did, username, access, tokens.get("refresh_token"), expires)
     # Keep the chat-control mapping in sync with the OAuth link.
     link_channel_user(c, "discord", did, uid)
+
+    if ctx.get("app_link"):
+        return redirect("mcmusic://oauth?linked=discord")
 
     nxt = ctx.get("next") or "/"
     if nxt.startswith("/") and not nxt.startswith("//"):

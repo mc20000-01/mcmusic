@@ -58,6 +58,46 @@
     margin-left: 10px;
 }
 
+.lyrics-panel .visualizer-modes {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px;
+    border: 1px solid var(--back-border);
+    border-radius: 6px;
+    background: var(--back);
+}
+
+.lyrics-panel .visualizer-mode {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 22px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.lyrics-panel .visualizer-mode:hover {
+    background: var(--flat-hover);
+    color: var(--text-bright);
+}
+
+.lyrics-panel .visualizer-mode[aria-pressed="true"] {
+    background: var(--prim-brighter);
+    color: var(--accent);
+}
+
+.lyrics-panel .visualizer-mode:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
 .lyrics-panel .source {
     flex: 1;
     min-width: 0;
@@ -99,6 +139,18 @@
 
 .lyrics-panel .retry:hover {
     background: var(--flat-hover);
+}
+
+/* Canvas strip sits on ink so the lyric text below keeps its contrast. */
+.lyrics-panel .lyrics-visualizer {
+    display: block;
+    flex: none;
+    width: calc(100% - 24px);
+    height: 44px;
+    margin: 10px 12px 0;
+    border: 1px solid var(--back-border);
+    border-radius: 6px;
+    background: var(--back);
 }
 
 .lyrics-text {

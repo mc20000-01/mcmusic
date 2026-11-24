@@ -23,6 +23,7 @@ import kotlinx.coroutines.launch
 import dev.mcmusic.app.data.Account
 import dev.mcmusic.app.data.Api
 import dev.mcmusic.app.data.Downloads
+import dev.mcmusic.app.data.LinkEvents
 import dev.mcmusic.app.data.Prefs
 import dev.mcmusic.app.ui.McShell
 import dev.mcmusic.app.ui.design.DesignLanguage
@@ -103,6 +104,17 @@ class MainActivity : ComponentActivity() {
         val data = intent?.data ?: return
         if (data.scheme != "mcmusic" || data.host != "oauth") return
         intent.data = null
+        val linked = data.getQueryParameter("linked")
+        if (!linked.isNullOrBlank()) {
+            val label = when (linked) {
+                "rotur" -> "Rotur"
+                "discord" -> "Discord"
+                else -> linked.replaceFirstChar { it.uppercase() }
+            }
+            Toast.makeText(this, "$label linked to your mcmusic account", Toast.LENGTH_LONG).show()
+            LinkEvents.changed()
+            return
+        }
         val token = data.getQueryParameter("token")
         if (token.isNullOrBlank()) {
             Toast.makeText(this, "Rotur sign-in was cancelled", Toast.LENGTH_LONG).show()

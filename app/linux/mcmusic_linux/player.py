@@ -64,6 +64,7 @@ class PlayerEngine(QObject):
         self.queue: list[Track] = []
         self.index = -1
         self.shuffle = False
+        self.model_shuffle = False   # MDL ordered the queue; no random skips
         self.repeat = "off"          # off | all | one
         self.loading = False
         self.muted = False
@@ -129,6 +130,7 @@ class PlayerEngine(QObject):
         self._discard_previous_cache()
         self.queue = list(tracks)
         self.index = min(max(0, index), len(tracks) - 1)
+        self.model_shuffle = False
         if shuffle_start:
             self.shuffle = True
             self.index = random.randrange(len(self.queue))
@@ -286,7 +288,7 @@ class PlayerEngine(QObject):
             self.seek(0)
             self.media.play()
             return
-        if self.shuffle and count > 1:
+        if self.shuffle and not self.model_shuffle and count > 1:
             choice = random.randrange(count - 1)
             self.index = choice + 1 if choice >= self.index else choice
         elif self.index + 1 < count:
@@ -305,7 +307,7 @@ class PlayerEngine(QObject):
         if self.position > 3.0:
             self.seek(0)
             return
-        if self.shuffle and len(self.queue) > 1:
+        if self.shuffle and not self.model_shuffle and len(self.queue) > 1:
             self.index = random.randrange(len(self.queue))
         else:
             self.index = (self.index - 1) % len(self.queue)
@@ -335,7 +337,27 @@ class PlayerEngine(QObject):
 
     def toggle_shuffle(self) -> None:
         self.shuffle = not self.shuffle
+        if not self.shuffle:
+            self.model_shuffle = False
         self.changed.emit()
+
+    def apply_model_order(self, ids: list[int]) -> bool:
+        """Adopt an MDL queue order without reloading the current song."""
+        if len(ids) < 2 or not self.current:
+            return False
+        by_id = {t.id: t for t in self.queue}
+        ranked = [by_id[i] for i in ids if i in by_id]
+        if len(ranked) < 2:
+            return False
+        seen = {t.id for t in ranked}
+        ordered = ranked + [t for t in self.queue if t.id not in seen]
+        index = next((i for i, t in enumerate(ordered) if t.id == self.current.id), 0)
+        self.queue = ordered
+        self.index = index
+        self.model_shuffle = True
+        self.save_snapshot()
+        self.changed.emit()
+        return True
 
     def cycle_repeat(self) -> None:
         self.repeat = {"off": "all", "all": "one", "one": "off"}[self.repeat]
@@ -423,6 +445,7 @@ class PlayerEngine(QObject):
             ],
             "index": self.index,
             "shuffle": self.shuffle,
+            "model_shuffle": self.model_shuffle,
             "repeat": self.repeat,
             "position": self.position if self.current else 0.0,
             "paused": not self.playing,
@@ -463,6 +486,7 @@ class PlayerEngine(QObject):
         self.queue = tracks[:200]
         self.index = max(0, min(index, len(self.queue) - 1))
         self.shuffle = bool(snap.get("shuffle"))
+        self.model_shuffle = bool(snap.get("model_shuffle"))
         self.repeat = str(snap.get("repeat") or "off")
         if self.repeat not in ("off", "all", "one"):
             self.repeat = "off"
