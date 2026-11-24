@@ -16,7 +16,7 @@ gradle_file="$android_dir/app/build.gradle.kts"
 apk="$android_dir/app/build/outputs/apk/release/app-release.apk"
 android_version=$(grep -oP 'versionName\s*=\s*"\K[^"]+' "$gradle_file" | head -1 || true)
 android_version=${android_version:-dev}
-desktop_version=$(grep -oP '^version\s*=\s*"\K[^"]+' app/linux/pyproject.toml | head -1 || true)
+desktop_version=$(PYTHONPATH=app/linux python3 -c 'from mcmusic_linux.version import FALLBACK_VERSION; print(FALLBACK_VERSION)' 2>/dev/null || true)
 desktop_version=${desktop_version:-0.0.0}
 
 # Release output is the only thing that ships. A debug build must never be

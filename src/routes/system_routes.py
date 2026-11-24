@@ -16,7 +16,7 @@ from auth import (
     create_device_code, claim_device_code, list_device_tokens,
     revoke_device_token,
 )
-from database import _db, track_dict, liked_ids
+from database import _db, track_dict, liked_ids, find_repeat_request, video_in_library
 from library_scan import scan_library
 
 bp = Blueprint("system_api", __name__)
@@ -1020,6 +1020,12 @@ def req_create():
     if not valid_yt(url):
         return jsonify(error="need an https YouTube / YouTube Music video or playlist link"), 400
     c = _db()
+    repeat = find_repeat_request(c, url)
+    if repeat:
+        return jsonify(error="that link is already queued", request_id=repeat["id"],
+                       status=repeat["status"]), 409
+    if video_in_library(c, url):
+        return jsonify(error="that song is already in the library"), 409
     admin = c.execute("select is_admin from users where id=?", (session["uid"],)).fetchone()["is_admin"]
     status = "approved" if (AUTO_APPROVE or admin) else "pending"
     cur = c.execute(

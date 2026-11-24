@@ -120,6 +120,7 @@ import random
 import re
 import shutil
 import signal
+import sqlite3
 import subprocess
 import sys
 import threading
@@ -132,6 +133,9 @@ try:
     import yt_dlp
 except ImportError:
     sys.exit("yt-dlp is not installed. Run: pip install yt-dlp")
+
+from config import DB_PATH
+import song_meta
 
 print_lock = threading.Lock()
 stop_event = threading.Event()
@@ -418,10 +422,9 @@ def handle_sigint(signum, frame):
 
 
 def split_artist_title(raw_title: str):
-    parts = re.split(r"\s[-\u2013\u2014]\s", raw_title, maxsplit=1)
-    if len(parts) == 2:
-        return parts[0].strip(), parts[1].strip()
-    return None, raw_title.strip()
+    """Backwards-compatible wrapper around the shared puller metadata parser."""
+    meta = song_meta.parse_song_meta(raw_title)
+    return (meta["artist"] or None), meta["title"]
 
 
 # ---------------------------------------------------------------------------
@@ -845,9 +848,14 @@ def write_lyrics_sidecar(audio_path, info):
     if os.path.exists(lrc_path) and os.path.getsize(lrc_path) > 0:
         return "exists"
     info = info or {}
-    title = info.get("track") or info.get("title")
-    artist = (info.get("artist") or info.get("creator") or info.get("uploader")
-              or info.get("channel"))
+    meta = song_meta.parse_song_meta(
+        info.get("track") or info.get("title") or "",
+        artist=info.get("artist"), creator=info.get("creator"),
+        uploader=info.get("uploader"), channel=info.get("channel"),
+        description=info.get("description"),
+    )
+    title = meta["title"]
+    artist = meta["artist"] or info.get("uploader") or info.get("channel") or ""
     text, synced = fetch_lyrics(title, artist, info.get("duration"))
     if not text:
         return "none"
@@ -874,6 +882,16 @@ def write_yt_sidecar(audio_path, info):
     data = {k: info.get(k) for k in YT_SIDECAR_KEYS if info.get(k) not in (None, "", [])}
     if not data.get("id"):
         return "none"
+    meta = song_meta.parse_song_meta(
+        data.get("title") or data.get("track") or "",
+        artist=data.get("artist"), creator=data.get("creator"),
+        uploader=data.get("uploader"), channel=data.get("channel"),
+        description=data.get("description"), tags=data.get("tags"),
+        categories=data.get("categories"), genre=data.get("genre"),
+    )
+    data["clean_title"] = meta["title"]
+    data["credited_artists"] = meta["artists"]
+    data["themes"] = meta["themes"]
     path = os.path.splitext(audio_path)[0] + ".yt.json"
     try:
         with open(path, "w", encoding="utf-8") as fh:
@@ -1057,6 +1075,31 @@ def make_ydl_opts(job, out_dir, split_artist, quality, ffmpeg_threads, archive_p
                 info["artist"] = artist
     ydl_opts["progress_hooks"] = [hook]
 
+    # Clean the title/artist before FFmpegMetadata embeds them, so the tags
+    # written into the file match what the scanner will store in the DB.
+    def metadata_hook(d):
+        if d.get("status") != "started":
+            return
+        if "metadata" not in str(d.get("postprocessor") or "").lower():
+            return
+        info = d.get("info_dict")
+        if not isinstance(info, dict):
+            return
+        meta = song_meta.parse_song_meta(
+            info.get("title") or "",
+            artist=info.get("artist"), creator=info.get("creator"),
+            uploader=info.get("uploader"), channel=info.get("channel"),
+            description=info.get("description"), tags=info.get("tags"),
+            categories=info.get("categories"), genre=info.get("genre"),
+        )
+        info["title"] = meta["title"]
+        if meta["artist"]:
+            info["artist"] = meta["artist"]
+        if info.get("track"):
+            info["track"] = meta["title"]
+
+    ydl_opts["postprocessor_hooks"] = [metadata_hook]
+
     return ydl_opts
 
 
@@ -1136,6 +1179,28 @@ def download_one(job, out_dir, split_artist, quality, ffmpeg_threads, archive_pa
                 slept += 1
 
 
+def known_video_ids(archive_path):
+    """Video ids already downloaded or already indexed in the library."""
+    ids = set()
+    try:
+        with open(archive_path, encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                for part in line.split():
+                    if re.fullmatch(r"[\w-]{11}", part):
+                        ids.add(part)
+    except OSError:
+        pass
+    try:
+        conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True, timeout=5)
+        for sql in ("select yt_id from tracks where yt_id is not null",
+                    "select yt_id from track_sources where yt_id is not null"):
+            ids.update(r[0] for r in conn.execute(sql) if r[0])
+        conn.close()
+    except Exception:
+        pass
+    return ids
+
+
 def download_playlists(urls, out_dir, split_artist, quality, workers, ffmpeg_threads,
                         fragments, resume_from, embed_thumb, audio_format, thumbnail_format,
                         chunk_size, extra_meta, max_retries, retry_forever, retry_wait,
@@ -1180,6 +1245,17 @@ def download_playlists(urls, out_dir, split_artist, quality, workers, ffmpeg_thr
 
     if maintenance_thread:
         maintenance_thread.join()
+
+    # The archive file lives in staging and can be lost or repaired; the DB is
+    # the other half of "already have this song". Filter here so a reupload or
+    # a second playlist link never triggers a second download.
+    if not retry_failed_only:
+        known = known_video_ids(archive_path)
+        before = len(all_jobs)
+        all_jobs = [j for j in all_jobs if song_meta.video_id(j["url"]) not in known]
+        if before != len(all_jobs):
+            log(f"Skipping {before - len(all_jobs)} video(s) already downloaded or "
+                f"already in the library.")
 
     if not all_jobs:
         raise RuntimeError("No videos found across the given URL(s).")
@@ -1299,7 +1375,7 @@ def download_playlists(urls, out_dir, split_artist, quality, workers, ffmpeg_thr
     if dedupe:
         try:
             import dedupe_library
-            dedupe_library.run(dry_run=False)
+            dedupe_library.run(dry_run=False, quiet=True)
         except Exception as e:
             log(f"[dedupe warn] {e}", level="WARN")
 

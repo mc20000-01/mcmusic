@@ -120,7 +120,7 @@ jobs:
       - name: Build native Qt .app and .dmg
         run: |
           set -euo pipefail
-          version=$(sed -n 's/^version[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' app/linux/pyproject.toml | head -1)
+          version=$(sed -n 's/^FALLBACK_VERSION[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' app/linux/mcmusic_linux/version.py | head -1)
           MAKE_DMG=1 VERSION="$version" ./app/macos/build.sh
       - name: Verify the bundle contains no web engine or HTML
         run: |
@@ -154,7 +154,7 @@ jobs:
       - name: Build native Qt .exe and .zip
         shell: pwsh
         run: |
-          $version = (Select-String -Path app/linux/pyproject.toml -Pattern '^version\s*=\s*"([^"]+)"').Matches[0].Groups[1].Value
+          $version = (Select-String -Path 'app/linux/mcmusic_linux/version.py' -Pattern 'FALLBACK_VERSION\s*=\s*"([^"]+)"').Matches[0].Groups[1].Value
           ./app/windows/build.ps1 -Version $version -Zip
       - name: Verify the build contains no web engine or HTML
         shell: pwsh

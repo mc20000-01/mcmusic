@@ -3,7 +3,7 @@ from flask import Blueprint, request, jsonify
 import time
 
 from auth import _auth_uid, is_bot_request, admin_required
-from database import _db
+from database import _db, find_repeat_request, video_in_library
 from config import BOT_TOKEN
 import music_channels as mc
 
@@ -144,6 +144,12 @@ def bot_enqueue():
         from routes.system_routes import valid_yt, dl_q
         if not valid_yt(url):
             return jsonify(error="that is not a YouTube link"), 400
+        repeat = find_repeat_request(c, url)
+        if repeat:
+            return jsonify(error="that link is already queued", request_id=repeat["id"],
+                           status=repeat["status"]), 409
+        if video_in_library(c, url):
+            return jsonify(error="that song is already in the library"), 409
         cur = c.execute(
             "insert into requests(user_id,url,status,created) values(?,?,'approved',?)",
             (uid, url, time.time()),
