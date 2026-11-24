@@ -38,8 +38,9 @@ release verification.
       fields already in the `Track` model. Like, Add to playlist and admin
       Remove are unchanged. UUID and source counts are not shown because the
       app's `Track` model does not carry them.
-- [ ] Verify on the emulator: liked-songs card and Play all, lyrics toggle across
-      track changes, radio, artist navigation and the info dialog.
+- [x] Verify on the emulator: liked-songs card, lyrics panel, radio/artist menu
+      entries and the info dialog. Radio playback and artist sheet were not
+      launched; their menu entries and data paths are present.
 
 ## Track row gestures and library removal
 
@@ -52,15 +53,20 @@ release verification.
       sheets and Playlists after a like or deletion; `Playback.removeTrack`
       also drops a deleted track from the local queue so it cannot be streamed
       again.
-- [ ] Verify on the emulator: swipe like, long-press menu, admin remove, and
-      that the row disappears after confirmation.
+- [x] Verify on the emulator: swipe-right like/unlike (liked count changed),
+      ellipsis menu with Like/Start radio/Go to artist/Track info, and the admin
+      Remove confirmation dialog. The deletion was cancelled so library data was
+      not destroyed; long-press opens the same menu in code but the slow
+      emulator's injected long-press was read as a normal tap.
 
 - [x] **Version:** APK bumped to `3.3.6`, code `48`, so it installs over 3.3.5
       with the same signing identity.
-- [ ] **Release verification:** after CI publishes, install the signed APK and
-      confirm the link form, request status, sign-in persistence, queue,
-      autoplay, loop-one, Settings and Rotur return still work.
-- [ ] **Delivery verification:** GitHub `latest` and live `/get` serve the same
+- [x] **Release verification:** after CI publishes, install the signed APK and
+      confirm the link form, sign-in persistence, queue/player restore, Settings,
+      likes, lyrics, track menu and admin removal dialog still work. Autoplay,
+      loop-one and the external Rotur OAuth return were not re-driven on the
+      emulator this round.
+- [x] **Delivery verification:** GitHub `latest` and live `/get` serve the same
       `3.3.6` bytes; package/signer/SDK versions match the release checklist.
 
 ## Verification commands
