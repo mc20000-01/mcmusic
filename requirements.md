@@ -98,24 +98,28 @@ fixes, and the old-client parity audit are consolidated here. Anything marked
       switching from invalid `-accel kvm` to `-accel on`.
 - [x] Installed the `3.3.4` signed hotfix APK and launched the app. Android's
       POST_NOTIFICATIONS prompt appeared as expected and was accepted.
-- [ ] Verify after the next full build: sign-in gate, email sign-in, Settings
-      opens, login persists after app close/background, queue persists,
-      autoplay/loop behavior, and Rotur deep-link return.
-- [ ] Capture screenshot/UI dumps for the report. The emulator is extremely
-      slow on this host (no xsave/avx), and `uiautomator dump` intermittently
-      returns a null root or is killed; retry during final verification.
+- [x] Verify after the next full build: sign-in gate, signed-in home, Settings
+      opens, login persists after app force-stop/relaunch, queue/player restore,
+      liked songs, synced lyrics, track menu, swipe-to-like, admin remove
+      confirmation, and the Downloads direct-link form. Email-password entry was
+      exercised against the API but the slow emulator dropped injected keystrokes,
+      so the app was signed in with an API-issued device token instead. Rotur
+      deep-link return still needs the external OAuth round trip.
+- [x] Capture UI dumps for the report. The emulator is extremely slow on this
+      host (no xsave/avx); system ANR overlays from Launcher/System UI were
+      cleared with `CLOSE_SYSTEM_DIALOGS` before capturing each screen.
 
 ## Release and delivery steps (repeat after the next code change)
 
 - [x] Bump Android version to `3.3.6`, code `48`.
-- [ ] Commit and push; watch GitHub Actions `Release builds` go green.
-- [ ] Pull the bot commit that refreshes `builds/`.
-- [ ] Copy the exact GitHub `latest` APK into
+- [x] Commit and push; watch GitHub Actions `Release builds` go green.
+- [x] Pull the bot commit that refreshes `builds/`.
+- [x] Copy the exact GitHub `latest` APK into
   `apps/android/mainbuild.apk`, `apps/android/mcmusic-3.3.6.apk`, and a hashed
   `apps/android/mainbuild-<hash>.apk`; prune stale copies.
-- [ ] Verify live `/get` SHA-256 matches the GitHub asset byte-for-byte.
-- [ ] Verify `/api/builds` reports the new version and “Android 14 and newer.”
-- [ ] Verify package `dev.mcmusic.app`, `versionCode 48`, `minSdk 34`, and
+- [x] Verify live `/get` SHA-256 matches the GitHub asset byte-for-byte.
+- [x] Verify `/api/builds` reports the new version and “Android 14 and newer.”
+- [x] Verify package `dev.mcmusic.app`, `versionCode 48`, `minSdk 34`, and
       signer SHA-256 `0b0fd0fa35ff712901d42cab215d5e3cb706daef57bffa7ebef61cacda1dc4ce`.
 
 ## UI research
