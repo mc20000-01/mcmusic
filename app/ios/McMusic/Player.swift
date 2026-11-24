@@ -62,12 +62,25 @@ final class Player: NSObject, ObservableObject {
     private var sleepFinishedAt: Date?
     private static let snapshotKey = "mcmusic.queue.v1"
 
-    private static let cacheDir: URL = {
+    static let cacheDir: URL = {
         let url = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("mcmusic-audio", isDirectory: true)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }()
+
+    static func audioCacheBytes() -> Int64 {
+        let files = (try? FileManager.default.contentsOfDirectory(at: cacheDir, includingPropertiesForKeys: [.fileSizeKey])) ?? []
+        return files.reduce(Int64(0)) { total, url in
+            let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+            return total + Int64(size)
+        }
+    }
+
+    static func clearAudioCache() {
+        let files = (try? FileManager.default.contentsOfDirectory(at: cacheDir, includingPropertiesForKeys: nil)) ?? []
+        for url in files { try? FileManager.default.removeItem(at: url) }
+    }
 
     init(client: APIClient = .shared,
          streamPath: @escaping (JSON) -> String? = { track in

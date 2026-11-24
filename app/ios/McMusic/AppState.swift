@@ -18,6 +18,8 @@ final class AppState: ObservableObject {
 
     private var presenceTimer: Timer?
     private var commandTimer: Timer?
+    private var activityTimer: Timer?
+    private var lastActivityBucket = 0
     private var outboxObserver: NSObjectProtocol?
 
     init() {
@@ -180,13 +182,35 @@ final class AppState: ObservableObject {
                 await pollCommands()
             }
         }
+        activityTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in await self?.publishActivities() }
+        }
     }
 
     private func stopPresence() {
         presenceTimer?.invalidate()
         commandTimer?.invalidate()
+        activityTimer?.invalidate()
         presenceTimer = nil
         commandTimer = nil
+        activityTimer = nil
+        lastActivityBucket = 0
+    }
+
+    private func publishActivities() async {
+        guard signedIn else { return }
+        let bucket = Int(Date().timeIntervalSince1970 / 15)
+        guard bucket != lastActivityBucket else { return }
+        lastActivityBucket = bucket
+        let trackID = player.currentTrackID
+        let playing = player.isPlaying
+        let pos = player.progress
+        if settings?["rotur_activity"]?.bool == true {
+            await client.roturActivity(trackID: trackID, position: pos, playing: playing)
+        }
+        if settings?["discord_activity"]?.bool == true {
+            await client.discordActivity(trackID: trackID, position: pos, playing: playing)
+        }
     }
 
     private func pollCommands() async {

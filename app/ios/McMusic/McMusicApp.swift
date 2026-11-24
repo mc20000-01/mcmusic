@@ -49,9 +49,10 @@ struct MainTabs: View {
             SearchView().tabItem { Label("Search", systemImage: "magnifyingglass") }
             LibraryView().tabItem { Label("Library", systemImage: "square.stack") }
             ListeningView().tabItem { Label("Listening", systemImage: "antenna.radiowaves.left.and.right") }
-            DevicesView().tabItem { Label("Devices", systemImage: "laptopcomputer.and.iphone") }
+            DownloadsView().tabItem { Label("Downloads", systemImage: "arrow.down.circle") }
             PlaylistsView().tabItem { Label("Playlists", systemImage: "music.note.list") }
-            RequestsView().tabItem { Label("Requests", systemImage: "arrow.down.circle") }
+            RequestsView().tabItem { Label("Requests", systemImage: "tray.full") }
+            DevicesView().tabItem { Label("Devices", systemImage: "laptopcomputer.and.iphone") }
             SettingsView().tabItem { Label("Settings", systemImage: "gear") }
             if app.isAdmin {
                 AdminView().tabItem { Label("Admin", systemImage: "shield") }

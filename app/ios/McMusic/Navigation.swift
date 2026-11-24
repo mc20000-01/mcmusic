@@ -4,6 +4,8 @@ enum Detail: Hashable {
     case album(String)
     case artist(String)
     case playlist(Int)
+    case set(String)
+    case profile(String)
 }
 
 struct DetailNavigation: ViewModifier {
@@ -15,6 +17,8 @@ struct DetailNavigation: ViewModifier {
             case .album(let name): AlbumView(name: name)
             case .artist(let name): ArtistView(name: name)
             case .playlist(let id): PlaylistView(id: id)
+            case .set(let name): AlbumView(name: name)
+            case .profile(let username): ProfileView(username: username)
             }
         }
     }

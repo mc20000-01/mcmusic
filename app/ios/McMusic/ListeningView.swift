@@ -5,8 +5,6 @@ import SwiftUI
 struct ListeningView: View {
     @EnvironmentObject private var app: AppState
     @State private var listeners: [JSON] = []
-    @State private var profile: JSON?
-    @State private var profileName = ""
 
     var body: some View {
         NavigationStack {
@@ -15,11 +13,7 @@ struct ListeningView: View {
                     StateView(text: "Nobody is listening right now", systemImage: "antenna.radiowaves.left.and.right")
                 } else {
                     List(listeners, id: \.id) { listener in
-                        Button {
-                            profileName = listener["username"]?.string ?? ""
-                            profile = listener
-                            Task { await loadProfile(profileName) }
-                        } label: {
+                        NavigationLink(value: Detail.profile(listener["username"]?.string ?? "")) {
                             HStack(spacing: 12) {
                                 AsyncImage(url: URL(string: listener["cover_url"]?.string ?? "")) { image in
                                     image.resizable().scaledToFill()
@@ -56,34 +50,7 @@ struct ListeningView: View {
             }
             .navigationTitle("Listening")
             .refreshable { await load() }
-            .sheet(item: $profile) { listener in
-                NavigationStack {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text(listener["username"]?.string ?? profileName)
-                                .font(.title2.bold())
-                            if let track = listener["track"] ?? profile?["track"] {
-                                LabeledContent("Now playing", value: track["title"]?.string ?? "Unknown")
-                                LabeledContent("Artist", value: track["artist"]?.string ?? "")
-                                LabeledContent("Album", value: track["album"]?.string ?? "")
-                            } else {
-                                Text("Not playing anything right now.")
-                                    .foregroundStyle(.secondary)
-                            }
-                            if let url = listener["profile_url"]?.string ?? profile?["profile_url"]?.string {
-                                if let link = URL(string: url) {
-                                Link("Open profile", destination: link)
-                                    .buttonStyle(.bordered)
-                            }
-                            }
-                        }
-                        .padding()
-                    }
-                    .navigationTitle("Profile")
-                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { profile = nil } } }
-                }
-            }
-        }
+            .mcmusicNavigation()
         .task { await load() }
     }
 
@@ -92,13 +59,4 @@ struct ListeningView: View {
         catch { app.show(error) }
     }
 
-    private func loadProfile(_ name: String) async {
-        guard !name.isEmpty else { return }
-        do {
-            let value = try await app.client.publicNow(name)
-            var merged = profile?.object ?? [:]
-            for (key, item) in value.object ?? [:] { merged[key] = item }
-            profile = .object(merged)
-        } catch { app.show(error) }
-    }
 }

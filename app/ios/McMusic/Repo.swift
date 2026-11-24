@@ -73,10 +73,24 @@ extension APIClient {
         try await post("auth/rotur/link", json: ["token": token])
     }
     func unlinkRotur() async throws { try await post("auth/rotur/unlink") }
+    func roturActivity(trackID: Int?, position: Double, playing: Bool) async {
+        try? await post("auth/rotur/activity", json: [
+            "track_id": trackID as Any,
+            "position": position,
+            "playing": playing
+        ])
+    }
 
     func discordStatus() async throws -> JSON { try await get("auth/discord/status") }
     func discordAuthorize() async throws -> JSON { try await get("auth/discord/authorize") }
     func unlinkDiscord() async throws { try await post("auth/discord/unlink") }
+    func discordActivity(trackID: Int?, position: Double, playing: Bool) async {
+        try? await post("auth/discord/activity", json: [
+            "track_id": trackID as Any,
+            "position": position,
+            "playing": playing
+        ])
+    }
 
     // MARK: - settings
 
