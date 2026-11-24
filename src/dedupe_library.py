@@ -6,10 +6,13 @@ the extra file is moved to <music>/.dupes/ (recoverable, ignored by the
 scanner) and its link is recorded in track_sources so the UI can offer both.
 
 Matching is deliberately conservative: the same video id always merges, and
-files merge when they share a normalised title + artist and a similar length.
+files merge when they share a normalised title + artist(s). Length is not a
+gate: two uploads of the same song often differ by a long intro/outro, and a
+fresh rip can have a different credited line than the old library row.
 Bracketed text that says what a version is -- "(English Cover)", "(Live)", a
 remixer's name -- is kept, so a cover and the original never merge; only
-brackets that just say "official video"/"lyrics" are ignored.
+brackets that just say "official video"/"lyrics" are ignored. When a match has
+several rows, the one with the fullest artist credit wins.
 
 Every reference is re-pointed at the survivor before the duplicate row goes:
 playlists, likes, plays, track artists, sources, the playback queue and the
@@ -30,9 +33,6 @@ import time
 from config import DB_PATH, MUSIC_DIR
 from artists import norm_key, split_artists
 import song_meta
-
-DURATION_SLACK = 5.0
-
 
 def _row_get(row, key, default=None):
     try:
@@ -78,11 +78,6 @@ def artist_overlap(a, b):
     return not (ka and kb) or bool(ka & kb)
 
 
-def duration_close(a, b):
-    da, db = a["duration"] or 0, b["duration"] or 0
-    return not (da and db and abs(da - db) > DURATION_SLACK)
-
-
 def find_groups(rows):
     """Components of rows that describe the same recording."""
     parent = list(range(len(rows)))
@@ -106,14 +101,15 @@ def find_groups(rows):
             if other != i:
                 union(i, other)
 
-    # 2) same normalised title + artist, close length. An uncredited file is
-    # allowed to merge with a credited one so a fresh rip can replace a row
-    # that was indexed before its YouTube metadata arrived.
+    # 2) same normalised title + artist. An uncredited file is allowed to merge
+    # with a credited one so a fresh rip can replace a row that was indexed
+    # before its YouTube metadata arrived. Duration is ignored: official video
+    # uploads and album rips of the same song routinely have different lengths.
     by_key = {}
     for i, row in enumerate(rows):
         key = norm(row["title"])
         for j in by_key.get(key, []):
-            if artist_overlap(row, rows[j]) and duration_close(row, rows[j]):
+            if artist_overlap(row, rows[j]):
                 union(i, j)
         by_key.setdefault(key, []).append(i)
 
@@ -134,11 +130,17 @@ def richness(row):
     album = (row["album"] or "").strip()
     if album and album != (row["title"] or "").strip():
         score += 2
+    # The version with the fuller credit line wins over one that only knows
+    # a single artist (or none at all), even when both point at the same song.
+    names = artist_credit(row)
+    score += min(len(names), 8)
+    if len(names) > 1:
+        score += 2
     return score
 
 
 def survivor(bucket):
-    """Keep the best-annotated row, not just the oldest one."""
+    """Keep the best-annotated row: most artists and links, not the oldest."""
     return sorted(bucket, key=lambda r: (-richness(r), r["id"]))[0]
 
 

@@ -218,8 +218,18 @@ class RoturSink:
         }
         if t.cover_url:
             payload["image"] = t.cover_url
-        if t.url:
-            payload["url"] = t.url
+        room = (s.room_url or "").strip()
+        profile = (s.profile_url or (t.url if t else "") or "").strip()
+        # The heading should open the listening room; the profile stays one
+        # click away as a button. Rotur renders `buttons` as real links.
+        payload["url"] = (room or profile or self.app_url)[:512]
+        buttons: list[dict] = []
+        if room.startswith(("http://", "https://")):
+            buttons.append({"label": "Play with me", "url": room[:512]})
+        if profile.startswith(("http://", "https://")) and profile != room:
+            buttons.append({"label": "mcmusic profile", "url": profile[:512]})
+        if buttons:
+            payload["buttons"] = buttons
         media = t.media()
         if s.start_ms is not None and s.end_ms is not None:
             media["start"] = s.start_ms

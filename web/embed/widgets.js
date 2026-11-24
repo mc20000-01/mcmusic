@@ -1,14 +1,15 @@
 (() => {
   const SCRIPT = document.currentScript || Array.from(document.scripts).find(s => (s.src||'').includes('/static/embed/widgets.js'));
   const BASE = (SCRIPT && (SCRIPT.dataset.mcmusicBase || SCRIPT.getAttribute('data-mcmusic-base'))) || (SCRIPT ? new URL('.', SCRIPT.src).origin : location.origin);
+  /* flufi v3 palettes: one ink surface scale, one interaction accent. */
   const THEMES = {
-    dusk:   { bg:'#0a0a0a', bg2:'#000000', fg:'#ffffff', dim:'#b3b3b3', line:'#262626', accent:'#ffffff' },
-    paper:  { bg:'#ffffff', bg2:'#f2f2f2', fg:'#0a0a0a', dim:'#555555', line:'#d4d4d4', accent:'#000000' },
-    ink:    { bg:'#111111', bg2:'#000000', fg:'#f5f5f5', dim:'#a3a3a3', line:'#2b2b2b', accent:'#ffffff' },
-    tide:   { bg:'#0d0d0d', bg2:'#000000', fg:'#ededed', dim:'#9c9c9c', line:'#242424', accent:'#e6e6e6' },
-    copper: { bg:'#141414', bg2:'#000000', fg:'#f7f7f7', dim:'#b0b0b0', line:'#2e2e2e', accent:'#ffffff' },
-    forest: { bg:'#0b0b0b', bg2:'#000000', fg:'#f0f0f0', dim:'#a8a8a8', line:'#272727', accent:'#fafafa' },
-    rose:   { bg:'#151515', bg2:'#000000', fg:'#f4f4f4', dim:'#b5b5b5', line:'#303030', accent:'#ffffff' },
+    dusk:   { bg:'#08060d', bg2:'#100c18', fg:'#ffffff', dim:'#948aa6', line:'#1f1830', accent:'#a06bff' },
+    paper:  { bg:'#f6f3fa', bg2:'#ece7f4', fg:'#08060d', dim:'#6a6178', line:'#d8d0e4', accent:'#7040c8' },
+    ink:    { bg:'#000000', bg2:'#0d0a13', fg:'#ffffff', dim:'#948aa6', line:'#251d35', accent:'#b888ff' },
+    tide:   { bg:'#080d14', bg2:'#0d1520', fg:'#f4f7ff', dim:'#8fa0b8', line:'#1f2d40', accent:'#7aa2ff' },
+    copper: { bg:'#100b08', bg2:'#181009', fg:'#fff7f0', dim:'#b8a394', line:'#34261a', accent:'#e6a06b' },
+    forest: { bg:'#07100c', bg2:'#0b1811', fg:'#f0fff6', dim:'#91ad9d', line:'#1a3527', accent:'#5fd39b' },
+    rose:   { bg:'#12080f', bg2:'#1b0c17', fg:'#fff0f8', dim:'#b995aa', line:'#3a1f31', accent:'#ff79b8' },
   };
 
   /* Colour hooks a host page may set on the tag itself; anything declared out
@@ -29,9 +30,9 @@
      an offline draft can show the widgets before anyone is playing. */
   const DEMO_COVER = 'data:image/svg+xml,' + encodeURIComponent(
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">'
-    + '<rect width="120" height="120" fill="#0a0a0a"/>'
-    + '<circle cx="60" cy="60" r="34" fill="none" stroke="#ffffff" stroke-width="2"/>'
-    + '<circle cx="60" cy="60" r="5" fill="#ffffff"/></svg>');
+    + '<rect width="120" height="120" fill="#08060d"/>'
+    + '<circle cx="60" cy="60" r="34" fill="none" stroke="#a06bff" stroke-width="2"/>'
+    + '<circle cx="60" cy="60" r="5" fill="#a06bff"/></svg>');
   const demoPayload = () => ({
     user: { username: 'demo' },
     listening: true,
@@ -60,39 +61,48 @@
   }
 
   const sharedCSS = `
-  :host{all:initial;display:block;font-family:var(--mc-font,Inter,system-ui,-apple-system,Segoe UI,sans-serif);color:var(--mc-fg);--mc-radius:18px;}
+  :host{all:initial;display:block;font-family:var(--_font);color:var(--_fg);
+    --_radius:var(--mc-radius,var(--radius,10px));
+    --_font:var(--mc-font,var(--font-family,Inter,system-ui,-apple-system,"Segoe UI",sans-serif));
+    --_bg:var(--mc-bg,var(--back,#08060d));
+    --_bg2:var(--mc-bg2,var(--back-raised,#100c18));
+    --_fg:var(--mc-fg,var(--text-bright,#ffffff));
+    --_dim:var(--mc-dim,var(--text-dim,#948aa6));
+    --_line:var(--mc-line,var(--back-border,#1f1830));
+    --_accent:var(--mc-accent,var(--accent,#a06bff));
+    --_soft:var(--mc-accent-soft,color-mix(in srgb,var(--_accent) 20%,transparent));}
   *,*::before,*::after{box-sizing:border-box}
-  .card{position:relative;overflow:hidden;border-radius:var(--mc-radius);border:1px solid color-mix(in srgb,var(--mc-line) 70%, transparent);background:var(--mc-bg);box-shadow:0 12px 30px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.08);backdrop-filter:blur(14px) saturate(140%);-webkit-backdrop-filter:blur(14px) saturate(140%);}
-  .glow{position:absolute;inset:-40% -20% auto auto;width:70%;height:140%;background:none;pointer-events:none;}
-  .row{position:relative;display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;padding:14px;}
-  .cover{width:72px;height:72px;border-radius:14px;object-fit:cover;background:color-mix(in srgb,var(--mc-bg2) 80%, #000);border:1px solid color-mix(in srgb,var(--mc-line) 70%, transparent);box-shadow:0 8px 18px rgba(0,0,0,.25);}
+  .card{position:relative;overflow:hidden;border-radius:var(--_radius);border:1px solid var(--_line);background:var(--_bg)}
+  .glow{display:none}
+  .row{position:relative;display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;padding:14px}
+  .cover{width:72px;height:72px;border-radius:var(--_radius);object-fit:cover;background:var(--_bg2);border:1px solid var(--_line)}
   .meta{min-width:0}
-  .kicker{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mc-accent);margin:0 0 4px}
-  .title{font-size:16px;font-weight:700;line-height:1.2;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .sub{font-size:13px;color:var(--mc-dim);margin:4px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .foot{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-top:10px;font-size:12px;color:var(--mc-dim)}
-  .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:999px;border:1px solid color-mix(in srgb,var(--mc-line) 70%, transparent);background:color-mix(in srgb,var(--mc-bg) 60%, transparent)}
-  .dot{width:7px;height:7px;border-radius:50%;background:var(--mc-accent);box-shadow:0 0 0 4px var(--mc-accent-soft)}
-  .dot.off{background:var(--mc-dim);box-shadow:none}
-  a{color:inherit;text-decoration:none}
+  .kicker{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--_accent);margin:0 0 4px}
+  .title{font-size:16px;font-weight:600;line-height:1.25;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--_fg)}
+  .sub{font-size:13px;color:var(--_dim);margin:4px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .foot{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-top:12px;padding-top:10px;border-top:1px solid var(--_line);font-size:12px;color:var(--_dim)}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:var(--_radius);border:1px solid var(--_line);background:var(--_bg2)}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--_accent);box-shadow:0 0 0 3px var(--_soft)}
+  .dot.off{background:var(--_dim);box-shadow:none}
+  a{color:var(--_accent);text-decoration:none}
   .turn{grid-template-columns:auto 1fr;gap:16px}
-  .platter{position:relative;width:96px;height:96px;border-radius:50%;background:#0d0d0d;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08), 0 10px 24px rgba(0,0,0,.35);display:grid;place-items:center}
-  .platter::after{content:"";position:absolute;inset:10px;border-radius:50%;border:1px solid rgba(255,255,255,.05)}
-  .disc{width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.2);box-shadow:0 0 0 4px rgba(0,0,0,.35)}
-  .spindle{position:absolute;width:8px;height:8px;border-radius:50%;background:#fff;box-shadow:0 0 0 2px rgba(0,0,0,.5)}
+  .platter{position:relative;width:96px;height:96px;border-radius:50%;background:var(--_bg2);border:1px solid var(--_line);display:grid;place-items:center}
+  .platter::after{content:"";position:absolute;inset:10px;border-radius:50%;border:1px solid var(--_line)}
+  .disc{width:64px;height:64px;border-radius:50%;object-fit:cover;border:1px solid var(--_line)}
+  .spindle{position:absolute;width:8px;height:8px;border-radius:50%;background:var(--_accent);box-shadow:0 0 0 2px var(--_bg)}
   .spin{animation:spin 4.5s linear infinite}
   .paused .spin{animation-play-state:paused}
   @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
-  .bar{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:999px;border:1px solid color-mix(in srgb,var(--mc-line) 70%, transparent);background:var(--mc-bg);box-shadow:0 8px 20px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.08);backdrop-filter:blur(12px);min-width:0}
-  .bar .cover{width:34px;height:34px;border-radius:10px}
+  .bar{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:var(--_radius);border:1px solid var(--_line);background:var(--_bg);min-width:0}
+  .bar .cover{width:34px;height:34px}
   .bar .title{font-size:13px}.bar .sub{font-size:11px;margin-top:1px}
-  .badge{display:inline-flex;align-items:center;gap:8px;max-width:100%;padding:6px 10px;border-radius:999px;border:1px solid color-mix(in srgb,var(--mc-line) 70%, transparent);background:var(--mc-bg);box-shadow:0 6px 16px rgba(0,0,0,.2);backdrop-filter:blur(10px)}
-  .badge .cover{width:22px;height:22px;border-radius:7px}
-  .badge .txt{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .profile .cover{width:96px;height:96px;border-radius:18px}
+  .badge{display:inline-flex;align-items:center;gap:8px;max-width:100%;padding:6px 10px;border-radius:var(--_radius);border:1px solid var(--_line);background:var(--_bg)}
+  .badge .cover{width:22px;height:22px}
+  .badge .txt{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--_fg)}
+  .profile .cover{width:96px;height:96px}
   .profile .title{font-size:18px}
-  .progress{margin-top:10px;height:4px;border-radius:999px;background:color-mix(in srgb,var(--mc-line) 55%, transparent);overflow:hidden}
-  .progress > i{display:block;height:100%;border-radius:inherit;background:var(--mc-accent)}
+  .progress{margin-top:10px;height:4px;border-radius:var(--_radius);background:var(--_bg2);border:1px solid var(--_line);overflow:hidden}
+  .progress > i{display:block;height:100%;background:var(--_accent)}
   .marquee{overflow:hidden;white-space:nowrap}
   .marquee span{display:inline-block;padding-left:100%;animation:mar 14s linear infinite}
   /* over-long text: the line is doubled and slides by exactly one copy so the
@@ -104,7 +114,7 @@
   @keyframes slide{from{transform:translateX(0)}to{transform:translateX(-50%)}}
   @keyframes mar{from{transform:translateX(0)}to{transform:translateX(-100%)}}
   .compact .row{padding:10px;gap:10px}
-  .compact .cover{width:54px;height:54px;border-radius:12px}
+  .compact .cover{width:54px;height:54px}
   .compact .platter{width:72px;height:72px}
   .compact .disc{width:48px;height:48px}
   .compact .title{font-size:14px}

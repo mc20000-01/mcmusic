@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -20,6 +21,7 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Slider
@@ -29,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -41,10 +44,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.mcmusic.app.data.Api
+import dev.mcmusic.app.data.Lyrics
 import dev.mcmusic.app.playback.Playback
 import dev.mcmusic.app.ui.Cover
 import dev.mcmusic.app.ui.EmptyState
+import dev.mcmusic.app.ui.ErrorLine
+import dev.mcmusic.app.ui.GhostButton
 import dev.mcmusic.app.ui.IconButton
+import dev.mcmusic.app.ui.Loading
 import dev.mcmusic.app.ui.Lucide
 import dev.mcmusic.app.ui.LucideIcon
 import dev.mcmusic.app.ui.Muted
@@ -52,6 +60,7 @@ import dev.mcmusic.app.ui.ScreenBack
 import dev.mcmusic.app.ui.SectionLabel
 import dev.mcmusic.app.ui.SwitchRow
 import dev.mcmusic.app.ui.design.LocalDesign
+import dev.mcmusic.app.ui.design.mcSurface
 import dev.mcmusic.app.ui.formatMillis
 import dev.mcmusic.app.ui.formatDuration
 import dev.mcmusic.app.ui.trackCoverUrl
@@ -68,6 +77,7 @@ fun PlayerScreen(onBack: () -> Unit) {
     val design = LocalDesign.current
     val state = Playback.state
     var scrub by remember { mutableStateOf<Float?>(null) }
+    var lyricsOpen by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -189,8 +199,14 @@ fun PlayerScreen(onBack: () -> Unit) {
                 IconButton(Lucide.Repeat, size = 20.dp, tint = if (state.repeat) design.accent else design.dim) {
                     Playback.cycleRepeat()
                 }
+                IconButton(
+                    Lucide.ListMusic,
+                    size = 20.dp,
+                    tint = if (lyricsOpen) design.accent else design.dim,
+                ) { lyricsOpen = !lyricsOpen }
             }
         }
+        if (lyricsOpen && track.id > 0) item { LyricsPanel(track.id) }
         item {
             Column(
                 Modifier.fillMaxWidth(),
@@ -321,5 +337,111 @@ private fun QueueRow(index: Int, item: Track, state: dev.mcmusic.app.playback.Pl
             ),
             contentDescription = "Drag to reorder",
         )
+    }
+}
+
+private data class LyricLine(val time: Double, val text: String)
+
+/** LRC timestamps plus plain text, in the order the web panel displays them. */
+private fun parseLyrics(text: String): List<LyricLine> {
+    val stamps = Regex("\\[(\\d{1,2}):(\\d{2})(?:[.:](\\d{1,3}))?\\]")
+    val metadata = Regex("^\\[(ar|ti|al|by|offset|re|ue):", RegexOption.IGNORE_CASE)
+    return buildList {
+        for (raw in text.lineSequence()) {
+            val line = raw.trim()
+            if (line.isEmpty() || metadata.containsMatchIn(line)) continue
+            val times = mutableListOf<Double>()
+            var lastEnd = 0
+            for (match in stamps.findAll(line)) {
+                val fraction = match.groupValues[3]
+                val fractionSeconds = if (fraction.isEmpty()) 0.0 else "0.$fraction".toDouble()
+                times += match.groupValues[1].toDouble() * 60 + match.groupValues[2].toDouble() + fractionSeconds
+                lastEnd = match.range.last + 1
+            }
+            val words = line.substring(lastEnd).trim()
+            if (words.isEmpty()) continue
+            if (times.isEmpty()) add(LyricLine(-1.0, words))
+            else times.forEach { add(LyricLine(it, words)) }
+        }
+    }.sortedBy { it.time }
+}
+
+/**
+ * Lyrics panel, only composed while the Player toggle is on. The fetch is
+ * keyed to the visible track (and a retry counter), so opening the panel is
+ * the only thing that makes a lyrics request and switching tracks refetches.
+ */
+@Composable
+private fun LyricsPanel(trackId: Int) {
+    val design = LocalDesign.current
+    var lyrics by remember(trackId) { mutableStateOf<Lyrics?>(null) }
+    var error by remember(trackId) { mutableStateOf<String?>(null) }
+    var loading by remember(trackId) { mutableStateOf(true) }
+    var reload by remember(trackId) { mutableIntStateOf(0) }
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(trackId, reload) {
+        loading = true
+        error = null
+        lyrics = null
+        Api.lyrics(trackId).fold(
+            onSuccess = { lyrics = it; loading = false },
+            onFailure = { error = it.message ?: "could not load lyrics"; loading = false },
+        )
+    }
+
+    val lines = remember(lyrics?.text) { parseLyrics(lyrics?.text.orEmpty()) }
+    val positionSeconds = Playback.state.position / 1000.0
+    var activeIndex = -1
+    for (index in lines.indices) {
+        val time = lines[index].time
+        if (time < 0) continue
+        if (time <= positionSeconds) activeIndex = index else break
+    }
+    LaunchedEffect(activeIndex) {
+        if (activeIndex >= 0) listState.animateScrollToItem(activeIndex)
+    }
+
+    val source = lyrics?.source.orEmpty()
+    val via = when {
+        source.contains("lrclib", ignoreCase = true) -> " · via LRCLIB"
+        source.isNotBlank() -> " · $source"
+        else -> ""
+    }
+    val kind = (if (lines.any { it.time >= 0 }) "Synced" else "Plain") + via
+
+    Column(
+        Modifier.fillMaxWidth().mcSurface(RoundedCornerShape(12.dp)).padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            LucideIcon(Lucide.ListMusic, design.accent, Modifier.size(15.dp))
+            Text("Lyrics", color = design.fg, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Box(Modifier.weight(1f))
+            Muted(kind, size = 11)
+        }
+        when {
+            loading -> Loading("Loading lyrics…")
+            error != null -> {
+                ErrorLine(error!!)
+                GhostButton("Retry") { reload++ }
+            }
+            lines.isEmpty() -> Muted("No lyrics found for this track yet.")
+            else -> LazyColumn(
+                modifier = Modifier.fillMaxWidth().heightIn(max = 280.dp),
+                state = listState,
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                itemsIndexed(lines) { index, line ->
+                    val active = index == activeIndex
+                    Text(
+                        line.text,
+                        color = if (active) design.accent else design.dim,
+                        fontSize = if (active) 15.sp else 13.sp,
+                        fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                    )
+                }
+            }
+        }
     }
 }

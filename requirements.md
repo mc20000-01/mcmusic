@@ -73,6 +73,11 @@ fixes, and the old-client parity audit are consolidated here. Anything marked
 - [x] Search: directory/profile lookup alongside tracks/albums/artists.
 - [x] Track menus: Like (`Api.toggleLike` already exists) and Add to playlist
       (`Api.addToPlaylist` already exists).
+- [x] Android track rows now support swipe-right like, long-press menu, and
+      admin swipe-left “Remove from mcmusic” with confirmation; the menu also
+      has Start radio, Go to artist and Track info.
+- [x] Android parity for Liked songs and the synced/plain lyrics panel; both
+      are reachable from Library and the Player respectively.
 - [x] Queue reorder: wire `Playback.move()` to drag handles if feasible.
 
 ### Web — missing or regressed vs old commit
@@ -102,15 +107,15 @@ fixes, and the old-client parity audit are consolidated here. Anything marked
 
 ## Release and delivery steps (repeat after the next code change)
 
-- [ ] Bump Android version to `3.3.5`, code `47`.
+- [x] Bump Android version to `3.3.6`, code `48`.
 - [ ] Commit and push; watch GitHub Actions `Release builds` go green.
 - [ ] Pull the bot commit that refreshes `builds/`.
 - [ ] Copy the exact GitHub `latest` APK into
-  `apps/android/mainbuild.apk`, `apps/android/mcmusic-3.3.5.apk`, and a hashed
+  `apps/android/mainbuild.apk`, `apps/android/mcmusic-3.3.6.apk`, and a hashed
   `apps/android/mainbuild-<hash>.apk`; prune stale copies.
 - [ ] Verify live `/get` SHA-256 matches the GitHub asset byte-for-byte.
 - [ ] Verify `/api/builds` reports the new version and “Android 14 and newer.”
-- [ ] Verify package `dev.mcmusic.app`, `versionCode 47`, `minSdk 34`, and
+- [ ] Verify package `dev.mcmusic.app`, `versionCode 48`, `minSdk 34`, and
       signer SHA-256 `0b0fd0fa35ff712901d42cab215d5e3cb706daef57bffa7ebef61cacda1dc4ce`.
 
 ## UI research
@@ -138,7 +143,9 @@ fixes, and the old-client parity audit are consolidated here. Anything marked
       `/not-allowed` were added so deep links do not 404.
 - [x] **Android tasks:** Settings has a “Self-hosting” entry opening the public
       guide, shows the configured server and app version, and the sign-in screen's
-      server help text points to the same guide.
+      server help text points to the same guide. The detailed APK task source is
+      `docs/android-tasks.md`; it now covers direct HTTPS MP3/ZIP import links,
+      swipe/long-press track gestures, and admin track removal in the APK.
 - [x] **Desktop tasks:** Qt Settings has the self-hosting link plus server and
       version information.
 

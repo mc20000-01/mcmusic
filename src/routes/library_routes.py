@@ -142,9 +142,20 @@ def search():
         "select album, artist, count(*) n, min(id) cover_id from tracks where album like ? "
         "group by album order by album collate nocase limit 12", (like,)
     )
+    # Search should offer every credited artist, not the raw "A, B" string
+    # stored in tracks.artist for a collaboration.
     ar = c.execute(
-        "select artist, count(*) n, min(id) cover_id from tracks where artist like ? "
-        "group by artist order by artist collate nocase limit 12", (like,)
+        "select artist, n, cover_id from ("
+        " select a.artist_key, "
+        " (select x.artist from track_artists x where x.artist_key=a.artist_key "
+        "   and x.artist <> '' and x.artist not like 'Unknown%' "
+        "   group by x.artist order by count(*) desc, x.artist collate nocase limit 1) artist, "
+        " count(distinct a.track_id) n, min(a.track_id) cover_id "
+        " from track_artists a join tracks t on t.id=a.track_id "
+        " where (a.artist like ? or t.artist like ?) "
+        "   and a.artist <> '' and a.artist not like 'Unknown%' "
+        " group by a.artist_key"
+        ") order by artist collate nocase limit 12", (like, like)
     )
     return jsonify(
         tracks=[track_dict(c, r, L) for r in tr],
@@ -227,9 +238,11 @@ def artists():
     rows = _db().execute(
         "select a.artist_key, "
         "(select x.artist from track_artists x where x.artist_key=a.artist_key "
+        "  and x.artist <> '' and x.artist not like 'Unknown%' "
         "  group by x.artist order by count(*) desc, x.artist collate nocase limit 1) artist, "
-        "count(*) n, count(distinct t.album) albums, min(t.id) cover_id "
+        "count(distinct t.id) n, count(distinct t.album) albums, min(t.id) cover_id "
         "from track_artists a join tracks t on t.id=a.track_id "
+        "where a.artist <> '' and a.artist not like 'Unknown%' "
         "group by a.artist_key order by artist collate nocase"
     )
     return jsonify(artists=[dict(r) for r in rows])
@@ -244,10 +257,13 @@ def artist():
     # also folds case, spacing and kana spelling variants together.
     from artists import norm_key
     name = request.args.get("name", "")
+    key = norm_key(name) or name.casefold()
+    if key in {"", "unknown", "unknown artist", "unknownartist"}:
+        return jsonify(tracks=[])
     rows = _db().execute(
         "select t.* from tracks t join track_artists a on a.track_id=t.id "
         "where a.artist_key=? order by t.album, t.track_no, t.title",
-        (norm_key(name) or name.casefold(),)
+        (key,)
     )
     return jsonify(tracks=[track_dict(_db(), r, L) for r in rows])
 

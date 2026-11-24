@@ -10,17 +10,22 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.mcmusic.app.data.Account
+import dev.mcmusic.app.data.Api
 import dev.mcmusic.app.data.Download
+import dev.mcmusic.app.data.DownloadRequest
 import dev.mcmusic.app.data.Downloads
 import dev.mcmusic.app.data.Track
 import dev.mcmusic.app.playback.Playback
@@ -28,24 +33,101 @@ import dev.mcmusic.app.ui.EmptyState
 import dev.mcmusic.app.ui.GhostButton
 import dev.mcmusic.app.ui.IconButton
 import dev.mcmusic.app.ui.Lucide
+import dev.mcmusic.app.ui.McField
 import dev.mcmusic.app.ui.Muted
+import dev.mcmusic.app.ui.PrimaryButton
 import dev.mcmusic.app.ui.ScreenTitle
 import dev.mcmusic.app.ui.SectionLabel
 import dev.mcmusic.app.ui.TrackCover
 import dev.mcmusic.app.ui.design.LocalDesign
 import dev.mcmusic.app.ui.formatBytes
+import java.net.URI
+import java.net.URLDecoder
+import kotlinx.coroutines.launch
+
+private val IMPORT_EXTS = setOf(
+    ".mp3", ".m4a", ".aac", ".opus", ".flac", ".wav", ".webm", ".ogg", ".zip",
+)
+
+/** Mirrors the server's accepted links so bad links fail before being sent. */
+private fun validMusicLink(value: String): Boolean {
+    val uri = runCatching { URI(value) }.getOrNull() ?: return false
+    if (uri.scheme?.lowercase() != "https" || uri.host.isNullOrBlank() || uri.userInfo != null) {
+        return false
+    }
+    val host = uri.host.lowercase()
+    if (host == "youtu.be" || host.endsWith(".youtu.be") ||
+        host == "youtube.com" || host.endsWith(".youtube.com")
+    ) {
+        return true
+    }
+    val path = runCatching { URLDecoder.decode(uri.path.orEmpty(), "UTF-8") }
+        .getOrDefault(uri.path.orEmpty()).lowercase()
+    return IMPORT_EXTS.any { path.endsWith(it) }
+}
+
+private fun requestLabel(status: String): String = when (status) {
+    "pending" -> "Waiting for approval"
+    "approved" -> "Approved"
+    "running" -> "Importing…"
+    "done" -> "Finished"
+    "failed" -> "Failed"
+    "rejected" -> "Rejected"
+    "cancelled" -> "Cancelled"
+    else -> status
+}
 
 /**
- * Offline copies. Downloads are per device and stored by [Downloads]; playback
- * already prefers the local file, so this page only shows, plays and removes.
+ * Offline copies plus server imports. Downloads are per device and stored by
+ * [Downloads]; the link form submits YouTube or direct MP3/ZIP links to the
+ * same request queue the web client uses.
  */
 @Composable
 fun DownloadsScreen(onOpenPlayer: () -> Unit) {
     val design = LocalDesign.current
+    val scope = rememberCoroutineScope()
     val items = Downloads.items
     var confirmClear by remember { mutableStateOf(false) }
+    var link by remember { mutableStateOf("") }
+    var message by remember { mutableStateOf<String?>(null) }
+    var sending by remember { mutableStateOf(false) }
+    var requests by remember { mutableStateOf<List<DownloadRequest>?>(null) }
+    var reload by remember { mutableStateOf(0) }
+
+    LaunchedEffect(reload) {
+        Api.myRequests().fold(
+            onSuccess = { requests = it },
+            onFailure = { requests = emptyList() },
+        )
+    }
 
     fun asTrack(d: Download) = Track(d.id, d.title, d.artist, d.album, d.duration)
+
+    fun submit() {
+        val value = link.trim()
+        message = null
+        if (value.isEmpty()) return
+        if (!validMusicLink(value)) {
+            message = "Use an https YouTube link or a direct https .mp3, audio or .zip link."
+            return
+        }
+        sending = true
+        scope.launch {
+            Api.requestDownload(value).fold(
+                onSuccess = { status ->
+                    link = ""
+                    message = if (status == "pending") {
+                        "Request sent. An admin will approve it, then it imports automatically."
+                    } else {
+                        "Download started. It will appear in the library when it finishes."
+                    }
+                    reload++
+                },
+                onFailure = { message = it.message ?: "Could not send the request." },
+            )
+            sending = false
+        }
+    }
 
     LazyColumn(
         contentPadding = PaddingValues(design.screenPadding, 10.dp, design.screenPadding, 24.dp),
@@ -57,6 +139,52 @@ fun DownloadsScreen(onOpenPlayer: () -> Unit) {
                 if (items.isEmpty()) "Nothing saved on this device yet."
                 else "${items.size} tracks · ${formatBytes(Downloads.totalBytes())}",
             )
+        }
+        item {
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                SectionLabel("Add music")
+                McField(
+                    value = link,
+                    onValueChange = { link = it; message = null },
+                    label = "YouTube, MP3 or ZIP link",
+                )
+                PrimaryButton(
+                    text = if (sending) "Sending…" else "Request download",
+                    enabled = link.isNotBlank() && !sending,
+                ) { submit() }
+                message?.let { Muted(it, size = 12) }
+                Muted("Paste a YouTube link, or a direct https link to an audio file or ZIP of tracks.", size = 12)
+            }
+        }
+        item {
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                SectionLabel("Your requests") { GhostButton("Refresh") { reload++ } }
+                val list = requests.orEmpty()
+                if (list.isEmpty()) {
+                    Muted("No requests yet. Imported tracks show up in Search and Albums.", size = 12)
+                } else {
+                    list.forEach { req ->
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    "#${req.id} · ${req.url}",
+                                    color = design.fg,
+                                    fontSize = 12.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Muted(requestLabel(req.status), size = 11)
+                            }
+                        }
+                    }
+                }
+            }
         }
         if (items.isNotEmpty()) {
             item {

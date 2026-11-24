@@ -22,6 +22,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import dev.mcmusic.app.data.Api
+import dev.mcmusic.app.data.ArtistSummary
+import dev.mcmusic.app.data.LibraryState
 import dev.mcmusic.app.data.Track
 import dev.mcmusic.app.playback.Playback
 import dev.mcmusic.app.ui.EmptyState
@@ -51,9 +53,10 @@ fun CollectionSheet(
     val design = LocalDesign.current
     var tracks by remember(name, kind) { mutableStateOf<List<Track>?>(null) }
     var error by remember(name, kind) { mutableStateOf<String?>(null) }
+    var artist by remember { mutableStateOf<ArtistSummary?>(null) }
     val shown = tracks.orEmpty().visibleTracks()
 
-    LaunchedEffect(name, kind) {
+    LaunchedEffect(name, kind, LibraryState.revision) {
         val result = when (kind) {
             CollectionKind.Album -> Api.albumTracks(name)
             CollectionKind.Artist -> Api.artistTracks(name)
@@ -100,11 +103,21 @@ fun CollectionSheet(
                                 Playback.play(shown, shown.indexOf(track))
                                 onDismiss()
                                 onOpenPlayer()
+                            }, onOpenArtist = { name ->
+                                artist = ArtistSummary(name, 0, 0, track.id)
                             })
                         }
                     }
                 }
             }
         }
+    }
+    artist?.let {
+        CollectionSheet(
+            CollectionKind.Artist,
+            it.artist,
+            onDismiss = { artist = null },
+            onOpenPlayer = onOpenPlayer,
+        )
     }
 }

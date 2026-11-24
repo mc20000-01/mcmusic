@@ -24,6 +24,7 @@ import time
 from typing import Optional
 
 import rotur_activity
+from flufi_pages import flufi_page
 from music_activity.config import ROTUR_WS
 from music_activity.state import PlayerState, Track
 
@@ -184,11 +185,11 @@ def _activate_pending(c, pending, invite_row):
 
 def _invite_form(message):
     return (
-        f"<span>{_esc(message)}</span>"
-        '<form method="post" action="/api/auth/rotur/claim">'
-        '<input type="text" name="invite" placeholder="Friend code" '
+        f'<span class="text">{_esc(message)}</span>'
+        '<form class="link-form" method="post" action="/api/auth/rotur/claim">'
+        '<input class="input" type="text" name="invite" placeholder="Friend code" '
         'autocomplete="one-time-code" required>'
-        '<button class="btn" type="submit">Continue</button>'
+        '<button class="button variant-accent" type="submit">Continue</button>'
         "</form>"
     )
 
@@ -706,8 +707,13 @@ def _set_presence(uid, token, presence="online"):
     return True, ""
 
 
-def listening_activity(track, position=0.0, room_url="", playing=True, cover_url="", profile_url=""):
-    """Build the sink-agnostic player state for a Rotur listening activity."""
+def listening_activity(track, position=0.0, room_url="", playing=True, cover_url="",
+                       profile_url="", status_room=""):
+    """Build the sink-agnostic player state for a Rotur listening activity.
+
+    ``room_url`` is the clickable listen-along invite. ``status_room`` is the
+    older plain-text copy, which still follows the show-room-link setting.
+    """
     title = str(track["title"] or "Unknown track")[:128]
     artist = str(track["artist"] or "")[:128]
     album = str(track["album"] or "")[:128]
@@ -725,7 +731,9 @@ def listening_activity(track, position=0.0, room_url="", playing=True, cover_url
         track=t,
         playing=bool(playing),
         position=max(0.0, float(position or 0)),
-        extra=room_url or "",
+        extra=status_room or "",
+        room_url=room_url or "",
+        profile_url=profile_url or "",
     )
 
 
@@ -981,13 +989,11 @@ def _esc(v):
 
 
 def _html(title, body, status=200):
-    page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{_esc(title)} · mcmusic</title>
-<link rel="stylesheet" href="/static/css/link.css">
-</head><body><main class="card">
-<h1>{_esc(title)}</h1>
-<p>{body}</p>
-<a class="btn" href="/">Open mcmusic</a>
-</main></body></html>"""
-    return Response(page, status=status, mimetype="text/html")
+    page = (
+        f'<section class="container box">'
+        f'<h1 class="header">{_esc(title)}</h1>'
+        f'<div class="text">{body}</div>'
+        '<a class="button variant-accent" href="/">Open mcmusic</a>'
+        '</section>'
+    )
+    return flufi_page(title, page, status=status)

@@ -45,6 +45,7 @@ import dev.mcmusic.app.ui.design.mcSurface
 import dev.mcmusic.app.ui.screens.AdminScreen
 import dev.mcmusic.app.ui.screens.DownloadsScreen
 import dev.mcmusic.app.ui.screens.HomeScreen
+import dev.mcmusic.app.ui.screens.LikesScreen
 import dev.mcmusic.app.ui.screens.LibraryScreen
 import dev.mcmusic.app.ui.screens.PlaylistsScreen
 import dev.mcmusic.app.ui.screens.PlayerScreen
@@ -60,11 +61,12 @@ enum class Tab(val label: String, @param:DrawableRes val icon: Int) {
     Downloads("Downloads", Lucide.Download),
     Settings("Settings", Lucide.Settings),
     Playlists("Playlists", Lucide.ListMusic),
+    Likes("Likes", Lucide.Heart),
     Player("Player", Lucide.Play),
     Admin("Admin", Lucide.User);
 
     val inBar: Boolean get() = this in listOf(Home, Search, Library, Downloads, Settings)
-    val fullScreen: Boolean get() = this == Player || this == Admin
+    val fullScreen: Boolean get() = this == Player || this == Admin || this == Likes
 }
 
 /** Brand mark plus account, kept above the scroll area like the site header. */
@@ -244,7 +246,12 @@ private fun TabContent(
         when (tab) {
             Tab.Home -> HomeScreen(onOpenSearch = { onTab(Tab.Search) }, onOpenPlayer = { onTab(Tab.Player) })
             Tab.Search -> SearchScreen(onPlaylist = onPlaylist, onOpenPlayer = { onTab(Tab.Player) })
-            Tab.Library -> LibraryScreen(onOpenPlaylists = { onTab(Tab.Playlists) }, onOpenPlayer = { onTab(Tab.Player) })
+            Tab.Library -> LibraryScreen(
+                onOpenPlaylists = { onTab(Tab.Playlists) },
+                onOpenLikes = { onTab(Tab.Likes) },
+                onOpenPlayer = { onTab(Tab.Player) },
+            )
+            Tab.Likes -> LikesScreen(onBack = onBack, onOpenPlayer = { onTab(Tab.Player) })
             Tab.Playlists -> PlaylistsScreen(
                 playlistId = playlistId,
                 onOpenPlaylist = onPlaylist,

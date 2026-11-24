@@ -102,6 +102,10 @@ jobs:
             src/routes/personal_routes.py \
             src/routes/auth_routes.py \
             src/routes/channel_routes.py \
+            src/zip_import.py \
+            src/flufi_pages.py \
+            src/discord_link.py \
+            tools/import_zip.py \
             src/discord_bot.py \
             src/music_channels.py \
             src/originchats.py \

@@ -376,6 +376,41 @@ object Playback {
         play(queue, index)
     }
 
+    /**
+     * Drop a track that was removed from the server library. The local queue
+     * mirrors the server's queue, so leaving it in would try to stream a file
+     * that no longer exists on the next track change.
+     */
+    fun removeTrack(id: Int) {
+        val c = controller ?: return
+        val removed = queueTracks.indexOfFirst { it.id == id }
+        if (removed < 0) return
+        val remaining = queueTracks.filterNot { it.id == id }
+        if (remaining.isEmpty()) {
+            queueTracks = emptyList()
+            autoplayDoneKey = null
+            suppressAutoplayKey = null
+            c.stop()
+            c.clearMediaItems()
+            Prefs.saveQueue(null)
+            state = PlaybackState(autoplay = Prefs.autoplay)
+            return
+        }
+        val wasCurrent = state.track?.id == id
+        val target = if (wasCurrent) {
+            removed.coerceAtMost(remaining.lastIndex)
+        } else {
+            (c.currentMediaItemIndex - if (removed < c.currentMediaItemIndex) 1 else 0)
+                .coerceIn(0, remaining.lastIndex)
+        }
+        val wasPlaying = c.isPlaying
+        val position = if (wasCurrent) 0L else c.currentPosition
+        installQueue(c, remaining, target, position)
+        c.prepare()
+        if (wasPlaying) c.play()
+        publish(c)
+    }
+
     /** UI-facing progress pump; the service also refreshes on its own timer. */
     fun tick() {
         val c = controller ?: return

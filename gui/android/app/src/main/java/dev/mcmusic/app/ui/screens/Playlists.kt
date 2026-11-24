@@ -30,6 +30,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.mcmusic.app.data.Account
 import dev.mcmusic.app.data.Api
+import dev.mcmusic.app.data.ArtistSummary
+import dev.mcmusic.app.data.LibraryState
 import dev.mcmusic.app.data.Playlist
 import dev.mcmusic.app.data.Track
 import dev.mcmusic.app.playback.Playback
@@ -75,7 +77,7 @@ private fun PlaylistIndex(onOpenPlaylist: (Int) -> Unit) {
     var busy by remember { mutableStateOf(false) }
     var reload by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(reload) {
+    LaunchedEffect(reload, LibraryState.revision) {
         Api.playlists().fold(
             onSuccess = { playlists = it; error = null },
             onFailure = { error = it.message ?: "could not load playlists"; playlists = emptyList() },
@@ -159,8 +161,9 @@ private fun PlaylistDetail(id: Int, onOpenPlayer: () -> Unit, onBack: () -> Unit
     var renaming by remember(id) { mutableStateOf(false) }
     var draft by remember(id) { mutableStateOf("") }
     var reload by remember(id) { mutableIntStateOf(0) }
+    var artist by remember(id) { mutableStateOf<ArtistSummary?>(null) }
 
-    LaunchedEffect(id, reload) {
+    LaunchedEffect(id, reload, LibraryState.revision) {
         Api.playlist(id).fold(
             onSuccess = { (title, list) ->
                 name = title
@@ -243,11 +246,22 @@ private fun PlaylistDetail(id: Int, onOpenPlayer: () -> Unit, onBack: () -> Unit
                             }
                         }
                     },
+                    onOpenArtist = { name ->
+                        artist = ArtistSummary(name, 0, 0, track.id)
+                    },
                 )
             }
         }
         if (tracks != null) {
             item { Muted("Tracks can also be added from the web client; this list is the same data.", Modifier.padding(top = 6.dp)) }
         }
+    }
+    artist?.let {
+        CollectionSheet(
+            CollectionKind.Artist,
+            it.artist,
+            onDismiss = { artist = null },
+            onOpenPlayer = onOpenPlayer,
+        )
     }
 }

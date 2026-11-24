@@ -35,7 +35,9 @@ import androidx.compose.ui.unit.sp
 import dev.mcmusic.app.data.Account
 import dev.mcmusic.app.data.AlbumSummary
 import dev.mcmusic.app.data.Api
+import dev.mcmusic.app.data.ArtistSummary
 import dev.mcmusic.app.data.HomeFeed
+import dev.mcmusic.app.data.LibraryState
 import dev.mcmusic.app.data.Listener
 import dev.mcmusic.app.data.Track
 import dev.mcmusic.app.playback.Playback
@@ -70,8 +72,9 @@ fun HomeScreen(onOpenSearch: () -> Unit, onOpenPlayer: () -> Unit) {
     var loading by remember { mutableStateOf(true) }
     var reload by remember { mutableIntStateOf(0) }
     var album by remember { mutableStateOf<AlbumSummary?>(null) }
+    var artist by remember { mutableStateOf<ArtistSummary?>(null) }
 
-    LaunchedEffect(reload, me != null) {
+    LaunchedEffect(reload, me != null, LibraryState.revision) {
         loading = true
         val failures = mutableListOf<String>()
         Api.listening().fold(
@@ -180,6 +183,8 @@ fun HomeScreen(onOpenSearch: () -> Unit, onOpenPlayer: () -> Unit) {
             TrackRow(track, menu = true, onClick = {
                 Playback.play(shownRecent, shownRecent.indexOf(track))
                 onOpenPlayer()
+            }, onOpenArtist = { name ->
+                artist = ArtistSummary(name, 0, 0, track.id)
             })
         }
     }
@@ -189,6 +194,14 @@ fun HomeScreen(onOpenSearch: () -> Unit, onOpenPlayer: () -> Unit) {
             kind = CollectionKind.Album,
             name = entry.album,
             onDismiss = { album = null },
+            onOpenPlayer = onOpenPlayer,
+        )
+    }
+    artist?.let { entry ->
+        CollectionSheet(
+            kind = CollectionKind.Artist,
+            name = entry.artist,
+            onDismiss = { artist = null },
             onOpenPlayer = onOpenPlayer,
         )
     }
