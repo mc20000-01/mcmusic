@@ -1,8 +1,10 @@
 package dev.mcmusic.app.ui
 
 import androidx.annotation.DrawableRes
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -20,15 +22,23 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -49,7 +60,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.mcmusic.app.data.Account
 import dev.mcmusic.app.data.Api
+import dev.mcmusic.app.data.LibraryState
 import dev.mcmusic.app.data.Playlist
 import dev.mcmusic.app.data.Prefs
 import dev.mcmusic.app.data.Track
@@ -319,6 +332,7 @@ fun TrackCover(track: Track, size: Dp = 44.dp, radius: Dp = 6.dp) {
 fun List<Track>.visibleTracks(): List<Track> =
     if (Prefs.hideExplicit) filterNot { it.explicit } else this
 
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun TrackRow(
     track: Track,
@@ -327,69 +341,198 @@ fun TrackRow(
     trailing: (@Composable RowScope.() -> Unit)? = null,
     menu: Boolean = false,
     onClick: () -> Unit,
+    onOpenArtist: ((String) -> Unit)? = null,
 ) {
     val design = LocalDesign.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val current = dev.mcmusic.app.playback.Playback.state.track?.id == track.id
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(design.tileRadius))
-            .background(if (current) design.accentWash else Color.Transparent)
-            .clickable { onClick() }
-            .padding(horizontal = 10.dp, vertical = 9.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        TrackCover(track, 46.dp, 12.dp)
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                track.title,
-                color = if (current) design.accent else design.fg,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                subtitle ?: listOf(track.artist, track.album).filter { it.isNotBlank() }.joinToString(" · "),
-                color = design.dim,
-                fontSize = 12.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+    var menuOpen by remember { mutableStateOf(false) }
+    var confirmRemove by remember { mutableStateOf(false) }
+
+    fun toggleLike() {
+        scope.launch {
+            Api.toggleLike(track.id).fold(
+                onSuccess = {
+                    Toast.makeText(
+                        context,
+                        if (it) "Added to likes" else "Removed from likes",
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                    LibraryState.changed()
+                },
+                onFailure = {
+                    Toast.makeText(context, it.message ?: "Could not update like", Toast.LENGTH_SHORT).show()
+                },
             )
         }
-        trailing?.invoke(this)
-        if (menu) TrackActionsMenu(track)
+    }
+
+    fun askRemove() {
+        if (!Account.isAdmin) {
+            Toast.makeText(context, "Only admins can remove tracks", Toast.LENGTH_SHORT).show()
+            return
+        }
+        confirmRemove = true
+    }
+
+    fun removeTrack() {
+        confirmRemove = false
+        scope.launch {
+            Api.deleteTrack(track.id).fold(
+                onSuccess = {
+                    dev.mcmusic.app.playback.Playback.removeTrack(track.id)
+                    LibraryState.changed()
+                    Toast.makeText(context, "Removed ${track.title} from mcmusic", Toast.LENGTH_SHORT).show()
+                },
+                onFailure = {
+                    Toast.makeText(context, it.message ?: "Could not remove track", Toast.LENGTH_SHORT).show()
+                },
+            )
+        }
+    }
+
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            when (value) {
+                SwipeToDismissBoxValue.StartToEnd -> toggleLike()
+                SwipeToDismissBoxValue.EndToStart -> askRemove()
+                SwipeToDismissBoxValue.Settled -> Unit
+            }
+            // Always settle back; the action (or confirmation) is the result.
+            false
+        },
+    )
+
+    SwipeToDismissBox(
+        state = dismissState,
+        modifier = modifier.fillMaxWidth(),
+        enableDismissFromStartToEnd = menu,
+        enableDismissFromEndToStart = menu && Account.isAdmin,
+        backgroundContent = {
+            Row(
+                Modifier.fillMaxSize().padding(horizontal = 20.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                if (menu) {
+                    Icon(
+                        painterResource(Lucide.Heart),
+                        contentDescription = if (track.liked) "Unlike" else "Like",
+                        tint = if (track.liked) Danger else design.accent,
+                    )
+                } else {
+                    Box(Modifier.weight(1f))
+                }
+                if (menu && Account.isAdmin) {
+                    Icon(
+                        painterResource(Lucide.Trash),
+                        contentDescription = "Remove track",
+                        tint = Danger,
+                    )
+                }
+            }
+        },
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(design.tileRadius))
+                .background(if (current) design.accentWash else Color.Transparent)
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = if (menu) ({ menuOpen = true }) else null,
+                )
+                .padding(horizontal = 10.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            TrackCover(track, 46.dp, 12.dp)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    track.title,
+                    color = if (current) design.accent else design.fg,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    subtitle ?: listOf(track.artist, track.album).filter { it.isNotBlank() }.joinToString(" · "),
+                    color = design.dim,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            trailing?.invoke(this)
+            if (menu) {
+                TrackActionsMenu(
+                    track = track,
+                    expanded = menuOpen,
+                    onExpandedChange = { menuOpen = it },
+                    onRemove = ::askRemove,
+                    onOpenArtist = onOpenArtist,
+                )
+            }
+        }
+    }
+
+    if (confirmRemove) {
+        AlertDialog(
+            onDismissRequest = { confirmRemove = false },
+            title = { Text("Remove track?") },
+            text = {
+                Text(
+                    "\"${track.title}\" will be deleted from mcmusic for everyone. " +
+                        "Playlists, likes and queues pointing at it are updated too.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = ::removeTrack) { Text("Remove", color = Danger) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmRemove = false }) { Text("Cancel") }
+            },
+        )
     }
 }
 
 /**
- * Like / add-to-playlist actions, restored from the old Android client. The
- * playlists are loaded when the menu opens so ordinary browsing makes no extra
- * requests.
+ * Track actions: like, playlist, radio, artist and info. The playlists load
+ * when the menu opens (also on a long press), so ordinary browsing makes no
+ * extra requests. Admins also get Remove from mcmusic. [onOpenArtist] is only
+ * supplied from screens that can show an artist collection.
  */
 @Composable
-fun TrackActionsMenu(track: Track, modifier: Modifier = Modifier) {
+fun TrackActionsMenu(
+    track: Track,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    onRemove: () -> Unit,
+    onOpenArtist: ((String) -> Unit)? = null,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var expanded by remember { mutableStateOf(false) }
+    val design = LocalDesign.current
     var picker by remember { mutableStateOf(false) }
+    var showInfo by remember { mutableStateOf(false) }
     var playlists by remember { mutableStateOf<List<Playlist>>(emptyList()) }
     var busy by remember { mutableStateOf(false) }
 
+    LaunchedEffect(expanded) {
+        if (expanded) Api.playlists().onSuccess { playlists = it }
+    }
+
     Box(modifier) {
-        IconButton(Lucide.Ellipsis, size = 16.dp, onClick = {
-            expanded = true
-            scope.launch {
-                Api.playlists().onSuccess { playlists = it }
-            }
-        })
-        DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
+        IconButton(Lucide.Ellipsis, size = 16.dp, onClick = { onExpandedChange(true) })
+        DropdownMenu(expanded, onDismissRequest = { onExpandedChange(false) }) {
             DropdownMenuItem(
                 text = { Text(if (track.liked) "Unlike" else "Like", fontSize = 13.sp) },
                 leadingIcon = { LucideIcon(Lucide.Heart, LocalDesign.current.accent, Modifier.size(16.dp)) },
                 onClick = {
-                    expanded = false
+                    onExpandedChange(false)
                     scope.launch {
                         Api.toggleLike(track.id).fold(
                             onSuccess = {
@@ -398,6 +541,7 @@ fun TrackActionsMenu(track: Track, modifier: Modifier = Modifier) {
                                     if (it) "Added to likes" else "Removed from likes",
                                     Toast.LENGTH_SHORT,
                                 ).show()
+                                LibraryState.changed()
                             },
                             onFailure = {
                                 Toast.makeText(context, it.message ?: "Could not update like", Toast.LENGTH_SHORT).show()
@@ -408,9 +552,57 @@ fun TrackActionsMenu(track: Track, modifier: Modifier = Modifier) {
             )
             DropdownMenuItem(
                 text = { Text("Add to playlist", fontSize = 13.sp) },
-                leadingIcon = { LucideIcon(Lucide.ListPlus, LocalDesign.current.accent, Modifier.size(16.dp)) },
-                onClick = { expanded = false; picker = true },
+                leadingIcon = { LucideIcon(Lucide.ListPlus, design.accent, Modifier.size(16.dp)) },
+                onClick = { onExpandedChange(false); picker = true },
             )
+            DropdownMenuItem(
+                text = { Text("Start radio", fontSize = 13.sp) },
+                leadingIcon = { LucideIcon(Lucide.Radio, design.accent, Modifier.size(16.dp)) },
+                onClick = {
+                    onExpandedChange(false)
+                    scope.launch {
+                        Api.radio(track.id).fold(
+                            onSuccess = { suggestions ->
+                                val queue = buildList {
+                                    add(track)
+                                    suggestions
+                                        .filter { it.id > 0 && it.id != track.id }
+                                        .distinctBy { it.id }
+                                        .forEach { add(it) }
+                                }
+                                dev.mcmusic.app.playback.Playback.play(queue, 0)
+                                Toast.makeText(
+                                    context,
+                                    "Radio started from ${track.title}",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            },
+                            onFailure = {
+                                Toast.makeText(context, it.message ?: "Could not start radio", Toast.LENGTH_SHORT).show()
+                            },
+                        )
+                    }
+                },
+            )
+            onOpenArtist?.let { openArtist ->
+                DropdownMenuItem(
+                    text = { Text("Go to artist", fontSize = 13.sp) },
+                    leadingIcon = { LucideIcon(Lucide.User, design.accent, Modifier.size(16.dp)) },
+                    onClick = { onExpandedChange(false); openArtist(track.artist) },
+                )
+            }
+            DropdownMenuItem(
+                text = { Text("Track info", fontSize = 13.sp) },
+                leadingIcon = { LucideIcon(Lucide.Info, design.accent, Modifier.size(16.dp)) },
+                onClick = { onExpandedChange(false); showInfo = true },
+            )
+            if (Account.isAdmin) {
+                DropdownMenuItem(
+                    text = { Text("Remove from mcmusic", color = Danger, fontSize = 13.sp) },
+                    leadingIcon = { LucideIcon(Lucide.Trash, Danger, Modifier.size(16.dp)) },
+                    onClick = { onExpandedChange(false); onRemove() },
+                )
+            }
         }
     }
 
@@ -455,6 +647,31 @@ fun TrackActionsMenu(track: Track, modifier: Modifier = Modifier) {
                 GhostButton("Close") { picker = false }
             }
         }
+    }
+
+    if (showInfo) {
+        AlertDialog(
+            onDismissRequest = { showInfo = false },
+            title = { Text("Track info") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(
+                        "Title" to track.title,
+                        "Artist" to track.artist.ifBlank { "Unknown artist" },
+                        "Album" to track.album.ifBlank { "Unknown album" },
+                        "Duration" to formatDuration(track.duration),
+                        "Explicit" to if (track.explicit) "Yes" else "No",
+                        "Track ID" to track.id.toString(),
+                    ).forEach { (label, value) ->
+                        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                            Text(label, color = design.dim, fontSize = 11.sp)
+                            Text(value, color = design.fg, fontSize = 13.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showInfo = false }) { Text("Close") } },
+        )
     }
 }
 

@@ -45,6 +45,10 @@ class PlayerState:
     next: Track | None = None
     # Free-form suffix shared by every sink, e.g. this account's room invite.
     extra: str = ""
+    # Clickable links for rich status cards. ``extra`` stays as display text so
+    # plain-text sinks do not suddenly gain raw URLs in the status line.
+    room_url: str = ""
+    profile_url: str = ""
 
     # ── derived ──────────────────────────────────────────────────────────
     @property
@@ -123,4 +127,5 @@ class PlayerState:
             t.id if t else None, self.playing, round(self.position, 1), self.loop,
             self.shuffle, self.queue_index, self.queue_len,
             self.next.id if self.next else None, self.extra,
+            self.room_url, self.profile_url,
         )

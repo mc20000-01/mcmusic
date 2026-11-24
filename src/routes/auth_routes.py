@@ -357,10 +357,11 @@ def _listening_activity(uid, row, position):
             settings = json.loads(sr["data"])
         except ValueError:
             settings = {}
-    room = ""
-    if settings.get("show_room_url"):
-        from routes.system_routes import room_url
-        room = room_url(uid)
+    from routes.system_routes import room_url
+    room = room_url(uid)
+    # Rotur's card always gets a real "Play with me" button. The older plain
+    # text status still honours the user's show-room-link setting.
+    status_room = room if settings.get("show_room_url") else ""
 
     user_row = _db().execute(
         "select username from users where id=?", (uid,)
@@ -368,10 +369,16 @@ def _listening_activity(uid, row, position):
     username = user_row["username"] if user_row else ""
     base = PUBLIC_URL or request.url_root.rstrip("/")
     profile_url = f"{base}/u/{quote(username)}" if username else ""
-    cover_url = f"{base}/u/{quote(username)}/cover.png" if username else ""
+    # Make the status image specific to the song in this activity, not to
+    # whatever playback row happens to be current when Rotur fetches it.
+    cover_url = ""
+    if username and row:
+        song = quote(str(row["title"] or "song"), safe="")
+        cover_url = f"{base}/u/{quote(username)}/{song}.png?track={row['id']}"
     return rotur.listening_activity(
         row, position, room,
         cover_url=cover_url, profile_url=profile_url,
+        status_room=status_room,
     )
 
 

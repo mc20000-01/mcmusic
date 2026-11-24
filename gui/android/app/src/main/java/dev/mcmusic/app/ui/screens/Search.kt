@@ -33,6 +33,7 @@ import dev.mcmusic.app.data.Account
 import dev.mcmusic.app.data.AlbumSummary
 import dev.mcmusic.app.data.Api
 import dev.mcmusic.app.data.ArtistSummary
+import dev.mcmusic.app.data.LibraryState
 import dev.mcmusic.app.data.Listener
 import dev.mcmusic.app.data.SearchResults
 import dev.mcmusic.app.playback.Playback
@@ -105,7 +106,7 @@ fun SearchScreen(onPlaylist: (Int) -> Unit, onOpenPlayer: () -> Unit) {
 
     // Cancel the previous request so a slow earlier query cannot overwrite the
     // results of a newer one.
-    LaunchedEffect(query, Account.me?.id) {
+    LaunchedEffect(query, Account.me?.id, LibraryState.revision) {
         searchJob?.cancel()
         searchJob = launch {
             delay(250)
@@ -232,6 +233,8 @@ fun SearchScreen(onPlaylist: (Int) -> Unit, onOpenPlayer: () -> Unit) {
                     TrackRow(track, menu = true, onClick = {
                         Playback.play(shownTracks, shownTracks.indexOf(track))
                         onOpenPlayer()
+                    }, onOpenArtist = { name ->
+                        artist = ArtistSummary(name, 0, 0, track.id)
                     })
                 }
             }

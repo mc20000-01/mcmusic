@@ -58,6 +58,8 @@ this repository, and `.gitignore` keeps it that way.
 ```bash
 python tools/fix_music_db.py --fix-albums        # album tag = sidecar album, else song name
 python tools/fetch_albums.py --workers 6         # ask YouTube for real albums, resumable
+python tools/import_zip.py tracks.zip --dry-run  # list MP3s in a zip before importing
+python tools/import_zip.py tracks.zip            # import, enrich from YouTube, dedupe
 python src/dedupe_library.py --dry-run           # duplicate songs, what would merge
 python src/dedupe_library.py                     # merge them, keep both links
 ```
@@ -198,16 +200,20 @@ shadow root, so page CSS only reaches the outside: width, margins,
 `--mc-radius`, `--mc-font` and the colour variables.
 
 Colours come from the `theme` and `accent` attributes unless your own CSS
-declares them, in which case the page wins — so a site-wide palette is just:
+declares them, in which case the page wins. The built-in palettes are the
+flufi v3 ink scale with the violet `#a06bff` accent; on a flufi-ui page the
+widgets also inherit `--back`, `--text`, `--accent` and `--back-border`. A
+site-wide override is just:
 
 ```css
 mcmusic-now, mcmusic-card, mcmusic-bar {
-  --mc-bg: #101418;    /* card background      */
-  --mc-bg2: #0a0d10;   /* gradient end         */
-  --mc-fg: #f2f4f7;    /* primary text         */
-  --mc-dim: #a9b4bf;   /* secondary text       */
-  --mc-line: #2a343d;  /* borders              */
-  --mc-accent: #7bd6a0; /* dot, progress, links */
+  --mc-bg: #08060d;    /* card background      */
+  --mc-bg2: #100c18;   /* raised surface       */
+  --mc-fg: #ffffff;    /* primary text         */
+  --mc-dim: #948aa6;   /* secondary text       */
+  --mc-line: #1f1830;  /* borders              */
+  --mc-accent: #a06bff; /* dot, progress, links */
+  --mc-radius: 10px;   /* flufi one-radius      */
 }
 ```
 

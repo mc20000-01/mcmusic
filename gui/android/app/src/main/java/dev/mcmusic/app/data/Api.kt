@@ -28,6 +28,9 @@ data class Track(
     val liked: Boolean = false,
 )
 
+/** Lyrics text plus the server's source label (for example LRCLIB or stored). */
+data class Lyrics(val text: String, val source: String = "")
+
 data class Listener(
     val username: String,
     val listening: Boolean,
@@ -283,6 +286,17 @@ object Api {
         JSONObject(post("/api/like/$id", "{}")).optBoolean("liked")
     }
 
+    /** The signed-in account's liked tracks, newest first. */
+    suspend fun likes(): Result<List<Track>> = call {
+        tracksOf(JSONObject(get("/api/likes")).optJSONArray("tracks"))
+    }
+
+    /** Stored or synced lyrics, fetched and cached by the server on first use. */
+    suspend fun lyrics(trackId: Int): Result<Lyrics> = call {
+        val json = JSONObject(get("/api/tracks/$trackId/lyrics"))
+        Lyrics(json.optString("lyrics"), json.optString("source"))
+    }
+
     /** Similar tracks from `/api/radio/<id>`; used to refill a finished queue. */
     suspend fun radio(trackId: Int): Result<List<Track>> = call {
         tracksOf(JSONObject(get("/api/radio/$trackId")).optJSONArray("tracks"))
@@ -484,6 +498,37 @@ object Api {
     suspend fun adminScan(): Result<Pair<Int, Int>> = call {
         val j = JSONObject(post("/api/admin/scan", "{}"))
         j.optInt("tracks") to j.optInt("albums")
+    }
+
+    /** The signed-in user's recent download/import requests. */
+    suspend fun myRequests(): Result<List<DownloadRequest>> = call {
+        val arr = JSONObject(get("/api/requests")).optJSONArray("requests")
+            ?: return@call emptyList()
+        buildList {
+            for (i in 0 until arr.length()) {
+                val r = arr.optJSONObject(i) ?: continue
+                add(
+                    DownloadRequest(
+                        id = r.optInt("id"),
+                        url = r.optString("url"),
+                        status = r.optString("status"),
+                        username = r.optString("username"),
+                        running = r.optBoolean("running"),
+                        elapsed = r.optLong("elapsed"),
+                        log = r.optString("log"),
+                    ),
+                )
+            }
+        }
+    }
+
+    /**
+     * Ask the server to add music. It accepts YouTube links and direct https
+     * MP3/audio/ZIP links; admins start immediately, others queue for approval.
+     */
+    suspend fun requestDownload(url: String): Result<String> = call {
+        val body = JSONObject().put("url", url).toString()
+        JSONObject(post("/api/requests", body)).optString("status", "pending")
     }
 
     suspend fun adminRequests(): Result<List<DownloadRequest>> = call {

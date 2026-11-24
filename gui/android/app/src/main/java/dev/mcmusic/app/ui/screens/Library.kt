@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import dev.mcmusic.app.data.AlbumSummary
 import dev.mcmusic.app.data.Api
 import dev.mcmusic.app.data.ArtistSummary
+import dev.mcmusic.app.data.LibraryState
 import dev.mcmusic.app.data.Track
 import dev.mcmusic.app.playback.Playback
 import dev.mcmusic.app.ui.Cover
@@ -46,6 +47,7 @@ import dev.mcmusic.app.ui.ErrorLine
 import dev.mcmusic.app.ui.GhostButton
 import dev.mcmusic.app.ui.Loading
 import dev.mcmusic.app.ui.Lucide
+import dev.mcmusic.app.ui.LucideIcon
 import dev.mcmusic.app.ui.MediaCard
 import dev.mcmusic.app.ui.ScreenTitle
 import dev.mcmusic.app.ui.TrackRow
@@ -59,7 +61,7 @@ import dev.mcmusic.app.ui.design.mcSurface
  * it needs no extra endpoint and stays consistent with search results.
  */
 @Composable
-fun LibraryScreen(onOpenPlaylists: () -> Unit, onOpenPlayer: () -> Unit) {
+fun LibraryScreen(onOpenPlaylists: () -> Unit, onOpenLikes: () -> Unit, onOpenPlayer: () -> Unit) {
     val design = LocalDesign.current
     var tab by remember { mutableIntStateOf(0) }
     var tracks by remember { mutableStateOf<List<Track>?>(null) }
@@ -68,7 +70,7 @@ fun LibraryScreen(onOpenPlaylists: () -> Unit, onOpenPlayer: () -> Unit) {
     var artist by remember { mutableStateOf<ArtistSummary?>(null) }
     var reload by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(reload) {
+    LaunchedEffect(reload, LibraryState.revision) {
         Api.tracks(limit = 1000).fold(
             onSuccess = { tracks = it; error = null },
             onFailure = { error = it.message ?: "could not load the library" },
@@ -128,6 +130,23 @@ fun LibraryScreen(onOpenPlaylists: () -> Unit, onOpenPlayer: () -> Unit) {
                 }
                 Box(Modifier.weight(1f))
                 GhostButton("Playlists", onClick = onOpenPlaylists)
+            }
+            Row(
+                Modifier.fillMaxWidth().mcSurface().clickable { onOpenLikes() }.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Box(
+                    Modifier.size(34.dp).clip(CircleShape).background(design.accentSoft),
+                    Alignment.Center,
+                ) {
+                    LucideIcon(Lucide.Heart, design.accent, Modifier.size(16.dp))
+                }
+                Column(Modifier.weight(1f)) {
+                    Text("Liked songs", color = design.fg, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                    Text("Your favourites, newest first · play them all", color = design.dim, fontSize = 11.sp)
+                }
+                LucideIcon(Lucide.ChevronRight, design.dim, Modifier.size(16.dp))
             }
         }
 
@@ -200,6 +219,8 @@ fun LibraryScreen(onOpenPlaylists: () -> Unit, onOpenPlayer: () -> Unit) {
                             TrackRow(track, menu = true, onClick = {
                                 Playback.play(shown, shown.indexOf(track))
                                 onOpenPlayer()
+                            }, onOpenArtist = { name ->
+                                artist = ArtistSummary(name, 0, 0, track.id)
                             })
                         }
                     }

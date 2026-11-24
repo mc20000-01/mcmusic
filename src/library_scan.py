@@ -251,6 +251,20 @@ def yt_rate_limited(exc):
     return bool(YT_RATE_RE.search(str(exc or "")))
 
 
+def has_real_artist(row):
+    """True when a track already has a usable credited artist."""
+    try:
+        names = json.loads(row["artists"] or "[]")
+    except (TypeError, ValueError):
+        names = []
+    names = [str(n).strip() for n in names if str(n).strip()]
+    raw = str(row["artist"] or "").strip()
+    if raw:
+        names.append(raw)
+    bad = {"", "unknown", "unknown artist", "unknownartist"}
+    return any(n.casefold() not in bad for n in names)
+
+
 def yt_worker():
     global yt_blocked_until, yt_backoff
     conn = _db()
@@ -263,7 +277,10 @@ def yt_worker():
                 if delay <= 0:
                     break
                 time.sleep(min(5.0, delay))
-            r = conn.execute("select yt_id, title, genre, themes from tracks where id=?", (tid,)).fetchone()
+            r = conn.execute(
+                "select yt_id, title, artist, artists, genre, themes from tracks where id=?",
+                (tid,),
+            ).fetchone()
             if r and r["yt_id"]:
                 info = None
                 try:
@@ -296,6 +313,17 @@ def yt_worker():
                                   info.get("channel") or info.get("uploader"), info.get("upload_date"),
                                   ex, time.time(), yt_tags, json.dumps(meta["themes"]),
                                   meta["genre"], tid))
+                    # A file scanned before its YouTube metadata existed can be
+                    # left with no (or "Unknown") artist. Fill it from the
+                    # video, and give every credited artist their own page.
+                    if not has_real_artist(r) and meta["artists"]:
+                        conn.execute("update tracks set artist=? where id=?",
+                                     (meta["artist"], tid))
+                        index_track(conn, tid, meta["artist"], meta["title"],
+                                    names=meta["artists"])
+                    if not r["title"] or r["title"].casefold().startswith("unknown"):
+                        conn.execute("update tracks set title=? where id=?",
+                                     (meta["title"], tid))
                 elif not retry:
                     conn.execute("update tracks set yt_checked=? where id=?", (time.time(), tid))
                 conn.commit()

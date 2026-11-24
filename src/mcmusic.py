@@ -257,7 +257,8 @@ def api_docs():
                          "GET /api/channels/<id>/state", "POST /api/channels/<id>/dashboard",
                          "GET /api/bot/context", "POST /api/bot/rotur-ticket"],
             "public": ["GET /u/<username> (no auth)",
-                       "GET /u/<username>/cover.png (no auth)"],
+                       "GET /u/<username>/cover.png (no auth)",
+                       "GET /u/<username>/<song>.png (no auth)"],
             "requests": ["POST /api/requests", "GET /api/requests",
                          "POST /api/requests/<id>/<action>"],
             "rooms": ["POST /api/rooms", "GET|DELETE /api/rooms/<code>",
@@ -475,22 +476,18 @@ def _ui_response():
     """The v3 client (ui/ -> web/ui/): one bundle for every app route."""
     path = os.path.join(UI_DIR, "index.html")
     if not os.path.exists(path):
-        return Response(
-            "<!doctype html><title>mcmusic</title>"
-            "<body style=\"font:15px/1.5 system-ui;background:#08080a;color:#cfcfd6;"
-            "display:grid;place-items:center;height:100vh;margin:0\">"
-            "<main style=\"max-width:32rem;padding:2rem\">"
-            "<h1 style=\"font-size:1.1rem;font-weight:600\">mcmusic</h1>"
-            "<p>The web client has not been built on this server.</p>"
-            "<pre style=\"background:#0f0f12;padding:.75rem;border-radius:10px\">"
-            "./scripts/build_ui.sh</pre>"
-            "<p>Full setup and upgrade steps are in the "
-            "<a style=\"color:#A06BFF\" "
-            "href=\"https://github.com/mc20000-01/mcmusic/blob/main/docs/selfhost.md\">"
-            "self-hosting guide</a>.</p></main>",
-            status=503,
-            mimetype="text/html",
+        from flufi_pages import flufi_page
+        body = (
+            '<section class="container box">'
+            '<h1 class="header">mcmusic</h1>'
+            '<p class="text">The web client has not been built on this server.</p>'
+            '<pre>./scripts/build_ui.sh</pre>'
+            '<p class="text">Full setup and upgrade steps are in the '
+            '<a href="https://github.com/mc20000-01/mcmusic/blob/main/docs/selfhost.md">'
+            'self-hosting guide</a>.</p>'
+            '</section>'
         )
+        return flufi_page("mcmusic", body, status=503)
     with open(path, encoding="utf-8") as fh:
         body = fh.read()
     return Response(body, mimetype="text/html",

@@ -8,11 +8,20 @@ import "./style.css";
 
 type Request = { id: number; url: string; status: string };
 
-/** Accepts youtube.com, music.youtube.com and youtu.be links only. */
-function isYouTubeLink(value: string): boolean {
+const DIRECT_EXTS = [".mp3", ".m4a", ".aac", ".opus", ".flac", ".wav", ".webm", ".ogg", ".zip"];
+
+/** YouTube links plus direct HTTPS audio/ZIP links, matching the server. */
+function isMusicLink(value: string): boolean {
     try {
-        const { hostname } = new URL(value);
-        return /(^|\.)youtube\.com$/.test(hostname) || /(^|\.)youtu\.be$/.test(hostname);
+        const url = new URL(value);
+        if (url.protocol !== "https:" || !url.hostname || url.username || url.password) {
+            return false;
+        }
+        if (/(^|\.)youtube\.com$/.test(url.hostname) || /(^|\.)youtu\.be$/.test(url.hostname)) {
+            return true;
+        }
+        const path = decodeURIComponent(url.pathname).toLowerCase();
+        return DIRECT_EXTS.some(ext => path.endsWith(ext));
     } catch {
         return false;
     }
@@ -31,7 +40,7 @@ function statusLabel(status: string): string {
 }
 
 /**
- * "Add music": submit a YouTube link as a download request. Admins get it
+ * "Add music": submit a YouTube or direct audio/ZIP link. Admins get it
  * started immediately, everyone else queues it for approval.
  */
 export function UploadPage() {
@@ -64,8 +73,8 @@ export function UploadPage() {
         setError(null);
         setSent(null);
         if (link == "") return;
-        if (!isYouTubeLink(link)) {
-            setError("Please paste a YouTube or YouTube Music link (like https://youtube.com/watch?v=...).");
+        if (!isMusicLink(link)) {
+            setError("Please paste an https YouTube link or a direct https .mp3, audio or .zip link.");
             return;
         }
 
@@ -89,11 +98,11 @@ export function UploadPage() {
         <Content class="upload" wrapped>
             <Container extra_gap>
                 <Header2>Add music</Header2>
-                <Text dim content="Paste a YouTube or YouTube Music link (video or playlist). If you’re an admin it starts right away; otherwise an admin will approve it first." />
-                <FormalInput label="YouTube link">
+                <Text dim content="Paste a YouTube link (video or playlist), or a direct https link to an MP3/audio file or a ZIP of tracks. If you’re an admin it starts right away; otherwise an admin will approve it first." />
+                <FormalInput label="YouTube, MP3 or ZIP link">
                     <Input
                         value={url}
-                        placeholder="https://www.youtube.com/watch?v=…"
+                        placeholder="https://…/album.zip"
                         onEnter={submit}
                     />
                 </FormalInput>

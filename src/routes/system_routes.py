@@ -4,7 +4,7 @@ from flask import (
 )
 from html import escape
 from urllib.parse import quote
-import os, secrets, threading, time, shlex, subprocess, shutil, math
+import os, secrets, threading, time, shlex, subprocess, shutil, math, logging
 from collections import defaultdict
 
 import sys as _sys
@@ -18,6 +18,7 @@ from auth import (
 )
 from database import _db, track_dict, liked_ids, find_repeat_request, video_in_library
 from library_scan import scan_library
+from flufi_pages import flufi_page
 
 bp = Blueprint("system_api", __name__)
 START_TIME = time.time()
@@ -25,7 +26,7 @@ START_TIME = time.time()
 # --------------------------------------------------------------------------- config refs
 from config import (
     MUSIC_DIR, DL_SCRIPT, DL_ARGS, STAGING_DIR, AUTO_APPROVE, LOG_DIR, API_RATE_LIMIT,
-    PUBLIC_URL,
+    PUBLIC_URL, AUDIO_EXTS,
 )
 
 @bp.get("/health")
@@ -115,79 +116,80 @@ def public_profile(username):
     """A no-login profile card suitable for a Discord/Rotur status link."""
     account, now = _public_account(username)
     if not account:
-        return Response("<h1>Profile not found</h1>", status=404, mimetype="text/html")
+        return flufi_page(
+            "Profile not found",
+            '<section class="container box">'
+            '<h1 class="header">Profile not found</h1>'
+            '<p class="text">That mcmusic user does not exist.</p>'
+            '<a class="button variant-accent" href="/">Open mcmusic</a>'
+            '</section>',
+            status=404,
+        )
 
     base = PUBLIC_URL or request.url_root.rstrip("/")
     name = account["username"]
     profile_url = f"{base}/u/{quote(name)}"
     track_id = now["track_id"] if now and now["track_id"] else 0
     updated = int((now["updated"] if now and now["updated"] else 0) or 0)
-    cover_ver = f"{int(track_id)}-{updated}" if track_id else str(updated or int(time.time() // 60))
-    cover_url = f"{base}/u/{quote(name)}/cover.png?v={quote(cover_ver)}"
     track = now["title"] if now and now["title"] else ""
+    if track:
+        cover_url = (
+            f"{base}/u/{quote(name)}/{quote(track, safe='')}.png?track={track_id}"
+        )
+    else:
+        cover_ver = str(updated or int(time.time() // 60))
+        cover_url = f"{base}/u/{quote(name)}/cover.png?v={quote(cover_ver)}"
     artist = now["artist"] if now and now["artist"] else ""
     album = now["album"] if now and now["album"] else ""
     listening = bool(now and now["playing"] and track)
-    if track:
-        detail = f"{track} — {artist}" if artist else track
-        state = "Listening now" if listening else "Paused"
-    else:
-        detail = "Nothing playing at the moment"
-        state = "mcmusic"
-    title = f"{name} · mcmusic"
+    detail = f"{track} — {artist}" if track else "Nothing playing at the moment"
+    state = ("Listening now" if listening else "Paused") if track else "mcmusic"
     desc = f"{state}: {detail}" if track else detail
+    title = f"{name} · mcmusic"
 
-    page = f"""<!doctype html><html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="refresh" content="30">
-<title>{escape(title)}</title>
-<link rel="canonical" href="{escape(profile_url)}">
-<meta property="og:type" content="profile">
-<meta property="og:title" content="{escape(title)}">
-<meta property="og:description" content="{escape(desc)}">
-<meta property="og:url" content="{escape(profile_url)}">
-<meta property="og:image" content="{escape(cover_url)}">
-<meta property="og:image:secure_url" content="{escape(cover_url)}">
-<meta property="og:image:alt" content="{escape(detail)}">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="{escape(title)}">
-<meta name="twitter:description" content="{escape(desc)}">
-<meta name="twitter:image" content="{escape(cover_url)}">
-<style>
-:root{{color-scheme:dark;--bg:#0e0a13;--panel:#1b1325;--line:#3e2b54;--fg:#f2edf7;--dim:#b9abc9;--accent:#ffffff}}
-*{{box-sizing:border-box}}body{{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 0,#241931 0,var(--bg) 55%);color:var(--fg);font:15px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;display:grid;place-items:center;padding:24px}}
-a{{color:inherit}}.card{{width:min(100%,430px);background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:18px;box-shadow:0 24px 80px #0008}}
-img{{width:100%;aspect-ratio:1;object-fit:cover;border-radius:15px;display:block;background:#241931}}
-.kicker{{margin:18px 0 4px;color:var(--accent);font-size:11px;letter-spacing:.14em;text-transform:uppercase}}
-h1{{margin:0;font-size:27px;line-height:1.1;letter-spacing:-.03em}}
-.state{{color:var(--dim);font-size:12px;margin-top:8px}}.track{{font-size:16px;margin-top:14px;font-weight:600}}
-.meta{{color:var(--dim);font-size:12px;margin-top:3px}}.foot{{display:flex;justify-content:space-between;gap:12px;margin-top:20px;padding-top:14px;border-top:1px solid var(--line);font-size:12px;color:var(--dim)}}
-.btn{{color:var(--accent);text-decoration:none;font-weight:600}}@media(max-width:380px){{body{{padding:12px}}.card{{padding:12px;border-radius:18px}}}}
-</style></head><body><main class="card">
-<img src="{escape(cover_url)}" alt="">
-<p class="kicker">mcmusic profile</p>
-<h1>{escape(name)}</h1>
-<p class="state">{escape(state)}</p>
-<p class="track">{escape(track) if track else 'Nothing playing right now'}</p>
-<p class="meta">{escape(artist)}{(' · ' + escape(album)) if album else ''}</p>
-<div class="foot"><span>{escape(profile_url)}</span><a class="btn" href="{escape(base)}">Open mcmusic</a></div>
-</main></body></html>"""
-    return Response(page, mimetype="text/html", headers={
+    head = (
+        '<meta http-equiv="refresh" content="30">'
+        f'<link rel="canonical" href="{escape(profile_url)}">'
+        '<meta property="og:type" content="profile">'
+        f'<meta property="og:title" content="{escape(title)}">'
+        f'<meta property="og:url" content="{escape(profile_url)}">'
+        f'<meta property="og:image" content="{escape(cover_url)}">'
+        f'<meta property="og:image:secure_url" content="{escape(cover_url)}">'
+        f'<meta property="og:image:alt" content="{escape(detail)}">'
+        '<meta name="twitter:card" content="summary_large_image">'
+        f'<meta name="twitter:title" content="{escape(title)}">'
+        f'<meta name="twitter:image" content="{escape(cover_url)}">'
+    )
+    meta = f"{escape(artist)}{(' · ' + escape(album)) if album else ''}"
+    body = f"""<section class="container box">
+  <div class="profile-head">
+    <img class="profile-cover" src="{escape(cover_url)}" alt="">
+    <div class="container text-gap">
+      <h6 class="header mini-header dim">mcmusic profile</h6>
+      <h1 class="header">{escape(name)}</h1>
+      <span class="text dim">{escape(state)}</span>
+    </div>
+  </div>
+  <div class="seperator"></div>
+  <div class="container text-gap">
+    <span class="label">Now listening</span>
+    <p class="profile-track">{escape(track) if track else 'Nothing playing right now'}</p>
+    <span class="text dim">{meta}</span>
+  </div>
+  <div class="profile-foot">
+    <span class="text profile-url selectable">{escape(profile_url)}</span>
+    <a class="button variant-accent" href="{escape(base)}">Open mcmusic</a>
+  </div>
+</section>"""
+    return flufi_page(name, body, description=desc, head=head, headers={
         "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
         "Pragma": "no-cache",
         "Expires": "0",
     })
 
 
-@bp.get("/u/<username>/cover.png")
-def public_cover(username):
-    """The current track cover, public for status embeds; fallback is the app icon."""
-    account, now = _public_account(username)
-    if not account:
-        return Response(status=404)
-    track_id = int(now["track_id"]) if now and now["track_id"] else 0
-    updated = int((now["updated"] if now and now["updated"] else 0) or 0)
-    etag = f'W/"{track_id}-{updated}"'
+def _cover_response(track_id, etag, versioned=False):
+    """Serve one track's embedded art, or the app icon when it has none."""
     headers = {
         "ETag": etag,
         "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0, s-maxage=0",
@@ -197,7 +199,7 @@ def public_cover(username):
         "Vary": "Accept-Encoding",
     }
     # Always honor versioned URLs as unique resources for CDN caches.
-    if request.headers.get("If-None-Match") == etag and not request.args.get("v"):
+    if request.headers.get("If-None-Match") == etag and not versioned:
         return Response(status=304, headers=headers)
     if track_id:
         from routes.library_routes import _track_path, read_cover
@@ -212,6 +214,55 @@ def public_cover(username):
             resp.headers[k] = v
         return resp
     return Response(status=404, headers={"Cache-Control": "no-store", "Access-Control-Allow-Origin": "*"})
+
+
+@bp.get("/u/<username>/cover.png")
+def public_cover(username):
+    """The current track cover, public for status embeds; fallback is the app icon."""
+    account, now = _public_account(username)
+    if not account:
+        return Response(status=404)
+    track_id = int(now["track_id"]) if now and now["track_id"] else 0
+    updated = int((now["updated"] if now and now["updated"] else 0) or 0)
+    etag = f'W/"{track_id}-{updated}"'
+    return _cover_response(track_id, etag, versioned=bool(request.args.get("v")))
+
+
+@bp.get("/u/<username>/<path:song>.png")
+def public_song_cover(username, song):
+    """Cover for a named song, independent of the account's current playback.
+
+    Rotur status cards cache images by URL, so the activity publishes a URL
+    containing the song title. The optional ``track`` parameter pins the exact
+    library row; a mismatched id falls back to the name so a stale id can never
+    show the wrong cover.
+    """
+    account, _ = _public_account(username)
+    if not account:
+        return Response(status=404)
+    if song.lower() == "cover" and not request.args.get("track"):
+        return public_cover(username)
+
+    from artists import norm_key
+    import song_meta
+
+    def key(value):
+        return norm_key(song_meta.match_text(value))
+
+    target = key(song)
+    row = None
+    tid = request.args.get("track", type=int)
+    if tid:
+        found = _db().execute("select id, title from tracks where id=?", (tid,)).fetchone()
+        if found and key(found["title"]) == target:
+            row = found
+    if row is None:
+        for found in _db().execute("select id, title from tracks order by id"):
+            if key(found["title"]) == target:
+                row = found
+                break
+    etag = f'W/"song-{row["id"] if row else "none"}"'
+    return _cover_response(row["id"] if row else 0, etag, versioned=True)
 
 
 
@@ -326,11 +377,9 @@ def embed_info():
 <title>mcmusic embeds — live demo &amp; copy-paste widgets</title>
 <meta name="description" content="Live demos of every mcmusic embed widget, with copy-paste script tags, HTML tags and a basic CSS template.">
 <link rel="stylesheet" href="/static/ui/flufi-ui.css"><style>
-/* Monochrome embeds: pure black/white, no tinted surfaces. */
-:root{color-scheme:dark;--back:#000;--back-raised:#0a0a0a;--flat-hover:#161616;--prim:#0d0d0d;--prim-brighter:#111;--seco:#161616;--tert:#222;--tert-hover:#444;--accent:#fff;--accent-hover:#e6e6e6;--text:#ededed;--text-bright:#fff;--text-dim:#a3a3a3;--text-dark:#6b6b6b;--back-border:#222;--prim-border:#262626;--text-on-light:#000}
-/* Layout only. Colours, controls, tags and tables come from flufi-ui. */
+/* Layout only. Colours, controls, tags and tables come from flufi v3. */
 *,*::before,*::after{box-sizing:border-box}
-body{margin:0;font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--text);background:var(--back)}
+body{margin:0;min-height:100vh;color:var(--text);background:var(--back)}
 a{color:var(--accent)}
 .wrap{max-width:1120px;margin:0 auto;padding:26px 18px 70px}
 .hero{padding:12px 0 4px}
@@ -343,9 +392,8 @@ p{margin:8px 0;color:var(--text-dim)}
 .lead{font-size:16px;max-width:64ch}
 em{color:var(--text);font-style:normal}
 .pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
-.container{padding:16px}
 .muted{color:var(--text-dim);font-size:13px}
-pre{margin:12px 0 0;background:var(--prim);border:1px solid var(--prim-border);border-radius:6px;padding:12px 13px;overflow:auto;color:var(--text);font:12.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;tab-size:2}
+pre{margin:12px 0 0;background:var(--prim);border:1px solid var(--prim-border);border-radius:var(--radius,10px);padding:12px 13px;overflow:auto;color:var(--text);font:12.5px/1.6 var(--font-family-mono,ui-monospace,monospace);tab-size:2}
 code{font:12.5px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--text);background:var(--seco);padding:1px 5px;border-radius:4px}
 pre code{background:none;padding:0}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
@@ -353,10 +401,10 @@ pre code{background:none;padding:0}
 .field{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--text-dim)}
 .inline{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-dim);cursor:pointer}
 .gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(315px,100%),1fr));gap:14px;margin-top:12px}
-.w{display:flex;flex-direction:column;gap:8px;background:var(--prim);border:1px solid var(--back-border);border-radius:6px;padding:14px}
+.w{display:flex;flex-direction:column;gap:8px;background:var(--prim);border:1px solid var(--back-border);border-radius:var(--radius,10px);padding:14px}
 .w .head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .w pre{margin:0;flex:1}
-.stage{border:1px dashed var(--prim-border);border-radius:6px;padding:14px;background:var(--back);display:flex;align-items:center;min-height:104px;overflow:auto}
+.stage{border:1px dashed var(--prim-border);border-radius:var(--radius,10px);padding:14px;background:var(--back);display:flex;align-items:center;min-height:104px;overflow:auto}
 .stage > *{max-width:100%;min-width:0}
 .tag.live{color:var(--text-bright)}
 table{width:100%;border-collapse:collapse;margin-top:14px;font-size:13px}
@@ -366,7 +414,7 @@ td:first-child{white-space:nowrap}
 footer{margin-top:30px;color:var(--text-dark);font-size:13px}
 @media(max-width:640px){
   thead{display:none}
-  tr{display:block;border:1px solid var(--back-border);border-radius:6px;padding:9px 11px;margin:0 0 9px}
+  tr{display:block;border:1px solid var(--back-border);border-radius:var(--radius,10px);padding:9px 11px;margin:0 0 9px}
   tr:last-child{margin-bottom:0}
   td{display:block;border:0;padding:2px 0}
   td:first-child{padding-top:0;white-space:normal;font-size:14px;font-weight:600;color:var(--text-bright)}
@@ -400,7 +448,7 @@ footer{margin-top:30px;color:var(--text-dark);font-size:13px}
   </div>
 </header>
 
-<section class="container" id="builder">
+<section class="container box" id="builder">
   <h2>1 · Include the script once per page</h2>
   <p class="muted">Put this just before <code>&lt;/body&gt;</code>. It registers every widget tag below.</p>
   <pre id="code-script"></pre>
@@ -417,7 +465,7 @@ footer{margin-top:30px;color:var(--text-dark);font-size:13px}
     </div>
     <div class="field"><span>Accent colour</span>
       <span class="row" style="margin:0">
-        <input type="color" id="accent" value="#ffffff">
+        <input type="color" id="accent" value="#a06bff">
         <label class="inline"><input type="checkbox" id="accent-off" checked> use theme colour</label>
       </span>
     </div>
@@ -444,12 +492,12 @@ footer{margin-top:30px;color:var(--text-dark);font-size:13px}
   <div class="gallery" id="gallery"></div>
 </section>
 
-<section class="container">
+<section class="container box">
   <h2>4 · Basic CSS template</h2>
-  <p class="muted">Widgets render inside a shadow root, so your page CSS can't reach their internals — that's why they look consistent anywhere. What <em>does</em> work from outside: width, margins, <code>--mc-radius</code>, <code>--mc-font</code> and the colour variables. Set colours with the <code>theme</code> and <code>accent</code> attributes for ready-made palettes, or with <code>--mc-bg</code>, <code>--mc-bg2</code>, <code>--mc-fg</code>, <code>--mc-dim</code>, <code>--mc-line</code> and <code>--mc-accent</code> from your own CSS — page CSS wins over the attributes.</p>
+  <p class="muted">Widgets render inside a shadow root, so your page CSS can't reach their internals — that's why they look consistent anywhere. What <em>does</em> work from outside: width, margins, <code>--mc-radius</code>, <code>--mc-font</code> and the colour variables. The built-in palettes are the flufi v3 ink scale with its violet accent; on a flufi-ui page the widget also inherits <code>--back</code>, <code>--text</code>, <code>--accent</code> and <code>--back-border</code>. Set colours with the <code>theme</code> and <code>accent</code> attributes, or override the <code>--mc-*</code> hooks from your own CSS — page CSS wins.</p>
   <pre id="code-css"></pre>
   <div class="row"><button class="button variant-accent" data-copy="code-css">Copy CSS template</button></div>
-  <table class="table">
+  <table class="table box">
     <thead><tr><th>Attribute</th><th>Values</th><th>Default</th><th>What it does</th></tr></thead>
     <tbody>
       <tr><td><code>user</code></td><td data-label="Values">any mcmusic username</td><td data-label="Default">—</td><td data-label="What it does">Whose status to show. Required.</td></tr>
@@ -464,7 +512,7 @@ footer{margin-top:30px;color:var(--text-dark);font-size:13px}
   </table>
 </section>
 
-<section class="container">
+<section class="container box">
   <h2>5 · Complete page</h2>
   <p class="muted">Script, tags and template together — save it as <code>index.html</code> and open it.</p>
   <pre id="code-full"></pre>
@@ -529,11 +577,12 @@ function tagFor(w, refresh, demo) {
 
 function cssTemplate() {
   return [
-    '/* mcmusic embeds — basic template',
+    '/* mcmusic embeds — flufi v3 template',
     '   Widgets render inside a shadow root, so page CSS cannot reach their',
     '   internals. Style them from outside with width, margins, --mc-radius,',
     '   --mc-font and the --mc-* colour variables; the theme and accent',
-    '   attributes only supply the defaults.',
+    '   attributes only supply flufi defaults. The mc hooks also pick up an',
+    '   enclosing flufi-ui palette (--back, --text, --accent, --back-border).',
     '',
     '   Long titles: maxlen="N" scrolls any line longer than N characters',
     '   instead of clipping it, and speed="S" sets the seconds per pass',
@@ -545,19 +594,19 @@ function cssTemplate() {
     '  display: block;',
     '  max-width: 360px;      /* card widgets read best at 320-420px */',
     '  margin: 16px 0;',
-    '  --mc-radius: 16px;     /* corner rounding (default 18px) */',
-    '  --mc-font: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;',
-    '  /* colours — uncomment and set your own to ignore the palette: */',
-    '  /* --mc-bg: #101820;  --mc-bg2: #080d12;  --mc-fg: #f2f6f8; */',
-    '  /* --mc-dim: #a8b8c2;  --mc-line: #2c3d4a;  --mc-accent: #79d8a5; */',
+    '  --mc-radius: 10px;     /* flufi one-radius scale */',
+    '  --mc-font: inherit;    /* match the surrounding flufi page */',
+    '  /* flufi ink defaults — uncomment to pin a palette: */',
+    '  /* --mc-bg: #08060d;  --mc-bg2: #100c18;  --mc-fg: #ffffff; */',
+    '  /* --mc-dim: #948aa6;  --mc-line: #1f1830;  --mc-accent: #a06bff; */',
     '}',
     '',
     'mcmusic-bar, mcmusic-marquee, mcmusic-ticker {',
     '  display: block;',
     '  max-width: 520px;      /* full width for headers and footers */',
     '  margin: 12px 0;',
-    '  --mc-radius: 12px;',
-    '  --mc-font: inherit;    /* match the surrounding page font */',
+    '  --mc-radius: 10px;',
+    '  --mc-font: inherit;',
     '}',
     '',
     'mcmusic-badge {',
@@ -951,6 +1000,134 @@ def valid_yt(url):
     }
 
 
+# Direct links are the other way to add music: a plain audio file, or a zip
+# of audio files. The server already imports zips with src/zip_import.py; this
+# just downloads the link into staging and hands it to that importer.
+DIRECT_EXTS = set(AUDIO_EXTS) | {".zip"}
+MAX_DIRECT_BYTES = 2 * 1024 * 1024 * 1024  # one album zip should never exhaust a disk
+
+
+def direct_file_ext(url):
+    """Return the lower-case extension for a supported direct HTTPS file."""
+    from urllib.parse import unquote, urlparse
+    try:
+        u = urlparse(url)
+    except ValueError:
+        return ""
+    if u.scheme != "https" or not u.hostname or u.username or u.password:
+        return ""
+    ext = os.path.splitext(unquote(u.path).lower())[1]
+    return ext if ext in DIRECT_EXTS else ""
+
+
+def valid_request_url(url):
+    """YouTube links and direct HTTPS audio/zip links are both valid requests."""
+    return valid_yt(url) or bool(direct_file_ext(url))
+
+
+def _log_line(logp, line):
+    with open(logp, "a") as fh:
+        fh.write(line + "\n")
+        fh.flush()
+
+
+def _download_direct(url, dest, rid):
+    """Stream a direct HTTPS link into staging, with a hard size limit."""
+    from urllib.request import Request, urlopen
+    req = Request(url, headers={"User-Agent": f"mcmusic/{rid}"})
+    with urlopen(req, timeout=120) as res:
+        length = int(res.headers.get("Content-Length") or 0)
+        if length > MAX_DIRECT_BYTES:
+            raise ValueError(f"file is too large ({length} bytes)")
+        written = 0
+        with open(dest, "wb") as out:
+            while True:
+                chunk = res.read(1024 * 1024)
+                if not chunk:
+                    break
+                written += len(chunk)
+                if written > MAX_DIRECT_BYTES:
+                    raise ValueError("file exceeded the size limit while downloading")
+                out.write(chunk)
+    if not written:
+        raise ValueError("the link returned an empty file")
+    return written
+
+
+def _run_direct_request(rid, url, ext, logp):
+    """Import a downloaded audio file or zip using the server's own importer."""
+    from urllib.parse import unquote, urlparse
+    import re
+    os.makedirs(STAGING_DIR, exist_ok=True)
+    name = os.path.basename(unquote(urlparse(url).path)) or f"request-{rid}{ext}"
+    name = re.sub(r"[^A-Za-z0-9._-]", "_", name)[:120]
+    staged = os.path.join(STAGING_DIR, f"direct-{rid}-{name}")
+    try:
+        size = _download_direct(url, staged, rid)
+        _log_line(logp, f"downloaded {size} bytes -> {name}")
+        if ext == ".zip":
+            from zip_import import import_zip
+            count = import_zip(staged, quiet=True)
+            if not count:
+                raise ValueError("the zip contained no playable audio files")
+            _log_line(logp, f"imported {count} track(s) from zip")
+        else:
+            target_dir = os.path.join(MUSIC_DIR, "Direct Imports")
+            os.makedirs(target_dir, exist_ok=True)
+            target = os.path.join(target_dir, f"{rid}-{name}")
+            shutil.move(staged, target)
+            _log_line(logp, f"added {target}")
+        return True
+    finally:
+        if os.path.exists(staged):
+            os.remove(staged)
+
+
+def _run_download_command(rid, row, cmd, logp, conn):
+    """Legacy yt-dlp path. Returns (ok, cancelled)."""
+    ok, cancelled = False, False
+    try:
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                text=True, bufsize=1)
+        with running_lock:
+            running[rid] = {"pid": proc.pid, "started": time.time(), "proc": proc}
+        last_sync = 0.0
+        last_scan = 0.0
+        with open(logp, "a") as fh:
+            for line in proc.stdout:
+                fh.write(line)
+                fh.flush()
+                now = time.time()
+                if now - last_sync > 2:
+                    last_sync = now
+                    conn.execute("update requests set log=? where id=?", (read_req_log(rid, 4000), rid))
+                    conn.commit()
+                if now - last_scan > 30:
+                    last_scan = now
+                    try:
+                        scan_library(conn)
+                    except Exception as e:
+                        fh.write(f"[scan warning] {e}\n")
+                        fh.flush()
+        rc = proc.wait()
+        ok = rc == 0
+        with open(logp, "a") as fh:
+            fh.write(f"\n[{time.strftime('%Y-%m-%d %H:%M:%S')}] exited with code {rc}\n")
+    except Exception as e:
+        try:
+            current_app.logger.exception("download request %s failed", rid)
+        except Exception:
+            pass
+        with open(logp, "a") as fh:
+            fh.write(f"\n[ERROR] {e}\n")
+    finally:
+        with running_lock:
+            running.pop(rid, None)
+            cancelled = rid in cancel_requested
+            cancel_requested.discard(rid)
+    return ok, cancelled
+
+
 def worker():
     conn = _db()
     while True:
@@ -960,56 +1137,31 @@ def worker():
             continue
         conn.execute("update requests set status='running', finished=NULL where id=?", (rid,))
         conn.commit()
-        cmd = [
+        ext = direct_file_ext(row["url"])
+        cmd = [] if ext else [
             __import__("sys").executable, DL_SCRIPT, row["url"], "-o", MUSIC_DIR,
             "--staging", STAGING_DIR,
         ] + shlex.split(DL_ARGS)
         logp = req_log_path(rid)
-        ok, cancelled = False, False
         with open(logp, "w") as fh:
             fh.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] request #{rid}\n")
-            fh.write("$ " + " ".join(shlex.quote(c) for c in cmd) + "\n\n")
+            fh.write((f"[direct import] {row['url']}\n\n" if ext else
+                      "$ " + " ".join(shlex.quote(c) for c in cmd) + "\n\n"))
             fh.flush()
-        try:
-            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                    text=True, bufsize=1)
-            with running_lock:
-                running[rid] = {"pid": proc.pid, "started": time.time(), "proc": proc}
-            last_sync = 0.0
-            last_scan = 0.0
-            with open(logp, "a") as fh:
-                for line in proc.stdout:
-                    fh.write(line)
-                    fh.flush()
-                    now = time.time()
-                    if now - last_sync > 2:
-                        last_sync = now
-                        conn.execute("update requests set log=? where id=?", (read_req_log(rid, 4000), rid))
-                        conn.commit()
-                    if now - last_scan > 30:
-                        last_scan = now
-                        try:
-                            scan_library(conn)
-                        except Exception as e:
-                            fh.write(f"[scan warning] {e}\n")
-                            fh.flush()
-            rc = proc.wait()
-            ok = rc == 0
-            with open(logp, "a") as fh:
-                fh.write(f"\n[{time.strftime('%Y-%m-%d %H:%M:%S')}] exited with code {rc}\n")
-        except Exception as e:
+        if ext:
             try:
-                from flask import current_app
-                current_app.logger.exception("download request %s failed", rid)
-            except Exception:
-                pass
-            with open(logp, "a") as fh:
-                fh.write(f"\n[ERROR] {e}\n")
-        finally:
-            with running_lock:
-                running.pop(rid, None)
-                cancelled = rid in cancel_requested
-                cancel_requested.discard(rid)
+                ok = _run_direct_request(rid, row["url"], ext, logp)
+            except Exception as e:
+                ok = False
+                # The worker thread has no Flask app context, so use the module
+                # logger instead of current_app.logger here.
+                logging.getLogger(__name__).exception("direct import %s failed", rid)
+                _log_line(logp, f"[ERROR] {e}")
+            cancelled = rid in cancel_requested
+            cancel_requested.discard(rid)
+        else:
+            ok, cancelled = _run_download_command(rid, row, cmd, logp, conn)
+        _log_line(logp, f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] finished")
         trim_req_log(rid)
         try:
             scan_library(conn)
@@ -1026,12 +1178,12 @@ def worker():
 @bp.post("/api/requests")
 @login_required
 def req_create():
-    """Submit a download request; admins start it immediately."""
+    """Submit a YouTube, direct audio or ZIP link; admins start it immediately."""
     url = str((request.get_json(silent=True) or {}).get("url", "")).strip()
     if len(url) > 2048:
         return jsonify(error="URL too long"), 400
-    if not valid_yt(url):
-        return jsonify(error="need an https YouTube / YouTube Music video or playlist link"), 400
+    if not valid_request_url(url):
+        return jsonify(error="need an https YouTube link, or a direct https .mp3 / audio / .zip link"), 400
     c = _db()
     repeat = find_repeat_request(c, url)
     if repeat:

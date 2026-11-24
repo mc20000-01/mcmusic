@@ -8,12 +8,14 @@ from __future__ import annotations
 
 import secrets
 import time
+from html import escape
 from urllib.parse import urlencode
 
 import requests
 from flask import Response, redirect, request, session
 
 from auth import _auth_uid, link_channel_user
+from flufi_pages import flufi_page
 from config import (
     DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, DISCORD_REDIRECT_URI,
     DISCORD_SCOPE, PUBLIC_URL,
@@ -47,14 +49,14 @@ def _redirect_uri():
 
 
 def _html(title, body, status=200):
-    page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{title} · mcmusic</title>
-<link rel="stylesheet" href="/static/css/link.css">
-</head><body><main class="card">
-<h1>{title}</h1><p>{body}</p><a class="btn" href="/">Open mcmusic</a>
-</main></body></html>"""
-    return Response(page, status=status, mimetype="text/html")
+    page = (
+        '<section class="container box">'
+        f'<h1 class="header">{escape(title)}</h1>'
+        f'<div class="text">{body}</div>'
+        '<a class="button variant-accent" href="/">Open mcmusic</a>'
+        '</section>'
+    )
+    return flufi_page(title, page, status=status)
 
 
 def _upsert(c, uid, did, username, access, refresh, expires):
