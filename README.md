@@ -6,6 +6,10 @@ device acting as a remote.
 
 No feed. No algorithm. Only the records you put here.
 
+New here? Follow [docs/selfhost.md](docs/selfhost.md) for a complete
+self-hosting guide: install, environment, systemd, HTTPS reverse proxy, client
+setup, backups and troubleshooting.
+
 ## What is in here
 
 | Path | What it is |

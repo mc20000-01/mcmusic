@@ -4,14 +4,17 @@ import {
     Container, Content, FormalInput, Header2, Header3, IconButton, Input, Loading,
     Seperator, Table, TableBody, TableCell, TableRow, Tabs, Text, TextIconButton
 } from "flufi-ui/components";
-import { Ban, Check, FileText, RefreshCw, RotateCcw, ScanLine, Trash2, X } from "lucide-preact";
+import {
+    Ban, Check, FileText, MonitorSmartphone, Radio, RefreshCw, RotateCcw,
+    ScanLine, Sparkles, Trash2, X,
+} from "lucide-preact";
 import { API } from "../../common/net/api";
 
 import "./style.css";
 
-// Four panes, one per admin endpoint group. Tabs is flufi-ui's own control,
+// Admin endpoint groups, one pane each. Tabs is flufi-ui's own control,
 // so the admin view looks like the rest of the client.
-type Tab = "overview" | "requests" | "users" | "invites";
+type Tab = "overview" | "requests" | "users" | "invites" | "devices" | "channels" | "enrich";
 
 function when(ts?: number | null): string {
     if (!ts) return "—";
@@ -31,6 +34,9 @@ export function AdminPage() {
                         { name: "Requests", value: "requests" },
                         { name: "Users", value: "users" },
                         { name: "Invites", value: "invites" },
+                        { name: "Devices", value: "devices" },
+                        { name: "Channels", value: "channels" },
+                        { name: "Enrich", value: "enrich" },
                     ]}
                     onChange={(v) => setTab(v as Tab)}
                 />
@@ -38,6 +44,9 @@ export function AdminPage() {
                 {tab == "requests" && <Requests />}
                 {tab == "users" && <Users />}
                 {tab == "invites" && <Invites />}
+                {tab == "devices" && <AdminDevices />}
+                {tab == "channels" && <Channels />}
+                {tab == "enrich" && <EnrichLyrics />}
             </Container>
         </Content>
     )
@@ -357,6 +366,198 @@ function Invites() {
                         </Container>
                     ))}
             </Loading>
+        </Container>
+    )
+}
+
+/** All devices across accounts, with their last known playback. */
+function AdminDevices() {
+    const [rows, setRows] = useState<any[] | null>(null);
+    const [error, setError] = useState<string | null>(null);
+
+    function load() {
+        API.adminDevices()
+            .then(d => { setRows(d.devices ?? []); setError(null); })
+            .catch(e => { setRows(r => r ?? []); setError(String(e)); });
+    }
+    useEffect(load, []);
+
+    return (
+        <Container extra_gap>
+            <Container horizontal centered_y class="section-head">
+                <Header3>All devices</Header3>
+                <IconButton title="Refresh devices" onClick={load}><RefreshCw size={15} /></IconButton>
+            </Container>
+            {error && <Text class="error" content={error} />}
+            <Loading loaded={rows != null}>
+                {() => rows!.length === 0
+                    ? <Text dim content="No devices have signed in." />
+                    : rows!.map(d => (
+                        <Container class="user" key={d.id}>
+                            <Container horizontal centered_y wrap class="req-head">
+                                <MonitorSmartphone size={15} />
+                                <Text content={d.name || d.device_hash || `Device ${d.id}`} />
+                                <Text dim content={d.username} />
+                                {d.is_active ? <Text content="active" /> : <Text dim content="inactive" />}
+                            </Container>
+                            <Text dim content={`${d.ip || "?"} · last seen ${when(d.last_seen)}`} />
+                            {d.current_track_id && (
+                                <Text dim content={`Playing track #${d.current_track_id} at ${Math.round(d.current_position || 0)}s${d.current_paused ? " (paused)" : ""}`} />
+                            )}
+                            <Seperator />
+                        </Container>
+                    ))}
+            </Loading>
+        </Container>
+    )
+}
+
+/** Bot control channels: list, bind and unbind. */
+function Channels() {
+    const [rows, setRows] = useState<any[]>([]);
+    const [configured, setConfigured] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const platform = useSignal("discord");
+    const channelId = useSignal("");
+    const guildId = useSignal("");
+    const mode = useSignal("control");
+
+    function load() {
+        API.channels(true)
+            .then(d => { setRows(d.channels ?? []); setConfigured(!!d.configured); setError(null); })
+            .catch(e => { setRows([]); setError(String(e)); });
+    }
+    useEffect(load, []);
+
+    async function bind() {
+        setError(null);
+        try {
+            await API.bindChannel({
+                platform: platform.peek(),
+                channel_id: channelId.peek().trim(),
+                guild_id: guildId.peek().trim(),
+                mode: mode.peek(),
+            });
+            channelId.value = "";
+            load();
+        } catch (e) {
+            setError(e instanceof Error ? e.message : String(e));
+        }
+    }
+
+    async function unbind(id: number) {
+        if (!window.confirm("Unbind this channel?")) return;
+        try { await API.unbindChannel(id); load(); }
+        catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    }
+
+    return (
+        <Container extra_gap>
+            <Container horizontal centered_y class="section-head">
+                <Header3>Music control channels</Header3>
+                <IconButton title="Refresh channels" onClick={load}><RefreshCw size={15} /></IconButton>
+            </Container>
+            <Text dim content={configured
+                ? "The bot is configured. Run /setmusicchannel in Discord or bind a channel below."
+                : "The bot token is not configured on this server."} />
+            {error && <Text class="error" content={error} />}
+            <Container horizontal wrap class="channel-form">
+                <FormalInput label="Platform">
+                    <Input value={platform} />
+                </FormalInput>
+                <FormalInput label="Channel ID">
+                    <Input value={channelId} placeholder="1234567890" />
+                </FormalInput>
+                <FormalInput label="Guild ID (optional)">
+                    <Input value={guildId} />
+                </FormalInput>
+                <FormalInput label="Mode">
+                    <Input value={mode} />
+                </FormalInput>
+                <TextIconButton variant="accent" disabled={!channelId.value.trim()} onClick={bind}>
+                    <Radio size={15} /> Bind
+                </TextIconButton>
+            </Container>
+            {rows.length === 0
+                ? <Text dim content="No channels bound." />
+                : rows.map(ch => (
+                    <Container class="user" key={ch.id}>
+                        <Container horizontal centered_y wrap class="req-head">
+                            <Text content={`${ch.platform} · ${ch.channel_id}`} />
+                            <Text dim content={ch.mode} />
+                            <TextIconButton variant="danger-subtle" onClick={() => unbind(ch.id)}>
+                                <X size={14} /> Unbind
+                            </TextIconButton>
+                        </Container>
+                        {ch.state && (
+                            <Text dim content={JSON.stringify(ch.state).slice(0, 240)} />
+                        )}
+                        <Seperator />
+                    </Container>
+                ))}
+        </Container>
+    )
+}
+
+/** Metadata enrichment and lyrics backfill progress. */
+function EnrichLyrics() {
+    const [enrich, setEnrich] = useState<any>(null);
+    const [lyrics, setLyrics] = useState<any>(null);
+    const [message, setMessage] = useState<string | null>(null);
+
+    function load() {
+        API.adminEnrich().then(setEnrich).catch(e => setMessage(String(e)));
+        API.adminLyrics().then(setLyrics).catch(() => setLyrics(null));
+    }
+    useEffect(load, []);
+
+    async function start(mode: "enrich" | "enrich-force" | "lyrics") {
+        setMessage(`Starting ${mode}…`);
+        try {
+            if (mode === "lyrics") {
+                const r = await API.startLyrics();
+                setMessage(r.started ? "Lyrics backfill started." : "Lyrics job is already running.");
+            } else {
+                await API.startEnrich(mode === "enrich-force");
+                setMessage("Metadata enrichment queued.");
+            }
+            load();
+        } catch (e) {
+            setMessage(e instanceof Error ? e.message : String(e));
+        }
+    }
+
+    return (
+        <Container extra_gap>
+            <Container horizontal centered_y class="section-head">
+                <Header3>Metadata &amp; lyrics</Header3>
+                <IconButton title="Refresh status" onClick={load}><RefreshCw size={15} /></IconButton>
+            </Container>
+            {message && <Text content={message} />}
+            <Container>
+                <Header3>YouTube enrichment</Header3>
+                {enrich ? (
+                    <Text dim content={`${enrich.linked ?? 0}/${enrich.total ?? 0} linked · ${enrich.fetched ?? 0} fetched · ${enrich.pending ?? 0} pending`} />
+                ) : <Text dim content="Status unavailable." />}
+                <Container horizontal centered_y class="section-buttons">
+                    <TextIconButton variant="panel" onClick={() => start("enrich")}>
+                        <Sparkles size={15} /> Enrich pending
+                    </TextIconButton>
+                    <TextIconButton variant="panel" onClick={() => start("enrich-force")}>
+                        <RotateCcw size={15} /> Re-check all
+                    </TextIconButton>
+                </Container>
+            </Container>
+            <Seperator />
+            <Container>
+                <Header3>Lyrics</Header3>
+                {lyrics ? (
+                    <Text dim content={JSON.stringify(lyrics).slice(0, 300)} />
+                ) : <Text dim content="Lyrics status unavailable." />}
+                <TextIconButton variant="panel" onClick={() => start("lyrics")}>
+                    <FileText size={15} /> Fetch missing lyrics
+                </TextIconButton>
+            </Container>
         </Container>
     )
 }

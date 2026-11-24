@@ -4,6 +4,9 @@ A homebrew player for old 3DS-family hardware: **one short code, no password,
 no browser**. It pairs with the same account as the web and Android apps and
 keeps a long-lived `mcd_…` token on the SD card.
 
+New to mcmusic? The [self-hosting guide](../../docs/selfhost.md) covers server
+setup and pairing this handheld client.
+
 ```
 app/3ds/
   Makefile         # devkitARM + libctru + citro2d

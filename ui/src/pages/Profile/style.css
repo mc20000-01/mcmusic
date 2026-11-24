@@ -1,0 +1,36 @@
+.profile-page .profile-head {
+    gap: 12px;
+}
+
+.profile-page .listener-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+}
+
+.profile-page .listener-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    padding: 8px;
+    border-radius: var(--radius);
+    background: var(--prim);
+    border: 1px solid var(--back-border);
+}
+
+.profile-page .listener-card:hover {
+    background: var(--prim-brighter);
+}
+
+.profile-page .listener-position {
+    font-variant-numeric: tabular-nums;
+}
+
+.profile-page .listener-chips {
+    gap: 8px;
+}
+
+.profile-page .profile-now {
+    gap: 16px;
+}

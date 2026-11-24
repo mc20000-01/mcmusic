@@ -2,6 +2,61 @@
     gap: 10px;
 }
 
+.status-actions {
+    gap: 8px;
+}
+
+.build-row {
+    gap: 10px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--back-border);
+}
+
+.build-meta {
+    flex: 1;
+    min-width: 0;
+}
+
+.build-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.selfhost-panel .server-facts {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 8px;
+    overflow-wrap: anywhere;
+}
+
+.selfhost-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    align-self: flex-start;
+    padding: 8px 12px;
+    border-radius: var(--radius);
+    background: var(--accent);
+    color: var(--back);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.selfhost-link:hover {
+    background: var(--accent-hover);
+}
+
+.selfhost-link.compact {
+    padding: 5px 10px;
+    background: var(--prim-brighter);
+    color: var(--accent);
+    font-weight: 400;
+}
+
 /* Forms read better at a column width than stretched across a wide pane. */
 .content-settings > .container > .container {
     width: 100%;

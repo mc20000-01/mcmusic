@@ -10,9 +10,11 @@ import { ArtistPfp } from "../../components/Library/Image";
 import { SetCover } from "../../components/Library/Image";
 import { titleCase } from "../../common";
 import { TrackList } from "../../components/TrackList/TrackList";
-import { currentId, enqueueTrack, isPlaying, playQueue, playTrack, togglePlay } from "../../common/player";
-import { parseArtistUuid } from "../../common/net/api";
-import { ListPlus, Pause, Play, Shuffle } from "lucide-preact";
+import { currentId, enqueueTrack, isPlaying, playQueue, playTrack, startRadio, togglePlay } from "../../common/player";
+import { parseArtistUuid, API as NetAPI } from "../../common/net/api";
+import { downloadTrack } from "../../common/downloads";
+import { TrackInfoDialog } from "../../components/TrackInfo/TrackInfoDialog";
+import { Download, Heart, Info, ListPlus, Pause, Play, Radio, Shuffle } from "lucide-preact";
 
 import "./style.css";
 
@@ -33,6 +35,7 @@ export function SetPage(props: RoutePropsForPath<"/set/:uuid">) {
     const [set, setSet] = useState<Set | null>(null);
     const [playlists, setPlaylists] = useState<{ id: number; name: string }[]>([]);
     const [error, setError] = useState<string | null>(null);
+    const [infoTrack, setInfoTrack] = useState<{ id: string; title: string } | null>(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -119,23 +122,56 @@ export function SetPage(props: RoutePropsForPath<"/set/:uuid">) {
                     function onRowContextMenu(track: Track, event: MouseEvent) {
                         const name = track.name.value;
                         const artists = trackArtists(track);
+                        const meta = {
+                            title: name,
+                            artist: artists,
+                            setUuid: s.uuid,
+                            artistUuid: track.artists.value[0] ?? undefined,
+                            liked: track.liked,
+                        };
                         openContextMenu([
                             {
                                 type: "button" as const,
                                 label: "Play track",
                                 icon: <Play size={14} />,
-                                click: () => playTrack(track.uuid, { title: name, artist: artists, setUuid: s.uuid, artistUuid: track.artists.value[0] ?? undefined }),
+                                click: () => playTrack(track.uuid, meta),
                             },
                             {
                                 type: "button" as const,
                                 label: "Add to queue",
                                 icon: <ListPlus size={14} />,
-                                click: () => enqueueTrack(track.uuid, {
-                                    title: name,
-                                    artist: artists,
-                                    setUuid: s.uuid,
-                                    artistUuid: track.artists.value[0] ?? undefined,
-                                }),
+                                click: () => enqueueTrack(track.uuid, meta),
+                            },
+                            {
+                                type: "button" as const,
+                                label: "Start radio",
+                                icon: <Radio size={14} />,
+                                click: () => void startRadio(track.uuid, meta),
+                            },
+                            {
+                                type: "separator" as const,
+                            },
+                            {
+                                type: "button" as const,
+                                label: track.liked ? "Unlike" : "Like",
+                                icon: <Heart size={14} />,
+                                click: () => {
+                                    void NetAPI.like(track.uuid).then(() => {
+                                        track.liked = !track.liked;
+                                    }).catch(() => {});
+                                },
+                            },
+                            {
+                                type: "button" as const,
+                                label: "Download",
+                                icon: <Download size={14} />,
+                                click: () => void downloadTrack(track.uuid, name, artists).catch(() => {}),
+                            },
+                            {
+                                type: "button" as const,
+                                label: "Track info",
+                                icon: <Info size={14} />,
+                                click: () => setInfoTrack({ id: track.uuid, title: name }),
                             },
                             {
                                 type: "separator" as const,
@@ -257,6 +293,13 @@ export function SetPage(props: RoutePropsForPath<"/set/:uuid">) {
                     );
                 }}
             </Loading>
+            {infoTrack && (
+                <TrackInfoDialog
+                    trackId={infoTrack.id}
+                    title={infoTrack.title}
+                    onClose={() => setInfoTrack(null)}
+                />
+            )}
         </Content>
     )
 }

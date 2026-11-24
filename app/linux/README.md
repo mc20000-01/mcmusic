@@ -11,6 +11,9 @@ terminal client (`--tui`). The terminal client needs no display, no Qt and no
 third-party packages, so the same server is reachable over SSH on a headless
 box.
 
+New to mcmusic? The [self-hosting guide](../../docs/selfhost.md) covers server
+setup, HTTPS and connecting this desktop client.
+
 ```
 ┌─────────────┬───────────────────────────────────────────────┐
 │  mcmusic    │  ←  search                    queue   user   │
