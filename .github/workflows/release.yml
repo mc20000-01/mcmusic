@@ -140,10 +140,13 @@ jobs:
       - name: Build native .exe and .zip
         shell: pwsh
         run: |
-          $version = (Select-String -Path app/linux/pyproject.toml -Pattern '^version\s*=\s*"([^"]+)"').Matches[0].Groups[1].Value
+          $root = (Get-Location).Path
+          $version = (Select-String -Path (Join-Path $root 'app/linux/pyproject.toml') -Pattern '^version\s*=\s*"([^"]+)"').Matches[0].Groups[1].Value
           ./app/windows/build.ps1 -Version $version -Zip
+          # build.ps1 leaves PowerShell in app/windows; restore the workspace root.
+          Set-Location $root
           New-Item -ItemType Directory -Force -Path artifacts | Out-Null
-          Copy-Item "app/windows/dist/mcmusic-windows-x64.zip" "artifacts/mcmusic-windows-$version.zip"
+          Copy-Item (Join-Path $root 'app/windows/dist/mcmusic-windows-x64.zip') (Join-Path $root "artifacts/mcmusic-windows-$version.zip")
       - name: Verify no web engine or HTML
         shell: pwsh
         run: |
