@@ -4,7 +4,7 @@ from flask import (
 )
 from html import escape
 from urllib.parse import quote
-import os, secrets, threading, time, shlex, subprocess, shutil, math, logging
+import os, secrets, threading, time, shlex, subprocess, shutil, math, logging, re
 from collections import defaultdict
 
 import sys as _sys
@@ -19,6 +19,7 @@ from auth import (
 from database import _db, track_dict, liked_ids, find_repeat_request, video_in_library
 from library_scan import scan_library
 from flufi_pages import flufi_page
+import video_cache
 
 bp = Blueprint("system_api", __name__)
 START_TIME = time.time()
@@ -1020,9 +1021,38 @@ def direct_file_ext(url):
     return ext if ext in DIRECT_EXTS else ""
 
 
+def request_url_problem(url):
+    """Explain why a request link cannot import, before it reaches the worker."""
+    if direct_file_ext(url):
+        return None
+    if not valid_yt(url):
+        return "need an https YouTube link, or a direct https .mp3 / audio / .zip link"
+    from urllib.parse import parse_qs, urlparse
+    from song_meta import video_id
+    try:
+        parts = urlparse(url)
+    except ValueError:
+        return "that link is not a valid URL"
+    playlist = parse_qs(parts.query).get("list", [""])[0].strip()
+    if playlist:
+        # A truncated playlist id makes yt-dlp retry a 400 for minutes and then
+        # fail. Catch it here with a message that tells people what to copy.
+        if not re.fullmatch(r"[A-Za-z0-9_-]{12,}", playlist):
+            return "that playlist link looks incomplete — copy the full link from YouTube"
+        if playlist[:2].upper() in {"PL", "UU", "LL", "FL"} and len(playlist) != 34:
+            return (
+                f"that playlist ID is incomplete ({len(playlist)} characters, "
+                "expected 34) — copy the full link from YouTube"
+            )
+        return None
+    # Keep the historical host-level acceptance for video links (tests and old
+    # clients use short ids); only explicitly supplied playlist ids are checked.
+    return None
+
+
 def valid_request_url(url):
     """YouTube links and direct HTTPS audio/zip links are both valid requests."""
-    return valid_yt(url) or bool(direct_file_ext(url))
+    return request_url_problem(url) is None
 
 
 def _log_line(logp, line):
@@ -1167,12 +1197,52 @@ def worker():
             scan_library(conn)
         except Exception:
             pass
+        # Keep a local video for the finished import so the native app can show
+        # the picture with the music instead of a YouTube embed. This runs in a
+        # separate daemon thread and does not delay the request's status.
+        if ok and not ext:
+            try:
+                cached = video_cache.prepare_from_url(row["url"])
+                _log_line(logp, f"video cache: {cached.get('state', 'missing')}")
+            except Exception:
+                _log_line(logp, "video cache: could not start")
         status = "cancelled" if cancelled else ("done" if ok else "failed")
         conn.execute(
             "update requests set status=?, log=?, finished=? where id=?",
             (status, read_req_log(rid, 4000), time.time(), rid),
         )
         conn.commit()
+
+
+def requeue_stalled_requests() -> int:
+    """Rescue approved imports that were left behind by a crash or restart."""
+    c = _db()
+    now = time.time()
+    rows = c.execute(
+        "select id from requests where status='approved' and created<? order by id",
+        (now - 120,),
+    ).fetchall()
+    count = 0
+    for row in rows:
+        rid = int(row["id"])
+        with running_lock:
+            if rid in running or rid in cancel_requested:
+                continue
+        if rid in dl_q.queue:
+            continue
+        dl_q.put(rid)
+        count += 1
+    return count
+
+
+def stall_watchdog():
+    """Periodically put orphaned approved imports back on the worker queue."""
+    while True:
+        time.sleep(60)
+        try:
+            requeue_stalled_requests()
+        except Exception:
+            logging.getLogger(__name__).exception("request watchdog failed")
 
 
 @bp.post("/api/requests")
@@ -1182,8 +1252,9 @@ def req_create():
     url = str((request.get_json(silent=True) or {}).get("url", "")).strip()
     if len(url) > 2048:
         return jsonify(error="URL too long"), 400
-    if not valid_request_url(url):
-        return jsonify(error="need an https YouTube link, or a direct https .mp3 / audio / .zip link"), 400
+    problem = request_url_problem(url)
+    if problem:
+        return jsonify(error=problem), 400
     c = _db()
     repeat = find_repeat_request(c, url)
     if repeat:
@@ -1533,7 +1604,7 @@ def admin_stats():
 @bp.get("/api/admin/algo")
 @admin_required
 def admin_algo():
-    """Read-only view of the learning-only next-song model."""
+    """Read-only view of the MDL, including its 76% work-rate gate and note."""
     from next_song_model import algo_status
     return jsonify(algo_status())
 

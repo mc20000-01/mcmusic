@@ -111,15 +111,15 @@ fixes, and the old-client parity audit are consolidated here. Anything marked
 
 ## Release and delivery steps (repeat after the next code change)
 
-- [x] Bump Android version to `3.3.6`, code `48`.
-- [x] Commit and push; watch GitHub Actions `Release builds` go green.
-- [x] Pull the bot commit that refreshes `builds/`.
-- [x] Copy the exact GitHub `latest` APK into
-  `apps/android/mainbuild.apk`, `apps/android/mcmusic-3.3.6.apk`, and a hashed
+- [ ] Bump Android version to `3.3.7`, code `49`.
+- [ ] Commit and push; watch GitHub Actions `Release builds` go green.
+- [ ] Pull the bot commit that refreshes `builds/`.
+- [ ] Copy the exact GitHub `latest` APK into
+  `apps/android/mainbuild.apk`, `apps/android/mcmusic-3.3.7.apk`, and a hashed
   `apps/android/mainbuild-<hash>.apk`; prune stale copies.
-- [x] Verify live `/get` SHA-256 matches the GitHub asset byte-for-byte.
-- [x] Verify `/api/builds` reports the new version and “Android 14 and newer.”
-- [x] Verify package `dev.mcmusic.app`, `versionCode 48`, `minSdk 34`, and
+- [ ] Verify live `/get` SHA-256 matches the GitHub asset byte-for-byte.
+- [ ] Verify `/api/builds` reports the new version and “Android 14 and newer.”
+- [ ] Verify package `dev.mcmusic.app`, `versionCode 49`, `minSdk 34`, and
       signer SHA-256 `0b0fd0fa35ff712901d42cab215d5e3cb706daef57bffa7ebef61cacda1dc4ce`.
 
 ## UI research
@@ -170,16 +170,42 @@ fixes, and the old-client parity audit are consolidated here. Anything marked
       in `/api/builds`. Compile/mock checks passed; packaged macOS/Windows
       runtime tests and signing/notarization still need release credentials.
 
-## Algo model (learning only)
+## Algo model (work-rate gated)
 
-- [x] Wire the standalone `algo/` MDL model into the server without using it for
-      song selection. Every `/api/plays` call now produces one observation.
+- [x] Wire the standalone `algo/` MDL model into the server. Every `/api/plays`
+      call produces one observation and the exact-hit work rate is tracked.
 - [x] Persist the model atomically under `DATA_DIR` (`data/next_song_mdl.json`),
       with corrupt-snapshot recovery and failure isolation.
-- [x] Add admin visibility with `GET /api/admin/algo` and document the boundary
-      in `docs/algo-learning.md`.
-- [x] Kept predictions out of radio, queue extension, shuffle, and autoplay;
-      this stays deferred until you ask for it.
+- [x] Add admin visibility with `GET /api/admin/algo`, including `work_rate`,
+      `threshold`, `active`, `learning_only` and the human-readable `note`.
+- [x] Gate all next-track choices at 76% exact-hit work rate with at least ten
+      observations. Once earned, the model orders recommendations, radio,
+      shuffle, queue extension and autoplay; the affinity/similarity fallback
+      remains until then and whenever ranking has no candidates.
+- [x] Expose `POST /api/model/rank` so web, Android and desktop can adopt the
+      same order; current persisted work rate is far below the gate, so behavior
+      today is unchanged.
+
+## 3.3.7 parity additions
+
+- [x] Native account linking uses one-use server tickets (`src/app_links.py`) so
+      Rotur/Discord OAuth browser returns can bind to the signed-in Android
+      account without a bearer header. Settings shows linked state/configuration
+      and supports connect/unlink.
+- [x] Cached music videos are prepared when a YouTube import succeeds, streamed
+      from `/video-cache/<id>.mp4`, listed at `/api/videos`, and expire four
+      hours after the last view. The APK plays them natively with ExoPlayer and
+      no YouTube embed; music ducks while a video is open.
+- [x] Direct HTTPS audio/ZIP request links are validated server-side with
+      actionable errors for truncated playlist IDs; the import watchdog rescues
+      orphaned approved rows after a restart.
+- [x] Lyric visualizers (Bars/Wave/Glow) exist on web, Android, desktop and iOS,
+      driven by playback position and the active lyric line; paused playback
+      freezes the frame.
+- [x] Public GitHub Release build fallback: `/api/builds`, `/apps/...`, `/get`
+      and the new `/downloads` page serve published bytes even when the server
+      never built a client locally. `./scripts/pull_builds.sh` refreshes the
+      cache; local artifacts still win until the next sync.
 
 ## Constraints to keep
 

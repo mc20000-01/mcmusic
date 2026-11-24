@@ -851,6 +851,16 @@ class Repo:
     def radio(self, track_id: int) -> list[Track]:
         return Track.list_json(self.api.get(f"radio/{track_id}").get("tracks"))
 
+    def model_rank(self, current: int, ids: list[int]) -> list[int]:
+        """MDL queue order, empty until the 76% work-rate gate opens."""
+        data = self.api.post("model/rank", {
+            "current": int(current),
+            "ids": [int(i) for i in ids][:500],
+        })
+        if not data.get("active"):
+            return []
+        return [int(i) for i in (data.get("ids") or [])]
+
     # playlists ------------------------------------------------------------
     def playlists(self) -> list[PlaylistRef]:
         return PlaylistRef.list_json(self.api.get("playlists").get("playlists"))

@@ -20,6 +20,8 @@ object Lucide {
     @DrawableRes val Compass = R.drawable.ic_lucide_compass
     @DrawableRes val Ellipsis = R.drawable.ic_lucide_ellipsis
     @DrawableRes val EyeOff = R.drawable.ic_lucide_eye_off
+    @DrawableRes val Film = R.drawable.ic_lucide_film
+    @DrawableRes val Link = R.drawable.ic_lucide_link
     @DrawableRes val ChevronRight = R.drawable.ic_lucide_chevron_right
     @DrawableRes val Clock = R.drawable.ic_lucide_clock
     @DrawableRes val Download = R.drawable.ic_lucide_download

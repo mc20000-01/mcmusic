@@ -1,7 +1,9 @@
 # `algo/` — next-song MDL
 
 Standalone, standard-library-only Python. Nothing outside this folder is
-imported, modified, or required. Not wired into the server yet.
+imported, modified, or required by the model itself. The server wraps it in
+`src/next_song_model.py` and gates its choices behind the work rate described
+below.
 
 ```bash
 python -m algo.demo                 # simulated learning run
@@ -60,6 +62,11 @@ clicks justify it. Per-user experts are what let each user's preferences
 diverge from everyone else's. Codelengths are discounted by `length_decay`
 (default `0.999`, ~700-click half-life) so tastes can change without the model
 being stuck with what it learned at the start.
+
+`model.summary()["work_rate"]` is the exact-hit rate (`correct / observations`).
+The server calls this the **work rate**: at 76% (with at least ten observations)
+its note flips and the model orders recommendations, radio, shuffle, queue and
+autoplay. Until then the affinity/similarity rankings stay in charge.
 
 `save_json(path)` / `load_json(path)` persist everything (counts, codelengths,
 trust, metadata) for later integration.

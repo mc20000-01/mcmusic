@@ -34,6 +34,8 @@ import dev.mcmusic.app.data.Api
 import dev.mcmusic.app.data.AppUpdate
 import dev.mcmusic.app.data.SELFHOST_GUIDE_URL
 import dev.mcmusic.app.data.Downloads
+import dev.mcmusic.app.data.LinkEvents
+import dev.mcmusic.app.data.LinkStatus
 import dev.mcmusic.app.data.Prefs
 import dev.mcmusic.app.data.Updater
 import dev.mcmusic.app.ui.ErrorLine
@@ -81,7 +83,67 @@ fun SettingsScreen(onAdmin: () -> Unit, onSignedOut: () -> Unit) {
     var progress by remember { mutableIntStateOf(0) }
     var updateError by remember { mutableStateOf<String?>(null) }
 
+    var roturStatus by remember { mutableStateOf<LinkStatus?>(null) }
+    var discordStatus by remember { mutableStateOf<LinkStatus?>(null) }
+    var linking by remember { mutableStateOf<String?>(null) }
+
     LaunchedEffect(me?.id) { email = me?.email.orEmpty() }
+
+    fun loadLinkStatus() {
+        scope.launch {
+            roturStatus = Api.linkStatus("rotur").getOrNull()
+            discordStatus = Api.linkStatus("discord").getOrNull()
+        }
+    }
+
+    // The browser hands the finished OAuth flow back through mcmusic://oauth.
+    LaunchedEffect(LinkEvents.revision) { loadLinkStatus() }
+
+    fun beginLink(provider: String) {
+        linking = provider
+        scope.launch {
+            Api.linkTicket(provider).fold(
+                onSuccess = { ticket ->
+                    val url = Api.linkAuthorizeUrl(provider, ticket)
+                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                        .onFailure { error = it.message ?: "no browser available" }
+                },
+                onFailure = { error = it.message ?: "could not start linking" },
+            )
+            linking = null
+        }
+    }
+
+    fun finishUnlink(provider: String) {
+        linking = provider
+        scope.launch {
+            Api.unlink(provider).fold(
+                onSuccess = {
+                    notice = when (provider) {
+                        "rotur" -> "Rotur account unlinked."
+                        else -> "Discord account unlinked."
+                    }
+                    loadLinkStatus()
+                },
+                onFailure = { error = it.message ?: "could not unlink" },
+            )
+            linking = null
+        }
+    }
+
+    fun openUrl(url: String) {
+        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+            .onFailure { error = it.message ?: "no browser available" }
+    }
+
+    fun linkSubtitle(status: LinkStatus?): String = when {
+        status == null -> "Status unavailable — pull to retry"
+        !status.configured -> "Not configured on this server"
+        status.linked && status.username != null -> "Linked as ${status.username}"
+        status.linked -> "Linked"
+        status.reason.isNotBlank() -> "Not linked · ${status.reason}"
+        else -> "Not linked — connect to share activity"
+    }
 
     fun checkUpdate() {
         checking = true
@@ -295,6 +357,52 @@ fun SettingsScreen(onAdmin: () -> Unit, onSignedOut: () -> Unit) {
                         Prefs.saveDiscordActivity(enabled)
                         Playback.activitySettingChanged()
                     },
+                )
+                SettingDivider()
+                SettingRow(
+                    "Rotur account",
+                    linkSubtitle(roturStatus),
+                    icon = Lucide.Link,
+                    trailing = {
+                        GhostButton(
+                            if (linking == "rotur") "Working…"
+                            else if (roturStatus?.linked == true) "Unlink"
+                            else "Connect",
+                            danger = roturStatus?.linked == true,
+                        ) {
+                            if (roturStatus?.linked == true) finishUnlink("rotur") else beginLink("rotur")
+                        }
+                    },
+                )
+                SettingDivider()
+                SettingRow(
+                    "Discord account",
+                    linkSubtitle(discordStatus),
+                    icon = Lucide.Link,
+                    trailing = {
+                        GhostButton(
+                            if (linking == "discord") "Working…"
+                            else if (discordStatus?.linked == true) "Unlink"
+                            else "Connect",
+                            danger = discordStatus?.linked == true,
+                        ) {
+                            if (discordStatus?.linked == true) finishUnlink("discord") else beginLink("discord")
+                        }
+                    },
+                )
+                SettingDivider()
+                SettingRow(
+                    "Rotur on the web",
+                    "rotur.dev",
+                    icon = Lucide.Compass,
+                    onClick = { openUrl("https://rotur.dev") },
+                )
+                SettingDivider()
+                SettingRow(
+                    "Discord on the web",
+                    "discord.com",
+                    icon = Lucide.MessageCircle,
+                    onClick = { openUrl("https://discord.com") },
                 )
             }
         }

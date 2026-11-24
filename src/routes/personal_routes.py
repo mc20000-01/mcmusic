@@ -311,6 +311,20 @@ def recommend(uid, n=30, unplayed_only=False):
             s += 0.05
         scored.append((s + random.random() * 0.12, t))
     scored.sort(key=lambda x: -x[0])
+    if not unplayed_only:
+        from next_song_model import rank_for
+        last = c.execute(
+            "select track_id from plays where user_id=? order by id desc limit 1", (uid,)
+        ).fetchone()
+        ranked_ids = rank_for(
+            uid, int(last["track_id"] or 0) if last else 0,
+            [t["id"] for _, t in scored], c,
+        )
+        if ranked_ids:
+            by_id = {t["id"]: t for _, t in scored}
+            chosen = [by_id[i] for i in ranked_ids if i in by_id]
+            chosen += [t for _, t in scored if t["id"] not in set(ranked_ids)]
+            scored = [(float(len(chosen) - i), t) for i, t in enumerate(chosen)]
     out, per_artist = [], defaultdict(int)
     for _, t in scored:
         if per_artist[t["artist"]] >= 5:
@@ -353,6 +367,26 @@ def home():
     )
 
 
+@bp.post("/api/model/rank")
+@login_required
+def model_rank():
+    """Order a client's candidate ids with the MDL once it is earning its keep."""
+    d = request.get_json(silent=True) or {}
+    try:
+        current = int(d.get("current") or 0)
+    except (TypeError, ValueError):
+        current = 0
+    ids = []
+    for value in (d.get("ids") or [])[:500]:
+        try:
+            ids.append(int(value))
+        except (TypeError, ValueError):
+            continue
+    from next_song_model import is_active, rank_for
+    ordered = rank_for(session["uid"], current, ids)
+    return jsonify(active=bool(ordered) and is_active(), ids=ordered[:500])
+
+
 @bp.get("/api/radio/<int:tid>")
 @login_required
 def radio(tid):
@@ -366,5 +400,14 @@ def radio(tid):
             + (0.5 if seed["genre"] and t["genre"] == seed["genre"] else 0) + random.random() * 0.6
         scored.append((s, t))
     scored.sort(key=lambda x: -x[0])
-    L = liked_ids(_db(), session["uid"])
-    return jsonify(tracks=[track_dict(_db(), t, L) for _, t in scored[:40]])
+    c = _db()
+    from next_song_model import rank_for
+    ranked_ids = rank_for(session["uid"], tid, [t["id"] for _, t in scored], c)
+    if ranked_ids:
+        by_id = {t["id"]: t for _, t in scored}
+        ordered = [by_id[i] for i in ranked_ids if i in by_id]
+        ordered += [t for _, t in scored if t["id"] not in set(ranked_ids)]
+    else:
+        ordered = [t for _, t in scored]
+    L = liked_ids(c, session["uid"])
+    return jsonify(tracks=[track_dict(c, t, L) for t in ordered[:40]])

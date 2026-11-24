@@ -7,8 +7,25 @@
  */
 import { useEffect, useRef, useState, useCallback } from "preact/hooks";
 import { Container, Header3, Text, TextIconButton } from "flufi-ui/components";
-import { AArrowDown, AArrowUp, LocateFixed, MicVocal, X } from "lucide-preact";
+import {
+    AArrowDown,
+    AArrowUp,
+    AudioLines,
+    AudioWaveform,
+    LocateFixed,
+    MicVocal,
+    Sparkles,
+    X,
+} from "lucide-preact";
 import { EmptyState } from "../EmptyState/EmptyState";
+import {
+    LyricVisualizer,
+    VISUALIZER_LABELS,
+    VISUALIZER_MODES,
+    readVisualizerMode,
+    saveVisualizerMode,
+    type VisualizerMode,
+} from "./LyricVisualizer";
 import { API } from "../../common/net/api";
 import { position, seekTo } from "../../common/player";
 
@@ -17,6 +34,12 @@ import "./style.css";
 type LrcLine = { time: number; text: string };
 
 const SIZE_KEY = "mcmusic:lyricsSize";
+
+const VISUALIZER_ICONS = {
+    bars: AudioLines,
+    wave: AudioWaveform,
+    glow: Sparkles,
+};
 
 function parseLrc(text: string): LrcLine[] {
     const lines = text.split(/\r?\n/);
@@ -75,6 +98,7 @@ export function LyricsPanel(props: {
     });
     const [manualScroll, setManualScroll] = useState(false);
     const [activeIndex, setActiveIndex] = useState(-1);
+    const [visualizerMode, setVisualizerMode] = useState<VisualizerMode>(readVisualizerMode);
 
     const containerRef = useRef<HTMLDivElement>(null);
     const scrollTimeoutRef = useRef<number>(0);
@@ -90,6 +114,10 @@ export function LyricsPanel(props: {
     useEffect(() => {
         localStorage.setItem(SIZE_KEY, String(size));
     }, [size]);
+
+    useEffect(() => {
+        saveVisualizerMode(visualizerMode);
+    }, [visualizerMode]);
 
     const changeSize = useCallback((delta: number) => {
         setSize((s) => {
@@ -180,6 +208,7 @@ export function LyricsPanel(props: {
     if (!open) return null;
 
     const missing = loading === false && lines.length === 0 && !error;
+    const showLyrics = lines.length > 0 && !error && !loading;
 
     return (
         <Container
@@ -202,6 +231,25 @@ export function LyricsPanel(props: {
                 </TextIconButton>
                 <Header3 class="title">Lyrics</Header3>
                 <Container horizontal class="controls">
+                    <div class="visualizer-modes" role="group" aria-label="Lyric visualizer mode">
+                        {VISUALIZER_MODES.map((mode) => {
+                            const Icon = VISUALIZER_ICONS[mode];
+                            const active = visualizerMode === mode;
+                            return (
+                                <button
+                                    key={mode}
+                                    type="button"
+                                    class={`visualizer-mode${active ? " visualizer-mode-active" : ""}`}
+                                    title={`${VISUALIZER_LABELS[mode]} visualizer`}
+                                    aria-label={`${VISUALIZER_LABELS[mode]} visualizer mode`}
+                                    aria-pressed={active}
+                                    onClick={() => setVisualizerMode(mode)}
+                                >
+                                    <Icon size={14} aria-hidden="true" />
+                                </button>
+                            );
+                        })}
+                    </div>
                     {source && (
                         <Text dim class="source" content={sourceLabel(source, synced)} />
                     )}
@@ -273,7 +321,10 @@ export function LyricsPanel(props: {
                     body="This track does not have a synced or plain lyrics file yet."
                 />
             )}
-            {lines.length > 0 && !error && !loading && (
+            {showLyrics && (
+                <LyricVisualizer mode={visualizerMode} activeIndex={activeIndex} />
+            )}
+            {showLyrics && (
                 <div class="lyrics-text" style={{ fontSize: `${sizeRef.current}rem` }}>
                     {lines.map((line, i) => {
                         const active = i === activeIndex;

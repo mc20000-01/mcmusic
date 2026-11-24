@@ -52,6 +52,8 @@ function emitPlaybackChange() {
 export type RepeatMode = "off" | "all" | "one";
 export const repeatMode = signal<RepeatMode>("off");
 export const shuffleEnabled = signal(false);
+/** True when the server's MDL chose the queue order instead of Math.random. */
+export const modelShuffle = signal(false);
 export { autoplay };
 
 // ---------------------------------------------------------------- persistence
@@ -69,6 +71,7 @@ type Snapshot = {
     duration: number;
     repeatMode: RepeatMode;
     shuffleEnabled: boolean;
+    modelShuffle?: boolean;
     autoplay: boolean;
     saved: number;
 };
@@ -86,6 +89,7 @@ function snapshot(): Snapshot {
         duration: audio.duration || duration.value || 0,
         repeatMode: repeatMode.value,
         shuffleEnabled: shuffleEnabled.value,
+        modelShuffle: modelShuffle.value,
         autoplay: autoplay.value,
         saved: Date.now(),
     };
@@ -120,6 +124,7 @@ function restoreSnapshot() {
         queueIndex.value = idx;
         repeatMode.value = s.repeatMode === "one" || s.repeatMode === "all" ? s.repeatMode : "off";
         shuffleEnabled.value = !!s.shuffleEnabled;
+        modelShuffle.value = !!s.modelShuffle;
         if (typeof s.autoplay === "boolean") setAutoplayPreference(s.autoplay);
         const track = list[idx];
         if (!track) return;
@@ -335,7 +340,7 @@ export function playQueueIndex(index: number) {
 export function playNext(opts?: { allowWrap?: boolean }) {
     const q = queue.value;
     if (q.length === 0) return;
-    if (shuffleEnabled.value && q.length > 1) {
+    if (shuffleEnabled.value && !modelShuffle.value && q.length > 1) {
         let nextIdx = queueIndex.value;
         while (nextIdx === queueIndex.value) {
             nextIdx = Math.floor(Math.random() * q.length);
@@ -509,8 +514,37 @@ export async function toggleCurrentLike() {
     }
 }
 
-export function setShuffle(on: boolean) {
+/**
+ * Turn shuffle on with the server's MDL order when it has earned the right to
+ * choose. Until then (and whenever the call fails) the existing random order
+ * is the fallback, so the button behaves exactly as before.
+ */
+export async function setShuffle(on: boolean) {
     shuffleEnabled.value = on;
+    if (!on) {
+        modelShuffle.value = false;
+        saveSnapshot(true);
+        return;
+    }
+    const q = queue.value.slice();
+    const current = currentId.value;
+    if (q.length > 1 && current) {
+        try {
+            const orderedIds = await API.modelRank(current, q.map(item => item.id));
+            if (orderedIds.length > 1 && shuffleEnabled.value && currentId.value === current) {
+                const byId = new Map(q.map(item => [item.id, item]));
+                const ranked = orderedIds.map(id => byId.get(id)).filter((x): x is QueueItem => !!x);
+                const seen = new Set(ranked.map(item => item.id));
+                const ordered = [...ranked, ...q.filter(item => !seen.has(item.id))];
+                const index = Math.max(0, ordered.findIndex(item => item.id === current));
+                setQueue(ordered, index);
+                modelShuffle.value = true;
+                saveSnapshot(true);
+                return;
+            }
+        } catch { /* offline or server error: random shuffle still works */ }
+    }
+    modelShuffle.value = false;
     saveSnapshot(true);
 }
 

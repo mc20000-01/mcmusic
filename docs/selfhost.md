@@ -145,6 +145,25 @@ export ANDROID_SDK_ROOT="$ANDROID_HOME"
 Never replace `keystore/mcmusic.p12` — it is what makes new APKs update the
 existing app instead of conflicting with it.
 
+### Builds without building locally
+
+You do not need Android Studio or a desktop packaging host. The public
+`latest` GitHub Release is a build fallback: when `apps/` has no local artifact,
+`/api/builds`, `/apps/...`, `/get` and `/downloads` fetch the exact published
+bytes and cache them in `apps/` (verified against the release SHA-256). An
+on-demand pull is used first; a background sync refreshes the cache every ten
+minutes. If the server cannot write or reach GitHub, `/apps/...` redirects
+straight to the release asset instead of returning 404.
+
+To refresh immediately after a release:
+
+```bash
+./scripts/pull_builds.sh
+```
+
+Open `PUBLIC_URL/downloads` for a public, no-sign-in build list. Local builds
+always win until the next sync, so publishing from your own CI still works.
+
 ### Desktop
 
 ```bash
@@ -192,8 +211,9 @@ git. `old/` is a local archive and is gitignored.
   from the phone's network. The earlier “login not sticking” symptom was Wi-Fi,
   not a server fault.
 - Reset emails point to the wrong host — fix `PUBLIC_URL` and restart.
-- In-app update says no update — `/api/builds` reads `apps/android/`; run
-  `./scripts/publish_apps.sh` after placing a new signed APK there.
+- In-app update says no update — `/api/builds` reads `apps/android/` first, then
+  the public GitHub Release. Run `./scripts/publish_apps.sh` after placing a new
+  signed APK locally, or `./scripts/pull_builds.sh` to refresh the release cache.
 
 ## 9. Where to find more
 

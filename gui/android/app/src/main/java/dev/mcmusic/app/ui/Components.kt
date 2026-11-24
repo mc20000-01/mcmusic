@@ -737,7 +737,7 @@ fun SettingRow(
         Modifier
             .fillMaxWidth()
             .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
-            .padding(vertical = 11.dp),
+            .padding(vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(11.dp),
     ) {

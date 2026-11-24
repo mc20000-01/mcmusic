@@ -21,6 +21,7 @@ from auth import (
     create_device_code, claim_device_code, revoke_device_token_raw,
 )
 import mailer
+import app_links
 import discord_link
 from database import _db
 import rotur
@@ -309,6 +310,21 @@ def confirm_reset():
 
     session.clear()
     return jsonify(ok=True)
+
+
+# --------------------------------------------------------------------------- native account linking
+@bp.post("/api/auth/rotur/link-ticket")
+@login_required
+def rotur_link_ticket():
+    """One-use ticket so the Android browser flow can link Rotur to this account."""
+    return jsonify(code=app_links.mint(session["uid"]))
+
+
+@bp.post("/api/auth/discord/link-ticket")
+@login_required
+def discord_link_ticket():
+    """One-use ticket so the Android browser flow can link Discord to this account."""
+    return jsonify(code=app_links.mint(session["uid"]))
 
 
 # --------------------------------------------------------------------------- RoturLink

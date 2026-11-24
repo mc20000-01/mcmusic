@@ -43,6 +43,7 @@ from . import icons, theme, widgets
 from .api import Api, ApiError, Async, Repo, SessionStore, device_name
 from .art import ART
 from .icons import draw_icon
+from .lyric_visualizer import LyricVisualizer
 from .login import LoginPage, SplashPage
 from .models import (
     Me, PlaylistRef, Settings, Track, fmt_bytes, fmt_count, fmt_time,
@@ -1735,6 +1736,22 @@ class McWindow(QMainWindow):
     def toggle_shuffle(self) -> None:
         self.player.toggle_shuffle()
         self._refresh_deck()
+        if not self.player.shuffle:
+            return
+        current = self.player.current
+        if current is None or len(self.player.queue) < 2:
+            return
+
+        def ok(ranked: list[int]) -> None:
+            # Ignore a late answer if the user toggled shuffle off meanwhile.
+            now = self.player.current
+            if (not self.player.shuffle or now is None or now.id != current.id
+                    or not self.player.apply_model_order(ranked)):
+                return
+            self._refresh_deck()
+
+        self.run(lambda: self.repo.model_rank(current.id, self.player.queue_ids()),
+                 ok, lambda _e: None)
 
     def toggle_explicit(self, track: Track) -> None:
         self.run(lambda: self.repo.set_explicit(track.id, not track.explicit),
@@ -2073,6 +2090,8 @@ class McWindow(QMainWindow):
         sheet = Sheet(self, "Lyrics")
         sheet.body.addWidget(Txt(f"{track.title} — {track.artist}", size=12,
                                  token="dim", wrap=True))
+        visualizer = LyricVisualizer(self.player, sheet)
+        sheet.body.addWidget(visualizer)
         view = QTextEdit()
         view.setReadOnly(True)
         view.setPlaceholderText("No lyrics have been found for this track yet.")
@@ -2090,6 +2109,7 @@ class McWindow(QMainWindow):
 
         self.run(lambda: self.repo.lyrics(track.id), ok,
                  error=lambda _e: view.setPlaceholderText("Lyrics are unavailable offline"))
+        sheet.finished.connect(lambda _result=0: visualizer.stop())
         sheet.exec()
 
     def show_sleep_menu(self, button: QWidget) -> None:
