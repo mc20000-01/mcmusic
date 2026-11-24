@@ -201,7 +201,12 @@ def download(asset: dict, force: bool = False) -> bool:
     with _lock:
         if not force and _fresh(target, asset):
             return True
-        temp = target + ".download"
+        # The server's background sync and a maintainer's pull script can run
+        # at the same time. Unique temp files stop one process from deleting or
+        # renaming another's half-written download.
+        suffix = f".download.{os.getpid()}.{threading.get_ident()}"
+        temp = target + suffix
+        temps = [temp]
         try:
             req = urllib.request.Request(
                 asset["url"], headers={"User-Agent": UA, "Accept": "application/octet-stream"}
@@ -214,18 +219,20 @@ def download(asset: dict, force: bool = False) -> bool:
             os.replace(temp, target)
             for extra in destinations(asset)[1:]:
                 os.makedirs(os.path.dirname(extra), exist_ok=True)
-                tmp = extra + ".download"
+                tmp = extra + suffix
+                temps.append(tmp)
                 shutil.copyfile(target, tmp)
                 os.replace(tmp, extra)
             _log.info("pulled %s from GitHub Release", asset["name"])
             return True
         except (OSError, ValueError, urllib.error.HTTPError) as exc:
             _log.warning("could not pull %s: %s", asset["name"], exc)
-            try:
-                if os.path.exists(temp):
-                    os.remove(temp)
-            except OSError:
-                pass
+            for path in temps:
+                try:
+                    if os.path.exists(path):
+                        os.remove(path)
+                except OSError:
+                    pass
             return False
 
 
