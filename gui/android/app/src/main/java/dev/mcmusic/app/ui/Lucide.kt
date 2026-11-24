@@ -17,12 +17,17 @@ import dev.mcmusic.app.R
 object Lucide {
     @DrawableRes val Check = R.drawable.ic_lucide_check
     @DrawableRes val ChevronLeft = R.drawable.ic_lucide_chevron_left
+    @DrawableRes val Compass = R.drawable.ic_lucide_compass
+    @DrawableRes val Ellipsis = R.drawable.ic_lucide_ellipsis
+    @DrawableRes val EyeOff = R.drawable.ic_lucide_eye_off
     @DrawableRes val ChevronRight = R.drawable.ic_lucide_chevron_right
     @DrawableRes val Clock = R.drawable.ic_lucide_clock
     @DrawableRes val Download = R.drawable.ic_lucide_download
     @DrawableRes val GripVertical = R.drawable.ic_lucide_grip_vertical
     @DrawableRes val HardDrive = R.drawable.ic_lucide_hard_drive
+    @DrawableRes val Heart = R.drawable.ic_lucide_heart
     @DrawableRes val House = R.drawable.ic_lucide_house
+    @DrawableRes val Image = R.drawable.ic_lucide_image
     @DrawableRes val Info = R.drawable.ic_lucide_info
     @DrawableRes val Library = R.drawable.ic_lucide_library
     @DrawableRes val ListMusic = R.drawable.ic_lucide_list_music
@@ -31,12 +36,15 @@ object Lucide {
     @DrawableRes val LogIn = R.drawable.ic_lucide_log_in
     @DrawableRes val LogOut = R.drawable.ic_lucide_log_out
     @DrawableRes val Mail = R.drawable.ic_lucide_mail
+    @DrawableRes val MessageCircle = R.drawable.ic_lucide_message_circle
     @DrawableRes val Palette = R.drawable.ic_lucide_palette
     @DrawableRes val Pause = R.drawable.ic_lucide_pause
     @DrawableRes val Pencil = R.drawable.ic_lucide_pencil
     @DrawableRes val Play = R.drawable.ic_lucide_play
+    @DrawableRes val ListPlus = R.drawable.ic_lucide_list_plus
     @DrawableRes val Plus = R.drawable.ic_lucide_plus
     @DrawableRes val RefreshCw = R.drawable.ic_lucide_refresh_cw
+    @DrawableRes val Radio = R.drawable.ic_lucide_radio
     @DrawableRes val Repeat = R.drawable.ic_lucide_repeat
     @DrawableRes val Search = R.drawable.ic_lucide_search
     @DrawableRes val Server = R.drawable.ic_lucide_server

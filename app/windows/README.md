@@ -3,8 +3,9 @@
 The Windows app is the **same native Qt client** as `app/linux` and the macOS
 build, packaged with PyInstaller. Only the platform glue differs:
 
-- MPRIS (Linux) is replaced by a no-op; Windows media-key integration via SMTC
-  is a follow-up.
+- MPRIS (Linux) is replaced by System Media Transport Controls (SMTC), supplied
+  by the optional `windows-media` extra. Metadata and media keys work in the
+  Windows volume panel, lock screen and keyboard controls.
 - Audio goes through QtMultimedia's WASAPI backend.
 - Settings and the audio cache live under `%APPDATA%\mcmusic` and
   `%LOCALAPPDATA%\mcmusic`.
@@ -32,6 +33,7 @@ Output:
 ```
 dist\mcmusic\mcmusic.exe        # portable folder
 dist\mcmusic-windows-x64.zip    # zip the folder for sharing
+apps\windows\mainbuild.zip      # published for /api/builds unless -NoPublish
 ```
 
 The script creates `.venv-windows`, installs `app\linux` in editable mode plus
@@ -43,6 +45,7 @@ Useful switches:
 ```powershell
 .\build.ps1 -Python python3.12
 .\build.ps1 -Version 1.2 -Zip
+.\build.ps1 -NoPublish               # build only, skip apps\windows
 ```
 
 ## Running from a checkout
@@ -57,6 +60,8 @@ python mcmusic-desktop
 
 ## Signing
 
-The build is unsigned. SmartScreen may warn on first run; choose **More info →
-Run anyway**, or sign `mcmusic.exe` with `signtool` using your certificate.
-`build.ps1` leaves signing out on purpose because it needs credentials.
+Local builds are unsigned, so SmartScreen may warn on first run; choose
+**More info → Run anyway**. On a release machine, set `WINDOWS_CERT` and
+`WINDOWS_CERT_PASSWORD` (and optionally `SIGNTOOL`) to Authenticode-sign
+`mcmusic.exe`, then verify SMTC metadata and keyboard media controls in the
+packaged build before publishing `apps\windows`.

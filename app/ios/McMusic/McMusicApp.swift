@@ -40,6 +40,7 @@ struct RootView: View {
 
 struct MainTabs: View {
     @EnvironmentObject private var app: AppState
+    @Environment(\.mcSurface) private var surface
     @State private var showingNowPlaying = false
 
     var body: some View {
@@ -47,6 +48,8 @@ struct MainTabs: View {
             HomeView().tabItem { Label("Home", systemImage: "house") }
             SearchView().tabItem { Label("Search", systemImage: "magnifyingglass") }
             LibraryView().tabItem { Label("Library", systemImage: "square.stack") }
+            ListeningView().tabItem { Label("Listening", systemImage: "antenna.radiowaves.left.and.right") }
+            DevicesView().tabItem { Label("Devices", systemImage: "laptopcomputer.and.iphone") }
             PlaylistsView().tabItem { Label("Playlists", systemImage: "music.note.list") }
             RequestsView().tabItem { Label("Requests", systemImage: "arrow.down.circle") }
             SettingsView().tabItem { Label("Settings", systemImage: "gear") }
@@ -78,7 +81,8 @@ struct MainTabs: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(.ultraThinMaterial)
+        .background(surface)
+        .overlay(Rectangle().frame(height: 1).foregroundStyle(Theme.line), alignment: .top)
         .onTapGesture { showingNowPlaying = true }
     }
 }

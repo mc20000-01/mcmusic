@@ -1359,6 +1359,14 @@ def admin_stats():
     )
 
 
+@bp.get("/api/admin/algo")
+@admin_required
+def admin_algo():
+    """Read-only view of the learning-only next-song model."""
+    from next_song_model import algo_status
+    return jsonify(algo_status())
+
+
 @bp.get("/api/admin/requests")
 @admin_required
 def admin_req_list():

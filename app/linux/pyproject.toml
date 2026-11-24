@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcmusic-desktop"
-version = "2.6.0"
+dynamic = ["version"]
 description = "Native Linux desktop client for the mcmusic server"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -14,8 +14,15 @@ dependencies = [
     "requests>=2.31",
 ]
 
+[project.optional-dependencies]
+macos-media = ["pyobjc-framework-MediaPlayer>=9.0; sys_platform == 'darwin'"]
+windows-media = ["winsdk>=1.0; sys_platform == 'win32'"]
+
 [project.scripts]
 mcmusic-desktop = "mcmusic_linux.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "mcmusic_linux.version.FALLBACK_VERSION" }
 
 [tool.setuptools.packages.find]
 include = ["mcmusic_linux*"]

@@ -270,7 +270,8 @@ def api_docs():
             "admin": ["GET|POST /api/admin/invite-codes",
                       "DELETE /api/admin/invite-codes/<id>", "GET /api/admin/stats",
                       "GET /api/admin/users", "GET /api/admin/requests",
-                      "POST /api/admin/scan", "GET|POST /api/admin/enrich"],
+                      "POST /api/admin/scan", "GET|POST /api/admin/enrich",
+                      "GET /api/admin/algo"],
         })
 
 
@@ -508,6 +509,11 @@ def index():
 @app.get("/set/<path:rest>")
 @app.get("/playlists")
 @app.get("/playlist/<path:rest>")
+@app.get("/search")
+@app.get("/likes")
+@app.get("/downloads")
+@app.get("/listeners")
+@app.get("/not-allowed")
 @app.get("/settings")
 @app.get("/devices")
 @app.get("/admin")

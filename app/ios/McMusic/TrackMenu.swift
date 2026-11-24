@@ -15,6 +15,8 @@ struct TrackMenu: View {
     @State private var showInfo = false
     @State private var lyrics: JSON?
     @State private var info: JSON?
+    @State private var sources: [JSON] = []
+    @State private var showSources = false
     @State private var playlists: [JSON] = []
 
     var body: some View {
@@ -51,6 +53,9 @@ struct TrackMenu: View {
             Button { Task { await loadInfo() } } label: {
                 Label("Track info", systemImage: "info.circle")
             }
+            Button { Task { await loadSources() } } label: {
+                Label("Sources", systemImage: "link")
+            }
             if let playlistID {
                 Button(role: .destructive) { Task { await removeFromPlaylist(playlistID) } } label: {
                     Label("Remove from playlist", systemImage: "trash")
@@ -72,6 +77,21 @@ struct TrackMenu: View {
         }
         .sheet(isPresented: $showInfo) {
             DetailText(title: track.title, text: infoText)
+        }
+        .sheet(isPresented: $showSources) {
+            NavigationStack {
+                List(sources, id: \.id) { source in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(source["title"]?.string ?? source["yt_id"]?.string ?? "Source")
+                        if let raw = source["url"]?.string, let url = URL(string: raw) {
+                            Link(raw, destination: url)
+                                .font(.caption)
+                        }
+                    }
+                }
+                .navigationTitle("Sources")
+                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showSources = false } } }
+            }
         }
     }
 
@@ -135,6 +155,13 @@ struct TrackMenu: View {
     private func loadInfo() async {
         do { info = try await app.client.trackInfo(track.trackID); showInfo = true }
         catch { app.show(error) }
+    }
+
+    private func loadSources() async {
+        do {
+            sources = try await app.client.trackSources(track.trackID)
+            showSources = true
+        } catch { app.show(error) }
     }
 
     private func toggleExplicit() async {

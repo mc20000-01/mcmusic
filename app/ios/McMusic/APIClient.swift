@@ -30,6 +30,7 @@ final class APIClient {
     }()
 
     private(set) var baseURL: String
+    let outbox = Outbox.shared
     private var cookieStorage: HTTPCookieStorage { .shared }
 
     init(baseURL: String? = nil) {
@@ -105,7 +106,14 @@ final class APIClient {
             request.httpBody = try? JSONSerialization.data(withJSONObject: json)
         }
 
-        let (data, response) = try await session.data(for: request)
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            // Normalise transport failures so the outbox can recognise them.
+            throw APIError.status(0, error.localizedDescription)
+        }
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         let body = try? JSON(data)
         if !(200..<300).contains(status) {

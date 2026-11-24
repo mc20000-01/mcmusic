@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.sp
 import dev.mcmusic.app.data.Account
 import dev.mcmusic.app.data.Api
 import dev.mcmusic.app.data.Prefs
+import dev.mcmusic.app.data.SELFHOST_GUIDE_URL
 import dev.mcmusic.app.ui.ErrorLine
 import dev.mcmusic.app.ui.Lucide
 import dev.mcmusic.app.ui.LucideIcon
@@ -135,6 +136,12 @@ fun SignInScreen() {
             "&device_hash=${Uri.encode(Api.deviceHash)}"
         runCatching {
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        }.onFailure { error = it.message ?: "no browser available" }
+    }
+
+    fun openSelfHostGuide() {
+        runCatching {
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(SELFHOST_GUIDE_URL)))
         }.onFailure { error = it.message ?: "no browser available" }
     }
 
@@ -331,6 +338,25 @@ fun SignInScreen() {
                 color = design.dim,
                 fontSize = 11.sp,
             )
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(design.tileRadius))
+                    .clickable { openSelfHostGuide() }
+                    .padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
+            ) {
+                LucideIcon(Lucide.Info, design.accent, Modifier.size(14.dp))
+                Column {
+                    Text("Self-hosting guide", color = design.accent, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                    Text(
+                        "Point this app at your own mcmusic server.",
+                        color = design.dim,
+                        fontSize = 10.sp,
+                    )
+                }
+            }
         }
     }
 }

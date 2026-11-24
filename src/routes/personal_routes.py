@@ -22,11 +22,25 @@ def add_play():
     c = _db()
     if not tid or not c.execute("select 1 from tracks where id=?", (tid,)).fetchone():
         return jsonify(error="unknown track"), 400
-    c.execute(
+    cur = c.execute(
         "insert into plays(user_id,track_id,ts,completed) values(?,?,?,?)",
         (session["uid"], tid, time.time(), int(bool(d.get("completed")))),
     )
     c.commit()
+    # The standalone algo model learns from each click. It does not influence
+    # what plays next yet; see src/next_song_model.py for that boundary.
+    try:
+        from next_song_model import observe_play
+        extra_status = d.get("algo_status")
+        observe_play(
+            c,
+            session["uid"],
+            tid,
+            cur.lastrowid,
+            int(extra_status) if isinstance(extra_status, (int, str)) else 0,
+        )
+    except Exception as exc:  # learning must never break a play count
+        print(f"next_song_model: observation skipped ({exc})")
     _refresh_faves(c, session["uid"])
     return jsonify(ok=True)
 

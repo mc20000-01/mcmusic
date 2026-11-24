@@ -228,6 +228,7 @@ private fun PlaylistDetail(id: Int, onOpenPlayer: () -> Unit, onBack: () -> Unit
             else -> items(tracks!!, key = { it.id }) { track ->
                 TrackRow(
                     track,
+                    menu = true,
                     onClick = {
                         Playback.play(tracks!!, tracks!!.indexOf(track))
                         onOpenPlayer()

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Small on-disk/decode cache so cover art does not flash on every scroll.
 final class ImageCache {
@@ -29,10 +30,9 @@ struct CoverView: View {
             } else {
                 ZStack {
                     RoundedRectangle(cornerRadius: radius)
-                        .fill(LinearGradient(colors: [.purple.opacity(0.5), .blue.opacity(0.25)],
-                                             startPoint: .topLeading, endPoint: .bottomTrailing))
+                        .fill(Color(hex: "241A38"))
                     Image(systemName: "music.note")
-                        .foregroundStyle(.white.opacity(0.8))
+                        .foregroundStyle(Theme.violet)
                 }
             }
         }
@@ -120,6 +120,17 @@ struct Shelf<Content: View>: View {
             content
         }
         .padding(.vertical, 4)
+    }
+}
+
+extension View {
+    /// Flat flufi input surface: one radius, no blur, one hairline border.
+    func mcTextField() -> some View {
+        self
+            .textFieldStyle(.plain)
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: 10).fill(Color(hex: "100C18")))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color(hex: "2A2040"), lineWidth: 1))
     }
 }
 

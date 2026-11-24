@@ -30,6 +30,7 @@ import dev.mcmusic.app.ui.Loading
 import dev.mcmusic.app.ui.Lucide
 import dev.mcmusic.app.ui.ScreenBack
 import dev.mcmusic.app.ui.TrackRow
+import dev.mcmusic.app.ui.visibleTracks
 import dev.mcmusic.app.ui.design.LocalDesign
 import dev.mcmusic.app.ui.design.mcSurface
 
@@ -50,6 +51,7 @@ fun CollectionSheet(
     val design = LocalDesign.current
     var tracks by remember(name, kind) { mutableStateOf<List<Track>?>(null) }
     var error by remember(name, kind) { mutableStateOf<String?>(null) }
+    val shown = tracks.orEmpty().visibleTracks()
 
     LaunchedEffect(name, kind) {
         val result = when (kind) {
@@ -87,15 +89,15 @@ fun CollectionSheet(
                 when {
                     error != null -> ErrorLine(error!!)
                     tracks == null -> Loading()
-                    tracks!!.isEmpty() -> EmptyState(
+                    shown.isEmpty() -> EmptyState(
                         icon = Lucide.ListMusic,
                         title = "Nothing here",
                         body = "No tracks matched this $name.",
                     )
                     else -> LazyColumn {
-                        items(tracks!!, key = { it.id }) { track ->
-                            TrackRow(track, onClick = {
-                                Playback.play(tracks!!, tracks!!.indexOf(track))
+                        items(shown, key = { it.id }) { track ->
+                            TrackRow(track, menu = true, onClick = {
+                                Playback.play(shown, shown.indexOf(track))
                                 onDismiss()
                                 onOpenPlayer()
                             })

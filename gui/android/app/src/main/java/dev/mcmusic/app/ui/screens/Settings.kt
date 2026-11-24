@@ -1,6 +1,7 @@
 package dev.mcmusic.app.ui.screens
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.provider.Settings as AndroidSettings
 import androidx.compose.foundation.layout.Arrangement
@@ -31,6 +32,7 @@ import dev.mcmusic.app.BuildConfig
 import dev.mcmusic.app.data.Account
 import dev.mcmusic.app.data.Api
 import dev.mcmusic.app.data.AppUpdate
+import dev.mcmusic.app.data.SELFHOST_GUIDE_URL
 import dev.mcmusic.app.data.Downloads
 import dev.mcmusic.app.data.Prefs
 import dev.mcmusic.app.data.Updater
@@ -45,7 +47,10 @@ import dev.mcmusic.app.ui.SettingCard
 import dev.mcmusic.app.ui.SettingDivider
 import dev.mcmusic.app.ui.SettingRow
 import dev.mcmusic.app.ui.SwitchRow
+import dev.mcmusic.app.playback.Playback
+import dev.mcmusic.app.ui.design.DesignLanguage
 import dev.mcmusic.app.ui.design.LocalDesign
+import dev.mcmusic.app.ui.design.Palettes
 import dev.mcmusic.app.ui.formatBytes
 import kotlinx.coroutines.launch
 
@@ -185,6 +190,34 @@ fun SettingsScreen(onAdmin: () -> Unit, onSignedOut: () -> Unit) {
 
         item { SectionLabel("Server") }
         item {
+            SettingCard {
+                SettingRow(
+                    "Server URL",
+                    "Where streams, covers and API calls go",
+                    icon = Lucide.Server,
+                    value = Prefs.server,
+                )
+                SettingDivider()
+                SettingRow(
+                    "App version",
+                    "This Android client",
+                    icon = Lucide.Info,
+                    value = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                )
+                SettingDivider()
+                SettingRow(
+                    "Self-hosting guide",
+                    "Run mcmusic on your own server",
+                    icon = Lucide.House,
+                    onClick = {
+                        runCatching {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(SELFHOST_GUIDE_URL)))
+                        }
+                    },
+                )
+            }
+        }
+        item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 McField(server, { server = it }, "Server URL", keyboard = KeyboardOptions(keyboardType = KeyboardType.Uri))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -199,6 +232,70 @@ fun SettingsScreen(onAdmin: () -> Unit, onSignedOut: () -> Unit) {
                     }
                 }
                 Muted("Streams, covers and the API all follow this address.")
+            }
+        }
+
+        item { SectionLabel("Appearance") }
+        item {
+            SettingCard {
+                SettingRow(
+                    "Palette",
+                    "Flat violet on ink, as on the web",
+                    icon = Lucide.Palette,
+                    value = Palettes.byId(Prefs.palette).label,
+                    onClick = { Prefs.savePalette(if (Prefs.palette == "auto") "flufi" else "auto") },
+                )
+                SettingDivider()
+                SettingRow(
+                    "Design language",
+                    "One shared layout in this build",
+                    icon = Lucide.Compass,
+                    value = DesignLanguage.from(Prefs.language).label,
+                    onClick = { Prefs.saveLanguage(DesignLanguage.Flufi.id) },
+                )
+                SettingDivider()
+                SwitchRow(
+                    "Show song covers",
+                    "Artwork in lists and tiles",
+                    icon = Lucide.Image,
+                    checked = Prefs.showCovers,
+                    onChange = { Prefs.saveShowCovers(it) },
+                )
+                SettingDivider()
+                SwitchRow(
+                    "Hide explicit tracks",
+                    "Filters tracks flagged explicit by the server",
+                    icon = Lucide.EyeOff,
+                    checked = Prefs.hideExplicit,
+                    onChange = { Prefs.saveHideExplicit(it) },
+                )
+            }
+        }
+
+        item { SectionLabel("Social") }
+        item {
+            SettingCard {
+                SwitchRow(
+                    "Rotur activity",
+                    "Share what you are listening to on Rotur",
+                    icon = Lucide.Server,
+                    checked = Prefs.roturActivity,
+                    onChange = { enabled ->
+                        Prefs.saveRoturActivity(enabled)
+                        Playback.activitySettingChanged()
+                    },
+                )
+                SettingDivider()
+                SwitchRow(
+                    "Discord activity",
+                    "Share what you are listening to on Discord",
+                    icon = Lucide.MessageCircle,
+                    checked = Prefs.discordActivity,
+                    onChange = { enabled ->
+                        Prefs.saveDiscordActivity(enabled)
+                        Playback.activitySettingChanged()
+                    },
+                )
             }
         }
 

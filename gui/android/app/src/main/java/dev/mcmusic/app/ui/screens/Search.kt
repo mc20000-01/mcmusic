@@ -23,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -32,6 +33,7 @@ import dev.mcmusic.app.data.Account
 import dev.mcmusic.app.data.AlbumSummary
 import dev.mcmusic.app.data.Api
 import dev.mcmusic.app.data.ArtistSummary
+import dev.mcmusic.app.data.Listener
 import dev.mcmusic.app.data.SearchResults
 import dev.mcmusic.app.playback.Playback
 import dev.mcmusic.app.ui.Cover
@@ -44,6 +46,7 @@ import dev.mcmusic.app.ui.Muted
 import dev.mcmusic.app.ui.SectionLabel
 import dev.mcmusic.app.ui.ScreenTitle
 import dev.mcmusic.app.ui.TrackRow
+import dev.mcmusic.app.ui.visibleTracks
 import dev.mcmusic.app.ui.design.LocalDesign
 import dev.mcmusic.app.ui.design.mcSurface
 import kotlinx.coroutines.Job
@@ -54,8 +57,10 @@ import kotlinx.coroutines.launch
 @Composable
 fun SearchScreen(onPlaylist: (Int) -> Unit, onOpenPlayer: () -> Unit) {
     val design = LocalDesign.current
+    val uriHandler = LocalUriHandler.current
     var query by remember { mutableStateOf("") }
     var results by remember { mutableStateOf<SearchResults?>(null) }
+    var people by remember { mutableStateOf<List<Listener>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
     var searching by remember { mutableStateOf(false) }
     var album by remember { mutableStateOf<AlbumSummary?>(null) }
@@ -63,13 +68,34 @@ fun SearchScreen(onPlaylist: (Int) -> Unit, onOpenPlayer: () -> Unit) {
     var searchJob by remember { mutableStateOf<Job?>(null) }
 
     suspend fun runSearch(text: String) {
-        if (Account.me == null || text.isBlank()) {
+        if (text.isBlank()) {
             results = null
+            people = emptyList()
             error = null
             searching = false
             return
         }
         searching = true
+        // The public directory works before sign-in; the music index does not.
+        Api.listening().fold(
+            onSuccess = { all ->
+                people = all.filter { it.username.contains(text.trim(), ignoreCase = true) }
+            },
+            onFailure = { people = emptyList() },
+        )
+        Api.now(text.trim()).fold(
+            onSuccess = { exact ->
+                if (exact != null && people.none { it.username.equals(exact.username, ignoreCase = true) }) {
+                    people = listOf(exact) + people
+                }
+            },
+            onFailure = {},
+        )
+        if (Account.me == null) {
+            results = null
+            searching = false
+            return
+        }
         Api.search(text).fold(
             onSuccess = { results = it; error = null },
             onFailure = { error = it.message ?: "search failed"; results = null },
@@ -91,7 +117,7 @@ fun SearchScreen(onPlaylist: (Int) -> Unit, onOpenPlayer: () -> Unit) {
         contentPadding = PaddingValues(start = design.screenPadding, end = design.screenPadding, top = 10.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        item { ScreenTitle("Search", "Tracks, albums and artists across the library.") }
+        item { ScreenTitle("Search", "Tracks, albums, artists and people.") }
         item {
             McField(
                 value = query,
@@ -114,7 +140,41 @@ fun SearchScreen(onPlaylist: (Int) -> Unit, onOpenPlayer: () -> Unit) {
                 )
             }
         }
+        if (people.isNotEmpty()) {
+            item { SectionLabel("People") }
+            items(people, key = { "p-${it.username}" }) { person ->
+                Row(
+                    Modifier.fillMaxWidth().mcSurface(RoundedCornerShape(8.dp))
+                        .clickable(enabled = person.profileUrl.isNotBlank()) {
+                            runCatching { uriHandler.openUri(person.profileUrl) }
+                        }
+                        .padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Cover(
+                        url = person.coverUrl.ifBlank { person.profileUrl },
+                        shape = CircleShape,
+                        modifier = Modifier.size(40.dp),
+                        fallback = design.accentSoft,
+                    )
+                    Column(Modifier.weight(1f)) {
+                        Text(person.username, color = design.accent, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        Text(
+                            person.track?.let { "${it.title} · ${it.artist}" }
+                                ?: if (person.listening) "listening" else "offline",
+                            color = design.dim,
+                            fontSize = 11.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    dev.mcmusic.app.ui.LucideIcon(Lucide.User, design.dim, Modifier.size(16.dp))
+                }
+            }
+        }
         if (found != null) {
+            val shownTracks = found.tracks.visibleTracks()
             if (found.artists.isNotEmpty()) {
                 item { SectionLabel("Artists") }
                 items(found.artists, key = { "a-${it.artist}" }) { entry ->
@@ -166,16 +226,16 @@ fun SearchScreen(onPlaylist: (Int) -> Unit, onOpenPlayer: () -> Unit) {
                     }
                 }
             }
-            if (found.tracks.isNotEmpty()) {
+            if (shownTracks.isNotEmpty()) {
                 item { SectionLabel("Tracks") }
-                items(found.tracks, key = { "t-${it.id}" }) { track ->
-                    TrackRow(track, onClick = {
-                        Playback.play(found.tracks, found.tracks.indexOf(track))
+                items(shownTracks, key = { "t-${it.id}" }) { track ->
+                    TrackRow(track, menu = true, onClick = {
+                        Playback.play(shownTracks, shownTracks.indexOf(track))
                         onOpenPlayer()
                     })
                 }
             }
-            if (found.tracks.isEmpty() && found.albums.isEmpty() && found.artists.isEmpty()) {
+            if (shownTracks.isEmpty() && found.albums.isEmpty() && found.artists.isEmpty() && people.isEmpty()) {
                 item {
                     EmptyState(
                         icon = Lucide.Search,

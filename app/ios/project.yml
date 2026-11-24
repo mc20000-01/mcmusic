@@ -25,6 +25,7 @@ targets:
       - path: McMusic
     resources:
       - path: McMusic/Assets.xcassets
+      - path: McMusic/PrivacyInfo.xcprivacy
     info:
       path: McMusic/Info.plist
       properties:
@@ -43,6 +44,8 @@ targets:
       base:
         PRODUCT_NAME: McMusic
         PRODUCT_BUNDLE_IDENTIFIER: dev.mcmusic.ios
+        MARKETING_VERSION: "2.6.0"
+        CURRENT_PROJECT_VERSION: "1"
         SWIFT_VERSION: "5.10"
         TARGETED_DEVICE_FAMILY: "1,2"
         ENABLE_PREVIEWS: YES

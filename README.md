@@ -21,8 +21,9 @@ setup, backups and troubleshooting.
 | `app/linux/` | Qt 6 desktop client, shared with the macOS and Windows launch scripts |
 | `app/3ds/` | Nintendo 3DS homebrew scaffold (pairing and library browsing) |
 | `music_activity/` | Presence sinks the server uses for Rotur/Discord/originChats |
+| `algo/` | Standalone next-song MDL model (learning only for now) |
 | `scripts/` | Publish builds, cut a GitHub Release |
-| `docs/` | Roadmap, platform notes, design research |
+| `docs/` | Roadmap, platform notes, design research, self-hosting guide |
 
 The clients all talk to the same server API. There is no sync service in the
 middle and no account anywhere else: one `data/mcmusic.db` is the truth.

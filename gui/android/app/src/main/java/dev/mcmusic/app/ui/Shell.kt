@@ -89,8 +89,8 @@ private fun TopBar(onAccount: () -> Unit) {
         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Text("mcmusic", color = design.fg, fontSize = 16.sp, fontWeight = FontWeight.Bold)
             Text(
-                "your room, your rules",
-                color = design.dim,
+                Account.status ?: "your room, your rules",
+                color = if (Account.status != null) design.accent else design.dim,
                 fontSize = 10.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

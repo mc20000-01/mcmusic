@@ -9,7 +9,9 @@ from __future__ import annotations
 import json
 import os
 import platform
+import re
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Callable, Optional
@@ -23,7 +25,10 @@ from .models import (
     AdminUser,
     AlbumRef,
     ArtistRef,
+    BuildInfo,
+    DeviceRow,
     HomeData,
+    ListeningUser,
     Me,
     PlaylistRef,
     RequestRow,
@@ -32,15 +37,54 @@ from .models import (
     Settings,
     Track,
 )
+from .version import USER_AGENT, VERSION
 
-VERSION = "1.0.0"
 DEFAULT_SERVER = "http://127.0.0.1:8000"
+
+# Only replay-safe writes go in the outbox. Toggles are kept separately so
+# every tap survives a replay (mirrors the web client's REPLAYABLE list).
+REPLAYABLE = [
+    ("POST", re.compile(r"^like/\d+$"), True),
+    ("POST", re.compile(r"^playlists/\d+/tracks$"), False),
+    ("PATCH", re.compile(r"^playlists/\d+$"), False),
+    ("DELETE", re.compile(r"^playlists/\d+$"), False),
+    ("DELETE", re.compile(r"^playlists/\d+/tracks/\d+$"), False),
+    ("PUT", re.compile(r"^settings$"), False),
+]
+CACHEABLE = [
+    re.compile(r"^(me|settings|home|tracks|search|albums|album|artists|artist|likes|playlists|requests|devices|builds|version|ping)(/.*)?$"),
+    re.compile(r"^tracks/\d+/(lyrics|sources)$"),
+    re.compile(r"^public/(now/[^/]+|listening)$"),
+    re.compile(r"^auth/(rotur|discord)/status$"),
+]
+CACHE_TTL = {
+    "settings": 300, "home": 120, "tracks": 300, "albums": 600, "artists": 600,
+    "likes": 120, "playlists": 120, "builds": 3600, "version": 3600,
+    "devices": 60, "public/listening": 8, "requests": 30,
+}
+
+
+def _replay_rule(method: str, path: str):
+    for verb, pattern, toggle in REPLAYABLE:
+        if verb == method and pattern.match(path):
+            return toggle
+    return None
+
+
+def _cache_ttl(path: str) -> int:
+    head = path.split("/", 1)[0]
+    return CACHE_TTL.get(head, 120)
 
 
 class ApiError(Exception):
     def __init__(self, message: str, status: int = 0):
         super().__init__(message)
         self.status = status
+
+    @property
+    def offline(self) -> bool:
+        """True for a transport failure, as opposed to an HTTP error."""
+        return self.status == 0
 
 
 # ── background runner ───────────────────────────────────────────────────────
@@ -156,10 +200,181 @@ class SessionStore:
         if me is None:
             self._s.remove("me")
         else:
-            self._s.setValue("me", json.dumps({
-                "id": me.id, "username": me.username, "is_admin": me.is_admin,
-                "rotur_id": me.rotur_id, "rotur_linked": me.rotur_linked,
-            }))
+            self._s.setValue("me", json.dumps(me.to_json(), separators=(",", ":")))
+        self._s.sync()
+
+    # native app token (Rotur sign-in / device pairing) --------------------
+    @property
+    def device_token(self) -> str:
+        return str(self._s.value("device_token", "") or "")
+
+    @device_token.setter
+    def device_token(self, value: str) -> None:
+        if value:
+            self._s.setValue("device_token", value)
+        else:
+            self._s.remove("device_token")
+        self._s.sync()
+
+    @property
+    def pending_token(self) -> str:
+        return str(self._s.value("pending_token", "") or "")
+
+    @pending_token.setter
+    def pending_token(self, value: str) -> None:
+        if value:
+            self._s.setValue("pending_token", value)
+        else:
+            self._s.remove("pending_token")
+        self._s.sync()
+
+    # derived listen-along invite link (never saved to server settings) ---
+    @property
+    def room_url(self) -> str:
+        return str(self._s.value("room_url", "") or "")
+
+    @room_url.setter
+    def room_url(self, value: str) -> None:
+        self._s.setValue("room_url", value)
+        self._s.sync()
+
+    # offline GET cache ----------------------------------------------------
+    def _json_value(self, key: str, default: Any):
+        raw = str(self._s.value(key, "") or "")
+        if not raw:
+            return default
+        try:
+            value = json.loads(raw)
+            return value if isinstance(value, type(default)) else default
+        except (ValueError, TypeError):
+            return default
+
+    def _set_json(self, key: str, value: Any) -> None:
+        self._s.setValue(key, json.dumps(value, separators=(",", ":")))
+        self._s.sync()
+
+    def cache_get(self, key: str) -> Optional[dict]:
+        entry = self._json_value("http_cache", {}).get(key)
+        return entry if isinstance(entry, dict) and isinstance(entry.get("data"), dict) else None
+
+    def cache_put(self, key: str, data: Any) -> None:
+        if not isinstance(data, dict):
+            return
+        cache = self._json_value("http_cache", {})
+        cache[key] = {"at": time.time(), "data": data}
+        # A few hundred responses is plenty; keep the newest ones.
+        if len(cache) > 400:
+            for old in sorted(cache, key=lambda k: cache[k].get("at", 0))[:len(cache) - 400]:
+                cache.pop(old, None)
+        self._set_json("http_cache", cache)
+
+    def cache_stats(self) -> tuple[int, int]:
+        cache = self._json_value("http_cache", {})
+        files = 0
+        root = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "mcmusic" / "audio"
+        if root.is_dir():
+            files = sum(1 for p in root.iterdir() if p.is_file() and p.suffix != ".part")
+        return len(cache), files
+
+    def cache_clear(self, *, responses: bool = True, audio: bool = True) -> int:
+        removed = 0
+        if responses:
+            removed += len(self._json_value("http_cache", {}))
+            self._s.remove("http_cache")
+        if audio:
+            root = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "mcmusic" / "audio"
+            if root.is_dir():
+                for p in root.iterdir():
+                    if p.is_file():
+                        try:
+                            p.unlink()
+                            removed += 1
+                        except OSError:
+                            pass
+        self._s.sync()
+        return removed
+
+    def cache_prune(self, max_age_days: int = 30, max_bytes: int = 2 * 1024**3) -> int:
+        """Drop old audio files until the cache is under *max_bytes*."""
+        root = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "mcmusic" / "audio"
+        if not root.is_dir():
+            return 0
+        files = [p for p in root.iterdir() if p.is_file()]
+        cutoff = time.time() - max(1, max_age_days) * 86400
+        removed = 0
+        for p in files:
+            try:
+                if p.stat().st_mtime < cutoff:
+                    p.unlink()
+                    removed += 1
+            except OSError:
+                pass
+        total = sum(p.stat().st_size for p in files if p.exists())
+        for p in sorted((p for p in files if p.exists()), key=lambda f: f.stat().st_mtime):
+            if total <= max_bytes:
+                break
+            try:
+                total -= p.stat().st_size
+                p.unlink()
+                removed += 1
+            except OSError:
+                pass
+        return removed
+
+    # offline write outbox -------------------------------------------------
+    @property
+    def outbox(self) -> list[dict]:
+        return self._json_value("outbox", [])
+
+    def outbox_add(self, method: str, path: str, body: Any = None) -> int:
+        items = self.outbox
+        toggle = _replay_rule(method, path)
+        if not toggle:
+            items = [i for i in items
+                     if not (i.get("method") == method and i.get("path") == path
+                             and json.dumps(i.get("body"), sort_keys=True)
+                             == json.dumps(body, sort_keys=True))]
+        items.append({"method": method, "path": path, "body": body, "at": time.time()})
+        items = items[-200:]
+        self._set_json("outbox", items)
+        return len(items)
+
+    def outbox_set(self, items: list[dict]) -> None:
+        self._set_json("outbox", items)
+
+    # queue / sleep timer snapshots ----------------------------------------
+    @property
+    def queue_snapshot(self) -> dict:
+        snap = self._json_value("queue_snapshot", {})
+        return snap if isinstance(snap, dict) else {}
+
+    @queue_snapshot.setter
+    def queue_snapshot(self, value: dict) -> None:
+        self._set_json("queue_snapshot", value)
+
+    @property
+    def sleep_timer(self) -> dict:
+        timer = self._json_value("sleep_timer", {})
+        return timer if isinstance(timer, dict) else {}
+
+    @sleep_timer.setter
+    def sleep_timer(self, value: dict) -> None:
+        if value:
+            self._set_json("sleep_timer", value)
+        else:
+            self._s.remove("sleep_timer")
+            self._s.sync()
+
+    @property
+    def reset_token(self) -> str:
+        return str(self._s.value("reset_token", "") or "")
+
+    @reset_token.setter
+    def reset_token(self, value: str) -> None:
+        if value:
+            self._s.setValue("reset_token", value)
+        else:
+            self._s.remove("reset_token")
         self._s.sync()
 
     # appearance -----------------------------------------------------------
@@ -212,20 +427,37 @@ class Api:
     def __init__(self, store: SessionStore):
         self.store = store
         self.cookies: dict[str, str] = store.load_cookies()
+        self.token: str = store.device_token
         self._local = threading.local()
+        self._flush_lock = threading.Lock()
         self.base_url = normalize(store.base_url)
 
     # transport ------------------------------------------------------------
     def _session(self) -> requests.Session:
         s = getattr(self._local, "session", None)
+        system = "Darwin" if platform.system() == "Darwin" else (
+            "Windows" if platform.system() == "Windows" else "Linux")
         if s is None:
             s = requests.Session()
             s.headers.update({
-                "User-Agent": f"mcmusic-desktop/{VERSION} (Linux; Qt)",
+                "User-Agent": USER_AGENT.replace("Qt", f"{system}; Qt"),
                 "Accept": "application/json",
             })
             self._local.session = s
+        if self.token:
+            s.headers["Authorization"] = f"Bearer {self.token}"
+        else:
+            s.headers.pop("Authorization", None)
         return s
+
+    def set_token(self, token: str) -> None:
+        """Adopt a native-client device token (Rotur sign-in / pairing)."""
+        self.token = token.strip()
+        self.store.device_token = self.token
+
+    def clear_token(self) -> None:
+        self.token = ""
+        self.store.device_token = ""
 
     def set_base(self, raw: str) -> str:
         self.base_url = normalize(raw, self.base_url)
@@ -263,14 +495,14 @@ class Api:
 
     def request(self, method: str, path: str, body: dict | None = None,
                 params: dict | None = None, timeout: tuple[float, float] = (12, 40),
-                raw: bool = False) -> Any:
+                raw: bool = False, headers: dict | None = None) -> Any:
         url = self.url(path)
-        headers = {}
+        final_headers = dict(headers or {})
         if self.cookies:
-            headers["Cookie"] = self._cookie_header()
+            final_headers["Cookie"] = self._cookie_header()
         try:
             response = self._session().request(
-                method, url, json=body, params=params, headers=headers,
+                method, url, json=body, params=params, headers=final_headers,
                 timeout=timeout, allow_redirects=True,
             )
         except requests.Timeout:
@@ -300,20 +532,72 @@ class Api:
             raise ApiError(message or f"HTTP {response.status_code}", response.status_code)
         return data
 
+    @staticmethod
+    def cache_key(path: str, params: dict | None) -> str:
+        return path + ("?" + urlencode(sorted((params or {}).items())) if params else "")
+
     def get(self, path: str, params: dict | None = None) -> Any:
-        return self.request("GET", path, params=params)
+        """Read-through cache: use the network when possible, saved body otherwise."""
+        key = self.cache_key(path, params)
+        try:
+            data = self.request("GET", path, params=params)
+        except ApiError as exc:
+            if not exc.offline or not any(p.match(path) for p in CACHEABLE):
+                raise
+            hit = self.store.cache_get(self.base_url + "|" + key)
+            if hit is None:
+                raise
+            return hit["data"]
+        if any(p.match(path) for p in CACHEABLE):
+            self.store.cache_put(self.base_url + "|" + key, data)
+        return data
+
+    def write(self, method: str, path: str, body: dict | None = None) -> Any:
+        """Queue replay-safe writes when the server cannot be reached."""
+        try:
+            return self.request(method, path, body=body)
+        except ApiError as exc:
+            if exc.offline and _replay_rule(method, path) is not None:
+                pending = self.store.outbox_add(method, path, body)
+                return {"queued": True, "pending": pending}
+            raise
 
     def post(self, path: str, body: dict | None = None) -> Any:
-        return self.request("POST", path, body=body)
+        return self.write("POST", path, body)
 
     def put(self, path: str, body: dict | None = None) -> Any:
-        return self.request("PUT", path, body=body)
+        return self.write("PUT", path, body)
 
     def patch(self, path: str, body: dict | None = None) -> Any:
-        return self.request("PATCH", path, body=body)
+        return self.write("PATCH", path, body)
 
     def delete(self, path: str) -> Any:
-        return self.request("DELETE", path)
+        return self.write("DELETE", path)
+
+    def pending_writes(self) -> int:
+        return len(self.store.outbox)
+
+    def flush_outbox(self) -> tuple[int, int]:
+        """Replay pending writes oldest-first. Returns (sent, still_pending)."""
+        if not self._flush_lock.acquire(blocking=False):
+            return 0, self.pending_writes()
+        try:
+            items = self.store.outbox
+            sent = 0
+            while items:
+                item = items[0]
+                try:
+                    self.request(item["method"], item["path"], body=item.get("body"))
+                except ApiError as exc:
+                    if exc.status == 401 or exc.offline or exc.status >= 500 or exc.status == 429:
+                        break
+                    # A permanent 4xx (e.g. already deleted) is done; drop it.
+                items = items[1:]
+                self.store.outbox_set(items)
+                sent += 1
+            return sent, len(items)
+        finally:
+            self._flush_lock.release()
 
     def get_bytes(self, path: str) -> tuple[bytes, str]:
         return self.request("GET", path, raw=True)
@@ -384,8 +668,10 @@ class Repo:
         self.api = api
 
     # auth -----------------------------------------------------------------
-    def me(self) -> Me:
-        return Me.from_json(self.api.get("me"))
+    def me(self, force: bool = False) -> Me:
+        """Current identity. Session checks must bypass the stale-if-error cache."""
+        data = (self.api.request("GET", "me") if force else self.api.get("me"))
+        return Me.from_json(data)
 
     def login(self, username: str, password: str) -> Me:
         return Me.from_json(self.api.post("login", {"username": username, "password": password}))
@@ -404,11 +690,77 @@ class Repo:
     def change_password(self, old: str, new: str) -> None:
         self.api.post("password", {"old": old, "new": new})
 
+    def set_email(self, email: str) -> Me:
+        return Me.from_json(self.api.post("auth/email", {"email": email}))
+
+    def request_reset(self, email: str) -> dict:
+        return self.api.post("auth/reset/request", {"email": email})
+
+    def check_reset(self, token: str) -> None:
+        self.api.post("auth/reset/check", {"token": token})
+
+    def confirm_reset(self, token: str, password: str) -> None:
+        self.api.post("auth/reset/confirm", {"token": token, "password": password})
+
+    def verify_token(self, token: str) -> Me:
+        """Verify a native device token without adopting it yet."""
+        data = self.api.request(
+            "GET", "me", timeout=(8, 12),
+            headers={"Authorization": f"Bearer {token.strip()}"},
+        )
+        return Me.from_json(data)
+
+    def adopt_token(self, token: str) -> Me:
+        """Persist and start using a native device token, then verify it."""
+        self.api.set_token(token)
+        try:
+            # Never accept a device token on the strength of a cached identity.
+            return self.me(force=True)
+        except ApiError:
+            self.api.clear_token()
+            raise
+
+    def app_logout(self) -> None:
+        if self.api.token:
+            try:
+                self.api.post("auth/app/logout")
+            except ApiError:
+                pass
+            self.api.clear_token()
+
+    # Rotur / Discord -------------------------------------------------------
     def rotur_status(self) -> dict:
         return self.api.get("auth/rotur/status")
 
     def unlink_rotur(self) -> None:
         self.api.post("auth/rotur/unlink")
+
+    def rotur_authorize_url(self, device_hash: str = "") -> str:
+        params = {"app": "1"}
+        if device_hash:
+            params["device_hash"] = device_hash
+        return self.api.web_url("api/auth/rotur/authorize?" + urlencode(params))
+
+    def rotur_activity(self, track_id: Optional[int], position: float,
+                       playing: bool) -> None:
+        self.api.post("auth/rotur/activity", {
+            "track_id": track_id, "position": position, "playing": playing,
+        })
+
+    def discord_status(self) -> dict:
+        return self.api.get("auth/discord/status")
+
+    def discord_authorize_url(self) -> str:
+        return self.api.web_url("api/auth/discord/authorize")
+
+    def discord_unlink(self) -> None:
+        self.api.post("auth/discord/unlink")
+
+    def discord_activity(self, track_id: Optional[int], position: float,
+                         playing: bool) -> None:
+        self.api.post("auth/discord/activity", {
+            "track_id": track_id, "position": position, "playing": playing,
+        })
 
     # settings -------------------------------------------------------------
     def settings(self) -> Settings:
@@ -416,6 +768,22 @@ class Repo:
 
     def save_settings(self, settings: Settings) -> None:
         self.api.put("settings", settings.to_json())
+
+    # server metadata -------------------------------------------------------
+    def ping(self) -> dict:
+        return self.api.get("ping")
+
+    def version(self) -> dict:
+        return self.api.get("version")
+
+    def builds(self) -> list[BuildInfo]:
+        return BuildInfo.list_json(self.api.get("builds").get("builds"))
+
+    def email_build(self, kind: str, email: str) -> dict:
+        return self.api.post("builds/email", {"build": kind, "email": email})
+
+    def build_url(self, path: str) -> str:
+        return self.api.web_url(path.lstrip("/"))
 
     # library --------------------------------------------------------------
     def home(self) -> HomeData:
@@ -431,6 +799,10 @@ class Repo:
         if query:
             params["q"] = query
         return Track.list_json(self.api.get("tracks", params).get("tracks"))
+
+    def find_track(self, track_id: int) -> Optional[Track]:
+        """Resolve one track from the cached library list (no single-track GET)."""
+        return next((t for t in self.tracks() if t.id == int(track_id)), None)
 
     def search(self, query: str) -> SearchData:
         o = self.api.get("search", {"q": query})
@@ -456,11 +828,19 @@ class Repo:
         """Lyrics for one track; the server looks them up on first listen."""
         return self.api.get(f"tracks/{int(track_id)}/lyrics")
 
+    def track_sources(self, track_id: int) -> list[dict]:
+        data = self.api.get(f"tracks/{int(track_id)}/sources")
+        return [r for r in (data.get("sources") or []) if isinstance(r, dict)]
+
     def likes(self) -> list[Track]:
         return Track.list_json(self.api.get("likes").get("tracks"))
 
-    def like(self, track_id: int) -> bool:
-        return bool(self.api.post(f"like/{track_id}").get("liked"))
+    def like(self, track_id: int):
+        """Returns the new liked state, or a queued marker when offline."""
+        data = self.api.post(f"like/{track_id}")
+        if isinstance(data, dict) and data.get("queued"):
+            return data
+        return bool(data.get("liked"))
 
     def report_play(self, track_id: int, completed: bool) -> None:
         self.api.post("plays", {"track_id": track_id, "completed": completed})
@@ -520,6 +900,30 @@ class Repo:
         o = self.api.post("admin/scan")
         return int(o.get("tracks") or 0), int(o.get("albums") or 0)
 
+    # public listening ------------------------------------------------------
+    def public_listening(self) -> tuple[list[ListeningUser], str]:
+        data = self.api.get("public/listening")
+        return ListeningUser.list_json(data.get("users")), str(data.get("base_url") or "")
+
+    def public_now(self, username: str) -> dict:
+        return self.api.get(f"public/now/{username}")
+
+    # rooms -----------------------------------------------------------------
+    def room_create(self) -> str:
+        return str(self.api.post("rooms").get("code") or "")
+
+    def room_state(self, code: str, track_id: int | None, pos: float,
+                   playing: bool) -> None:
+        self.api.post(f"rooms/{code}/state", {
+            "track_id": track_id, "pos": pos, "playing": playing,
+        })
+
+    def room_get(self, code: str) -> dict:
+        return self.api.get(f"rooms/{code}")
+
+    def room_close(self, code: str) -> None:
+        self.api.delete(f"rooms/{code}")
+
     # devices / playback registry ------------------------------------------
     def heartbeat(self, device_hash: str, name: str, track_id: int | None,
                   position: float, paused: bool) -> None:
@@ -528,20 +932,126 @@ class Repo:
             "position": position, "paused": paused,
         })
 
+    def devices(self) -> list[DeviceRow]:
+        return DeviceRow.list_json(self.api.get("devices").get("devices"))
+
+    def device_activate(self, device_id: int) -> None:
+        self.api.post(f"devices/{int(device_id)}/activate")
+
+    def device_rename(self, device_id: int, name: str) -> None:
+        self.api.patch(f"devices/{int(device_id)}", {"name": name})
+
+    def device_forget(self, device_id: int) -> None:
+        self.api.delete(f"devices/{int(device_id)}")
+
+    def devices_cleanup(self) -> None:
+        self.api.post("devices/cleanup")
+
+    def devices_clear(self) -> None:
+        self.api.post("devices/clear")
+
+    def devices_sync(self) -> dict:
+        return self.api.get("devices/sync")
+
+    def device_code(self) -> dict:
+        return self.api.post("devices/code")
+
+    def device_claim(self, code: str, name: str = "") -> dict:
+        return self.api.post("devices/claim", {
+            "code": code, "name": name, "device_hash": self.api.store.device_hash,
+        })
+
+    def device_tokens(self) -> list[dict]:
+        data = self.api.get("devices/tokens")
+        return [t for t in (data.get("tokens") or []) if isinstance(t, dict)]
+
+    def device_token_revoke(self, token_id: int) -> None:
+        self.api.post(f"devices/tokens/{int(token_id)}/revoke")
+
+    def admin_devices(self) -> list[DeviceRow]:
+        return DeviceRow.list_json(self.api.get("admin/devices").get("devices"))
+
     def publish_playback(self, track_id: int | None, position: float, duration: float,
-                         playing: bool, queue: list[int]) -> None:
+                         playing: bool, queue: list[int], device: str = "") -> None:
         self.api.post("playback", {
             "track_id": track_id, "position": position, "duration": duration,
-            "playing": playing, "queue": queue,
+            "playing": playing, "queue": queue, "device": device or self.api.store.device_hash,
         })
+
+    def playback(self, device: str = "") -> dict:
+        return self.api.get("playback", {"device": device or self.api.store.device_hash})
+
+    def playback_command(self, action: str, **arg) -> None:
+        self.api.post("playback/command", {"action": action, **arg})
+
+    def queue_snapshot(self) -> dict:
+        return self.api.get("queue")
+
+    # advanced request / admin ---------------------------------------------
+    def admin_requests(self, limit: int = 200) -> list[RequestRow]:
+        data = self.api.get("admin/requests", {"limit": limit})
+        return [RequestRow.from_json(r) for r in (data.get("requests") or [])]
+
+    def request_log(self, request_id: int) -> dict:
+        return self.api.get(f"admin/requests/{int(request_id)}/log")
+
+    def request_cancel(self, request_id: int) -> None:
+        self.api.post(f"admin/requests/{int(request_id)}/cancel")
+
+    def request_retry(self, request_id: int) -> None:
+        self.api.post(f"admin/requests/{int(request_id)}/retry")
+
+    def request_delete(self, request_id: int) -> None:
+        self.api.delete(f"admin/requests/{int(request_id)}")
+
+    def admin_delete_user(self, user_id: int) -> None:
+        self.api.delete(f"admin/users/{int(user_id)}")
+
+    def admin_invites(self) -> list[dict]:
+        data = self.api.get("admin/invite-codes")
+        return [r for r in (data.get("codes") or []) if isinstance(r, dict)]
+
+    def admin_invite_create(self, uses: int = 1, hours: float = 0, note: str = "") -> dict:
+        return self.api.post("admin/invite-codes", {
+            "uses": uses, "hours": hours, "note": note,
+        })
+
+    def admin_invite_revoke(self, code_id: int) -> None:
+        self.api.delete(f"admin/invite-codes/{int(code_id)}")
+
+    def admin_rooms(self) -> list[dict]:
+        data = self.api.get("admin/rooms")
+        return [r for r in (data.get("rooms") or []) if isinstance(r, dict)]
+
+    def admin_room_close(self, code: str) -> None:
+        self.api.delete(f"admin/rooms/{code}")
+
+    def admin_enrich_status(self) -> dict:
+        return self.api.get("admin/enrich")
+
+    def admin_enrich_start(self, force: bool = False) -> None:
+        self.api.post("admin/enrich", {"force": force})
+
+    def admin_lyrics_status(self) -> dict:
+        return self.api.get("admin/lyrics")
+
+    def admin_lyrics_start(self) -> None:
+        self.api.post("admin/lyrics", {})
+
+    def admin_channels(self) -> list[dict]:
+        data = self.api.get("channels")
+        return [r for r in (data.get("channels") or []) if isinstance(r, dict)]
 
 
 def device_name() -> str:
+    system = platform.system()
     try:
-        host = platform.node() or "Linux"
+        host = platform.node() or system
     except Exception:
-        host = "Linux"
-    return f"{host} · Linux"
+        host = system
+    label = "macOS" if system == "Darwin" else (
+        "Windows" if system == "Windows" else "Linux")
+    return f"{host} · {label}"
 
 
 def query(params: dict[str, Any]) -> str:

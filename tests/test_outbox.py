@@ -2,8 +2,9 @@
 
 The offline queue has no browser runner in this repo, so the suite is a plain
 ESM script (tests/outbox.test.mjs) with IndexedDB and fetch stubbed. Wrapping it here means `python -m unittest discover -s tests`
-covers the client as well as the server, and the suite skips cleanly where Node
-is not installed.
+covers the legacy client as well as the server. The suite skips cleanly where
+Node or the archived `web/js` source is not present; the current Preact client
+lives under `ui/` and is covered by `npm run build`.
 
     .venv/bin/python -m unittest discover -s tests -v
 """
@@ -22,6 +23,9 @@ class OutboxTest(unittest.TestCase):
         node = shutil.which("node")
         if not node:
             self.skipTest("node is not installed")
+        legacy_api = os.path.join(ROOT, "web", "js", "api.js")
+        if not os.path.exists(legacy_api):
+            self.skipTest("legacy web/js outbox source is archived in old/")
 
         proc = subprocess.run(
             [node, SCRIPT],

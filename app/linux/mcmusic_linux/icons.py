@@ -168,6 +168,13 @@ PATHS = {
     "chevron-left": '<path d="M15 5l-7 7 7 7"/>',
     "chevron-right": '<path d="M9 5l7 7-7 7"/>',
     "chevron-down": '<path d="M5 9l7 7 7-7"/>',
+    "chevron-up": '<path d="M5 15l7-7 7 7"/>',
+    "grip-vertical": '<circle cx="9" cy="5" r="1.3" fill="currentColor" stroke="none"/>'
+                     '<circle cx="15" cy="5" r="1.3" fill="currentColor" stroke="none"/>'
+                     '<circle cx="9" cy="12" r="1.3" fill="currentColor" stroke="none"/>'
+                     '<circle cx="15" cy="12" r="1.3" fill="currentColor" stroke="none"/>'
+                     '<circle cx="9" cy="19" r="1.3" fill="currentColor" stroke="none"/>'
+                     '<circle cx="15" cy="19" r="1.3" fill="currentColor" stroke="none"/>',
     "more-vertical": '<circle cx="12" cy="5" r="1.4" fill="currentColor" stroke="none"/>'
                      '<circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/>'
                      '<circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none"/>',

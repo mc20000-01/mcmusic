@@ -176,6 +176,7 @@ Back up together:
 
 ```text
 data/mcmusic.db
+data/next_song_mdl.json
 mcmusic.env
 MUSIC_DIR
 keystore/mcmusic.p12   # only if you build/sign APKs locally
@@ -198,5 +199,6 @@ git. `old/` is a local archive and is gitignored.
 
 - `README.md` — full feature notes, embeds and presence setup.
 - `requirements.md` — current implementation and parity task list.
+- `docs/algo-learning.md` — learning-only next-song model notes.
 - `docs/` — platform/design research.
 - `/api/docs` on your server — API index.

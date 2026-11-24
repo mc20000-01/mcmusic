@@ -49,6 +49,7 @@ import dev.mcmusic.app.ui.Lucide
 import dev.mcmusic.app.ui.MediaCard
 import dev.mcmusic.app.ui.ScreenTitle
 import dev.mcmusic.app.ui.TrackRow
+import dev.mcmusic.app.ui.visibleTracks
 import dev.mcmusic.app.ui.design.LocalDesign
 import dev.mcmusic.app.ui.design.mcSurface
 
@@ -75,6 +76,7 @@ fun LibraryScreen(onOpenPlaylists: () -> Unit, onOpenPlayer: () -> Unit) {
     }
 
     val all = tracks.orEmpty()
+    val shown = all.visibleTracks()
     val albums = remember(all) {
         all.groupBy { it.album.ifBlank { it.title } }
             .map { (name, list) ->
@@ -194,9 +196,9 @@ fun LibraryScreen(onOpenPlaylists: () -> Unit, onOpenPlayer: () -> Unit) {
                         contentPadding = PaddingValues(design.screenPadding, 8.dp, design.screenPadding, 24.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
-                        items(all, key = { it.id }) { track ->
-                            TrackRow(track, onClick = {
-                                Playback.play(all, all.indexOf(track))
+                        items(shown, key = { it.id }) { track ->
+                            TrackRow(track, menu = true, onClick = {
+                                Playback.play(shown, shown.indexOf(track))
                                 onOpenPlayer()
                             })
                         }

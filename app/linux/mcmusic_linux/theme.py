@@ -1,7 +1,7 @@
-"""Design tokens shared with the web client (web/css/variables.css).
+"""Design tokens shared with the web client (ui/src/env.css).
 
 Everything the native UI paints reads from these palettes, so the desktop app
-keeps the same warm-ink + brass identity as the browser and Android builds.
+keeps the same ink + violet identity as the browser and Android builds.
 """
 from __future__ import annotations
 
@@ -25,11 +25,11 @@ class Palette:
     line2: str
     accent: str
     accent_fg: str
-    ok: str = "#7fa86a"
-    warn: str = "#d9b13d"
-    err: str = "#c9603f"
-    scrim: str = "rgba(10, 8, 6, 0.72)"
-    ink: str = "#0d0b09"
+    ok: str = "#1db954"
+    warn: str = "#b888ff"
+    err: str = "#ff6b72"
+    scrim: str = "rgba(8, 6, 13, 0.78)"
+    ink: str = "#08060d"
 
     def q(self, token: str) -> QColor:
         return QColor(getattr(self, token))
@@ -67,78 +67,83 @@ class Palette:
         return c
 
 
-# ── palettes (variables.css + Theme.kt) ─────────────────────────────────────
+# ── palettes (ui/src/env.css + Design.kt) ───────────────────────────────────
 
+# DUSK mirrors the v3 web tokens exactly: one ink surface scale, one accent.
 DUSK = Palette(
     name="dusk",
-    bg="#14110d", bg2="#1b1712", surface="#221d17", surface2="#2b241c",
-    fg="#f3ebdd", dim="#a4957f", dim2="#786b58",
-    line="#332b22", line2="#4a3f31",
-    accent="#d98a3d", accent_fg="#1a130a",
-    ok="#7fa86a", warn="#d9b13d", err="#c9603f",
-    scrim="rgba(10, 8, 6, 0.72)", ink="#0d0b09",
+    bg="#08060d", bg2="#100c18", surface="#19122a", surface2="#241a38",
+    fg="#ffffff", dim="#948aa6", dim2="#6a6178",
+    line="#1f1830", line2="#2a2040",
+    accent="#a06bff", accent_fg="#08060d",
+    scrim="rgba(8, 6, 13, 0.78)", ink="#08060d",
 )
 
 PAPER = Palette(
     name="paper",
-    bg="#f4efe4", bg2="#ece4d5", surface="#fbf7ee", surface2="#efe7d8",
-    fg="#241d14", dim="#6d6151", dim2="#8d8069",
-    line="#dcd1bd", line2="#bfb098",
-    accent="#b4531f", accent_fg="#fff8ef",
-    ok="#5c8a4a", warn="#a97f1f", err="#b04a2c",
-    scrim="rgba(40, 32, 20, 0.34)", ink="#1b1610",
+    bg="#f4f2f8", bg2="#ebe7f2", surface="#ffffff", surface2="#f8f6fb",
+    fg="#08060d", dim="#6a6178", dim2="#948aa6",
+    line="#d6cfe0", line2="#b8aecb",
+    accent="#a06bff", accent_fg="#08060d",
+    scrim="rgba(8, 6, 13, 0.36)", ink="#08060d",
 )
 
 INK = Palette(
     name="ink",
-    bg="#050505", bg2="#0b0b0c", surface="#121214", surface2="#191a1d",
-    fg="#f5f5f5", dim="#8f8f96", dim2="#64646b",
-    line="#212126", line2="#34343b",
-    accent="#d7d7de", accent_fg="#0a0a0a",
-    ok="#7fa86a", warn="#d9b13d", err="#c9603f",
-    scrim="rgba(0, 0, 0, 0.77)", ink="#000000",
+    bg="#050408", bg2="#0a0810", surface="#100c18", surface2="#181226",
+    fg="#ffffff", dim="#948aa6", dim2="#6a6178",
+    line="#1f1830", line2="#2a2040",
+    accent="#a06bff", accent_fg="#08060d",
+    scrim="rgba(0, 0, 0, 0.82)", ink="#000000",
 )
 
 TIDE = Palette(
     name="tide",
-    bg="#0e161a", bg2="#131e23", surface="#18262c", surface2="#1f3038",
-    fg="#e4eef1", dim="#8ba3ab", dim2="#647e87",
-    line="#23363d", line2="#33505a",
-    accent="#6fb3c4", accent_fg="#06171c",
-    ok="#7fa86a", warn="#d9b13d", err="#c9603f",
-    scrim="rgba(6, 15, 19, 0.77)", ink="#070d10",
+    bg="#070912", bg2="#0d1020", surface="#141830", surface2="#1c2240",
+    fg="#ffffff", dim="#9aa0bc", dim2="#6f7591",
+    line="#1e2440", line2="#2c3458",
+    accent="#a06bff", accent_fg="#08060d",
+    scrim="rgba(5, 7, 16, 0.78)", ink="#04050c",
 )
 
-COPPER = Palette(
-    name="copper",
-    bg="#1a0f0d", bg2="#221412", surface="#2b1a16", surface2="#37211c",
-    fg="#f6e7df", dim="#b2928a", dim2="#856a63",
-    line="#3a241f", line2="#553229",
-    accent="#e08a5f", accent_fg="#1c0d08",
-    ok="#7fa86a", warn="#d9b13d", err="#c9603f",
-    scrim="rgba(18, 8, 7, 0.8)", ink="#0d0706",
+FOREST = Palette(
+    name="forest",
+    bg="#06100c", bg2="#0a1a14", surface="#10251c", surface2="#182f25",
+    fg="#ffffff", dim="#9cb7a8", dim2="#6f887b",
+    line="#1a382c", line2="#274d3d",
+    accent="#a06bff", accent_fg="#08060d",
+    scrim="rgba(3, 12, 9, 0.78)", ink="#030906",
+)
+
+ROSE = Palette(
+    name="rose",
+    bg="#100810", bg2="#1a1020", surface="#241630", surface2="#30203f",
+    fg="#ffffff", dim="#b09cba", dim2="#85738f",
+    line="#2e2038", line2="#443052",
+    accent="#a06bff", accent_fg="#08060d",
+    scrim="rgba(14, 6, 14, 0.78)", ink="#0b050b",
 )
 
 PALETTES: dict[str, Palette] = {
-    "dusk": DUSK, "paper": PAPER, "ink": INK, "tide": TIDE, "copper": COPPER,
+    "dusk": DUSK, "paper": PAPER, "ink": INK, "tide": TIDE,
+    "forest": FOREST, "rose": ROSE,
 }
 
 # Aliases used by the server / older clients.
 ALIASES = {
-    "dark": "dusk", "auto": "dusk", "light": "paper",
-    "amoled": "ink", "midnight": "tide", "mocha": "copper", "rose": "copper",
+    "dark": "dusk", "auto": "dusk", "light": "paper", "flufi": "dusk",
+    "amoled": "ink", "midnight": "tide", "copper": "rose", "mocha": "rose",
 }
 
-THEME_ORDER = ["dusk", "paper", "ink", "tide", "copper"]
+THEME_ORDER = ["dusk", "paper", "ink", "tide", "forest", "rose"]
 
 ACCENTS = [
-    ("#d98a3d", "brass"),
-    ("#c9603f", "ember"),
-    ("#7fa86a", "moss"),
-    ("#6fb3c4", "tide"),
-    ("#a78bbf", "plum"),
+    ("#a06bff", "violet"),
+    ("#b888ff", "lilac"),
+    ("#79d8a5", "forest"),
     ("#d97f9e", "rose"),
-    ("#c8b48a", "sand"),
+    ("#6fb3c4", "tide"),
+    ("#cfc9da", "mist"),
 ]
 
 # Mutable process-wide appearance state.
@@ -256,7 +261,7 @@ def stylesheet(p: Palette | None = None) -> str:
     QLineEdit {{
         background: rgba(255, 255, 255, 0.10);
         border: 1px solid rgba(255, 255, 255, 0.18);
-        border-radius: 12px;
+        border-radius: 10px;
         padding: 8px 12px;
         color: {p.fg};
         font-size: 13px;
@@ -266,7 +271,7 @@ def stylesheet(p: Palette | None = None) -> str:
     QMenu {{
         background: {p.bg2};
         border: 1px solid rgba(255, 255, 255, 0.18);
-        border-radius: 16px;
+        border-radius: 10px;
         padding: 6px;
     }}
     QMenu::item {{
@@ -313,7 +318,7 @@ def stylesheet(p: Palette | None = None) -> str:
     QMessageBox QLabel {{ color: {p.fg}; }}
     QMessageBox QPushButton {{
         background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.18);
-        border-radius: 999px; padding: 7px 15px; color: {p.fg};
+        border-radius: 10px; padding: 7px 15px; color: {p.fg};
     }}
     QMessageBox QPushButton:hover {{ background: {p.surface}; }}
     QColorDialog {{ background: {p.bg2}; }}
