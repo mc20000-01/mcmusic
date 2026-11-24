@@ -151,6 +151,15 @@ def _clean_artist(value):
     name = re.sub(r"\s+vevo\s*$", "", name, flags=re.I)
     name = re.sub(r"^[\s\[\(【「]+|[\s\]\)】」]+$", "", name)
     name = name.strip(" ,;、&×x-–—")
+    # Channel handles often carry a second alias ("Jamie Paige / JamieP") or
+    # decorative emoji ("rachie 🎀💌"). Keep the human-readable artist, not the
+    # handle decoration, so the display artist stays consistent in the library.
+    if " / " in name:
+        parts = [p.strip() for p in name.split(" / ") if p.strip()]
+        spaced = [p for p in parts if " " in p]
+        ascii_parts = [p for p in parts if p.isascii()]
+        name = spaced[0] if spaced else (ascii_parts[0] if ascii_parts else parts[0])
+    name = re.sub(r"\s+[^\w\s\-'.,&!?\u3040-\u30ff\u4e00-\u9fff]+$", "", name)
     name = _squash(name)
     if not name or name.casefold() in BAD_ARTISTS:
         return ""
@@ -216,28 +225,30 @@ def artist_names(raw_title="", artist="", creator="", uploader="", channel="", d
             if name and name.casefold() not in {n.casefold() for n in credited}:
                 credited.append(name)
 
-    # Credits that are explicit in the video title or description win over the
-    # channel name -- the channel is only a fallback when nothing is credited.
-    title_credits = []
-    pos = _first_dash(raw)
-    if pos > 0 and len(raw[:pos]) <= 80:
-        title_credits.append(raw[:pos])
-    for match in CREDIT_BRACKET_RE.finditer(raw):
-        title_credits.append(match.group(1))
-    for match in FEAT_RE.finditer(raw):
-        title_credits.append(match.group(1))
-    for line in CREDIT_LINE_RE.findall(str(description or "")):
-        title_credits.append(line)
-    for value in title_credits:
+    # Explicit upload metadata is the source of truth. A title like
+    # "Trickle • Forget Me Not (MV) – Reverse: 1999" has a dash, but the text
+    # before it is a song title, not an artist -- trusting it produced broken
+    # artist names. The channel/uploader only loses to a real artist/creator
+    # tag, never to a title fragment.
+    for value in (artist, creator, uploader, channel):
         add(value)
-    if credited:
-        channel_keys = {_artist_key(uploader), _artist_key(channel)}
-        for value in (artist, creator):
-            if _artist_key(value) not in channel_keys:
-                add(value)
-    else:
-        for value in (artist, creator, uploader, channel):
+    if not credited:
+        # No upload credits at all: fall back to the old title parsing.
+        title_credits = []
+        pos = _first_dash(raw)
+        if pos > 0 and len(raw[:pos]) <= 80:
+            title_credits.append(raw[:pos])
+        for pattern in (CREDIT_BRACKET_RE, FEAT_RE):
+            for match in pattern.finditer(raw):
+                title_credits.append(match.group(1))
+        for value in title_credits:
             add(value)
+    else:
+        # Featured credits in the title/description are still worth keeping.
+        for match in FEAT_RE.finditer(raw):
+            add(match.group(1))
+    for line in CREDIT_LINE_RE.findall(str(description or "")):
+        add(line)
     return credited[:8]
 
 
