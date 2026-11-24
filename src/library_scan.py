@@ -161,7 +161,11 @@ def scan_library(conn):
                     categories=yt.get("categories"),
                     genre=genre,
                 )
-                title, artist, genre = meta["title"], meta["artist"], meta["genre"]
+                # Keep the display artist as the primary credit only. The full
+                # credited list stays in track_artists / tracks.artists so the
+                # UI can still show collaborators separately.
+                primary = meta["artists"][0] if meta["artists"] else meta["artist"]
+                title, artist, genre = meta["title"], primary, meta["genre"]
                 themes = json.dumps(meta["themes"])
                 yt_id = yt.get("id") or read_yt_id(full)
                 yt_tags = json.dumps(yt.get("tags") or []) if yt.get("tags") else None
@@ -317,9 +321,10 @@ def yt_worker():
                     # left with no (or "Unknown") artist. Fill it from the
                     # video, and give every credited artist their own page.
                     if not has_real_artist(r) and meta["artists"]:
+                        primary = meta["artists"][0]
                         conn.execute("update tracks set artist=? where id=?",
-                                     (meta["artist"], tid))
-                        index_track(conn, tid, meta["artist"], meta["title"],
+                                     (primary, tid))
+                        index_track(conn, tid, primary, meta["title"],
                                     names=meta["artists"])
                     if not r["title"] or r["title"].casefold().startswith("unknown"):
                         conn.execute("update tracks set title=? where id=?",
