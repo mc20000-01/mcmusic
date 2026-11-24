@@ -97,6 +97,16 @@ release verification.
       can cross several tracks instead of firing one fixed skip.
 - [x] **Version:** APK bumped to `3.3.8`, code `50`, with the same signing
       identity and SDK levels.
+- [x] **Release verification:** CI was green after rerunning transient failures
+      (`45426118030`, `45426118741`, `45426118637`). The published signed APK
+      installed over 3.3.7 and opened on API 34. In the player, left/right drags
+      on the artwork and the title changed tracks only on release; a long drag
+      jumped several queue entries instead of firing one fixed skip.
+- [x] **Delivery verification:** GitHub `latest` and live `/get` serve
+      `sha256:60565f98a3a9b43247659afd4a4f3055bfc812c750b2b60b0671bd0c076ff012`
+      (29,298,427 bytes); `apps/android`, `builds/` and `web/apps` hold the same
+      bytes. Package `dev.mcmusic.app`, `versionCode 50`, `versionName 3.3.8`,
+      min/target SDK 34, compile SDK 36 and the signer SHA-256 are unchanged.
 
 ## Verification commands
 
