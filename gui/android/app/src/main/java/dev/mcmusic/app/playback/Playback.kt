@@ -510,6 +510,21 @@ object Playback {
 
     fun previous() { controller?.seekToPreviousMediaItem() }
 
+    /**
+     * Jump straight to a queue index. Used by the player's drag-to-browse
+     * gesture: the song changes only on release, and rebuilding the queue here
+     * would lose the current playback position and the manual-skip guard.
+     */
+    fun playIndex(index: Int) {
+        val c = controller ?: return
+        if (index !in queueTracks.indices) return
+        val (track, currentIndex) = currentTrack(c)
+        if (index == currentIndex) return
+        suppressAutoplayKey = trackKey(currentIndex, track)
+        c.seekTo(index, 0L)
+        publish(c)
+    }
+
     fun seekTo(ms: Long) {
         controller?.seekTo(ms.coerceAtLeast(0))
         controller?.let {

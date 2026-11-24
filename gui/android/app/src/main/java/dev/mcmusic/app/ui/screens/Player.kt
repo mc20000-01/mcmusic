@@ -43,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -73,6 +74,7 @@ import dev.mcmusic.app.ui.formatDuration
 import dev.mcmusic.app.ui.trackCoverUrl
 import dev.mcmusic.app.data.Track
 import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 
 /**
  * Now playing, with the same queue the service is playing. The scrubber writes
@@ -85,6 +87,10 @@ fun PlayerScreen(onBack: () -> Unit, onVideo: (String?, Long) -> Unit = { _, _ -
     val state = Playback.state
     var scrub by remember { mutableStateOf<Float?>(null) }
     var lyricsOpen by remember { mutableStateOf(false) }
+    // Drag state is shared by the artwork and the title block: the finger can
+    // start on either, but nothing is played until it is lifted.
+    val swipe = rememberSwipeNav()
+    val stepPx = with(LocalDensity.current) { 96.dp.toPx() }
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -108,6 +114,11 @@ fun PlayerScreen(onBack: () -> Unit, onVideo: (String?, Long) -> Unit = { _, _ -
         return
     }
 
+    val lastIndex = (state.queue.lastIndex).coerceAtLeast(0)
+    val targetIndex = (state.index + swipe.steps).coerceIn(0, lastIndex)
+    val previewTrack = state.queue.getOrNull(targetIndex)
+    val shownTrack = if (swipe.steps != 0 && previewTrack != null) previewTrack else track
+
     val fraction = if (state.duration > 0) {
         scrub ?: (state.position.toFloat() / state.duration).coerceIn(0f, 1f)
     } else 0f
@@ -124,26 +135,49 @@ fun PlayerScreen(onBack: () -> Unit, onVideo: (String?, Long) -> Unit = { _, _ -
                         .size(264.dp)
                         .clip(RoundedCornerShape(34.dp))
                         .background(design.accentSoft)
-                        .skipOnSwipe(track.id),
+                        .snapOnSwipe(swipe, state.index, state.queue.size, stepPx) { index ->
+                            Playback.playIndex(index)
+                        },
                     Alignment.Center,
                 ) {
                     Cover(
                         url = trackCoverUrl(track.id),
                         shape = RoundedCornerShape(26.dp),
-                        modifier = Modifier.size(244.dp),
+                        modifier = Modifier
+                            .size(244.dp)
+                            .graphicsLayer { translationX = swipe.drag * 0.18f },
                         fallback = design.accentWash,
                     )
+                    if (swipe.steps != 0 && previewTrack != null) {
+                        Box(
+                            Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(bottom = 12.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(design.palette.bg.copy(alpha = 0.86f))
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                        ) {
+                            Text(
+                                "${if (swipe.steps > 0) "Next" else "Prev"} · ${previewTrack.title}",
+                                color = design.fg,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                            )
+                        }
+                    }
                 }
             }
         }
         item {
             Column(
-                Modifier.fillMaxWidth().padding(top = 6.dp).skipOnSwipe(track.id),
+                Modifier.fillMaxWidth().padding(top = 6.dp).snapOnSwipe(
+                    swipe, state.index, state.queue.size, stepPx
+                ) { index -> Playback.playIndex(index) },
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
                 Text(
-                    track.title,
+                    shownTrack.title,
                     color = design.fg,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -152,12 +186,16 @@ fun PlayerScreen(onBack: () -> Unit, onVideo: (String?, Long) -> Unit = { _, _ -
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    "${track.artist} · ${track.album}",
+                    "${shownTrack.artist} · ${shownTrack.album}",
                     color = design.dim,
                     fontSize = 12.sp,
                     textAlign = TextAlign.Center,
                 )
-                Muted("Swipe artwork to skip · swipe a queue row left to remove", size = 10)
+                Muted(
+                    if (swipe.steps != 0) "Release to play · keep dragging for more songs"
+                    else "Drag artwork/title to browse · release on the closest · queue row left to remove",
+                    size = 10,
+                )
                 state.error?.let { message ->
                     Text(message, color = dev.mcmusic.app.ui.Danger, fontSize = 11.sp, textAlign = TextAlign.Center)
                 }
@@ -295,18 +333,48 @@ fun PlayerScreen(onBack: () -> Unit, onVideo: (String?, Long) -> Unit = { _, _ -
     }
 }
 
-/** Swipe the artwork or title: right = previous song, left = next song. */
+/** Shared drag state for the artwork/title swipe. */
+private class SwipeNavState {
+    var drag by mutableFloatStateOf(0f)
+    var steps by mutableIntStateOf(0)
+}
+
 @Composable
-private fun Modifier.skipOnSwipe(trackId: Int): Modifier {
-    var total by remember(trackId) { mutableFloatStateOf(0f) }
-    return pointerInput(trackId) {
-        detectHorizontalDragGestures(
-            onDragEnd = {
-                if (total > 48) Playback.previous()
-                else if (total < -48) Playback.next()
-                total = 0f
-            },
-        ) { _, amount -> total += amount }
+private fun rememberSwipeNav(): SwipeNavState = remember { SwipeNavState() }
+
+/**
+ * Drag through the queue without changing playback. The offset is quantised
+ * into whole songs while the finger is down; only the nearest song is played
+ * when the finger is lifted. Right drag = previous, left drag = next.
+ */
+private fun Modifier.snapOnSwipe(
+    nav: SwipeNavState,
+    currentIndex: Int,
+    queueSize: Int,
+    stepPx: Float,
+    onCommit: (Int) -> Unit,
+): Modifier = pointerInput(currentIndex, queueSize, stepPx) {
+    detectHorizontalDragGestures(
+        onDragStart = {
+            nav.drag = 0f
+            nav.steps = 0
+        },
+        onDragEnd = {
+            val last = (queueSize - 1).coerceAtLeast(0)
+            val target = (currentIndex + nav.steps).coerceIn(0, last)
+            nav.drag = 0f
+            nav.steps = 0
+            if (queueSize > 1 && target != currentIndex) onCommit(target)
+        },
+        onDragCancel = {
+            nav.drag = 0f
+            nav.steps = 0
+        },
+    ) { _, amount ->
+        nav.drag += amount
+        val min = -currentIndex.coerceAtLeast(0)
+        val max = (queueSize - 1 - currentIndex).coerceAtLeast(0)
+        nav.steps = (-nav.drag / stepPx).roundToInt().coerceIn(min, max)
     }
 }
 

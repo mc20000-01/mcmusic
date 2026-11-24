@@ -89,6 +89,15 @@ release verification.
       bytes. Package `dev.mcmusic.app`, `versionCode 49`, `versionName 3.3.7`,
       min/target SDK 34, compile SDK 36 and the signer SHA-256 are unchanged.
 
+## 3.3.8 round
+
+- [x] **Player:** artwork/title drag now previews nearby queue entries while the
+      finger is down without changing playback. On release it snaps to the
+      nearest whole song and seeks directly to that queue index, so a long drag
+      can cross several tracks instead of firing one fixed skip.
+- [x] **Version:** APK bumped to `3.3.8`, code `50`, with the same signing
+      identity and SDK levels.
+
 ## Verification commands
 
 ```sh
