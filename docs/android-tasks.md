@@ -78,13 +78,13 @@ release verification.
       panel, driven deterministically by playback position and active line.
 - [x] **Version:** APK bumped to `3.3.7`, code `49`, so it installs over 3.3.6
       with the same signing identity.
-- [x] **Release verification:** CI was green (`45350569269`); the published
+- [x] **Release verification:** CI was green (`45355629516`); the published
       signed APK installed over 3.3.6 and launched to the sign-in gate on API 34.
       Kotlin compile, web build, Python checks and `tests.test_puller_meta` passed.
       Deeper UI paths were already exercised in the 3.3.6 emulator round and are
       unchanged structurally here.
 - [x] **Delivery verification:** GitHub `latest` and live `/get` serve
-      `sha256:bf1283b5626c0955014ad301a70dca9d70f54db422d828546447edcd0585b05e`
+      `sha256:99dc3cc77a7723bc6dd86e22398a439f8e09b0d0c2d5d037ba3b90d3bf013d43`
       (29,298,427 bytes); `apps/android`, `builds/` and `web/apps` hold the same
       bytes. Package `dev.mcmusic.app`, `versionCode 49`, `versionName 3.3.7`,
       min/target SDK 34, compile SDK 36 and the signer SHA-256 are unchanged.
