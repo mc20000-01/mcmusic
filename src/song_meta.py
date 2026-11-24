@@ -24,6 +24,9 @@ VERSION_WORDS = {
 BAD_ARTISTS = {
     "unknown", "unknown artist", "various", "various artists", "official",
     "music", "video", "audio", "lyrics", "lyric", "topic", "vevo",
+    # "Alone With Me" and "Down with the King" are titles, not credits.
+    "me", "you", "us", "them", "him", "her", "it", "myself", "yourself",
+    "everyone", "everybody", "somebody", "nobody",
 }
 
 BRACKET_RE = re.compile(r"[\(\[\{（【「《]([^\)\]\}）】」》]*)[\)\]\}）】」》]")
@@ -35,8 +38,11 @@ CREDIT_SPLIT_RE = re.compile(
     r"\s*(?:,|;|、|\s&\s|\s×\s|\sx\s|\bfeat\.?|\bft\.?|\bfeaturing\b|\bwith\b|\bvs\.?)\s*",
     re.I,
 )
+# Deliberately no bare "with": song titles like "Alone With Me" and
+# "Down with the King" are not collaborations. Only explicit feat./ft.
+# credit markers count (plus the "Artist - Title" dash handled separately).
 FEAT_RE = re.compile(
-    r"\b(?:feat\.?|ft\.?|featuring|with|vs\.?)\s+"
+    r"\b(?:feat\.?|ft\.?|featuring|vs\.?)\s+"
     r"((?:(?!\s[-–—]\s)[^\(\)\[\]\{\}【】「」《》]){1,100})",
     re.I,
 )

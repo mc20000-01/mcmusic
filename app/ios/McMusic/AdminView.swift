@@ -34,7 +34,7 @@ struct AdminView: View {
                     }
                     if let algo {
                         Button("Learning model") {
-                            log = .object(["log": pretty(algo)])
+                            log = .object(["log": .string(pretty(algo))])
                         }
                         .buttonStyle(.borderless)
                     }
