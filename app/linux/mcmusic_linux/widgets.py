@@ -5,6 +5,7 @@ blocks, hairline rules, mono labels, brass accent. No HTML, no QWebEngine.
 """
 from __future__ import annotations
 
+import inspect
 from typing import Callable, Optional, Sequence
 
 from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, QSize, Qt, QTimer, Signal
@@ -60,7 +61,9 @@ def C(token: str, alpha: Optional[int] = None) -> QColor:
 def refresh_theme(root: QWidget) -> None:
     for widget in [root, *root.findChildren(QWidget)]:
         hook = getattr(widget, "refresh_theme", None)
-        if callable(hook):
+        # Qt callables (signals, wrapper objects) can surface under Python
+        # attribute names; only invoke hooks we actually declared as methods.
+        if inspect.ismethod(hook) or inspect.isfunction(hook):
             hook()
         widget.update()
 
