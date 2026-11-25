@@ -1012,6 +1012,13 @@ def valid_yt(url):
 DIRECT_EXTS = set(AUDIO_EXTS) | {".zip"}
 MAX_DIRECT_BYTES = 2 * 1024 * 1024 * 1024  # one album zip should never exhaust a disk
 
+# Keep in sync with yt-dlp's YoutubeBaseInfoExtractor._PLAYLIST_ID_RE. YouTube
+# still serves short legacy IDs (13/18/26 characters), not just 34-character
+# ones, so rejecting anything shorter makes good links fail in the app.
+PLAYLIST_ID_RE = re.compile(
+    r"(?:(?:PL|LL|EC|UU|FL|RD|UL|TL|PU|OLAK5uy_)[0-9A-Za-z_-]{10,}|RDMM|WL|LL|LM)"
+)
+
 
 def direct_file_ext(url):
     """Return the lower-case extension for a supported direct HTTPS file."""
@@ -1041,14 +1048,10 @@ def request_url_problem(url):
     playlist = parse_qs(parts.query).get("list", [""])[0].strip()
     if playlist:
         # A truncated playlist id makes yt-dlp retry a 400 for minutes and then
-        # fail. Catch it here with a message that tells people what to copy.
-        if not re.fullmatch(r"[A-Za-z0-9_-]{12,}", playlist):
+        # fail. Match the ids yt-dlp actually accepts so short legacy playlists
+        # are not rejected as "incomplete".
+        if not PLAYLIST_ID_RE.fullmatch(playlist):
             return "that playlist link looks incomplete — copy the full link from YouTube"
-        if playlist[:2].upper() in {"PL", "UU", "LL", "FL"} and len(playlist) != 34:
-            return (
-                f"that playlist ID is incomplete ({len(playlist)} characters, "
-                "expected 34) — copy the full link from YouTube"
-            )
         return None
     # Keep the historical host-level acceptance for video links (tests and old
     # clients use short ids); only explicitly supplied playlist ids are checked.

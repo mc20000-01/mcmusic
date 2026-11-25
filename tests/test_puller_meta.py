@@ -256,5 +256,26 @@ class DirectLinkTests(unittest.TestCase):
             self.assertFalse(valid_request_url(url))
 
 
+class PlaylistLinkTests(unittest.TestCase):
+    def test_short_legacy_and_standard_playlist_ids_are_accepted(self):
+        from routes.system_routes import request_url_problem, valid_request_url
+        for playlist in (
+            "PLa7A5JeQiTQE",                      # 13-character legacy playlist
+            "PL96C35uN7xGLLeET0dOWaKHkAlPsrkcha",  # standard 34-character playlist
+            "OLAK5uy_nTjJd7OaiHPtS4Nfr1IyB0",     # YouTube Music album playlist
+            "WL",                                  # watch later
+        ):
+            url = f"https://www.youtube.com/playlist?list={playlist}&si=y8lNVEZO5eu2pTfH"
+            self.assertIsNone(request_url_problem(url), playlist)
+            self.assertTrue(valid_request_url(url), playlist)
+
+    def test_truncated_or_malformed_playlist_ids_are_rejected(self):
+        from routes.system_routes import request_url_problem, valid_request_url
+        for playlist in ("PLa7A5", "PLa7A5.JeQiTQE", "PL" + "!" * 12):
+            url = f"https://www.youtube.com/playlist?list={playlist}"
+            self.assertIsNotNone(request_url_problem(url), playlist)
+            self.assertFalse(valid_request_url(url), playlist)
+
+
 if __name__ == "__main__":
     unittest.main()
