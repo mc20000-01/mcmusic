@@ -132,10 +132,15 @@ release verification.
       SDK levels.
 - [x] **Cache:** the web shell cache and server shell generation were bumped so
       clients fetch the new bundle instead of the 3.3.9 shell.
-- [ ] **Release verification:** wait for GitHub Actions `Release builds` to go
-      green and confirm the signed APK installs over 3.3.9 on API 34.
-- [ ] **Delivery verification:** record the published 4.0.0 SHA-256 here and
-      verify GitHub `latest` and live `/get` serve those exact bytes.
+- [x] **Release verification:** CI run `45526499418` was green. The signed APK
+      installed over 3.3.9 on API 34 with package `dev.mcmusic.app`, version
+      `4.0.0` (code `52`), `minSdk 34`, `targetSdk 34`, `compileSdk 36`, and
+      signer SHA-256
+      `0b0fd0fa35ff712901d42cab215d5e3cb706daef57bffa7ebef61cacda1dc4ce`.
+- [x] **Delivery verification:** GitHub `latest` and live `/get` served
+      `sha256:43892ee2b36d9de3123a88f6c5b8f4ad05c0c0e09b9d4c35bfe2e5787e06f5ba`
+      (29,331,347 bytes), and `/api/builds` reported `4.0.0` with “Android 14
+      and newer.” The 3.3.9 APK above stays as the rollback artifact.
 
 ## Verification commands
 
