@@ -19,7 +19,7 @@ final class ImageCache {
 struct CoverView: View {
     let url: URL?
     var size: CGFloat = 48
-    var radius: CGFloat = 10
+    var radius: CGFloat = 14
     @Environment(\.mcTokens) private var tokens
 
     var body: some View {
@@ -38,6 +38,8 @@ struct CoverView: View {
         }
         .frame(width: size, height: size)
         .clipShape(RoundedRectangle(cornerRadius: radius))
+        .overlay(RoundedRectangle(cornerRadius: radius).stroke(tokens.accentSoft, lineWidth: 1))
+        .shadow(color: tokens.accentWash, radius: 6, y: 3)
         .task(id: url?.absoluteString) {
             if let url { image = await ImageCache.shared.image(for: url) }
         }
@@ -125,14 +127,15 @@ struct Shelf<Content: View>: View {
     }
 }
 
-/// Flat input surface: one radius, no blur, one hairline border.
+/// Layered input surface: generous radius, quiet tonal lift and a hairline.
 private struct MCFieldBackground: View {
     @Environment(\.mcTokens) private var tokens
 
     var body: some View {
-        RoundedRectangle(cornerRadius: 10)
+        RoundedRectangle(cornerRadius: 16)
             .fill(tokens.surface)
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(tokens.line, lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(tokens.line, lineWidth: 1))
+            .shadow(color: tokens.accentWash, radius: 4, y: 2)
     }
 }
 
