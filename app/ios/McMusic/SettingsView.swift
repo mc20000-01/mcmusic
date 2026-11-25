@@ -4,6 +4,8 @@ struct SettingsView: View {
     @EnvironmentObject private var app: AppState
     @AppStorage("palette") private var palette = "violet"
     @AppStorage("accent") private var accent = ""
+    @AppStorage("iconStroke") private var iconStroke = 1.0
+    @AppStorage("iconFilled") private var iconFilled = false
 
     @State private var server = UserDefaults.standard.string(forKey: "server_url") ?? "http://127.0.0.1:8000"
     @State private var density = "comfy"
@@ -84,6 +86,12 @@ struct SettingsView: View {
                     Picker("Glass effect", selection: $realGlass) {
                         ForEach(["auto", "on", "off"], id: \.self) { Text($0).tag($0) }
                     }
+                    Picker("Icon width", selection: $iconStroke) {
+                        ForEach(Lucide.strokeChoices, id: \.self) { value in
+                            Text("\(value.formatted())x").tag(value)
+                        }
+                    }
+                    Toggle("Filled icons", isOn: $iconFilled)
                     Toggle("Cover art", isOn: $covers)
                     Toggle("Show room link", isOn: $showRoomURL)
                 }
@@ -230,6 +238,10 @@ struct SettingsView: View {
         // family without rewriting the stored value.
         if let theme = values?["theme"]?.string { palette = Theme.canonicalID(theme) }
         if let color = values?["accent"]?.string, !color.isEmpty { accent = color }
+        if let stroke = values?["iconStroke"]?.double {
+            iconStroke = Lucide.nearestStroke(stroke)
+        }
+        if let filled = values?["iconFilled"]?.bool { iconFilled = filled }
         async let roturStatus = try? await app.client.roturStatus()
         async let discordStatus = try? await app.client.discordStatus()
         async let roturAuth = try? await app.client.roturAuthorize()
@@ -247,6 +259,8 @@ struct SettingsView: View {
         await app.saveSettings([
             "theme": palette,
             "accent": accent,
+            "iconStroke": iconStroke,
+            "iconFilled": iconFilled,
             "density": density,
             "material": material,
             "real_glass": realGlass,

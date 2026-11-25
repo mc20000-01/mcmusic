@@ -6,6 +6,33 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import dev.mcmusic.app.BuildConfig
 import org.json.JSONObject
+import kotlin.math.abs
+
+/** Discrete Lucide stroke multipliers shared by all appearance pickers. */
+enum class IconStroke(val key: String, val label: String, val scale: Float) {
+    ONE("1", "1x", 1f),
+    ONE_AND_HALF("1.5", "1.5x", 1.5f),
+    TWO("2", "2x", 2f),
+    ;
+
+    companion object {
+        val DEFAULT = ONE
+        val choices = entries
+    }
+}
+
+/** Snap a hand-edited numeric value to the nearest picker choice. */
+internal fun snapIconStroke(value: Float): IconStroke {
+    if (!value.isFinite()) return IconStroke.DEFAULT
+    return IconStroke.choices.minByOrNull { abs(it.scale - value) } ?: IconStroke.DEFAULT
+}
+
+/** Unknown keys and unparsable values fall back to 1x; numeric keys snap. */
+internal fun String?.toIconStroke(): IconStroke {
+    if (isNullOrBlank()) return IconStroke.DEFAULT
+    IconStroke.choices.firstOrNull { it.key == this }?.let { return it }
+    return toFloatOrNull()?.let { snapIconStroke(it) } ?: IconStroke.DEFAULT
+}
 
 /**
  * Small, synchronous settings store. Compose state so switching the palette or
@@ -24,6 +51,10 @@ object Prefs {
 
     /** Palette id from [dev.mcmusic.app.ui.design.Palettes], or "auto". */
     var palette by mutableStateOf("auto")
+        private set
+
+    /** Lucide outline width multiplier; filled-icon mode is not available. */
+    var iconStroke by mutableStateOf(IconStroke.DEFAULT)
         private set
 
     var server by mutableStateOf(DEFAULT_SERVER)
@@ -78,6 +109,7 @@ object Prefs {
         sp = p
         language = p.getString("language", "ios") ?: "ios"
         palette = p.getString("palette", "auto") ?: "auto"
+        iconStroke = p.getString("icon_stroke", null).toIconStroke()
         server = (p.getString("server", DEFAULT_SERVER) ?: DEFAULT_SERVER).trimEnd('/')
         username = p.getString("username", null)
         token = p.getString("token", null)
@@ -165,6 +197,11 @@ object Prefs {
     fun savePalette(id: String) {
         palette = id
         sp?.edit()?.putString("palette", id)?.apply()
+    }
+
+    fun saveIconStroke(option: IconStroke) {
+        iconStroke = option
+        sp?.edit()?.putString("icon_stroke", option.key)?.apply()
     }
 
     fun saveServer(url: String) {

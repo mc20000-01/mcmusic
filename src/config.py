@@ -116,5 +116,5 @@ PUBLIC_URL = os.environ.get("PUBLIC_URL", "").rstrip("/")
 # ---------------------------------------------------------------------- assets
 # Bump when the offline cache contract changes (audio/art caches are separate
 # from the shell cache so an update never discards downloaded media).
-SHELL_VERSION = os.environ.get("SHELL_VERSION", "10")
+SHELL_VERSION = os.environ.get("SHELL_VERSION", "11")
 MEDIA_CACHE = "mcmusic-media-v1"

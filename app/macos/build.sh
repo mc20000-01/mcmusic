@@ -79,6 +79,9 @@ python -m PyInstaller \
   --name mcmusic \
   --icon build/mcmusic.icns \
   --osx-bundle-identifier dev.mcmusic.app \
+  --paths "$LINUX" \
+  --hidden-import mcmusic_linux.cli \
+  --collect-submodules mcmusic_linux \
   --collect-data mcmusic_linux \
   --hidden-import Foundation --hidden-import MediaPlayer --hidden-import objc \
   ${arch_args[@]+"${arch_args[@]}"} \

@@ -980,6 +980,8 @@ class SettingsScreen(Screen):
         self._density: Optional[Segmented] = None
         self._material: Optional[Segmented] = None
         self._glass: Optional[Segmented] = None
+        self._stroke: Optional[Segmented] = None
+        self._filled: Optional[Switch] = None
         self._rotur_layout: Optional[QHBoxLayout] = None
         self._rotur_row = None
         self._discord_layout: Optional[QHBoxLayout] = None
@@ -1036,6 +1038,17 @@ class SettingsScreen(Screen):
         aline.addWidget(custom)
         aline.addStretch(1)
         panel.add_row("Accent", "Buttons, progress and highlights", accents)
+        self._stroke = Segmented(
+            [("1", "1x"), ("1.5", "1.5x"), ("2", "2x")],
+            f"{settings.iconStroke:g}",
+        )
+        self._stroke.changed.connect(
+            lambda value: self._set(iconStroke=float(value))
+        )
+        panel.add_row("Icon width", "Lucide outline weight", self._stroke)
+        self._filled = Switch(settings.iconFilled)
+        self._filled.toggled.connect(lambda value: self._set(iconFilled=value))
+        panel.add_row("Filled icons", "Fill circles and squares only", self._filled)
         self._density = Segmented([("comfy", "Comfy"), ("compact", "Compact")],
                                   settings.density)
         self._density.changed.connect(lambda value: self._set(density=value))
@@ -1471,6 +1484,10 @@ class SettingsScreen(Screen):
             self._material.set_selected(settings.material)
         if self._glass is not None:
             self._glass.set_selected(settings.real_glass)
+        if self._stroke is not None:
+            self._stroke.set_selected(f"{settings.iconStroke:g}")
+        if self._filled is not None:
+            self._filled.setChecked(settings.iconFilled)
         if self._room_row is not None:
             self._room_row.setVisible(bool(settings.show_room_url and self._room_url()))
         self.refresh_sync_state()

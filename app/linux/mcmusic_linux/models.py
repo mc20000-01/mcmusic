@@ -319,6 +319,8 @@ class Settings:
     accent: str = ""
     density: str = "comfy"
     material: str = "plane"
+    iconStroke: float = 1.0
+    iconFilled: bool = False
     covers: bool = True
     autoplay: bool = True
     hide_explicit: bool = False
@@ -337,8 +339,9 @@ class Settings:
 
     #: keys the server accepts on PUT (everything except derived room_url)
     PERSISTED = (
-        "theme", "accent", "density", "material", "covers", "autoplay",
-        "hide_explicit", "private", "yt_stats", "remember_volume", "volume",
+        "theme", "accent", "density", "material", "iconStroke", "iconFilled",
+        "covers", "autoplay", "hide_explicit", "private", "yt_stats",
+        "remember_volume", "volume",
         "prefetch", "offline_audio", "rotur_activity", "discord_activity",
         "show_room_url", "real_glass",
     )
@@ -362,6 +365,13 @@ class Settings:
         values["material"] = _s(o, "material", d.material)
         values["real_glass"] = _s(o, "real_glass", d.real_glass)
         values["volume"] = _f(o, "volume", d.volume)
+        try:
+            stroke = float(o.get("iconStroke", d.iconStroke))
+        except (TypeError, ValueError):
+            stroke = d.iconStroke
+        values["iconStroke"] = min((1.0, 1.5, 2.0),
+                                   key=lambda choice: abs(choice - stroke))
+        values["iconFilled"] = _b(o, "iconFilled", d.iconFilled)
         for key in ("covers", "autoplay", "hide_explicit", "private", "yt_stats",
                     "remember_volume", "prefetch", "offline_audio",
                     "rotur_activity", "discord_activity", "show_room_url"):

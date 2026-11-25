@@ -9,21 +9,30 @@ declare the MPRIS interface names. Instead the service is a
 """
 from __future__ import annotations
 
+import importlib
 import time
 from typing import Any, Callable
 
 from PySide6.QtCore import QObject
-from PySide6.QtDBus import (
-    QDBusConnection,
-    QDBusMessage,
-    QDBusVariant,
-    QDBusVirtualObject,
-)
 
-try:  # not exported by every PySide6 build
-    from PySide6.QtDBus import QDBusObjectPath  # type: ignore
-except Exception:  # pragma: no cover
-    QDBusObjectPath = None  # type: ignore
+# QtDBus is not available in the Windows PySide6 wheels. Import it dynamically
+# so PyInstaller does not try to bundle it into the Windows app; Mpris then
+# silently no-ops and MediaBridge supplies SMTC instead.
+try:
+    _qtdbus = importlib.import_module("PySide6.QtDBus")
+except Exception:  # pragma: no cover - Windows and minimal Qt builds
+    _qtdbus = None
+
+if _qtdbus is not None:
+    QDBusConnection = _qtdbus.QDBusConnection
+    QDBusMessage = _qtdbus.QDBusMessage
+    QDBusVariant = _qtdbus.QDBusVariant
+    QDBusVirtualObject = _qtdbus.QDBusVirtualObject
+    QDBusObjectPath = getattr(_qtdbus, "QDBusObjectPath", None)
+else:
+    QDBusConnection = QDBusMessage = QDBusVariant = None
+    QDBusVirtualObject = object
+    QDBusObjectPath = None
 
 SERVICE = "org.mpris.MediaPlayer2.mcmusic"
 PATH = "/org/mpris/MediaPlayer2"
@@ -305,6 +314,9 @@ class Mpris(QObject):
         super().__init__(parent)
         self.engine = engine
         self.available = False
+        self.bus = None
+        if QDBusConnection is None:
+            return
         try:
             self.bus = QDBusConnection.sessionBus()
         except Exception:

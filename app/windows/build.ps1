@@ -57,6 +57,9 @@ Remove-Item -Recurse -Force "build\mcmusic", "dist\mcmusic" -ErrorAction Silentl
     --noconfirm --clean --windowed `
     --name mcmusic `
     --icon "build\mcmusic.ico" `
+    --paths "$Linux" `
+    --hidden-import mcmusic_linux.cli `
+    --collect-submodules mcmusic_linux `
     --collect-data mcmusic_linux `
     --hidden-import winsdk.windows.media `
     "launcher.py"

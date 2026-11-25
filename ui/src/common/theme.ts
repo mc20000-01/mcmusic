@@ -155,6 +155,48 @@ export const PALETTE_ALIASES: Record<string, string> = {
 export const DEFAULT_PALETTE = "violet";
 export const DEFAULT_ACCENT = "";
 
+/** Lucide width choices, shared by web/iOS/Qt and the server schema. */
+export const ICON_STROKE_CHOICES = [1, 1.5, 2] as const;
+export type IconStroke = (typeof ICON_STROKE_CHOICES)[number];
+export const DEFAULT_ICON_STROKE: IconStroke = 1;
+export const DEFAULT_ICON_FILLED = false;
+
+/** Snap stored or hand-edited values onto the three allowed widths. */
+export function normalizeIconStroke(value: unknown): IconStroke {
+    const requested = Number(value);
+    if (!Number.isFinite(requested)) return DEFAULT_ICON_STROKE;
+    return ICON_STROKE_CHOICES.reduce<IconStroke>(
+        (best, choice) =>
+            Math.abs(choice - requested) < Math.abs(best - requested) ? choice : best,
+        DEFAULT_ICON_STROKE,
+    );
+}
+
+/** Rendered pixels for a Lucide glyph at `size` px and `scale` multiplier.
+ *  1x is Lucide's default 2-unit stroke, so the rendered width is
+ *  `size * scale / 12`. The `size / 6` ceiling keeps 2x from crowding tiny
+ *  icons; there is no pixel floor, so small icons still change visibly. */
+export function iconStrokeWidth(scale: number, size: number): number {
+    const requested = Number(size);
+    const logical = Number.isFinite(requested) && requested > 0 ? requested : 24;
+    return Math.min(logical * Number(scale) / 12, logical / 6);
+}
+
+/** lucide-preact's strokeWidth prop is in viewBox units, not pixels. */
+export function lucideStrokeWidth(scale: number, size: number): number {
+    const requested = Number(size);
+    const logical = Number.isFinite(requested) && requested > 0 ? requested : 24;
+    return iconStrokeWidth(scale, logical) * 24 / logical;
+}
+
+/** Expose the preference for CSS and non-React surfaces. */
+export function applyIconStyle(scale: IconStroke, filled: boolean): void {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    root.style.setProperty("--icon-stroke-scale", String(scale));
+    root.dataset.iconFilled = filled ? "true" : "false";
+}
+
 /** Shared foreground/status colours. Kept here so no UI stylesheet needs to
  *  hardcode a hex. Built-in accents are light, so they use INK; a custom accent
  *  override picks whichever foreground has the better contrast. */
@@ -333,6 +375,7 @@ export function applyPalette(id: string | null | undefined = DEFAULT_PALETTE, ac
     return palette;
 }
 
-// Establish an inline palette before components mount: later equal-specificity
-// flufi-ui :root rules cannot beat these inline properties.
+// Establish an inline palette and icon preference before components mount:
+// later equal-specificity flufi-ui :root rules cannot beat inline properties.
 applyPalette(DEFAULT_PALETTE, DEFAULT_ACCENT);
+applyIconStyle(DEFAULT_ICON_STROKE, DEFAULT_ICON_FILLED);

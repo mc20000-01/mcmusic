@@ -58,7 +58,29 @@ final class McMusicTests: XCTestCase {
 
     func testAbsoluteURLAcceptsServerBuildPaths() throws {
         let client = APIClient(baseURL: "https://music.example.com")
-        let url = try XCTUnwrap(URL(string: client.baseURL + "/apps/macos/mcmusic-4.0.0.dmg"))
+        let url = try XCTUnwrap(URL(string: client.baseURL + "/apps/macos/mcmusic-4.0.1.dmg"))
         XCTAssertEqual(url.host, "music.example.com")
+    }
+
+    func testIconStrokeSnapsToAllowedWidths() {
+        XCTAssertEqual(Lucide.nearestStroke(0.2), 1)
+        XCTAssertEqual(Lucide.nearestStroke(1.3), 1.5)
+        XCTAssertEqual(Lucide.nearestStroke(1.8), 2)
+    }
+
+    func testIconStrokeWidthUsesLucideDefaultAt1x() {
+        // Lucide's base stroke is `size * scale / 12`; 1x is its default 2-unit
+        // stroke. The `size / 6` ceiling keeps 2x from crowding small icons.
+        XCTAssertEqual(Lucide.strokeWidth(1, size: 20), 20.0 / 12)
+        XCTAssertEqual(Lucide.strokeWidth(1.5, size: 20), 20.0 / 8)
+        XCTAssertEqual(Lucide.strokeWidth(2, size: 32), 32.0 / 6)
+        XCTAssertEqual(Lucide.strokeWidth(2, size: 52), 52.0 / 6)
+        XCTAssertEqual(Lucide.strokeWidth(1, size: 48), 4)
+    }
+
+    func testOnlyCirclesAndRectsAreFillable() {
+        XCTAssertTrue(Lucide.Primitive.circle(12, 12, 9).isFillable)
+        XCTAssertTrue(Lucide.Primitive.rect(3, 4, 18, 13, 2).isFillable)
+        XCTAssertFalse(Lucide.Primitive.path("M7 4.5 L19 12 L7 19.5 Z").isFillable)
     }
 }

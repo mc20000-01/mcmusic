@@ -37,7 +37,7 @@ try:
 
     from mcmusic_linux import theme
     from mcmusic_linux.api import Api, ApiError, Async, Repo, SessionStore, normalize
-    from mcmusic_linux.models import HomeData, Me
+    from mcmusic_linux.models import HomeData, Me, Settings
 except ImportError as exc:  # the venv has both; system python may not
     QT_ERROR = str(exc)
 else:
@@ -276,10 +276,12 @@ class QtApiIntegration(unittest.TestCase):
         track = self.track()
         settings = self.run_sync(self.repo.settings)
         self.assertEqual(settings.theme, "violet")
-        changed = replace(settings, density="compact", private=True, volume=0.31)
+        changed = replace(settings, density="compact", private=True, volume=0.31,
+                          iconStroke=2.0, iconFilled=True)
         self.run_sync(self.repo.save_settings, changed)
         stored = self.run_sync(self.repo.settings)
         self.assertEqual((stored.density, stored.private, stored.volume), ("compact", True, 0.31))
+        self.assertEqual((stored.iconStroke, stored.iconFilled), (2.0, True))
 
         self.run_sync(self.repo.publish_playback, track.id, 30.0, 180.0, True, [track.id])
         state = self.api.get("playback")["state"]
@@ -318,6 +320,20 @@ class QtApiIntegration(unittest.TestCase):
         self.assertEqual(theme.mode_of("dusk"), "dark")
         self.assertEqual(theme.family_of("system"), "violet")
         self.assertEqual(theme.mode_of("system"), "auto")
+
+    def test_09_icon_settings_are_typed_normalised_and_round_trip(self):
+        s = Settings.from_json({
+            "iconStroke": "1.7", "iconFilled": 1, "room_url": "http://x",
+            "future_flag": True,
+        })
+        self.assertEqual(s.iconStroke, 1.5)
+        self.assertIs(s.iconFilled, True)
+        self.assertEqual(s.room_url, "http://x")
+        out = s.to_json()
+        self.assertEqual(out["iconStroke"], 1.5)
+        self.assertIs(out["iconFilled"], True)
+        self.assertNotIn("room_url", out)
+        self.assertIs(out["future_flag"], True)
 
 
 if __name__ == "__main__":

@@ -13,6 +13,53 @@ from PySide6.QtCore import QByteArray, QRectF, Qt
 from PySide6.QtGui import QColor, QIcon, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtSvg import QSvgRenderer
 
+# ── appearance state ────────────────────────────────────────────────────────
+# The same 1x / 1.5x / 2x preference as web and iOS. It is process-wide so
+# custom-painted widgets pick it up on their next repaint without rebuilding
+# the whole widget tree.
+_STROKE_CHOICES = (1.0, 1.5, 2.0)
+_ACTIVE_STROKE = 1.0
+_ACTIVE_FILLED = False
+
+
+def nearest_stroke(value) -> float:
+    """Snap stored or hand-edited values onto the three allowed widths."""
+    try:
+        scale = float(value)
+    except (TypeError, ValueError):
+        return 1.0
+    return min(_STROKE_CHOICES, key=lambda choice: abs(choice - scale))
+
+
+def set_icon_style(stroke=1.0, filled=False) -> None:
+    global _ACTIVE_STROKE, _ACTIVE_FILLED
+    _ACTIVE_STROKE = nearest_stroke(stroke)
+    _ACTIVE_FILLED = bool(filled)
+
+
+def icon_style() -> tuple[float, bool]:
+    return _ACTIVE_STROKE, _ACTIVE_FILLED
+
+
+def stroke_width(scale: float, size: float) -> float:
+    """Logical-pixel stroke for a Lucide icon drawn at ``size``.
+
+    Lucide uses a 24-unit viewBox and a standard stroke of 2, so scale
+    1/1.5/2 renders at 2/3/4 viewBox units (`size * scale / 12` pixels). The
+    `size / 6` ceiling keeps 2x from crowding small icons; there is no pixel
+    floor, so 1x stays at Lucide's default weight.
+    """
+    size = max(1.0, float(size))
+    base = size * float(scale) / 12.0
+    return min(base, size / 6.0)
+
+
+def _viewbox_stroke(scale: float, size: float) -> float:
+    """Convert the logical-pixel clamp into the renderer's 24-unit grid."""
+    size = max(1.0, float(size))
+    return stroke_width(scale, size) * 24.0 / size
+
+
 # ── brand mark ──────────────────────────────────────────────────────────────
 # The same mc line art as web/icon.svg, the Android launcher and this app's
 # .desktop icon. Paths stay in the artwork's own coordinate space.
@@ -221,37 +268,75 @@ PATHS = {
 FALLBACK_ICON = "circle-help"
 
 
-@lru_cache(maxsize=512)
-def _renderer(name: str, color: str, fill: bool, stroke: float) -> QSvgRenderer:
+_SHAPE_TAG = re.compile(r"<(rect|circle)\b([^>]*?)(/?)>")
+
+
+def _body(name: str, color: str, shape_fill: bool) -> str:
+    """Colour a glyph, optionally filling only its rect/circle primitives."""
     key = name if name in PATHS else FALLBACK_ICON
     body = PATHS[key].replace("currentColor", color)
+    if not shape_fill:
+        return body
+
+    def fill_shape(match):
+        tag, attrs, slash = match.group(1), match.group(2), match.group(3)
+        # Explicitly filled primitives (play, pause, the dot menus) are already
+        # correct; never override them with a competing stroke.
+        if "fill=" in attrs:
+            return match.group(0)
+        return f'<{tag}{attrs} fill="{color}" stroke="none"{slash}>'
+
+    return _SHAPE_TAG.sub(fill_shape, body)
+
+
+def _build_svg(name: str, color: str, fill: bool, stroke: float,
+               shape_fill: bool) -> str:
+    """Pure SVG builder, shared by the renderer and the unit tests."""
     paint = color if fill else "none"
     line = "none" if fill else color
-    svg = (
+    return (
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" '
         f'width="24" height="24" fill="{paint}" stroke="{line}" '
         f'stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round">'
-        f"{body}</svg>"
+        f"{_body(name, color, shape_fill)}</svg>"
     )
-    return QSvgRenderer(QByteArray(svg.encode("utf-8")))
+
+
+@lru_cache(maxsize=512)
+def _renderer(name: str, color: str, fill: bool, stroke: float,
+              shape_fill: bool) -> QSvgRenderer:
+    return QSvgRenderer(QByteArray(
+        _build_svg(name, color, fill, stroke, shape_fill).encode("utf-8")
+    ))
 
 
 def draw_icon(painter: QPainter, name: str, rect: QRectF, color: str,
-              stroke: float = 1.8, fill: bool = False) -> None:
-    """Render an icon into ``rect`` with the current painter."""
-    r = _renderer(name, str(color), fill, float(stroke))
+              stroke: float | None = None, fill: bool = False) -> None:
+    """Render an icon into ``rect`` with the current painter.
+
+    A ``None`` stroke derives the width from the widget's logical size and the
+    active appearance setting. Pass a number only for artwork that deliberately
+    owns its own width (the brand mark is handled separately).
+    """
+    scale, active_filled = icon_style()
+    width = _viewbox_stroke(scale, max(rect.width(), rect.height())) \
+        if stroke is None else float(stroke)
+    r = _renderer(name, str(color), bool(fill), width, active_filled)
     if r.isValid():
         r.render(painter, QRectF(rect))
 
 
 def pixmap(name: str, size: int, color: str, fill: bool = False,
-           stroke: float = 1.8, dpr: float = 2.0) -> QPixmap:
+           stroke: float | None = None, dpr: float = 2.0) -> QPixmap:
     px = max(1, int(round(size * dpr)))
     pm = QPixmap(px, px)
     pm.fill(Qt.GlobalColor.transparent)
     p = QPainter(pm)
     p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-    draw_icon(p, name, QRectF(0, 0, px, px), color, stroke, fill)
+    # The painter works in device pixels here, so pass the width computed from
+    # the logical icon size instead of letting draw_icon measure the pixmap.
+    width = _viewbox_stroke(icon_style()[0], size) if stroke is None else stroke
+    draw_icon(p, name, QRectF(0, 0, px, px), color, width, fill)
     p.end()
     pm.setDevicePixelRatio(dpr)
     return pm
@@ -260,7 +345,7 @@ def pixmap(name: str, size: int, color: str, fill: bool = False,
 def icon(name: str, color: str, size: int = 18, fill: bool = False) -> QIcon:
     out = QIcon()
     for s in (16, 20, 24, 32, 48, 64):
-        out.addPixmap(pixmap(name, s, color, fill, 1.8, 2.0))
+        out.addPixmap(pixmap(name, s, color, fill))
     return out
 
 

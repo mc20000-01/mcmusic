@@ -144,7 +144,7 @@ private fun PlaylistIndex(onOpenPlaylist: (Int) -> Unit) {
                         Text(playlist.name, color = design.fg, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text("${playlist.count} tracks", color = design.dim, fontSize = 11.sp)
                     }
-                    dev.mcmusic.app.ui.LucideIcon(Lucide.ChevronRight, design.dim, Modifier.size(16.dp))
+                    dev.mcmusic.app.ui.LucideIcon(Lucide.ChevronRight, design.dim, size = 16.dp)
                 }
             }
         }

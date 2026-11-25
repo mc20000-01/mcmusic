@@ -281,12 +281,28 @@ def api_docs():
 # ---------------------------------------------------------------- settings + version
 DEFAULT_SETTINGS = {
     "theme": "violet", "accent": "", "density": "comfy", "material": "plane",
+    "iconStroke": 1, "iconFilled": False,
     "covers": True, "autoplay": True, "hide_explicit": False, "private": False,
     "yt_stats": True, "remember_volume": True, "volume": 0.8, "prefetch": True,
     "offline_audio": True, "rotur_activity": False, "discord_activity": False,
     "show_room_url": False,
     "real_glass": "auto",
 }
+
+
+def _sanitize_settings(values):
+    """Keep stored settings to known keys and clamp the 4.0.1 icon styles."""
+    out = dict(DEFAULT_SETTINGS)
+    if not isinstance(values, dict):
+        return out
+    out.update({k: v for k, v in values.items() if k in DEFAULT_SETTINGS})
+    try:
+        stroke = float(out["iconStroke"])
+    except (TypeError, ValueError):
+        stroke = 1.0
+    out["iconStroke"] = min((1.0, 1.5, 2.0), key=lambda choice: abs(choice - stroke))
+    out["iconFilled"] = bool(out["iconFilled"])
+    return out
 
 
 @app.get("/api/settings")
@@ -302,9 +318,7 @@ def settings_get():
             stored = json.loads(r["data"])
         except ValueError:
             stored = {}
-    out = dict(DEFAULT_SETTINGS)
-    if isinstance(stored, dict):
-        out.update({k: v for k, v in stored.items() if k in DEFAULT_SETTINGS})
+    out = _sanitize_settings(stored)
     from routes.system_routes import room_url
     out["room_url"] = room_url(uid)
     return jsonify(out)
@@ -319,7 +333,7 @@ def settings_put():
     d = request.get_json(silent=True) or {}
     if not isinstance(d, dict):
         return jsonify(error="object required"), 400
-    clean = {k: v for k, v in d.items() if k in DEFAULT_SETTINGS}
+    clean = {k: v for k, v in _sanitize_settings(d).items() if k in d}
     c = _db()
     c.execute(
         """insert into settings(user_id,data) values(?,?)

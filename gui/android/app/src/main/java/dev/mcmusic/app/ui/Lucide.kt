@@ -1,12 +1,16 @@
 package dev.mcmusic.app.ui
 
 import androidx.annotation.DrawableRes
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.Dp
 import dev.mcmusic.app.R
+import dev.mcmusic.app.data.Prefs
 
 /**
  * Lucide glyphs, one vector drawable each. They are vendored (Lucide is ISC
@@ -59,18 +63,27 @@ object Lucide {
     @DrawableRes val Wifi = R.drawable.ic_lucide_wifi
 }
 
-/** Draw a [Lucide] glyph in [tint]. Pass a size modifier, as with any icon. */
+/**
+ * Draw a [Lucide] glyph in [tint] at its logical [size]. The size is required
+ * because the shared Lucide width formula depends on the rendered icon size.
+ */
 @Composable
 fun LucideIcon(
     @DrawableRes icon: Int,
     tint: Color,
+    size: Dp,
     modifier: Modifier = Modifier,
     contentDescription: String? = null,
 ) {
+    val context = LocalContext.current
+    val scale = Prefs.iconStroke.scale
+    val vector = remember(context, icon, size, scale) {
+        LucideVectors.imageVector(context, icon, size, scale)
+    }
     Icon(
-        painter = painterResource(icon),
+        imageVector = vector,
         contentDescription = contentDescription,
-        modifier = modifier,
+        modifier = modifier.size(size),
         tint = tint,
     )
 }

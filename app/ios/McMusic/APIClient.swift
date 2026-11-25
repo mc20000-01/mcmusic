@@ -94,7 +94,7 @@ final class APIClient {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue("mcmusic-ios/4.0.0", forHTTPHeaderField: "User-Agent")
+        request.setValue("mcmusic-ios/4.0.1", forHTTPHeaderField: "User-Agent")
         if let form {
             request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
             let pairs = form.map { key, value in

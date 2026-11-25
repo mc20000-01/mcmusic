@@ -171,7 +171,7 @@ private fun MiniPlayer(onOpen: () -> Unit) {
                 LucideIcon(
                     if (state.playing) Lucide.Pause else Lucide.Play,
                     design.onAccent,
-                    Modifier.size(15.dp),
+                    size = 15.dp,
                 )
             }
         }
@@ -209,7 +209,7 @@ private fun BottomBar(tab: Tab, onTab: (Tab) -> Unit) {
                 LucideIcon(
                     entry.icon,
                     if (selected) design.accentText else design.dim,
-                    Modifier.size(20.dp),
+                    size = 20.dp,
                 )
                 Text(
                     entry.label,

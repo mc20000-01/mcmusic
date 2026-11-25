@@ -3,6 +3,8 @@ import SwiftUI
 /// Lucide geometry rendered as SwiftUI paths. No SF Symbols, no icon font, and
 /// no downloaded assets: the same 24×24 Lucide outlines used on web/Android.
 enum Lucide {
+    /// Width multipliers shared by the appearance pickers on every client.
+    static let strokeChoices: [Double] = [1, 1.5, 2]
     static let paths: [String: [Primitive]] = [
         "play": [.path("M7 4.5 L19 12 L7 19.5 Z")],
         "pause": [.path("M8 5V19"), .path("M16 5V19")],
@@ -86,10 +88,34 @@ enum Lucide {
 
     static let fallback = "circle-help"
 
+    /// Keep values arriving from older servers or hand-edited storage on the
+    /// same 1x / 1.5x / 2x scale as the picker.
+    static func nearestStroke(_ value: Double) -> Double {
+        strokeChoices.min { abs($0 - value) < abs($1 - value) } ?? 1
+    }
+
+    /// Lucide draws on a 24x24 grid with a standard stroke of 2, so `scale`
+    /// 1/1.5/2 renders at 2/3/4 viewBox units (`size * scale / 12` points).
+    /// The `size / 6` ceiling keeps 2x from crowding small icons; there is no
+    /// pixel floor, so 1x stays at Lucide's default weight.
+    static func strokeWidth(_ scale: Double, size: CGFloat) -> CGFloat {
+        let base = Double(size) * scale / 12
+        return CGFloat(min(base, Double(size) / 6))
+    }
+
     enum Primitive {
         case path(String)
         case circle(Double, Double, Double)
         case rect(Double, Double, Double, Double, Double)
+
+        /// Only Lucide primitives that are already simple shapes can be
+        /// filled without turning a detailed outline into a solid blob.
+        var isFillable: Bool {
+            switch self {
+            case .circle, .rect: return true
+            case .path: return false
+            }
+        }
 
         func add(to path: inout Path, scale: CGFloat) {
             switch self {
@@ -201,6 +227,9 @@ struct LucideIcon: View {
     var size: CGFloat = 20
     var color: Color?
 
+    @AppStorage("iconStroke") private var iconStroke = 1.0
+    @AppStorage("iconFilled") private var iconFilled = false
+
     private var primitives: [Lucide.Primitive] {
         Lucide.paths[name] ?? Lucide.paths[Lucide.fallback] ?? []
     }
@@ -212,11 +241,20 @@ struct LucideIcon: View {
         return AnyShapeStyle(HierarchicalShapeStyle.primary)
     }
 
+    private var strokeWidth: CGFloat {
+        Lucide.strokeWidth(iconStroke, size: size)
+    }
+
     var body: some View {
         ZStack {
             ForEach(Array(primitives.enumerated()), id: \.offset) { item in
-                LucideShape(primitive: item.element, scale: size / 24)
-                    .stroke(style: StrokeStyle(lineWidth: 1.8, lineCap: .round, lineJoin: .round))
+                let shape = LucideShape(primitive: item.element, scale: size / 24)
+                if iconFilled && item.element.isFillable {
+                    shape.fill(foreground)
+                } else {
+                    shape.stroke(style: StrokeStyle(lineWidth: strokeWidth,
+                                                    lineCap: .round, lineJoin: .round))
+                }
             }
         }
         .frame(width: size, height: size)

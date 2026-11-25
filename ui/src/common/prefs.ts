@@ -1,6 +1,9 @@
 import { signal } from "@preact/signals";
 import { API } from "./net/api";
-import { applyPalette, DEFAULT_ACCENT, DEFAULT_PALETTE } from "./theme";
+import {
+    applyIconStyle, applyPalette, DEFAULT_ACCENT, DEFAULT_ICON_FILLED,
+    DEFAULT_ICON_STROKE, DEFAULT_PALETTE, normalizeIconStroke, type IconStroke,
+} from "./theme";
 
 // Server-stored preferences. The v3 client honours the ones that change what
 // it renders/plays; the rest are kept for the Android/Qt/legacy clients.
@@ -20,6 +23,20 @@ export function setPalettePreference(id: string) {
 /** An empty accent means "use the palette's own accent". */
 export function setAccentPreference(accent: string) {
     accentOverride.value = String(accent ?? "").trim();
+}
+
+/** Icon width/fill follow the same immediate-apply pattern as palette. */
+export const iconStroke = signal<IconStroke>(DEFAULT_ICON_STROKE);
+export const iconFilled = signal<boolean>(DEFAULT_ICON_FILLED);
+iconStroke.subscribe(scale => applyIconStyle(scale, iconFilled.peek()));
+iconFilled.subscribe(filled => applyIconStyle(iconStroke.peek(), filled));
+
+export function setIconStrokePreference(value: unknown) {
+    iconStroke.value = normalizeIconStroke(value);
+}
+
+export function setIconFilledPreference(value: unknown) {
+    iconFilled.value = !!value;
 }
 
 export const covers = signal(true);
@@ -54,6 +71,8 @@ export async function loadPrefs(): Promise<Settings | null> {
         discordActivity.value = !!s.discord_activity;
         setPalettePreference(typeof s.theme === "string" ? s.theme : DEFAULT_PALETTE);
         setAccentPreference(typeof s.accent === "string" ? s.accent : DEFAULT_ACCENT);
+        setIconStrokePreference(s.iconStroke);
+        setIconFilledPreference(s.iconFilled);
         if (s.autoplay != null && localAutoplayValue() == null)
             autoplay.value = s.autoplay !== false;
         return s;
@@ -70,5 +89,7 @@ export function applyPrefs(s: Settings) {
     if (s.discord_activity != null) discordActivity.value = !!s.discord_activity;
     if (s.theme != null) setPalettePreference(String(s.theme));
     if (s.accent != null) setAccentPreference(String(s.accent));
+    if (s.iconStroke != null) setIconStrokePreference(s.iconStroke);
+    if (s.iconFilled != null) setIconFilledPreference(s.iconFilled);
     if (s.autoplay != null && localAutoplayValue() == null) autoplay.value = s.autoplay !== false;
 }
