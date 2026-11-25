@@ -12,21 +12,29 @@
 .track {
     display: flex;
     align-items: center;
-    padding: 6px 8px;
+    padding: 6px 12px;
     gap: 8px;
 
     height: 44px;
     min-width: 0;
+    border-radius: var(--radius-pill);
 
-    transition: background var(--transition-fast), color var(--transition-fast);
+    transition: background var(--transition-fast), color var(--transition-fast),
+                box-shadow var(--transition-fast);
 
     &.border {
-        border: 1px solid var(--back-border);
-        border-radius: var(--radius);
+        border: 1px solid var(--layer-rim);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--elevation-1);
     }
 
     &:hover {
-        background: var(--flat-hover);
+        background: color-mix(in srgb, var(--accent) 10%, var(--prim));
+    }
+
+    &.current {
+        background: var(--accent-soft);
+        box-shadow: inset 0 1px 0 var(--layer-highlight), var(--elevation-1);
     }
 
     &:has(.grip) {

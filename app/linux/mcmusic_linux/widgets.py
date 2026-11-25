@@ -179,8 +179,8 @@ class IconButton(QAbstractButton):
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         if self.underMouse() or self._active:
             p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(C("surface"))
-            p.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 4, 4)
+            p.setBrush(C("accent", 42) if self._active else C("surface"))
+            p.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 14, 14)
         color = getattr(theme.pal(), self._active_token if self._active else
                         ("fg" if self.underMouse() else self._token))
         side = min(self.width(), self.height()) * (self._icon_size / max(1, self.width()))
@@ -231,6 +231,7 @@ class McButton(QAbstractButton):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         rect = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        radius = 14 if self._small else 18
         hover = self.underMouse()
         if self._solid:
             bg = C("accent")
@@ -254,9 +255,13 @@ class McButton(QAbstractButton):
             fg = C("dim2")
             bg = QColor(0, 0, 0, 0) if not self._solid else C("line")
             border = C("line")
+        # A tonal underlay gives the button a soft second layer on every palette.
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(C("accent" if self._solid else "line2", 34))
+        p.drawRoundedRect(rect.translated(0, 2), radius, radius)
         p.setPen(QPen(border, 1))
         p.setBrush(bg)
-        p.drawRoundedRect(rect, 4, 4)
+        p.drawRoundedRect(rect, radius, radius)
 
         label = self._text.upper()
         icon_w = 0
@@ -306,12 +311,12 @@ class NavButton(QAbstractButton):
         rect = QRectF(self.rect()).adjusted(0, 1, 0, -1)
         if self._active or self.underMouse():
             p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(C("surface"))
-            p.drawRoundedRect(rect, 4, 4)
+            p.setBrush(C("accent", 46) if self._active else C("surface"))
+            p.drawRoundedRect(rect, 18, 18)
         if self._active:
             p.setPen(Qt.PenStyle.NoPen)
             p.setBrush(C("accent"))
-            p.drawRect(QRectF(0, 7, 2, self.height() - 14))
+            p.drawRoundedRect(QRectF(4, 8, 4, self.height() - 16), 2, 2)
         draw_icon(p, self._icon, QRectF(12, (self.height() - 16) / 2, 16, 16),
                   C("accent" if self._active else "dim"))
         p.setFont(self._font)
@@ -352,8 +357,8 @@ class PlaylistNavButton(QAbstractButton):
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         if self._active or self.underMouse():
             p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(C("surface"))
-            p.drawRoundedRect(QRectF(self.rect()).adjusted(0, 1, 0, -1), 4, 4)
+            p.setBrush(C("accent", 42) if self._active else C("surface"))
+            p.drawRoundedRect(QRectF(self.rect()).adjusted(0, 1, 0, -1), 15, 15)
         p.setFont(self._font)
         p.setPen(QPen(C("fg" if self._active else "dim")))
         text = QFontMetrics(self._font).elidedText(
@@ -417,7 +422,7 @@ class Artwork(QWidget):
         if self._round:
             path.addEllipse(rect)
         else:
-            path.addRoundedRect(rect, 4, 4)
+            path.addRoundedRect(rect, 12, 12)
         return path
 
     def paintEvent(self, _event) -> None:
@@ -427,12 +432,12 @@ class Artwork(QWidget):
         rect = QRectF(self.rect()).adjusted(1, 1, -1, -1)
         if self._shadow:
             p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(C("line2"))
-            shadow = QRectF(rect).translated(4, 4)
+            p.setBrush(C("accent", 58))
+            shadow = QRectF(rect).translated(3, 5)
             if self._round:
                 p.drawEllipse(shadow)
             else:
-                p.drawRoundedRect(shadow, 6, 6)
+                p.drawRoundedRect(shadow, 14, 14)
         path = self._path(rect)
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(C("surface2"))
@@ -601,8 +606,11 @@ class TrackList(QWidget):
             hovered = i == self._hover
             if hovered or current:
                 p.setPen(Qt.PenStyle.NoPen)
-                p.setBrush(C("glass_strong" if current else "glass"))
-                p.drawRoundedRect(row.adjusted(0, 1, 0, -1), 14, 14)
+                p.setBrush(C("accent", 46) if current else C("glass"))
+                p.drawRoundedRect(row.adjusted(2, 1, 2, -1), 16, 16)
+                if current:
+                    p.setPen(QPen(C("accent", 110), 1))
+                    p.drawRoundedRect(row.adjusted(2.5, 1.5, 2.5, -1.5), 16, 16)
 
             p.setFont(num_font)
             p.setPen(QPen(C("accent" if current else "dim2")))
@@ -780,7 +788,7 @@ class Tile(QAbstractButton):
 
     def _play_rect(self) -> QRectF:
         art = self._art_rect()
-        return QRectF(art.right() - 40, art.bottom() - 40, 34, 34)
+        return QRectF(art.right() - 44, art.bottom() - 44, 38, 38)
 
     def _art_loaded(self, track_id: int) -> None:
         if self.cover_id == track_id:
@@ -796,7 +804,7 @@ class Tile(QAbstractButton):
         if self.round_:
             path.addEllipse(art)
         else:
-            path.addRoundedRect(art, 10, 10)
+            path.addRoundedRect(art, 18, 18)
         p.save()
         p.setClipPath(path)
         p.setPen(Qt.PenStyle.NoPen)
@@ -826,9 +834,11 @@ class Tile(QAbstractButton):
         if self._hover:
             play = self._play_rect()
             p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(C("accent", 64))
+            p.drawEllipse(play.translated(0, 2))
             p.setBrush(C("accent"))
             p.drawEllipse(play)
-            box = QRectF(0, 0, 14, 14)
+            box = QRectF(0, 0, 15, 15)
             box.moveCenter(play.center())
             draw_icon(p, "play", box, C("accent_fg"))
 
@@ -1196,6 +1206,8 @@ class SettingRow(QWidget):
 
 
 class StatCard(QWidget):
+    """A soft elevated tile for admin counters."""
+
     def __init__(self, value: str, label: str, parent=None):
         super().__init__(parent)
         layout = QVBoxLayout(self)
@@ -1209,9 +1221,13 @@ class StatCard(QWidget):
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        rect = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(C("accent", 30))
+        p.drawRoundedRect(rect.translated(0, 2), 18, 18)
         p.setPen(QPen(C("line"), 1))
         p.setBrush(C("bg2"))
-        p.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 4, 4)
+        p.drawRoundedRect(rect, 18, 18)
 
 
 # ── controls ───────────────────────────────────────────────────────────────
@@ -1437,14 +1453,14 @@ class Segmented(QWidget):
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         p.setPen(QPen(C("line"), 1))
         p.setBrush(C("bg2"))
-        p.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 4, 4)
+        p.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 14, 14)
         p.setFont(self._font)
         for key, label, rect in self._segment_rects():
             on = key == self._selected
             if on:
                 p.setPen(Qt.PenStyle.NoPen)
                 p.setBrush(C("accent"))
-                p.drawRoundedRect(rect, 2, 2)
+                p.drawRoundedRect(rect, 10, 10)
             p.setPen(QPen(C("accent_fg" if on else "dim")))
             p.drawText(rect, int(Qt.AlignmentFlag.AlignCenter), label.upper())
 
