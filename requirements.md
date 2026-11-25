@@ -112,16 +112,19 @@ fixes, and the old-client parity audit are consolidated here. Anything marked
 ## Release and delivery steps (repeat after the next code change)
 
 - [x] Bump every client to `4.0.0`; Android code `52`, iOS build `52`.
-- [ ] Commit and push; watch GitHub Actions `Release builds` go green.
-- [ ] Pull the bot commit that refreshes `builds/`.
-- [ ] Confirm the exact GitHub `latest` APK is copied into
+- [x] Commit and push; GitHub Actions `Release builds` run `45526499418` went
+      green.
+- [x] Pull the bot commit that refreshes `builds/`.
+- [x] Confirm the exact GitHub `latest` APK is copied into
   `apps/android/mainbuild.apk`, `apps/android/mcmusic-4.0.0.apk`, and a hashed
   `apps/android/mainbuild-<hash>.apk`. The 3.3.9 and 3.3.8 APKs and their
   hashes stay as rollback artifacts.
-- [ ] Verify live `/get` SHA-256 matches the GitHub asset byte-for-byte.
-- [ ] Verify `/api/builds` reports the new version and “Android 14 and newer.”
-- [ ] Verify package `dev.mcmusic.app`, `versionCode 52`, `minSdk 34`, and
-      signer SHA-256 `0b0fd0fa35ff712901d42cab215d5e3cb706daef57bffa7ebef61cacda1dc4ce`.
+- [x] Verify live `/get` SHA-256 matches the GitHub asset byte-for-byte:
+      `sha256:43892ee2b36d9de3123a88f6c5b8f4ad05c0c0e09b9d4c35bfe2e5787e06f5ba`.
+- [x] Verify `/api/builds` reports `4.0.0` and “Android 14 and newer.”
+- [x] Verify package `dev.mcmusic.app`, `versionCode 52`, `minSdk 34`,
+      `targetSdk 34`, `compileSdk 36`, and signer SHA-256
+      `0b0fd0fa35ff712901d42cab215d5e3cb706daef57bffa7ebef61cacda1dc4ce`.
 
 ## UI research
 
