@@ -5,6 +5,10 @@
 /* Five palette cards. Swatch colours come from theme.ts, not hardcoded here. */
 .palette-card {
     width: 100%;
+    border-radius: var(--radius-lg);
+    background: var(--surface-lift);
+    border: 1px solid var(--layer-rim);
+    box-shadow: var(--elevation-1), inset 0 1px 0 var(--layer-highlight);
 }
 
 .palette-card-swatch {
@@ -75,12 +79,13 @@
     align-items: center;
     gap: 8px;
     align-self: flex-start;
-    padding: 8px 12px;
-    border-radius: var(--radius);
+    padding: 9px 14px;
+    border-radius: var(--radius-pill);
     background: var(--accent);
     color: var(--back);
     font-weight: 600;
     text-decoration: none;
+    box-shadow: var(--elevation-1), inset 0 1px 0 var(--layer-highlight);
 }
 
 .selfhost-link:hover {

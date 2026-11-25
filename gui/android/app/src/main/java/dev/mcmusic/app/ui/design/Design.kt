@@ -6,6 +6,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.shadow
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
@@ -17,6 +18,7 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.TextStyle
@@ -205,9 +207,9 @@ class McDesign(
     /** Retained so older call sites still compile. */
     val ios: Boolean get() = false
 
-    // Material 3 shape scale expressed in the compact flufi radius.
-    val cardRadius = 10.dp
-    val tileRadius = 10.dp
+    // Material 3 shape scale: generous corners and a small, even rhythm.
+    val cardRadius = 18.dp
+    val tileRadius = 18.dp
     val screenPadding = 16.dp
     val gap = 12.dp
 
@@ -222,22 +224,33 @@ class McDesign(
     val accentText = palette.accentText
     val onAccent = palette.accentFg
 
-    /** Translucent accent tints for chips, covers and inactive fills. */
-    val accentSoft = palette.accent.copy(alpha = if (palette.dark) 0.16f else 0.10f)
-    val accentWash = palette.accent.copy(alpha = if (palette.dark) 0.08f else 0.05f)
+    /** Translucent accent layers for chips, covers, elevation and the stage. */
+    val accentSoft = palette.accent.copy(alpha = if (palette.dark) 0.18f else 0.12f)
+    val accentWash = palette.accent.copy(alpha = if (palette.dark) 0.09f else 0.06f)
     val hairline = palette.line
 
-    /** Flat Material 3 surface container; depth comes from the hairline edge. */
+    /** Material 3 surface container: a calm fill with a tonal edge and lift. */
     val cardFill = palette.surface
 }
 
 val LocalDesign = compositionLocalOf { McDesign(DesignLanguage.Flufi, Palettes.violet.dark) }
 
-/** The flat stage: solid palette background, no gradients and no blur. */
+/** Soft stage: solid palette colour with two quiet accent washes behind the
+ *  surfaces, so layered cards have something calm to float above. */
 @Composable
 private fun Stage(modifier: Modifier, design: McDesign) {
     androidx.compose.foundation.Canvas(modifier) {
         drawRect(color = design.palette.bg)
+        drawCircle(
+            color = design.accentWash,
+            radius = size.maxDimension * 0.58f,
+            center = Offset(size.width, -size.height * 0.08f),
+        )
+        drawCircle(
+            color = design.accentWash,
+            radius = size.maxDimension * 0.40f,
+            center = Offset(-size.width * 0.08f, size.height),
+        )
     }
 }
 
@@ -345,7 +358,8 @@ fun McTheme(
     }
 }
 
-/** Flat Material 3 surface container: solid fill and a single hairline edge. */
+/** Layered Material 3 surface container: tonal lift, soft accent shadow and a
+ *  single hairline edge. One helper keeps every card on the same depth scale. */
 @Composable
 fun Modifier.mcSurface(
     shape: Shape = RoundedCornerShape(LocalDesign.current.cardRadius),
@@ -353,7 +367,13 @@ fun Modifier.mcSurface(
 ): Modifier {
     val design = LocalDesign.current
     val fill = if (tint == Color.Transparent) design.cardFill else tint
-    return clip(shape)
+    return shadow(
+        elevation = 4.dp,
+        shape = shape,
+        ambientColor = design.accentWash,
+        spotColor = design.accentSoft,
+    )
+        .clip(shape)
         .background(fill, shape)
         .border(1.dp, design.hairline, shape)
 }
