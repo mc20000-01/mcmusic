@@ -45,7 +45,7 @@ Output:
 
 ```
 dist/mcmusic.app        # drag to /Applications
-dist/mcmusic-2.6.0.dmg  # with MAKE_DMG=1, from the shared version
+dist/mcmusic-4.0.0.dmg  # with MAKE_DMG=1, from the shared version
 ```
 
 The script creates `.venv-macos/`, installs `app/linux` in editable mode plus

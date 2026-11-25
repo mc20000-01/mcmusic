@@ -58,7 +58,7 @@ final class McMusicTests: XCTestCase {
 
     func testAbsoluteURLAcceptsServerBuildPaths() throws {
         let client = APIClient(baseURL: "https://music.example.com")
-        let url = try XCTUnwrap(URL(string: client.baseURL + "/apps/macos/mcmusic-2.6.0.dmg"))
+        let url = try XCTUnwrap(URL(string: client.baseURL + "/apps/macos/mcmusic-4.0.0.dmg"))
         XCTAssertEqual(url.host, "music.example.com")
     }
 }

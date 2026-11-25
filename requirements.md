@@ -111,16 +111,16 @@ fixes, and the old-client parity audit are consolidated here. Anything marked
 
 ## Release and delivery steps (repeat after the next code change)
 
-- [x] Bump Android version to `3.3.9`, code `51`.
+- [x] Bump every client to `4.0.0`; Android code `52`, iOS build `52`.
 - [ ] Commit and push; watch GitHub Actions `Release builds` go green.
 - [ ] Pull the bot commit that refreshes `builds/`.
 - [ ] Confirm the exact GitHub `latest` APK is copied into
-  `apps/android/mainbuild.apk`, `apps/android/mcmusic-3.3.9.apk`, and a hashed
-  `apps/android/mainbuild-<hash>.apk`; stale copies are pruned. The 3.3.8 APK
-  and its `60565f98…` hash stay as rollback artifacts.
+  `apps/android/mainbuild.apk`, `apps/android/mcmusic-4.0.0.apk`, and a hashed
+  `apps/android/mainbuild-<hash>.apk`. The 3.3.9 and 3.3.8 APKs and their
+  hashes stay as rollback artifacts.
 - [ ] Verify live `/get` SHA-256 matches the GitHub asset byte-for-byte.
 - [ ] Verify `/api/builds` reports the new version and “Android 14 and newer.”
-- [ ] Verify package `dev.mcmusic.app`, `versionCode 51`, `minSdk 34`, and
+- [ ] Verify package `dev.mcmusic.app`, `versionCode 52`, `minSdk 34`, and
       signer SHA-256 `0b0fd0fa35ff712901d42cab215d5e3cb706daef57bffa7ebef61cacda1dc4ce`.
 
 ## UI research
@@ -158,7 +158,7 @@ fixes, and the old-client parity audit are consolidated here. Anything marked
 
 - [x] Desktop audit completed and recorded in `docs/desktop-parity.md`.
 - [x] Fixed Settings room-link crash, lyrics button, settings-schema loss and
-      inconsistent version metadata (single `version.py`, default `2.6.0`).
+      inconsistent version metadata (single `version.py`, now `4.0.0`).
 - [x] Offline-resilient login, password reset/email, and Rotur sign-in.
 - [x] Queue persistence/reorder, sleep timer, remote commands, activity
       publishing, and `offline_audio` behavior.
