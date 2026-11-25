@@ -252,6 +252,7 @@ fun Loading(text: String = "Loading…", modifier: Modifier = Modifier) {
 
 @Composable
 fun ErrorLine(message: String, modifier: Modifier = Modifier) {
+    val design = LocalDesign.current
     Text(
         message,
         modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))

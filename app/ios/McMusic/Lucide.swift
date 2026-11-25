@@ -154,9 +154,9 @@ enum Lucide {
                     index += 1
                     consumedCommand = true
                 }
-                guard let command else { break }
-                let relative = command.isLowercase
-                switch command.lowercased() {
+                guard let active = command else { break }
+                let relative = active.isLowercase
+                switch active.lowercased() {
                 case "m":
                     guard let next = point(relative) else { return path }
                     current = next; start = next
