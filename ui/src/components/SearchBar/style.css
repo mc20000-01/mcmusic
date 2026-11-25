@@ -1,9 +1,11 @@
 
 .search-bar {
     width: 300px;
-    border: 1px solid var(--back-border);
-    border-radius: var(--radius);
+    border: 1px solid var(--layer-rim);
+    border-radius: var(--radius-pill);
     overflow: hidden;
+    background: var(--surface-lift);
+    box-shadow: inset 0 1px 0 var(--layer-highlight);
 }
 
 .search-bar .search-input {
@@ -13,6 +15,7 @@
 
 .search-bar:focus-within {
     border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft), var(--elevation-1);
 }
 
 .search-bar .search-input::placeholder {

@@ -256,9 +256,11 @@ export function paletteVars(p: Palette, accentOverride = ""): Record<string, str
     const accent = accentOverride.trim() || p.accent;
     const hoverTarget = p.mode === "light" ? p.fg : WHITE;
     const shadow = p.mode === "light" ? "rgba(8, 6, 13, 0.42)" : "rgba(0, 0, 0, 0.55)";
-    const shadowDeep = p.mode === "light"
-        ? "rgba(8, 6, 13, 0.64)"
-        : "rgba(0, 0, 0, 0.85)";
+    // Elevation is its own token: lighter than the modal scrim so layered
+    // cards read as separate surfaces without turning the app into a stack.
+    const elevation = p.mode === "light" ? "rgba(8, 6, 13, 0.16)" : "rgba(0, 0, 0, 0.46)";
+    const elevationDeep = p.mode === "light" ? "rgba(8, 6, 13, 0.24)" : "rgba(0, 0, 0, 0.62)";
+    const highlight = p.mode === "light" ? "rgba(8, 6, 13, 0.06)" : "rgba(255, 255, 255, 0.12)";
     return {
         "--back": p.bg,
         "--back-raised": p.bg2,
@@ -278,12 +280,22 @@ export function paletteVars(p: Palette, accentOverride = ""): Record<string, str
         "--back-border": p.line,
         "--prim-border": p.line2,
         "--shadow": shadow,
-        "--shadow-raised": `0 10px 30px -18px ${shadowDeep}`,
+        "--shadow-raised": `0 18px 48px -24px ${elevationDeep}`,
         "--backdrop": "rgba(8, 6, 13, 0.72)",
         "--success": SUCCESS,
         "--warning": WARNING,
         "--equaliser": "var(--accent)",
-        "--radius": "10px",
+        "--accent-soft": `color-mix(in srgb, ${accent} 18%, ${p.surface})`,
+        "--accent-faint": `color-mix(in srgb, ${accent} 8%, ${p.bg})`,
+        "--surface-lift": `color-mix(in srgb, ${p.surface} 86%, ${accent})`,
+        "--layer-rim": `color-mix(in srgb, ${p.line2} 62%, transparent)`,
+        "--layer-highlight": highlight,
+        "--elevation-1": `0 1px 2px ${elevation}, 0 8px 24px -16px ${elevation}`,
+        "--elevation-2": `0 10px 34px -18px ${elevationDeep}`,
+        "--radius": "14px",
+        "--radius-lg": "20px",
+        "--radius-xl": "28px",
+        "--radius-pill": "999px",
     };
 }
 
