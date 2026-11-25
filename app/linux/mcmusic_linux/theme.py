@@ -330,28 +330,31 @@ def stylesheet(p: Palette | None = None) -> str:
         selection-color: {p.accent_fg};
     }}
     QLineEdit {{
-        background: {_rgba(p.surface, 34)};
-        border: 1px solid {_rgba(p.line2, 70)};
-        border-radius: 10px;
-        padding: 8px 12px;
+        background: {_rgba(p.surface2, 64)};
+        border: 1px solid {_rgba(p.line2, 90)};
+        border-radius: 18px;
+        padding: 9px 14px;
         color: {p.fg};
         font-size: 13px;
     }}
-    QLineEdit:focus {{ border-color: {_rgba(p.accent, 140)}; }}
+    QLineEdit:focus {{
+        border-color: {_rgba(p.accent, 170)};
+        background: {_rgba(p.surface2, 82)};
+    }}
     QLineEdit[echoMode="2"] {{ letter-spacing: 2px; }}
     QMenu {{
         background: {p.bg2};
-        border: 1px solid {_rgba(p.line2, 70)};
-        border-radius: 10px;
-        padding: 6px;
+        border: 1px solid {_rgba(p.line2, 90)};
+        border-radius: 16px;
+        padding: 8px;
     }}
     QMenu::item {{
-        padding: 8px 28px 8px 12px;
-        border-radius: 10px;
+        padding: 9px 30px 9px 14px;
+        border-radius: 12px;
         color: {p.fg};
         font-size: 13px;
     }}
-    QMenu::item:selected {{ background: {_rgba(p.surface2, 92)}; }}
+    QMenu::item:selected {{ background: {_rgba(p.accent, 52)}; }}
     QMenu::item:disabled {{ color: {p.dim2}; }}
     QMenu::separator {{ height: 1px; background: {p.line}; margin: 4px 2px; }}
     QScrollBar:vertical {{
@@ -381,17 +384,19 @@ def stylesheet(p: Palette | None = None) -> str:
     }}
     QToolTip {{
         background: {p.ink}; color: {p.fg};
-        border: 1px solid {p.line2}; padding: 4px 7px;
+        border: 1px solid {_rgba(p.accent, 90)};
+        border-radius: 10px; padding: 5px 9px;
         font-size: 11px;
     }}
     QDialog {{ background: {p.bg2}; }}
     QMessageBox {{ background: {p.bg2}; }}
     QMessageBox QLabel {{ color: {p.fg}; }}
     QMessageBox QPushButton {{
-        background: {_rgba(p.surface, 60)}; border: 1px solid {_rgba(p.line2, 70)};
-        border-radius: 10px; padding: 7px 15px; color: {p.fg};
+        background: {_rgba(p.surface2, 76)};
+        border: 1px solid {_rgba(p.line2, 90)};
+        border-radius: 18px; padding: 8px 18px; color: {p.fg};
     }}
-    QMessageBox QPushButton:hover {{ background: {p.surface}; }}
+    QMessageBox QPushButton:hover {{ background: {_rgba(p.accent, 46)}; }}
     QColorDialog {{ background: {p.bg2}; }}
     QAbstractScrollArea {{ border: none; }}
     """

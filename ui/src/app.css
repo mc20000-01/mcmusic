@@ -29,10 +29,63 @@ main[class^="content-"] {
     flex: 1;
     min-width: 0;
     overflow-y: auto;
-    padding: 20px 28px calc(var(--player-h) + 20px);
+    padding: 24px 30px calc(var(--player-h) + 24px);
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 18px;
+
+    /* Two very quiet washes give content a layered base without decoration. */
+    background:
+        radial-gradient(900px 420px at 88% -10%, var(--accent-faint), transparent 72%),
+        radial-gradient(620px 360px at -10% 0%, var(--accent-soft), transparent 68%),
+        var(--back);
+}
+
+/* ── Soft Material 3 layer polish ─────────────────────────────────────────
+   Shared across flufi controls so the app reads like a set of calm, rounded
+   surfaces. The tokens are palette-derived, so every family gets its own ink,
+   accent wash and elevation. */
+:where(button, a).button {
+    border-radius: var(--radius-pill);
+    transition: background var(--transition-fast), box-shadow var(--transition-fast),
+                transform var(--transition-fast), color var(--transition-fast);
+}
+
+:where(button, a).button:not(.track):not(.drawer-link):not(.queue-row):not(:disabled):hover {
+    transform: translateY(-1px);
+}
+
+:where(button, a).button.variant-accent {
+    box-shadow: var(--elevation-1), inset 0 1px 0 var(--layer-highlight);
+}
+
+:where(button, a).button.variant-panel,
+:where(button, a).button.variant-secondary {
+    background: var(--surface-lift);
+    border: 1px solid var(--layer-rim);
+    box-shadow: var(--elevation-1);
+}
+
+:where(input, textarea, select).input,
+.select-box,
+.search-bar {
+    background: var(--surface-lift);
+    border: 1px solid var(--layer-rim);
+    box-shadow: inset 0 1px 0 var(--layer-highlight);
+}
+
+:where(input, textarea, select).input:focus-within,
+.select-box:focus-within,
+.search-bar:focus-within {
+    box-shadow: 0 0 0 3px var(--accent-soft), var(--elevation-1);
+}
+
+.palette-card,
+.icon-choice,
+.icon-toggle,
+.popout {
+    border: 1px solid var(--layer-rim);
+    box-shadow: var(--elevation-1);
 }
 
 /* Page actions should hug their label, not stretch across the pane. */
