@@ -142,6 +142,24 @@ release verification.
       (29,331,347 bytes), and `/api/builds` reported `4.0.0` with “Android 14
       and newer.” The 3.3.9 APK above stays as the rollback artifact.
 
+## 4.0.1 icon widths
+
+- [x] Android uses pref key `icon_stroke`, with `1x/1.5x/2x` in Appearance.
+      Compose icons are built as `ImageVector`s from the vendored Lucide XMLs
+      through AndroidX `PathParser`, using
+      `min(size * scale / 12, size / 6)` for the rendered width. Filled mode is
+      intentionally absent because the drawables are path-only outlines.
+- [x] The same 1x/1.5x/2x math is used by web, iOS and Qt. The old 4px floor
+      that made 1x look like 2x was removed.
+- [x] CI run `45545773860` was green. The signed APK installed over 4.0.0 on
+      API 34 with package `dev.mcmusic.app`, `versionCode 53`, `versionName
+      4.0.1`, `minSdk 34`, `targetSdk 34`, `compileSdk 36`, and signer SHA-256
+      `0b0fd0fa35ff712901d42cab215d5e3cb706daef57bffa7ebef61cacda1dc4ce`.
+- [x] GitHub `latest`, live `/get`, `/api/builds`, and
+      `builds/mcmusic-4.0.1.apk` all serve
+      `sha256:8a8d8e1a1d42afe4073cbd811175868d68cb7a21024715b952ee66d48fc836ff`
+      (29,347,731 bytes).
+
 ## Verification commands
 
 ```sh
