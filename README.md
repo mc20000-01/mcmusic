@@ -187,8 +187,9 @@ buttons, a theme/accent picker and a starter stylesheet:
 | `mcmusic-badge` | Inline pill for bios and link-in-bio pages |
 | `mcmusic-now-playing`, `mcmusic-profile`, `mcmusic-ticker` | Aliases of `now`, `card` and `marquee` |
 
-Attributes: `user` (required, except with `demo`), `theme` (`dusk`, `paper`,
-`ink`, `tide`, `copper`, `forest`, `rose` or `auto`), `accent` (any CSS colour),
+Attributes: `user` (required, except with `demo`), `theme` (`system`, `violet`,
+`indigo`, `sky`, `aqua` or `mint`; add `-light` or `-dark` to pin one half),
+`accent` (any CSS colour),
 `compact` (presence), `refresh` (seconds, minimum 5, default 12), `maxlen`
 (default `0`), `speed` (seconds per scroll pass, 3–60, default 18) and `demo`
 (presence). Titles, artist lines and badge text longer than `maxlen` characters
@@ -200,19 +201,20 @@ shadow root, so page CSS only reaches the outside: width, margins,
 `--mc-radius`, `--mc-font` and the colour variables.
 
 Colours come from the `theme` and `accent` attributes unless your own CSS
-declares them, in which case the page wins. The built-in palettes are the
-flufi v3 ink scale with the violet `#a06bff` accent; on a flufi-ui page the
-widgets also inherit `--back`, `--text`, `--accent` and `--back-border`. A
-site-wide override is just:
+declares them, in which case the page wins. The built-in palettes are Violet,
+Indigo, Sky, Aqua and Mint, each with a light and dark half; a bare family name
+follows the visitor's system appearance. On a flufi-ui page the widgets also
+inherit `--back`, `--text`, `--accent` and `--back-border`. A site-wide override
+is just:
 
 ```css
 mcmusic-now, mcmusic-card, mcmusic-bar {
-  --mc-bg: #08060d;    /* card background      */
-  --mc-bg2: #100c18;   /* raised surface       */
+  --mc-bg: #171721;    /* card background      */
+  --mc-bg2: #222130;   /* raised surface       */
   --mc-fg: #ffffff;    /* primary text         */
-  --mc-dim: #948aa6;   /* secondary text       */
-  --mc-line: #1f1830;  /* borders              */
-  --mc-accent: #a06bff; /* dot, progress, links */
+  --mc-dim: #aaaab7;   /* secondary text       */
+  --mc-line: #35344b;  /* borders              */
+  --mc-accent: #9f7eff; /* dot, progress, links */
   --mc-radius: 10px;   /* flufi one-radius      */
 }
 ```

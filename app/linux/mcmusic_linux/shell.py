@@ -15,6 +15,7 @@ from PySide6.QtGui import (
     QDesktopServices,
     QDrag,
     QFont,
+    QGuiApplication,
     QKeySequence,
     QLinearGradient,
     QPainter,
@@ -1181,6 +1182,12 @@ class McWindow(QMainWindow):
         self.player.changed.connect(self._publish_activity)
 
         self.apply_settings(self.settings, persist=False)
+        try:
+            QGuiApplication.styleHints().colorSchemeChanged.connect(
+                self._system_appearance_changed
+            )
+        except (AttributeError, RuntimeError, TypeError):
+            pass
 
         if self.me is not None and (self.api.cookies or self.api.token):
             self.stack.setCurrentWidget(self.splash)
@@ -1492,6 +1499,11 @@ class McWindow(QMainWindow):
         self.apply_settings(remote, persist=False)
 
     # ── appearance ──────────────────────────────────────────────────────
+    def _system_appearance_changed(self, *_args) -> None:
+        """Bare family ids repaint when the OS switches light/dark."""
+        if getattr(self, "settings", None) is not None:
+            self.apply_settings(self.settings, persist=False)
+
     def apply_settings(self, settings: Settings, persist: bool = True) -> None:
         self.settings = settings
         theme.set_appearance(settings.theme, settings.accent)

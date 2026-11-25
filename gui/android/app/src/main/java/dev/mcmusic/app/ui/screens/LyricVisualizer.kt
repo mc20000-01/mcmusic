@@ -49,6 +49,7 @@ fun LyricVisualizer(
     val seconds = positionMs / 1000f
     val pulse = if (activeLine >= 0) 1f else 0.72f
     val alpha = if (playing) 1f else 0.55f
+    val visualAccent = if (design.palette.dark) design.accent else design.accentText
     Box(
         Modifier
             .fillMaxWidth()
@@ -61,7 +62,7 @@ fun LyricVisualizer(
         Canvas(Modifier.fillMaxWidth().height(58.dp).padding(horizontal = 12.dp, vertical = 8.dp)) {
             val w = size.width
             val h = size.height
-            val tint = design.accent.copy(alpha = alpha)
+            val tint = visualAccent.copy(alpha = alpha)
             when (mode) {
                 LyricVisualizerMode.Bars -> {
                     val count = 36
@@ -98,7 +99,7 @@ fun LyricVisualizer(
                         drawCircle(
                             brush = Brush.radialGradient(
                                 colors = listOf(
-                                    design.accent.copy(alpha = 0.22f * alpha / i),
+                                    visualAccent.copy(alpha = 0.22f * alpha / i),
                                     Color.Transparent,
                                 ),
                                 center = Offset(w / 2, h / 2),
@@ -109,7 +110,7 @@ fun LyricVisualizer(
                         )
                     }
                     drawCircle(
-                        color = design.accent.copy(alpha = 0.85f * alpha),
+                        color = visualAccent.copy(alpha = 0.85f * alpha),
                         center = Offset(w / 2, h / 2),
                         radius = radius * (0.55f + 0.08f * sin(seconds * 3f)),
                     )

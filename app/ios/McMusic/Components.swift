@@ -20,6 +20,7 @@ struct CoverView: View {
     let url: URL?
     var size: CGFloat = 48
     var radius: CGFloat = 10
+    @Environment(\.mcTokens) private var tokens
 
     var body: some View {
         Group {
@@ -30,9 +31,8 @@ struct CoverView: View {
             } else {
                 ZStack {
                     RoundedRectangle(cornerRadius: radius)
-                        .fill(Color(hex: "241A38"))
-                    Image(systemName: "music.note")
-                        .foregroundStyle(Theme.violet)
+                        .fill(tokens.surface2)
+                    LucideIcon(name: "music-note", size: max(16, size * 0.5), color: tokens.accent)
                 }
             }
         }
@@ -51,7 +51,7 @@ struct TrackRow: View {
     let number: Int?
     let onPlay: () -> Void
     let onMenu: (() -> Void)?
-    @Environment(\.mcAccent) private var accent
+    @Environment(\.mcTokens) private var tokens
 
     init(track: JSON, number: Int? = nil, onPlay: @escaping () -> Void, onMenu: (() -> Void)? = nil) {
         self.track = track
@@ -80,14 +80,16 @@ struct TrackRow: View {
             }
             Spacer()
             if let likes = track.first("likes", "like_count")?.int {
-                Label("\(likes)", systemImage: "heart")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 3) {
+                    LucideIcon(name: "heart", size: 12, color: tokens.dim)
+                    Text("\(likes)")
+                }
+                .font(.caption)
+                .foregroundStyle(tokens.dim)
             }
             if let onMenu {
                 Button(action: onMenu) {
-                    Image(systemName: "ellipsis")
-                        .foregroundStyle(.secondary)
+                    LucideIcon(name: "more-horizontal", size: 18, color: tokens.dim)
                 }
                 .buttonStyle(.plain)
             }
@@ -123,26 +125,36 @@ struct Shelf<Content: View>: View {
     }
 }
 
+/// Flat input surface: one radius, no blur, one hairline border.
+private struct MCFieldBackground: View {
+    @Environment(\.mcTokens) private var tokens
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 10)
+            .fill(tokens.surface)
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(tokens.line, lineWidth: 1))
+    }
+}
+
 extension View {
-    /// Flat flufi input surface: one radius, no blur, one hairline border.
     func mcTextField() -> some View {
         self
             .textFieldStyle(.plain)
             .padding(12)
-            .background(RoundedRectangle(cornerRadius: 10).fill(Color(hex: "100C18")))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color(hex: "2A2040"), lineWidth: 1))
+            .background(MCFieldBackground())
     }
 }
 
 struct StateView: View {
     let text: String
-    var systemImage: String = "music.note"
+    var icon: String = "music-note"
     var retry: (() -> Void)?
+    @Environment(\.mcTokens) private var tokens
 
     var body: some View {
         VStack(spacing: 12) {
-            Image(systemName: systemImage).font(.largeTitle).foregroundStyle(.secondary)
-            Text(text).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            LucideIcon(name: icon, size: 34, color: tokens.dim)
+            Text(text).font(.subheadline).foregroundStyle(tokens.dim).multilineTextAlignment(.center)
             if let retry { Button("Try again", action: retry).buttonStyle(.borderedProminent) }
         }
         .frame(maxWidth: .infinity)

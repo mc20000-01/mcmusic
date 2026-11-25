@@ -55,7 +55,6 @@ import dev.mcmusic.app.data.Api
 import dev.mcmusic.app.data.Lyrics
 import dev.mcmusic.app.playback.Playback
 import dev.mcmusic.app.ui.Cover
-import dev.mcmusic.app.ui.Danger
 import dev.mcmusic.app.ui.EmptyState
 import dev.mcmusic.app.ui.ErrorLine
 import dev.mcmusic.app.ui.GhostButton
@@ -197,7 +196,7 @@ fun PlayerScreen(onBack: () -> Unit, onVideo: (String?, Long) -> Unit = { _, _ -
                     size = 10,
                 )
                 state.error?.let { message ->
-                    Text(message, color = dev.mcmusic.app.ui.Danger, fontSize = 11.sp, textAlign = TextAlign.Center)
+                    Text(message, color = design.palette.error, fontSize = 11.sp, textAlign = TextAlign.Center)
                 }
             }
         }
@@ -213,8 +212,8 @@ fun PlayerScreen(onBack: () -> Unit, onVideo: (String?, Long) -> Unit = { _, _ -
                     scrub = null
                 },
                 colors = SliderDefaults.colors(
-                    thumbColor = design.accent,
-                    activeTrackColor = design.accent,
+                    thumbColor = design.accentText,
+                    activeTrackColor = design.accentText,
                     inactiveTrackColor = design.hairline,
                 ),
             )
@@ -231,7 +230,7 @@ fun PlayerScreen(onBack: () -> Unit, onVideo: (String?, Long) -> Unit = { _, _ -
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(Lucide.Shuffle, size = 20.dp, tint = if (state.shuffle) design.accent else design.dim) {
+                IconButton(Lucide.Shuffle, size = 20.dp, tint = if (state.shuffle) design.accentText else design.dim) {
                     Playback.toggleShuffle()
                 }
                 IconButton(Lucide.SkipBack, size = 26.dp) { Playback.previous() }
@@ -241,18 +240,18 @@ fun PlayerScreen(onBack: () -> Unit, onVideo: (String?, Long) -> Unit = { _, _ -
                 ) {
                     dev.mcmusic.app.ui.LucideIcon(
                         if (state.playing) Lucide.Pause else Lucide.Play,
-                        design.palette.bg,
+                        design.onAccent,
                         Modifier.size(22.dp),
                     )
                 }
                 IconButton(Lucide.SkipForward, size = 26.dp) { Playback.next() }
-                IconButton(Lucide.Repeat, size = 20.dp, tint = if (state.repeat) design.accent else design.dim) {
+                IconButton(Lucide.Repeat, size = 20.dp, tint = if (state.repeat) design.accentText else design.dim) {
                     Playback.cycleRepeat()
                 }
                 IconButton(
                     Lucide.ListMusic,
                     size = 20.dp,
-                    tint = if (lyricsOpen) design.accent else design.dim,
+                    tint = if (lyricsOpen) design.accentText else design.dim,
                 ) { lyricsOpen = !lyricsOpen }
             }
         }
@@ -305,7 +304,7 @@ fun PlayerScreen(onBack: () -> Unit, onVideo: (String?, Long) -> Unit = { _, _ -
                         ) {
                             Text(
                                 if (minutes == 0) "Off" else "${minutes}m",
-                                color = if (selected) design.palette.bg else design.dim,
+                                color = if (selected) design.onAccent else design.dim,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium,
                             )
@@ -414,12 +413,12 @@ private fun QueueRow(index: Int, item: Track, state: dev.mcmusic.app.playback.Pl
                 Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(7.dp))
-                    .background(Danger.copy(alpha = 0.16f))
+                    .background(design.palette.error.copy(alpha = 0.16f))
                     .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.End,
             ) {
-                Text("Remove from queue", color = Danger, fontSize = 12.sp)
+                Text("Remove from queue", color = design.palette.error, fontSize = 12.sp)
             }
         },
         content = {
@@ -437,7 +436,7 @@ private fun QueueRow(index: Int, item: Track, state: dev.mcmusic.app.playback.Pl
             if (current) {
                 LucideIcon(
                     Lucide.Play,
-                    design.accent,
+                    design.accentText,
                     Modifier.size(14.dp),
                     contentDescription = "Now playing",
                 )
@@ -448,7 +447,7 @@ private fun QueueRow(index: Int, item: Track, state: dev.mcmusic.app.playback.Pl
         Column(Modifier.weight(1f)) {
             Text(
                 item.title,
-                color = if (current) design.accent else design.fg,
+                color = if (current) design.accentText else design.fg,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
@@ -557,7 +556,7 @@ private fun LyricsPanel(trackId: Int) {
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-            LucideIcon(Lucide.ListMusic, design.accent, Modifier.size(15.dp))
+            LucideIcon(Lucide.ListMusic, design.accentText, Modifier.size(15.dp))
             Text("Lyrics", color = design.fg, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             Box(Modifier.weight(1f))
             Muted(kind, size = 11)
@@ -586,7 +585,7 @@ private fun LyricsPanel(trackId: Int) {
                     val active = index == activeIndex
                     Text(
                         line.text,
-                        color = if (active) design.accent else design.dim,
+                        color = if (active) design.accentText else design.dim,
                         fontSize = if (active) 15.sp else 13.sp,
                         fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
                         modifier = Modifier.clickable(enabled = line.time >= 0) {
@@ -622,10 +621,10 @@ private fun NowLyric(trackId: Int, onOpen: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        LucideIcon(Lucide.ListMusic, design.accent, Modifier.size(14.dp))
+        LucideIcon(Lucide.ListMusic, design.accentText, Modifier.size(14.dp))
         Text(
             current,
-            color = design.accent,
+            color = design.accentText,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
             maxLines = 2,

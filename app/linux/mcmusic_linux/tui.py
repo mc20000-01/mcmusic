@@ -1492,8 +1492,8 @@ class App:
                 self.put(y, 2, row.label, width, curses.A_DIM)
                 continue
 
-            mark = "▶" if self.playing_row(row) else " "
-            heart = "♥" if row.liked else " "
+            mark = ">" if self.playing_row(row) else " "
+            heart = "L" if row.liked else " "
             text = f"{mark} {row.label}"
             self.put(y, 2, text, width)
             sub = row.sub
@@ -1540,8 +1540,8 @@ class App:
     def now_playing(self) -> str:
         track = self.player.track
         if not track:
-            return "■ stopped"
-        state = "❚❚" if self.player.paused else "▶"
+            return "[stopped]"
+        state = "[paused]" if self.player.paused else "[playing]"
         return f"{state} {track.title} — {track.artist}   vol {self.player.volume}%"
 
     def draw_help(self, height: int, width: int) -> None:

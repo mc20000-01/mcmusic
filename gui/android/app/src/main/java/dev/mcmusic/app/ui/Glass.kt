@@ -18,7 +18,7 @@ import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.shadow.Shadow
 
 /** Fallback when there is no recorded backdrop (Android 12 and below). */
-private val FallbackSurface = Color(0xFF1A1A22).copy(alpha = 0.92f)
+private val FallbackSurface = Color(0xFF171721).copy(alpha = 0.92f)
 
 /**
  * The one place glass is defined, so the renderer can be swapped without

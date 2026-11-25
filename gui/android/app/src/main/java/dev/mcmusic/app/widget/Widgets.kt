@@ -134,7 +134,7 @@ object Widgets {
             views.setTextViewText(R.id.widget_title, "No account yet")
             views.setTextViewText(R.id.widget_sub, "Open mcmusic and sign in")
             views.setTextViewText(R.id.widget_state, "")
-            views.setTextColor(R.id.widget_kicker, palette.accent.toArgb())
+            views.setTextColor(R.id.widget_kicker, palette.accentText.toArgb())
             views.setTextColor(R.id.widget_title, palette.fg.toArgb())
             views.setTextColor(R.id.widget_sub, palette.dim.toArgb())
             views.setTextColor(R.id.widget_state, palette.dim.toArgb())
@@ -142,8 +142,7 @@ object Widgets {
             views.setViewVisibility(R.id.widget_cover, View.GONE)
             views.setTextViewText(R.id.widget_title, "mcmusic")
             views.setTextViewText(R.id.widget_sub, "Open the app and sign in")
-            views.setTextViewText(R.id.widget_dot, "•")
-            views.setTextColor(R.id.widget_dot, palette.dim.toArgb())
+            views.setInt(R.id.widget_dot, "setBackgroundColor", palette.dim.toArgb())
             views.setTextColor(R.id.widget_title, palette.fg.toArgb())
             views.setTextColor(R.id.widget_sub, palette.dim.toArgb())
         }
@@ -186,10 +185,10 @@ object Widgets {
         views.setTextViewText(R.id.widget_title, title)
         views.setTextViewText(R.id.widget_sub, sub)
         views.setTextViewText(R.id.widget_state, state)
-        views.setTextColor(R.id.widget_kicker, palette.accent.toArgb())
+        views.setTextColor(R.id.widget_kicker, palette.accentText.toArgb())
         views.setTextColor(R.id.widget_title, palette.fg.toArgb())
         views.setTextColor(R.id.widget_sub, palette.dim.toArgb())
-        views.setTextColor(R.id.widget_state, if (listening) palette.accent.toArgb() else palette.dim.toArgb())
+        views.setTextColor(R.id.widget_state, if (listening) palette.accentText.toArgb() else palette.dim.toArgb())
 
         controls(views, context, palette, local != null, localPlaying)
         views.setOnClickPendingIntent(R.id.widget_root, openApp(context))
@@ -218,8 +217,8 @@ object Widgets {
         val sub = track?.artist?.takeIf { it.isNotBlank() } ?: "mcmusic"
 
         if (cover != null) views.setImageViewBitmap(R.id.widget_cover, cover) else views.setViewVisibility(R.id.widget_cover, View.GONE)
-        views.setTextViewText(R.id.widget_dot, "●")
-        views.setTextColor(R.id.widget_dot, (if (listening) palette.accent else palette.dim).toArgb())
+        views.setInt(R.id.widget_dot, "setBackgroundColor",
+            (if (listening) palette.accentText else palette.dim).toArgb())
         views.setTextViewText(R.id.widget_title, title)
         views.setTextViewText(R.id.widget_sub, sub)
         views.setTextColor(R.id.widget_title, palette.fg.toArgb())
@@ -249,7 +248,7 @@ object Widgets {
             R.id.widget_toggle,
             if (playing) R.drawable.ic_lucide_pause else R.drawable.ic_lucide_play,
         )
-        views.setInt(R.id.widget_toggle, "setColorFilter", palette.accent.toArgb())
+        views.setInt(R.id.widget_toggle, "setColorFilter", palette.accentText.toArgb())
         views.setImageViewResource(R.id.widget_next, R.drawable.ic_lucide_skip_forward)
         views.setInt(R.id.widget_next, "setColorFilter", palette.dim.toArgb())
         views.setOnClickPendingIntent(

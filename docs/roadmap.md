@@ -8,12 +8,12 @@ against the repo, not against intentions.
 
 | Thing | Where | Status |
 | --- | --- | --- |
-| One brand: the `mc` mark on a black-violet field | `web/`, Android launcher, splash | ✅ violet `#a06bff` on `#08060d` everywhere |
+| One brand: the `mc` mark on a palette field | `web/`, Android launcher, splash | ✅ Violet family `#9f7eff` on `#171721` by default |
 | Friendlier web sign-in | `web/js/app.js` (`showLogin`) | ✅ two-column welcome stage, feature list, vinyl, mode-aware copy |
 | Warmer web home | `web/js/views.js` (`renderHome`) | ✅ greeting + shelf counts + “Shuffle everything” + “Jump back in” |
 | Android home | `app/android/.../ui/Screens.kt` | ✅ same lead/subtitle/shuffle pattern, native Compose |
 | Android now playing | `app/android/.../ui/NowPlaying.kt` | ✅ centred type, soft accent halo behind the art |
-| New-user accent is violet | web defaults, `src/mcmusic.py`, Android `Settings` | ✅ no more brass on a fresh account |
+| New-user palette is Violet | web defaults, `src/mcmusic.py`, Android `Settings` | ✅ five swappable families, no brass default |
 | Installed on the phone | `apps/android/mainbuild.apk` via adb | ✅ device `79SOE6VGSGSODU4P` (SN509C, Android 14) |
 | Cookieless device sign-in | `src/auth.py`, `src/routes/system_routes.py` | ✅ short code → `mcd_…` bearer token, revocable |
 | Pairing UI | `web/js/views.js` (Settings → Devices) | ✅ get code, list paired devices, revoke |

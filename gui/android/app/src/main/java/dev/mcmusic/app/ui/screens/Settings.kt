@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings as AndroidSettings
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -12,8 +13,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,6 +57,7 @@ import dev.mcmusic.app.ui.design.DesignLanguage
 import dev.mcmusic.app.ui.design.LocalDesign
 import dev.mcmusic.app.ui.design.Palettes
 import dev.mcmusic.app.ui.formatBytes
+import dev.mcmusic.app.widget.Widgets
 import kotlinx.coroutines.launch
 
 /**
@@ -70,6 +74,7 @@ fun SettingsScreen(onAdmin: () -> Unit, onSignedOut: () -> Unit) {
 
     var error by remember { mutableStateOf<String?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
+    var palettePicker by remember { mutableStateOf(false) }
 
     var server by remember { mutableStateOf(Prefs.server) }
     var email by remember { mutableStateOf("") }
@@ -302,10 +307,14 @@ fun SettingsScreen(onAdmin: () -> Unit, onSignedOut: () -> Unit) {
             SettingCard {
                 SettingRow(
                     "Palette",
-                    "Flat violet on ink, as on the web",
+                    "Five swappable defaults; System follows light and dark",
                     icon = Lucide.Palette,
-                    value = Palettes.byId(Prefs.palette).label,
-                    onClick = { Prefs.savePalette(if (Prefs.palette == "auto") "flufi" else "auto") },
+                    value = if (Prefs.palette == Palettes.AUTO) {
+                        "System (${Palettes.resolve(Prefs.palette, isSystemInDarkTheme()).label})"
+                    } else {
+                        Palettes.resolve(Prefs.palette, isSystemInDarkTheme()).label
+                    },
+                    onClick = { palettePicker = true },
                 )
                 SettingDivider()
                 SettingRow(
@@ -330,6 +339,42 @@ fun SettingsScreen(onAdmin: () -> Unit, onSignedOut: () -> Unit) {
                     icon = Lucide.EyeOff,
                     checked = Prefs.hideExplicit,
                     onChange = { Prefs.saveHideExplicit(it) },
+                )
+            }
+        }
+        item {
+            if (palettePicker) {
+                val activeId = Palettes.resolve(Prefs.palette, isSystemInDarkTheme()).id
+                val activeFamily = Palettes.families.firstOrNull {
+                    it.light.id == activeId || it.dark.id == activeId
+                }?.id
+                AlertDialog(
+                    onDismissRequest = { palettePicker = false },
+                    title = { Text("Palette") },
+                    text = {
+                        Column {
+                            Palettes.families.forEach { option ->
+                                TextButton(onClick = {
+                                    Prefs.savePalette(option.id)
+                                    Widgets.refresh(context)
+                                    palettePicker = false
+                                }) {
+                                    Text(
+                                        if (activeFamily == option.id) "${option.label} (selected)"
+                                        else option.label
+                                    )
+                                }
+                            }
+                            TextButton(onClick = {
+                                Prefs.savePalette(Palettes.AUTO)
+                                Widgets.refresh(context)
+                                palettePicker = false
+                            }) {
+                                Text(if (Prefs.palette == Palettes.AUTO) "System (selected)" else "System")
+                            }
+                        }
+                    },
+                    confirmButton = { TextButton(onClick = { palettePicker = false }) { Text("Done") } },
                 )
             }
         }

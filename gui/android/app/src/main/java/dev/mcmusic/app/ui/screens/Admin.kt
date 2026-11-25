@@ -33,7 +33,6 @@ import dev.mcmusic.app.data.AdminUser
 import dev.mcmusic.app.data.Api
 import dev.mcmusic.app.data.DownloadRequest
 import dev.mcmusic.app.data.InviteCode
-import dev.mcmusic.app.ui.Danger
 import dev.mcmusic.app.ui.EmptyState
 import dev.mcmusic.app.ui.ErrorLine
 import dev.mcmusic.app.ui.GhostButton
@@ -158,7 +157,7 @@ fun AdminScreen(onBack: () -> Unit) {
                                 Column(Modifier.weight(1f)) {
                                     Text(
                                         user.username + if (user.isAdmin) "  · admin" else "",
-                                        color = if (user.isAdmin) design.accent else design.fg,
+                                        color = if (user.isAdmin) design.accentText else design.fg,
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.Medium,
                                         maxLines = 1,

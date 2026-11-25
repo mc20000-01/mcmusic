@@ -2,6 +2,7 @@ import SwiftUI
 
 struct NowPlayingView: View {
     @EnvironmentObject private var app: AppState
+    @Environment(\.mcTokens) private var tokens
     @Environment(\.dismiss) private var dismiss
     @State private var showQueue = false
     @State private var showLyrics = false
@@ -17,7 +18,7 @@ struct NowPlayingView: View {
 
                 VStack(spacing: 4) {
                     Text(player.currentTitle).font(.title2.bold()).multilineTextAlignment(.center)
-                    Text(player.currentArtist).font(.subheadline).foregroundStyle(.secondary)
+                    Text(player.currentArtist).font(.subheadline).foregroundStyle(tokens.dim)
                 }
 
                 VStack(spacing: 2) {
@@ -30,27 +31,28 @@ struct NowPlayingView: View {
                         Spacer()
                         Text(time(player.duration))
                     }
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.caption).foregroundStyle(tokens.dim)
                 }
 
                 HStack(spacing: 28) {
                     Button { player.shuffle.toggle() } label: {
-                        Image(systemName: "shuffle").foregroundStyle(player.shuffle ? Theme.violet : .secondary)
+                        LucideIcon(name: "shuffle", size: 22,
+                                   color: player.shuffle ? tokens.accent : tokens.dim)
                     }
                     Button { player.previous() } label: {
-                        Image(systemName: "backward.fill").font(.title2)
+                        LucideIcon(name: "skip-back", size: 26, color: tokens.fg)
                     }
                     Button { player.toggle() } label: {
-                        Image(systemName: player.isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                            .font(.system(size: 56))
-                            .foregroundStyle(Theme.violet)
+                        LucideIcon(name: player.isPlaying ? "pause" : "play",
+                                   size: 48, color: tokens.accent)
                     }
                     Button { player.next() } label: {
-                        Image(systemName: "forward.fill").font(.title2)
+                        LucideIcon(name: "skip-forward", size: 26, color: tokens.fg)
                     }
                     Button { cycleRepeat() } label: {
-                        Image(systemName: player.repeatMode == 2 ? "repeat.1" : "repeat")
-                            .foregroundStyle(player.repeatMode > 0 ? Theme.violet : .secondary)
+                        LucideIcon(name: player.repeatMode == 2 ? "repeat-1" : "repeat",
+                                   size: 22,
+                                   color: player.repeatMode > 0 ? tokens.accent : tokens.dim)
                     }
                 }
 
@@ -58,14 +60,14 @@ struct NowPlayingView: View {
                     Button {
                         app.player.volume = app.player.volume > 0 ? 0 : 0.8
                     } label: {
-                        Image(systemName: app.player.volume > 0 ? "speaker.fill" : "speaker.slash.fill")
-                            .foregroundStyle(.secondary)
+                        LucideIcon(name: app.player.volume > 0 ? "volume-2" : "volume-x",
+                                   size: 20, color: tokens.dim)
                     }
                     Slider(value: Binding(
                         get: { Double(app.player.volume) },
                         set: { app.player.volume = Float($0) }
                     ), in: 0...1)
-                    Image(systemName: "speaker.wave.3.fill").foregroundStyle(.secondary)
+                    LucideIcon(name: "volume-2", size: 20, color: tokens.dim)
                 }
                 .padding(.horizontal)
 
@@ -77,7 +79,7 @@ struct NowPlayingView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     HStack {
                         Button { Task { await loadLyrics() } } label: {
-                            Image(systemName: "quote.bubble")
+                            LucideIcon(name: "message-circle", size: 20, color: tokens.accent)
                         }
                         Menu {
                             Button("Sleep timer: off") { player.setSleepTimer(minutes: 0) }
@@ -90,10 +92,12 @@ struct NowPlayingView: View {
                                 }
                             }
                         } label: {
-                            Image(systemName: "moon.zzz")
-                                .foregroundStyle(player.sleepMinutes > 0 ? Theme.violet : .secondary)
+                            LucideIcon(name: "moon", size: 20,
+                                       color: player.sleepMinutes > 0 ? tokens.accent : tokens.dim)
                         }
-                        Button { showQueue = true } label: { Image(systemName: "list.bullet") }
+                        Button { showQueue = true } label: {
+                            LucideIcon(name: "list", size: 20, color: tokens.accent)
+                        }
                     }
                 }
                 ToolbarItem(placement: .cancellationAction) {
@@ -117,7 +121,7 @@ struct NowPlayingView: View {
                         })
                         TrackMenu(track: song, tracks: player.queue)
                     }
-                    .foregroundStyle(index == player.index ? Theme.violet : .primary)
+                    .foregroundStyle(index == player.index ? tokens.accent : tokens.fg)
                 }
                 .onMove { source, destination in
                     for offset in source.indices {

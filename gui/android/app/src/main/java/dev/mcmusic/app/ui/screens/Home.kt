@@ -231,7 +231,7 @@ private fun ListenerCard(listener: Listener) {
         )
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text(listener.username, color = design.accent, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                Text(listener.username, color = design.accentText, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1)
                 dev.mcmusic.app.ui.LiveDot(listener.listening, 5.dp)
             }
             Text(
@@ -275,7 +275,7 @@ private fun TrackCard(track: Track, onPlay: () -> Unit) {
                     .background(design.accent),
                 Alignment.Center,
             ) {
-                dev.mcmusic.app.ui.LucideIcon(Lucide.Play, design.palette.bg, Modifier.size(11.dp))
+                dev.mcmusic.app.ui.LucideIcon(Lucide.Play, design.onAccent, Modifier.size(11.dp))
             }
         }
         Text(track.title, color = design.fg, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)

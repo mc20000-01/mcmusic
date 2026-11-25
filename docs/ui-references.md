@@ -52,8 +52,10 @@ Kotlin/Compose Android client or the Preact web client.
   Occurrence-aware keys (`trackId + index`) still matter so duplicates do not
   collapse.
 - **Official Compose Material 3** — <https://developer.android.com/jetpack/androidx/releases/compose-material3>
-  Stay with the official component set; the app's flat ink/violet design can be
-  expressed through `MaterialTheme` colors/shapes rather than a second library.
+  Stay with the official component set. The five swatch-derived palette
+  families are expressed through `MaterialTheme` colours/shapes; a bare family
+  id follows the device appearance via `isSystemInDarkTheme()`. Do not add a
+  second Material library.
 - **Kindling** — <https://github.com/ClementBobin/Kindling>
   shadcn/ui-inspired Material 3 components, typed navigation and ViewModels.
   Interesting as a reference for structure, but avoid adopting a whole new

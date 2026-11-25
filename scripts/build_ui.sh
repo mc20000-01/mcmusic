@@ -22,7 +22,8 @@ fi
 )
 
 # Stable URL for the embed gallery and widget pages, which have no bundler.
-# Append the client's token overrides so embeds use the same darker palette.
+# Append the static violet-dark fallback after flufi's :root so non-SPA pages
+# start on the default palette; the SPA then pins its palette inline at runtime.
 cat ui/node_modules/flufi-ui/dist/style.css ui/src/env.css > web/ui/flufi-ui.css
 
 test -f web/ui/index.html

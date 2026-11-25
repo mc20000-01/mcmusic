@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var app: AppState
-    @AppStorage("palette") private var palette = "dusk"
+    @AppStorage("palette") private var palette = "violet"
     @AppStorage("accent") private var accent = ""
 
     @State private var server = UserDefaults.standard.string(forKey: "server_url") ?? "http://127.0.0.1:8000"
@@ -63,9 +63,14 @@ struct SettingsView: View {
                 }
 
                 Section("Appearance") {
-                    Picker("Palette", selection: $palette) {
-                        ForEach(["dusk", "paper", "ink", "tide", "copper", "forest", "rose"], id: \.self) {
-                            Text($0.capitalized).tag($0)
+                    // The picker edits only the family; legacy/pinned ids stay
+                    // in AppStorage until the user chooses a new family.
+                    Picker("Palette", selection: Binding<PaletteID>(
+                        get: { PaletteID.resolve(Theme.canonicalID(palette)) },
+                        set: { palette = $0.rawValue }
+                    )) {
+                        ForEach(PaletteID.allCases) { option in
+                            Text(option.label).tag(option)
                         }
                     }
                     TextField("Accent (hex)", text: $accent)
@@ -221,7 +226,9 @@ struct SettingsView: View {
         discordActivity = values?["discord_activity"]?.bool ?? discordActivity
         showRoomURL = values?["show_room_url"]?.bool ?? showRoomURL
         volume = values?["volume"]?.double ?? volume
-        if let theme = values?["theme"]?.string { palette = theme }
+        // Preserve the half a legacy server id implied; the picker displays its
+        // family without rewriting the stored value.
+        if let theme = values?["theme"]?.string { palette = Theme.canonicalID(theme) }
         if let color = values?["accent"]?.string, !color.isEmpty { accent = color }
         async let roturStatus = try? await app.client.roturStatus()
         async let discordStatus = try? await app.client.discordStatus()

@@ -1,15 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="mcmusic">
-  <rect width="512" height="512" rx="116" fill="#14110d"/>
-  <rect x="14" y="14" width="484" height="484" rx="104" fill="none" stroke="#ffffff" stroke-opacity=".06" stroke-width="2"/>
-  <g transform="translate(126.7977 91.0000) scale(25.684652) translate(-233.8494 -173.57593)" fill="none" stroke="#d98a3d" stroke-width="0.5" stroke-miterlimit="10">
-    <path d="M241.7789,178.22582v4.34377" stroke-linecap="round"/>
-    <path d="M243.66006,182.56958c0,0.31168 -0.42111,0.56435 -0.94058,0.56435c-0.51947,0 -0.94058,-0.25267 -0.94058,-0.56435c0,-0.31168 0.42111,-0.56435 0.94058,-0.56435c0.51947,0 0.94058,0.25267 0.94058,0.56435z" stroke-linecap="butt"/>
-    <path d="M239.05942,178.22582v4.34377" stroke-linecap="round"/>
-    <path d="M240.94058,182.56958c0,0.31168 -0.4211,0.56435 -0.94057,0.56435c-0.51947,0 -0.94058,-0.25267 -0.94058,-0.56435c0,-0.31168 0.42111,-0.56435 0.94058,-0.56435c0.51947,0 0.94057,0.25267 0.94057,0.56435z" stroke-linecap="butt"/>
-    <path d="M236.33994,178.22582c0,-0.75097 0.60878,-1.35974 1.35974,-1.35974c0.75097,0 1.35974,0.60877 1.35974,1.35974" stroke-linecap="butt"/>
-    <path d="M236.33994,178.22582v4.34377" stroke-linecap="round"/>
-    <path d="M238.2211,182.56958c0,0.31168 -0.4211,0.56435 -0.94057,0.56435c-0.51947,0 -0.94058,-0.25267 -0.94058,-0.56435c0,-0.31168 0.42111,-0.56435 0.94058,-0.56435c0.51947,0 0.94057,0.25267 0.94057,0.56435z" stroke-linecap="butt"/>
-    <path d="M239.05942,178.22582c0,-0.75097 0.60877,-1.35974 1.35974,-1.35974c0.75097,0 1.35974,0.60877 1.35974,1.35974" stroke-linecap="butt"/>
-    <path d="M243.08703,186.17407c-4.96374,0 -8.98764,-2.76422 -8.98764,-6.17407c0,-3.40985 4.02389,-6.17407 8.98764,-6.17407" stroke-linecap="butt"/>
+  <rect width="512" height="512" rx="116" fill="#171721"/>
+  <rect x="14" y="14" width="484" height="484" rx="104" fill="none" stroke="#ffffff" stroke-opacity=".08" stroke-width="2"/>
+  <g fill="none" stroke="#9f7eff" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M387 167.6 A158 158 0 1 0 387 344.4" stroke-width="42"/>
+    <path d="M182 300 V226 a37 37 0 0 1 74 0 v74 M256 300 V226 a37 37 0 0 1 74 0 v74" stroke-width="36"/>
   </g>
 </svg>

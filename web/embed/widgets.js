@@ -1,21 +1,51 @@
 (() => {
   const SCRIPT = document.currentScript || Array.from(document.scripts).find(s => (s.src||'').includes('/static/embed/widgets.js'));
   const BASE = (SCRIPT && (SCRIPT.dataset.mcmusicBase || SCRIPT.getAttribute('data-mcmusic-base'))) || (SCRIPT ? new URL('.', SCRIPT.src).origin : location.origin);
-  /* flufi v3 palettes: one ink surface scale, one interaction accent. */
+  /* Five palette families. Bare family ids (and auto/system) follow the
+     visitor's light/dark preference; *-light / *-dark pin one half. Older
+     names remain aliases so existing embed tags keep their colours. */
   const THEMES = {
-    dusk:   { bg:'#08060d', bg2:'#100c18', fg:'#ffffff', dim:'#948aa6', line:'#1f1830', accent:'#a06bff' },
-    paper:  { bg:'#f6f3fa', bg2:'#ece7f4', fg:'#08060d', dim:'#6a6178', line:'#d8d0e4', accent:'#7040c8' },
-    ink:    { bg:'#000000', bg2:'#0d0a13', fg:'#ffffff', dim:'#948aa6', line:'#251d35', accent:'#b888ff' },
-    tide:   { bg:'#080d14', bg2:'#0d1520', fg:'#f4f7ff', dim:'#8fa0b8', line:'#1f2d40', accent:'#7aa2ff' },
-    copper: { bg:'#100b08', bg2:'#181009', fg:'#fff7f0', dim:'#b8a394', line:'#34261a', accent:'#e6a06b' },
-    forest: { bg:'#07100c', bg2:'#0b1811', fg:'#f0fff6', dim:'#91ad9d', line:'#1a3527', accent:'#5fd39b' },
-    rose:   { bg:'#12080f', bg2:'#1b0c17', fg:'#fff0f8', dim:'#b995aa', line:'#3a1f31', accent:'#ff79b8' },
+    'violet-light': { bg:'#F5F2FF', bg2:'#EDE7FF', surface:'#FFFFFF', surface2:'#F7F4FF', fg:'#08060D', dim:'#473872', dim2:'#6A54AA', line:'#DACDFF', line2:'#CAB8FF', accent:'#9F7EFF' },
+    'violet-dark':  { bg:'#171721', bg2:'#222130', surface:'#2A293C', surface2:'#444361', fg:'#FFFFFF', dim:'#AAAAB7', dim2:'#8B8A9D', line:'#35344B', line2:'#605F78', accent:'#9F7EFF' },
+    'indigo-light': { bg:'#F2F4FF', bg2:'#E8EBFF', surface:'#FFFFFF', surface2:'#F5F6FF', fg:'#08060D', dim:'#3B4172', dim2:'#5761AA', line:'#CFD5FF', line2:'#BAC3FF', accent:'#8293FF' },
+    'indigo-dark':  { bg:'#12171F', bg2:'#1B212D', surface:'#212838', surface2:'#36425B', fg:'#FFFFFF', dim:'#A4A9B5', dim2:'#828999', line:'#2A3346', line2:'#545E73', accent:'#8293FF' },
+    'sky-light':    { bg:'#F1F8FE', bg2:'#E7F3FE', surface:'#FFFFFF', surface2:'#F4F9FE', fg:'#08060D', dim:'#385272', dim2:'#527CA9', line:'#CCE5FE', line2:'#B6DAFE', accent:'#7BBDFE' },
+    'sky-dark':     { bg:'#182127', bg2:'#222F39', surface:'#2A3A46', surface2:'#455F72', fg:'#FFFFFF', dim:'#ABB7BF', dim2:'#8B9BA7', line:'#354A58', line2:'#607787', accent:'#7BBDFE' },
+    'aqua-light':   { bg:'#F1FBFC', bg2:'#E7F9FA', surface:'#FFFFFF', surface2:'#F4FCFD', fg:'#08060D', dim:'#386168', dim2:'#53939A', line:'#CDF3F5', line2:'#B6EDF1', accent:'#7CE0E6' },
+    'aqua-dark':    { bg:'#15241C', bg2:'#1F3328', surface:'#263F32', surface2:'#3E6751', fg:'#FFFFFF', dim:'#A8BAB0', dim2:'#87A093', line:'#30503F', line2:'#5A7D6B', accent:'#7CE0E6' },
+    'mint-light':   { bg:'#F1FFF5', bg2:'#E7FFEE', surface:'#FFFFFF', surface2:'#F4FFF7', fg:'#08060D', dim:'#386E4C', dim2:'#52A76F', line:'#CCFFDC', line2:'#B6FFCC', accent:'#7BFFA4' },
+    'mint-dark':    { bg:'#15241A', bg2:'#1F3425', surface:'#26412E', surface2:'#3E694B', fg:'#FFFFFF', dim:'#A8BBAE', dim2:'#87A28F', line:'#30513A', line2:'#5A7F66', accent:'#7BFFA4' },
+    violet: 'system', indigo: 'system', sky: 'system', aqua: 'system', mint: 'system',
+    auto: 'system', system: 'system',
+    flufi: 'violet-dark', dark: 'violet-dark', dusk: 'violet-dark',
+    paper: 'violet-light', light: 'violet-light',
+    ink: 'indigo-dark', amoled: 'indigo-dark',
+    midnight: 'sky-dark', tide: 'aqua-dark', forest: 'mint-dark',
+    rose: 'violet-dark', copper: 'violet-dark', mocha: 'violet-dark',
   };
 
   /* Colour hooks a host page may set on the tag itself; anything declared out
      there (stylesheet or inline style) beats the theme we resolve here. */
-  const VAR_NAMES = ['--mc-bg','--mc-bg2','--mc-fg','--mc-dim','--mc-line','--mc-accent','--mc-accent-soft'];
+  const VAR_NAMES = ['--mc-bg','--mc-bg2','--mc-fg','--mc-dim','--mc-line','--mc-accent','--mc-accent-text','--mc-accent-soft'];
   const softOf = (c) => `color-mix(in srgb, ${c} 20%, transparent)`;
+  /* Accent-as-text needs a readable foreground; the five built-in accents are
+     light, while a host-page override can be dark. */
+  const readableOn = (c) => {
+    const v = String(c || '').trim();
+    const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(v);
+    const rgb = /^rgba?\(\s*(\d+)\s*[,\s]\s*(\d+)\s*[,\s]\s*(\d+)/i.exec(v);
+    let parts = null;
+    if (hex) {
+      const d = hex[1].length === 3 ? hex[1].split('').map(x => x + x).join('') : hex[1];
+      parts = [0, 2, 4].map(i => parseInt(d.slice(i, i + 2), 16));
+    } else if (rgb) parts = [Number(rgb[1]), Number(rgb[2]), Number(rgb[3])];
+    if (!parts) return '#08060D';
+    const [r, g, b] = parts.map(n => {
+      const x = Math.min(255, Math.max(0, n)) / 255;
+      return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+    });
+    return (0.2126 * r + 0.7152 * g + 0.0722 * b) > 0.229 ? '#08060D' : '#FFFFFF';
+  };
 
   /* One full pass of over-long text; the widgets re-render on every poll, so the
      offset is carried over to keep the line moving instead of jumping back. The
@@ -30,9 +60,9 @@
      an offline draft can show the widgets before anyone is playing. */
   const DEMO_COVER = 'data:image/svg+xml,' + encodeURIComponent(
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">'
-    + '<rect width="120" height="120" fill="#08060d"/>'
-    + '<circle cx="60" cy="60" r="34" fill="none" stroke="#a06bff" stroke-width="2"/>'
-    + '<circle cx="60" cy="60" r="5" fill="#a06bff"/></svg>');
+    + '<rect width="120" height="120" fill="#171721"/>'
+    + '<circle cx="60" cy="60" r="34" fill="none" stroke="#9F7EFF" stroke-width="2"/>'
+    + '<circle cx="60" cy="60" r="5" fill="#9F7EFF"/></svg>');
   const demoPayload = () => ({
     user: { username: 'demo' },
     listening: true,
@@ -42,14 +72,30 @@
     profile_url: '',
   });
 
+  const preferLight = () => typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: light)').matches;
+
   function themeVars(name, accent) {
-    const base = (name === 'auto'
-      ? (matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? THEMES.paper : THEMES.dusk)
-      : (THEMES[name] || THEMES.dusk));
+    const requested = String(name || 'violet').toLowerCase();
+    /* auto/system resolve light->violet-light and dark->violet-dark; a bare
+       family id resolves to that family's own light/dark half. */
+    let key = requested;
+    let base = THEMES[key];
+    let guard = 0;
+    while (typeof base === 'string' && guard++ < 4) {
+      if (base === 'system') {
+        const family = requested.replace(/-(light|dark)$/, '');
+        base = THEMES[preferLight() ? family + '-light' : family + '-dark']
+          || THEMES[preferLight() ? 'violet-light' : 'violet-dark'];
+      } else {
+        base = THEMES[base];
+      }
+    }
+    if (!base || typeof base !== 'object') base = THEMES[preferLight() ? 'violet-light' : 'violet-dark'];
     const a = accent || base.accent;
     return {
       '--mc-bg': base.bg, '--mc-bg2': base.bg2, '--mc-fg': base.fg, '--mc-dim': base.dim,
-      '--mc-line': base.line, '--mc-accent': a, '--mc-accent-soft': softOf(a),
+      '--mc-line': base.line, '--mc-accent': a, '--mc-accent-text': readableOn(a),
+      '--mc-accent-soft': softOf(a),
     };
   }
 
@@ -64,12 +110,13 @@
   :host{all:initial;display:block;font-family:var(--_font);color:var(--_fg);
     --_radius:var(--mc-radius,var(--radius,10px));
     --_font:var(--mc-font,var(--font-family,Inter,system-ui,-apple-system,"Segoe UI",sans-serif));
-    --_bg:var(--mc-bg,var(--back,#08060d));
-    --_bg2:var(--mc-bg2,var(--back-raised,#100c18));
-    --_fg:var(--mc-fg,var(--text-bright,#ffffff));
-    --_dim:var(--mc-dim,var(--text-dim,#948aa6));
-    --_line:var(--mc-line,var(--back-border,#1f1830));
-    --_accent:var(--mc-accent,var(--accent,#a06bff));
+    --_bg:var(--mc-bg,var(--back,#171721));
+    --_bg2:var(--mc-bg2,var(--back-raised,#222130));
+    --_fg:var(--mc-fg,var(--text-bright,#FFFFFF));
+    --_dim:var(--mc-dim,var(--text-dim,#AAAAB7));
+    --_line:var(--mc-line,var(--back-border,#35344B));
+    --_accent:var(--mc-accent,var(--accent,#9F7EFF));
+    --_accent-text:var(--mc-accent-text,var(--text-on-light,#08060D));
     --_soft:var(--mc-accent-soft,color-mix(in srgb,var(--_accent) 20%,transparent));}
   *,*::before,*::after{box-sizing:border-box}
   .card{position:relative;overflow:hidden;border-radius:var(--_radius);border:1px solid var(--_line);background:var(--_bg)}
@@ -77,14 +124,14 @@
   .row{position:relative;display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;padding:14px}
   .cover{width:72px;height:72px;border-radius:var(--_radius);object-fit:cover;background:var(--_bg2);border:1px solid var(--_line)}
   .meta{min-width:0}
-  .kicker{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--_accent);margin:0 0 4px}
+  .kicker{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--_accent-text);margin:0 0 4px}
   .title{font-size:16px;font-weight:600;line-height:1.25;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--_fg)}
   .sub{font-size:13px;color:var(--_dim);margin:4px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .foot{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-top:12px;padding-top:10px;border-top:1px solid var(--_line);font-size:12px;color:var(--_dim)}
   .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:var(--_radius);border:1px solid var(--_line);background:var(--_bg2)}
   .dot{width:7px;height:7px;border-radius:50%;background:var(--_accent);box-shadow:0 0 0 3px var(--_soft)}
   .dot.off{background:var(--_dim);box-shadow:none}
-  a{color:var(--_accent);text-decoration:none}
+  a{color:var(--_accent-text);text-decoration:none}
   .turn{grid-template-columns:auto 1fr;gap:16px}
   .platter{position:relative;width:96px;height:96px;border-radius:50%;background:var(--_bg2);border:1px solid var(--_line);display:grid;place-items:center}
   .platter::after{content:"";position:absolute;inset:10px;border-radius:50%;border:1px solid var(--_line)}
@@ -147,11 +194,12 @@
       for(const k of this._mine) this.style.removeProperty(k);
       this._mine.clear();
       const outside = getComputedStyle(this);
-      const vars = themeVars(this.getAttribute('theme')||'dusk', this.getAttribute('accent'));
+      const vars = themeVars(this.getAttribute('theme')||'violet', this.getAttribute('accent'));
       const accent = outside.getPropertyValue('--mc-accent').trim() || vars['--mc-accent'];
       for(const k of VAR_NAMES){
         if(outside.getPropertyValue(k).trim()) continue;
-        this.style.setProperty(k, k === '--mc-accent-soft' ? softOf(accent) : vars[k]);
+        this.style.setProperty(k, k === '--mc-accent-soft' ? softOf(accent)
+          : k === '--mc-accent-text' ? readableOn(accent) : vars[k]);
         this._mine.add(k);
       }
       if(this.hasAttribute('compact')) this.classList.add('compact'); else this.classList.remove('compact');

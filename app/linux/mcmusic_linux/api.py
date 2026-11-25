@@ -380,7 +380,7 @@ class SessionStore:
     # appearance -----------------------------------------------------------
     @property
     def theme(self) -> str:
-        return str(self._s.value("theme", "dusk") or "dusk")
+        return str(self._s.value("theme", "violet") or "violet")
 
     @theme.setter
     def theme(self, value: str) -> None:
@@ -388,7 +388,7 @@ class SessionStore:
 
     @property
     def accent(self) -> str:
-        return str(self._s.value("accent", "#d98a3d") or "#d98a3d")
+        return str(self._s.value("accent", "") or "")
 
     @accent.setter
     def accent(self, value: str) -> None:

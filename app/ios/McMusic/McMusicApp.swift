@@ -18,11 +18,7 @@ struct RootView: View {
     var body: some View {
         Group {
             if app.booting {
-                ZStack {
-                    Theme.ink.ignoresSafeArea()
-                    ProgressView("Connecting…")
-                        .foregroundStyle(.secondary)
-                }
+                BootView()
             } else if app.signedIn {
                 MainTabs()
             } else {
@@ -38,28 +34,50 @@ struct RootView: View {
     }
 }
 
+/// Child of the palette wrapper, so the boot screen reads the same tokens as
+/// the signed-in UI instead of a hard-coded legacy ink colour.
+private struct BootView: View {
+    @Environment(\.mcTokens) private var tokens
+
+    var body: some View {
+        ZStack {
+            tokens.bg.ignoresSafeArea()
+            ProgressView("Connecting…")
+                .foregroundStyle(tokens.dim)
+        }
+    }
+}
+
 struct MainTabs: View {
     @EnvironmentObject private var app: AppState
-    @Environment(\.mcSurface) private var surface
+    @Environment(\.mcTokens) private var tokens
     @State private var showingNowPlaying = false
 
     var body: some View {
         TabView {
-            HomeView().tabItem { Label("Home", systemImage: "house") }
-            SearchView().tabItem { Label("Search", systemImage: "magnifyingglass") }
-            LibraryView().tabItem { Label("Library", systemImage: "square.stack") }
-            ListeningView().tabItem { Label("Listening", systemImage: "antenna.radiowaves.left.and.right") }
-            DownloadsView().tabItem { Label("Downloads", systemImage: "arrow.down.circle") }
-            PlaylistsView().tabItem { Label("Playlists", systemImage: "music.note.list") }
-            RequestsView().tabItem { Label("Requests", systemImage: "tray.full") }
-            DevicesView().tabItem { Label("Devices", systemImage: "laptopcomputer.and.iphone") }
-            SettingsView().tabItem { Label("Settings", systemImage: "gear") }
+            HomeView().tabItem { tabLabel("Home", icon: "home") }
+            SearchView().tabItem { tabLabel("Search", icon: "search") }
+            LibraryView().tabItem { tabLabel("Library", icon: "library") }
+            ListeningView().tabItem { tabLabel("Listening", icon: "radio") }
+            DownloadsView().tabItem { tabLabel("Downloads", icon: "download") }
+            PlaylistsView().tabItem { tabLabel("Playlists", icon: "list-music") }
+            RequestsView().tabItem { tabLabel("Requests", icon: "inbox") }
+            DevicesView().tabItem { tabLabel("Devices", icon: "monitor") }
+            SettingsView().tabItem { tabLabel("Settings", icon: "settings") }
             if app.isAdmin {
-                AdminView().tabItem { Label("Admin", systemImage: "shield") }
+                AdminView().tabItem { tabLabel("Admin", icon: "shield") }
             }
         }
         .safeAreaInset(edge: .bottom) { miniPlayer }
         .sheet(isPresented: $showingNowPlaying) { NowPlayingView() }
+    }
+
+    private func tabLabel(_ title: String, icon: String) -> some View {
+        Label {
+            Text(title)
+        } icon: {
+            LucideIcon(name: icon, size: 20)
+        }
     }
 
     private var miniPlayer: some View {
@@ -67,23 +85,23 @@ struct MainTabs: View {
             CoverView(url: app.client.coverURL(app.player.current?.coverID), size: 40)
             VStack(alignment: .leading, spacing: 2) {
                 Text(app.player.currentTitle).font(.subheadline.weight(.medium)).lineLimit(1)
-                Text(app.player.currentArtist).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                Text(app.player.currentArtist).font(.caption).foregroundStyle(tokens.dim).lineLimit(1)
             }
             Spacer()
             Button { app.player.toggle() } label: {
-                Image(systemName: app.player.isPlaying ? "pause.fill" : "play.fill")
+                LucideIcon(name: app.player.isPlaying ? "pause" : "play", size: 20, color: tokens.accent)
             }
             Button { app.player.next() } label: {
-                Image(systemName: "forward.fill")
+                LucideIcon(name: "skip-forward", size: 20, color: tokens.fg)
             }
             Button { showingNowPlaying = true } label: {
-                Image(systemName: "chevron.up")
+                LucideIcon(name: "chevron-up", size: 18, color: tokens.dim)
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(surface)
-        .overlay(Rectangle().frame(height: 1).foregroundStyle(Theme.line), alignment: .top)
+        .background(tokens.surface)
+        .overlay(Rectangle().frame(height: 1).foregroundStyle(tokens.line), alignment: .top)
         .onTapGesture { showingNowPlaying = true }
     }
 }

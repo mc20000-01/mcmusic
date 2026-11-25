@@ -141,7 +141,7 @@ fun VideosScreen(
                     Muted(video.artist.ifBlank { "Saved on this server" }, size = 11)
                     Muted("Expires ${formatExpiry(video.expires)}", size = 10)
                 }
-                IconButton(Lucide.Play, tint = design.accent) { onPlay(video.ytId, 0L) }
+                IconButton(Lucide.Play, tint = design.accentText) { onPlay(video.ytId, 0L) }
             }
         }
         item {
@@ -300,8 +300,8 @@ private fun VideoPlaybackScreen(
                 scrub = 0f
             },
             colors = SliderDefaults.colors(
-                thumbColor = design.accent,
-                activeTrackColor = design.accent,
+                thumbColor = design.accentText,
+                activeTrackColor = design.accentText,
                 inactiveTrackColor = design.hairline,
             ),
         )
@@ -327,7 +327,7 @@ private fun VideoPlaybackScreen(
             ) {
                 dev.mcmusic.app.ui.LucideIcon(
                     if (playing) Lucide.Pause else Lucide.Play,
-                    design.palette.bg,
+                    design.onAccent,
                     Modifier.size(20.dp),
                 )
             }
