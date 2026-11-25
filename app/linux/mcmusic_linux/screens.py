@@ -976,6 +976,7 @@ class SettingsScreen(Screen):
         super().__init__(window, parent)
         self._theme_cards: list[ThemeCard] = []
         self._swatches: list[Swatch] = []
+        self._mode: Optional[Segmented] = None
         self._density: Optional[Segmented] = None
         self._material: Optional[Segmented] = None
         self._glass: Optional[Segmented] = None
@@ -1005,12 +1006,20 @@ class SettingsScreen(Screen):
         line.setContentsMargins(16, 14, 16, 12)
         line.setSpacing(8)
         for name in theme.THEME_ORDER:
-            card = ThemeCard(name, name, name == settings.theme)
+            card = ThemeCard(name, theme.family_label(name),
+                             theme.family_of(settings.theme) == name)
             card.clicked.connect(lambda _=False, n=name: self._pick_theme(n))
             self._theme_cards.append(card)
             line.addWidget(card)
         line.addStretch(1)
         panel.add_widget(themes_row)
+
+        self._mode = Segmented(
+            [("auto", "System"), ("light", "Light"), ("dark", "Dark")],
+            theme.mode_of(settings.theme),
+        )
+        self._mode.changed.connect(self._set_mode)
+        panel.add_row("Mode", "Top half light, bottom half dark", self._mode)
 
         accents = QWidget()
         aline = QHBoxLayout(accents)
@@ -1196,7 +1205,17 @@ class SettingsScreen(Screen):
         self.window.apply_settings(replace(self.window.settings, **changes))
 
     def _pick_theme(self, name: str) -> None:
-        self.window.apply_settings(replace(self.window.settings, theme=name))
+        family = theme.family_of(name)
+        mode = theme.mode_of(self.window.settings.theme)
+        self.window.apply_settings(
+            replace(self.window.settings, theme=theme.with_mode(family, mode))
+        )
+
+    def _set_mode(self, mode: str) -> None:
+        self.window.apply_settings(
+            replace(self.window.settings,
+                    theme=theme.with_mode(self.window.settings.theme, mode))
+        )
 
     def _pick_accent(self, color: str) -> None:
         self.window.apply_settings(replace(self.window.settings, accent=color))
@@ -1440,7 +1459,9 @@ class SettingsScreen(Screen):
 
     def apply_settings(self, settings: Settings) -> None:
         for card in self._theme_cards:
-            card.set_selected(card.name == settings.theme)
+            card.set_selected(theme.family_of(settings.theme) == card.name)
+        if self._mode is not None:
+            self._mode.set_selected(theme.mode_of(settings.theme))
         current = QColor(settings.accent).name().lower()
         for swatch in self._swatches:
             swatch.set_selected(swatch.color.lower() == current)

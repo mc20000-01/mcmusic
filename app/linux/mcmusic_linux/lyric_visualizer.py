@@ -4,6 +4,9 @@ Pure PySide6. The animation is a deterministic function of the player's
 reported ``position``; ``playing`` only decides whether repaints are needed.
 No QtMultimedia objects are created or inspected beyond those two properties,
 so opening the lyrics sheet never touches the local audio backend.
+
+Colours come from the active palette, so macOS/Windows follow the same five
+swatch-derived families as the web, Android and iOS clients.
 """
 from __future__ import annotations
 
@@ -16,9 +19,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
-# Flufi identity, kept literal so the panel reads the same in every theme.
-VIOLET = QColor("#A06BFF")
-INK = QColor("#08060D")
+from . import theme
 
 
 class LyricVisualizer(QWidget):
@@ -93,38 +94,43 @@ class LyricVisualizer(QWidget):
 
     # ── painting ─────────────────────────────────────────────────────────
     def paintEvent(self, _event) -> None:
+        palette = theme.pal()
+        accent = QColor(palette.accent)
+        line = QColor(palette.line2)
+
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         rect = QRectF(self.rect())
 
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(INK)
+        p.setBrush(QColor(palette.bg2))
         p.drawRoundedRect(rect, 10, 10)
-        wash = QColor(VIOLET)
+        wash = QColor(accent)
         wash.setAlpha(18)
         p.setBrush(wash)
         p.drawRoundedRect(rect.adjusted(1, 1, -1, -1), 10, 10)
-        edge = QColor(VIOLET)
-        edge.setAlpha(72)
+        edge = QColor(line)
+        edge.setAlpha(90)
         p.setPen(QPen(edge, 1))
         p.setBrush(QBrush(Qt.BrushStyle.NoBrush))
         p.drawRoundedRect(rect.adjusted(0.5, 0.5, -0.5, -0.5), 10, 10)
 
         t = self._position()
         if self._mode == 0:
-            self._draw_bars(p, rect, t)
+            self._draw_bars(p, rect, t, accent, line)
         elif self._mode == 1:
-            self._draw_wave(p, rect, t)
+            self._draw_wave(p, rect, t, accent)
         else:
-            self._draw_glow(p, rect, t)
-        self._draw_chip(p, rect)
+            self._draw_glow(p, rect, t, accent)
+        self._draw_chip(p, rect, palette, accent, line)
 
     @staticmethod
     def _inner(rect: QRectF) -> QRectF:
         # Extra headroom keeps the mode chip clear of the animation.
         return rect.adjusted(12, 26, -12, 12)
 
-    def _draw_bars(self, p: QPainter, rect: QRectF, t: float) -> None:
+    def _draw_bars(self, p: QPainter, rect: QRectF, t: float,
+                   accent: QColor, line: QColor) -> None:
         inner = self._inner(rect)
         if inner.isEmpty():
             return
@@ -140,16 +146,17 @@ class LyricVisualizer(QWidget):
             energy = min(1.0, max(0.08, 0.42 + 0.28 * a + 0.18 * b + 0.10 * c))
             h = energy * inner.height() * 0.94
             x = inner.left() + i * (bar_w + gap)
-            color = QColor(VIOLET)
+            color = QColor(accent)
             color.setAlphaF(0.35 + 0.6 * energy)
             p.setBrush(color)
             p.drawRoundedRect(QRectF(x, base - h, bar_w, h), bar_w / 2, bar_w / 2)
-        baseline = QColor(VIOLET)
-        baseline.setAlpha(38)
+        baseline = QColor(line)
+        baseline.setAlpha(70)
         p.setPen(QPen(baseline, 1))
         p.drawLine(QPointF(inner.left(), base + 1), QPointF(inner.right(), base + 1))
 
-    def _draw_wave(self, p: QPainter, rect: QRectF, t: float) -> None:
+    def _draw_wave(self, p: QPainter, rect: QRectF, t: float,
+                   accent: QColor) -> None:
         inner = self._inner(rect)
         if inner.isEmpty():
             return
@@ -175,12 +182,13 @@ class LyricVisualizer(QWidget):
                     path.moveTo(x, y)
                 else:
                     path.lineTo(x, y)
-            color = QColor(VIOLET)
+            color = QColor(accent)
             color.setAlpha(alpha)
             p.setPen(QPen(color, width))
             p.drawPath(path)
 
-    def _draw_glow(self, p: QPainter, rect: QRectF, t: float) -> None:
+    def _draw_glow(self, p: QPainter, rect: QRectF, t: float,
+                   accent: QColor) -> None:
         inner = self._inner(rect)
         if inner.isEmpty():
             return
@@ -191,19 +199,20 @@ class LyricVisualizer(QWidget):
         for ring in range(4):
             radius = base * (1.0 + ring * 0.62)
             grad = QRadialGradient(center, radius)
-            core = QColor(VIOLET)
+            core = QColor(accent)
             core.setAlphaF(0.30 * (1.0 - ring / 4.0) * (0.65 + 0.35 * pulse))
-            edge = QColor(VIOLET)
+            edge = QColor(accent)
             edge.setAlpha(0)
             grad.setColorAt(0.0, core)
             grad.setColorAt(1.0, edge)
             p.setBrush(grad)
             p.drawEllipse(center, radius, radius)
-        p.setBrush(VIOLET)
+        p.setBrush(accent)
         dot = 3.5 + 2.0 * pulse
         p.drawEllipse(center, dot, dot)
 
-    def _draw_chip(self, p: QPainter, rect: QRectF) -> None:
+    def _draw_chip(self, p: QPainter, rect: QRectF, palette,
+                   accent: QColor, line: QColor) -> None:
         label = f"{self.mode.upper()} >"
         font = QFont()
         font.setFamily("monospace")
@@ -212,10 +221,13 @@ class LyricVisualizer(QWidget):
         p.setFont(font)
         width = QFontMetrics(font).horizontalAdvance(label) + 20
         chip = QRectF(rect.right() - 12 - width, rect.top() + 8, width, 20)
-        back = QColor(VIOLET)
+        back = QColor(accent)
         back.setAlpha(34)
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(back)
         p.drawRoundedRect(chip, 10, 10)
-        p.setPen(QPen(VIOLET))
+        p.setPen(QPen(QColor(line)))
+        p.setBrush(QBrush(Qt.BrushStyle.NoBrush))
+        p.drawRoundedRect(chip, 10, 10)
+        p.setPen(QPen(QColor(palette.fg)))
         p.drawText(chip, int(Qt.AlignmentFlag.AlignCenter), label)

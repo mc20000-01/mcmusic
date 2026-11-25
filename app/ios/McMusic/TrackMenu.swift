@@ -4,6 +4,7 @@ import SwiftUI
 /// track row across the app.
 struct TrackMenu: View {
     @EnvironmentObject private var app: AppState
+    @Environment(\.mcTokens) private var tokens
     let track: JSON
     let tracks: [JSON]
     var playlistID: Int?
@@ -22,53 +23,53 @@ struct TrackMenu: View {
     var body: some View {
         Menu {
             Button { Task { await app.player.play(track: track, from: tracks) } } label: {
-                Label("Play now", systemImage: "play.fill")
+                menuLabel("Play now", icon: "play")
             }
             Button { app.player.append([track], playNext: true) } label: {
-                Label("Play next", systemImage: "text.insert")
+                menuLabel("Play next", icon: "list-plus")
             }
             Button { app.player.append([track]) } label: {
-                Label("Add to queue", systemImage: "list.bullet")
+                menuLabel("Add to queue", icon: "list")
             }
             Button { showPlaylists = true } label: {
-                Label("Add to playlist", systemImage: "plus.rectangle.on.folder")
+                menuLabel("Add to playlist", icon: "folder-plus")
             }
             Button { Task { await radio() } } label: {
-                Label("Start radio", systemImage: "antenna.radiowaves.left.and.right")
+                menuLabel("Start radio", icon: "radio")
             }
             Button { Task { await toggleLike() } } label: {
-                Label(track["liked"]?.bool == true ? "Unlike" : "Like", systemImage: "heart")
+                menuLabel(track["liked"]?.bool == true ? "Unlike" : "Like", icon: "heart")
             }
             if !track.albumName.isEmpty {
                 Button { onAlbum?(track.albumName) } label: {
-                    Label("Go to album", systemImage: "square.stack")
+                    menuLabel("Go to album", icon: "library")
                 }
             }
             Button { onArtist?(track.artistName) } label: {
-                Label("Go to artist", systemImage: "person")
+                menuLabel("Go to artist", icon: "user")
             }
             Button { Task { await loadLyrics() } } label: {
-                Label("Lyrics", systemImage: "quote.bubble")
+                menuLabel("Lyrics", icon: "message-circle")
             }
             Button { Task { await loadInfo() } } label: {
-                Label("Track info", systemImage: "info.circle")
+                menuLabel("Track info", icon: "info")
             }
             Button { Task { await loadSources() } } label: {
-                Label("Sources", systemImage: "link")
+                menuLabel("Sources", icon: "link")
             }
             if let playlistID {
                 Button(role: .destructive) { Task { await removeFromPlaylist(playlistID) } } label: {
-                    Label("Remove from playlist", systemImage: "trash")
+                    menuLabel("Remove from playlist", icon: "trash-2")
                 }
             }
             if app.isAdmin {
                 Button { Task { await toggleExplicit() } } label: {
-                    Label(track["explicit"]?.bool == true ? "Clear explicit flag" : "Mark explicit",
-                          systemImage: "exclamationmark.shield")
+                    menuLabel(track["explicit"]?.bool == true ? "Clear explicit flag" : "Mark explicit",
+                              icon: "shield-alert")
                 }
             }
         } label: {
-            Image(systemName: "ellipsis").foregroundStyle(.secondary)
+            LucideIcon(name: "more-horizontal", size: 18, color: tokens.dim)
         }
         .sheet(isPresented: $showPlaylists) { playlistPicker }
         .sheet(isPresented: $showLyrics) {
@@ -95,6 +96,14 @@ struct TrackMenu: View {
         }
     }
 
+    private func menuLabel(_ title: String, icon: String) -> some View {
+        Label {
+            Text(title)
+        } icon: {
+            LucideIcon(name: icon, size: 18)
+        }
+    }
+
     private var infoText: String {
         guard let info else { return "Loading…" }
         let keys = ["title", "artist", "album", "genre", "year", "duration",
@@ -109,7 +118,7 @@ struct TrackMenu: View {
         NavigationStack {
             List {
                 if playlists.isEmpty {
-                    StateView(text: "No playlists yet", systemImage: "music.note.list")
+                    StateView(text: "No playlists yet", icon: "list-music")
                 }
                 ForEach(playlists, id: \.trackID) { list in
                     Button {
@@ -122,7 +131,7 @@ struct TrackMenu: View {
                         HStack {
                             Text(list.title)
                             Spacer()
-                            Text("\(list.itemCount)").foregroundStyle(.secondary)
+                            Text("\(list.itemCount)").foregroundStyle(tokens.dim)
                         }
                     }
                 }

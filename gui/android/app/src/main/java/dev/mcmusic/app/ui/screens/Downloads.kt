@@ -29,7 +29,6 @@ import dev.mcmusic.app.data.DownloadRequest
 import dev.mcmusic.app.data.Downloads
 import dev.mcmusic.app.data.Track
 import dev.mcmusic.app.playback.Playback
-import dev.mcmusic.app.ui.Danger
 import dev.mcmusic.app.ui.EmptyState
 import dev.mcmusic.app.ui.GhostButton
 import dev.mcmusic.app.ui.IconButton
@@ -225,7 +224,7 @@ fun DownloadsScreen(onOpenPlayer: () -> Unit, onOpenVideos: () -> Unit) {
                                     requestError(req.log)?.let { detail ->
                                         Text(
                                             detail,
-                                            color = Danger,
+                                            color = design.palette.error,
                                             fontSize = 10.sp,
                                             maxLines = 2,
                                             overflow = TextOverflow.Ellipsis,
@@ -268,7 +267,7 @@ fun DownloadsScreen(onOpenPlayer: () -> Unit, onOpenVideos: () -> Unit) {
                             color = design.dim, fontSize = 11.sp,
                         )
                     }
-                    IconButton(Lucide.Play, tint = design.accent) {
+                    IconButton(Lucide.Play, tint = design.accentText) {
                         Playback.play(items.map(::asTrack), items.indexOf(download))
                         onOpenPlayer()
                     }

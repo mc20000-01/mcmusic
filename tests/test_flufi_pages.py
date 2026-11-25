@@ -55,8 +55,9 @@ class FlufiPageTests(unittest.TestCase):
         path = os.path.join(ROOT, "web", "embed", "widgets.js")
         with open(path, encoding="utf-8") as fh:
             js = fh.read()
-        self.assertIn("#08060d", js)
-        self.assertIn("#a06bff", js)
+        js_lower = js.lower()
+        self.assertIn("#171721", js_lower)
+        self.assertIn("#9f7eff", js_lower)
         self.assertIn("var(--radius,10px)", js)
         self.assertNotIn("backdrop-filter", js)
 

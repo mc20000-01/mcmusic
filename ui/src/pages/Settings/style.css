@@ -2,6 +2,33 @@
     gap: 10px;
 }
 
+/* Five palette cards. Swatch colours come from theme.ts, not hardcoded here. */
+.palette-card {
+    width: 100%;
+}
+
+.palette-card-swatch {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 28px;
+    height: 28px;
+    border: 1px solid;
+    border-radius: 50%;
+}
+
+.palette-card-swatch > span {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+
+.palette-card-check {
+    margin-left: auto;
+    color: var(--accent);
+}
+
 .status-actions {
     gap: 8px;
 }

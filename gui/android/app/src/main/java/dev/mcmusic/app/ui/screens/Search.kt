@@ -160,7 +160,7 @@ fun SearchScreen(onPlaylist: (Int) -> Unit, onOpenPlayer: () -> Unit) {
                         fallback = design.accentSoft,
                     )
                     Column(Modifier.weight(1f)) {
-                        Text(person.username, color = design.accent, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        Text(person.username, color = design.accentText, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                         Text(
                             person.track?.let { "${it.title} · ${it.artist}" }
                                 ?: if (person.listening) "listening" else "offline",

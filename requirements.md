@@ -12,8 +12,8 @@ fixes, and the old-client parity audit are consolidated here. Anything marked
   - Current working tree was not reverted.
 - [x] Android app is gated behind a verified sign-in; no app screens render
   before `Account.loaded && Account.signedIn`.
-- [x] Android design matches flufimusic v3 web tokens (`#08060D`, `#A06BFF`,
-  flat surfaces, one 10dp radius, lucide icons).
+- [x] Android design uses the five shared palette families (Violet, Indigo,
+  Sky, Aqua, Mint) with Material 3 surfaces, one 10dp radius and Lucide icons.
 - [x] Android in-app self-update uses `/api/builds` and the same signed APK the
   website serves.
 - [x] Android 14+ is the supported floor (`minSdk = 34`, `targetSdk = 34`).
@@ -111,15 +111,16 @@ fixes, and the old-client parity audit are consolidated here. Anything marked
 
 ## Release and delivery steps (repeat after the next code change)
 
-- [x] Bump Android version to `3.3.8`, code `50`.
-- [x] Commit and push; watch GitHub Actions `Release builds` go green.
-- [x] Pull the bot commit that refreshes `builds/`.
-- [x] Copy the exact GitHub `latest` APK into
-  `apps/android/mainbuild.apk`, `apps/android/mcmusic-3.3.8.apk`, and a hashed
-  `apps/android/mainbuild-<hash>.apk`; prune stale copies.
-- [x] Verify live `/get` SHA-256 matches the GitHub asset byte-for-byte.
-- [x] Verify `/api/builds` reports the new version and “Android 14 and newer.”
-- [x] Verify package `dev.mcmusic.app`, `versionCode 50`, `minSdk 34`, and
+- [x] Bump Android version to `3.3.9`, code `51`.
+- [ ] Commit and push; watch GitHub Actions `Release builds` go green.
+- [ ] Pull the bot commit that refreshes `builds/`.
+- [ ] Confirm the exact GitHub `latest` APK is copied into
+  `apps/android/mainbuild.apk`, `apps/android/mcmusic-3.3.9.apk`, and a hashed
+  `apps/android/mainbuild-<hash>.apk`; stale copies are pruned. The 3.3.8 APK
+  and its `60565f98…` hash stay as rollback artifacts.
+- [ ] Verify live `/get` SHA-256 matches the GitHub asset byte-for-byte.
+- [ ] Verify `/api/builds` reports the new version and “Android 14 and newer.”
+- [ ] Verify package `dev.mcmusic.app`, `versionCode 51`, `minSdk 34`, and
       signer SHA-256 `0b0fd0fa35ff712901d42cab215d5e3cb706daef57bffa7ebef61cacda1dc4ce`.
 
 ## UI research
@@ -212,6 +213,11 @@ fixes, and the old-client parity audit are consolidated here. Anything marked
 - Native Kotlin/Compose Android app; no WebView/Capacitor rewrite.
 - Signed release APK only; no debug fallback.
 - Keep package/signing continuity for `dev.mcmusic.app`.
-- Keep violet `#A06BFF` / ink `#08060D` flufi design.
-- Keep lucide icons in `ui/src`; no emoji/unicode glyphs or inline SVG icons.
+- Keep the five swappable palette families (Violet, Indigo, Sky, Aqua, Mint)
+  shared by web, Android, iOS, macOS and Windows; each has a light variant from
+  the top half of the supplied swatch sheet and a dark variant from the bottom
+  half, with dark text/icons on light and white text/icons on dark.
+- Use Material 3 for all non-icon UI on every client; use Lucide for every icon
+  on every client. No SF Symbols, Material Icons, emoji/unicode glyphs or
+  hand-written inline SVG icons outside the shared Lucide path registries.
 - Keep `old/` untracked and gitignored; do not revert the current app/web work.

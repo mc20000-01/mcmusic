@@ -102,11 +102,26 @@ release verification.
       installed over 3.3.7 and opened on API 34. In the player, left/right drags
       on the artwork and the title changed tracks only on release; a long drag
       jumped several queue entries instead of firing one fixed skip.
-- [x] **Delivery verification:** GitHub `latest` and live `/get` serve
+- [x] **Delivery verification:** this release served
       `sha256:60565f98a3a9b43247659afd4a4f3055bfc812c750b2b60b0671bd0c076ff012`
-      (29,298,427 bytes); `apps/android`, `builds/` and `web/apps` hold the same
-      bytes. Package `dev.mcmusic.app`, `versionCode 50`, `versionName 3.3.8`,
-      min/target SDK 34, compile SDK 36 and the signer SHA-256 are unchanged.
+      (29,298,427 bytes) before the 3.3.9 bump; `builds/mcmusic-3.3.8.apk` is
+      retained as the rollback artifact. Package `dev.mcmusic.app`, `versionCode 50`,
+      `versionName 3.3.8`, min/target SDK 34, compile SDK 36 and the signer
+      SHA-256 are unchanged.
+
+## 3.3.9 styling round
+
+- [x] **Design:** web, Android, iOS, macOS and Windows now share the five
+      swatch-derived palette families (Violet, Indigo, Sky, Aqua, Mint), each
+      with a light and dark half. Bare family ids follow the system appearance;
+      legacy ids keep their old half. All non-icon UI uses Material 3-style
+      tokens and every icon comes from a shared Lucide path registry.
+- [x] **Version:** APK bumped to `3.3.9`, code `51`, with the same package,
+      signing identity and SDK levels.
+- [ ] **Release verification:** wait for GitHub Actions `Release builds` to go
+      green and confirm the signed APK installs over 3.3.8 on API 34.
+- [ ] **Delivery verification:** record the published 3.3.9 SHA-256 here, and
+      verify GitHub `latest` and live `/get` serve those exact bytes.
 
 ## Verification commands
 

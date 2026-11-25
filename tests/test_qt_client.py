@@ -35,6 +35,7 @@ try:
     from PySide6.QtCore import QEventLoop
     from PySide6.QtWidgets import QApplication
 
+    from mcmusic_linux import theme
     from mcmusic_linux.api import Api, ApiError, Async, Repo, SessionStore, normalize
     from mcmusic_linux.models import HomeData, Me
 except ImportError as exc:  # the venv has both; system python may not
@@ -274,7 +275,7 @@ class QtApiIntegration(unittest.TestCase):
     def test_06_settings_playback_and_streaming(self):
         track = self.track()
         settings = self.run_sync(self.repo.settings)
-        self.assertEqual(settings.theme, "rose")
+        self.assertEqual(settings.theme, "violet")
         changed = replace(settings, density="compact", private=True, volume=0.31)
         self.run_sync(self.repo.save_settings, changed)
         stored = self.run_sync(self.repo.settings)
@@ -307,6 +308,16 @@ class QtApiIntegration(unittest.TestCase):
         (self.server.music_dir / "seeded.mp3").unlink()
         self.assertEqual(self.run_sync(self.repo.admin_scan), (0, 0))
         self.assertEqual(self.run_sync(self.repo.admin_stats).tracks, 0)
+
+    def test_08_theme_previews_and_aliases_resolve(self):
+        for name in theme.THEME_ORDER:
+            surface, accent = theme.theme_preview(name)
+            self.assertTrue(surface.startswith("#"), f"{name}: {surface}")
+            self.assertTrue(accent.startswith("#"), f"{name}: {accent}")
+        self.assertEqual(theme.family_of("dusk"), "violet")
+        self.assertEqual(theme.mode_of("dusk"), "dark")
+        self.assertEqual(theme.family_of("system"), "violet")
+        self.assertEqual(theme.mode_of("system"), "auto")
 
 
 if __name__ == "__main__":

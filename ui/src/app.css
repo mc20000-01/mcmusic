@@ -107,7 +107,7 @@ main[class^="content-"] .button {
 }
 
 .warning {
-    color: #ffbf69;
+    color: var(--warning);
 }
 
 .sr-only {

@@ -123,20 +123,20 @@ fun PrimaryButton(text: String, modifier: Modifier = Modifier, enabled: Boolean 
             .padding(horizontal = 18.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, color = design.palette.bg, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        Text(text, color = design.onAccent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
 @Composable
 fun GhostButton(text: String, modifier: Modifier = Modifier, danger: Boolean = false, onClick: () -> Unit) {
     val design = LocalDesign.current
-    val tint = if (danger) Danger else design.fg
+    val tint = if (danger) design.palette.error else design.fg
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(design.tileRadius))
             .border(
                 1.dp,
-                if (danger) Danger.copy(alpha = 0.5f) else design.hairline,
+                if (danger) design.palette.error.copy(alpha = 0.5f) else design.hairline,
                 RoundedCornerShape(design.tileRadius),
             )
             .clickable { onClick() }
@@ -191,11 +191,11 @@ fun McField(
         colors = OutlinedTextFieldDefaults.colors(
             focusedTextColor = design.fg,
             unfocusedTextColor = design.fg,
-            focusedBorderColor = design.accent,
+            focusedBorderColor = design.accentText,
             unfocusedBorderColor = design.hairline,
-            focusedLabelColor = design.accent,
+            focusedLabelColor = design.accentText,
             unfocusedLabelColor = design.dim,
-            cursorColor = design.accent,
+            cursorColor = design.accentText,
             focusedContainerColor = design.cardFill,
             unfocusedContainerColor = design.cardFill,
         ),
@@ -243,7 +243,7 @@ fun Loading(text: String = "Loading…", modifier: Modifier = Modifier) {
         CircularProgressIndicator(
             modifier = Modifier.size(16.dp),
             strokeWidth = 2.dp,
-            color = design.accent,
+            color = design.accentText,
         )
         Box(Modifier.width(10.dp))
         Text(text, color = design.dim, fontSize = 13.sp)
@@ -255,10 +255,10 @@ fun ErrorLine(message: String, modifier: Modifier = Modifier) {
     Text(
         message,
         modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-            .background(Danger.copy(alpha = 0.10f))
-            .border(1.dp, Danger.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
+            .background(design.palette.error.copy(alpha = 0.10f))
+            .border(1.dp, design.palette.error.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
             .padding(horizontal = 12.dp, vertical = 9.dp),
-        color = Danger,
+        color = design.palette.error,
         fontSize = 12.sp,
     )
 }
@@ -279,7 +279,7 @@ fun EmptyState(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Box(Modifier.size(56.dp).clip(CircleShape).background(design.accentSoft), Alignment.Center) {
-            LucideIcon(icon, design.accent, Modifier.size(24.dp))
+            LucideIcon(icon, design.accentText, Modifier.size(24.dp))
         }
         Text(title, color = design.fg, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
         Text(body, color = design.dim, fontSize = 13.sp, lineHeight = 19.sp, textAlign = TextAlign.Center)
@@ -316,7 +316,7 @@ fun TrackCover(track: Track, size: Dp = 44.dp, radius: Dp = 6.dp) {
             Modifier.size(size).clip(RoundedCornerShape(radius)).background(design.accentSoft),
             Alignment.Center,
         ) {
-            LucideIcon(Lucide.ListMusic, design.accent, Modifier.size(size / 2))
+            LucideIcon(Lucide.ListMusic, design.accentText, Modifier.size(size / 2))
         }
         return
     }
@@ -419,7 +419,7 @@ fun TrackRow(
                     Icon(
                         painterResource(Lucide.Heart),
                         contentDescription = if (track.liked) "Unlike" else "Like",
-                        tint = if (track.liked) Danger else design.accent,
+                        tint = if (track.liked) design.palette.error else design.accentText,
                     )
                 } else {
                     Box(Modifier.weight(1f))
@@ -428,7 +428,7 @@ fun TrackRow(
                     Icon(
                         painterResource(Lucide.Trash),
                         contentDescription = "Remove track",
-                        tint = Danger,
+                        tint = design.palette.error,
                     )
                 }
             }
@@ -451,7 +451,7 @@ fun TrackRow(
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     track.title,
-                    color = if (current) design.accent else design.fg,
+                    color = if (current) design.accentText else design.fg,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
@@ -489,7 +489,7 @@ fun TrackRow(
                 )
             },
             confirmButton = {
-                TextButton(onClick = ::removeTrack) { Text("Remove", color = Danger) }
+                TextButton(onClick = ::removeTrack) { Text("Remove", color = design.palette.error) }
             },
             dismissButton = {
                 TextButton(onClick = { confirmRemove = false }) { Text("Cancel") }
@@ -552,12 +552,12 @@ fun TrackActionsMenu(
             )
             DropdownMenuItem(
                 text = { Text("Add to playlist", fontSize = 13.sp) },
-                leadingIcon = { LucideIcon(Lucide.ListPlus, design.accent, Modifier.size(16.dp)) },
+                leadingIcon = { LucideIcon(Lucide.ListPlus, design.accentText, Modifier.size(16.dp)) },
                 onClick = { onExpandedChange(false); picker = true },
             )
             DropdownMenuItem(
                 text = { Text("Start radio", fontSize = 13.sp) },
-                leadingIcon = { LucideIcon(Lucide.Radio, design.accent, Modifier.size(16.dp)) },
+                leadingIcon = { LucideIcon(Lucide.Radio, design.accentText, Modifier.size(16.dp)) },
                 onClick = {
                     onExpandedChange(false)
                     scope.launch {
@@ -587,19 +587,19 @@ fun TrackActionsMenu(
             onOpenArtist?.let { openArtist ->
                 DropdownMenuItem(
                     text = { Text("Go to artist", fontSize = 13.sp) },
-                    leadingIcon = { LucideIcon(Lucide.User, design.accent, Modifier.size(16.dp)) },
+                    leadingIcon = { LucideIcon(Lucide.User, design.accentText, Modifier.size(16.dp)) },
                     onClick = { onExpandedChange(false); openArtist(track.artist) },
                 )
             }
             DropdownMenuItem(
                 text = { Text("Track info", fontSize = 13.sp) },
-                leadingIcon = { LucideIcon(Lucide.Info, design.accent, Modifier.size(16.dp)) },
+                leadingIcon = { LucideIcon(Lucide.Info, design.accentText, Modifier.size(16.dp)) },
                 onClick = { onExpandedChange(false); showInfo = true },
             )
             if (Account.isAdmin) {
                 DropdownMenuItem(
-                    text = { Text("Remove from mcmusic", color = Danger, fontSize = 13.sp) },
-                    leadingIcon = { LucideIcon(Lucide.Trash, Danger, Modifier.size(16.dp)) },
+                    text = { Text("Remove from mcmusic", color = design.palette.error, fontSize = 13.sp) },
+                    leadingIcon = { LucideIcon(Lucide.Trash, design.palette.error, Modifier.size(16.dp)) },
                     onClick = { onExpandedChange(false); onRemove() },
                 )
             }
@@ -732,7 +732,7 @@ fun SettingRow(
     trailing: (@Composable () -> Unit)? = null,
 ) {
     val design = LocalDesign.current
-    val tint = if (danger) Danger else design.fg
+    val tint = if (danger) design.palette.error else design.fg
     Row(
         Modifier
             .fillMaxWidth()
@@ -744,10 +744,10 @@ fun SettingRow(
         if (icon != null) {
             Box(
                 Modifier.size(28.dp).clip(RoundedCornerShape(7.dp))
-                    .background(if (danger) Danger.copy(alpha = 0.12f) else design.accentSoft),
+                    .background(if (danger) design.palette.error.copy(alpha = 0.12f) else design.accentSoft),
                 Alignment.Center,
             ) {
-                LucideIcon(icon, if (danger) Danger else design.accent, Modifier.size(14.dp))
+                LucideIcon(icon, if (danger) design.palette.error else design.accentText, Modifier.size(14.dp))
             }
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
@@ -795,10 +795,10 @@ fun SwitchRow(
             checked = checked,
             onCheckedChange = onChange,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = design.palette.bg,
-                checkedTrackColor = design.accent,
+                checkedThumbColor = design.onAccent,
+                checkedTrackColor = design.accentText,
                 uncheckedThumbColor = design.dim,
-                uncheckedTrackColor = design.palette.bg2,
+                uncheckedTrackColor = design.palette.surface2,
                 uncheckedBorderColor = design.hairline,
             ),
         )
@@ -806,8 +806,6 @@ fun SwitchRow(
 }
 
 /* ── helpers ───────────────────────────────────────────────────────────── */
-
-val Danger = Color(0xFFE5484D)
 
 fun formatDuration(seconds: Double): String {
     if (seconds <= 0) return "--:--"

@@ -66,7 +66,7 @@ struct HomeView: View {
                         .padding(.top, 8)
                     }
                 } else {
-                    StateView(text: "Could not load home", systemImage: "wifi.exclamationmark") {
+                    StateView(text: "Could not load home", icon: "wifi-off") {
                         Task { await load() }
                     }
                 }

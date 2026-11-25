@@ -103,7 +103,7 @@ class QtWindowIntegration(unittest.TestCase):
         cls.repo.like(cls.track.id)
         cls.playlist_id = cls.repo.create_playlist("UI List")
         ART.bind(cls.api, cls.runner)
-        theme.set_appearance("dusk", "#d98a3d")
+        theme.set_appearance("violet-dark", "#9f7eff")
 
         cls.player = PlayerEngine(
             cls.repo, cls.api, cls.runner,
@@ -215,7 +215,7 @@ class QtWindowIntegration(unittest.TestCase):
         self.pump_until(lambda: bool(screen._theme_cards), "settings rows")
         self.assertEqual(len(screen._theme_cards), len(theme.THEME_ORDER))
         self.assertEqual(len(screen._swatches), len(theme.ACCENTS))
-        self.assertEqual(self.window.settings.theme, "dusk")
+        self.assertEqual(self.window.settings.theme, "violet")
         self.assertEqual(self.window.settings.density, "comfy",
                          "the server's settings never replaced the local copy")
         self.assertEqual(self.window.api.base_url, self.server.base)

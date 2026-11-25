@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SearchView: View {
     @EnvironmentObject private var app: AppState
+    @Environment(\.mcTokens) private var tokens
     @State private var query = ""
     @State private var results: JSON?
     @State private var searching = false
@@ -10,17 +11,17 @@ struct SearchView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 HStack {
-                    Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                    LucideIcon(name: "search", size: 18, color: tokens.dim)
                     TextField("Songs, albums, artists", text: $query)
                         .onSubmit { Task { await search() } }
                     if !query.isEmpty {
                         Button { query = ""; results = nil } label: {
-                            Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                            LucideIcon(name: "x-circle", size: 18, color: tokens.dim)
                         }
                     }
                 }
                 .padding(10)
-                .background(Theme.surface.opacity(0.6))
+                .background(tokens.surface.opacity(0.6))
 
                 if searching {
                     ProgressView().frame(maxWidth: .infinity)
@@ -49,7 +50,7 @@ struct SearchView: View {
                                             VStack(alignment: .leading) {
                                                 Text(album["album"]?.string ?? "Album")
                                                 Text(album["artist"]?.string ?? "")
-                                                    .font(.caption).foregroundStyle(.secondary)
+                                                    .font(.caption).foregroundStyle(tokens.dim)
                                             }
                                         }
                                     }
@@ -61,18 +62,22 @@ struct SearchView: View {
                             Section("Artists (\(artists.count))") {
                                 ForEach(Array(artists.enumerated()), id: \.offset) { _, artist in
                                     NavigationLink(value: Detail.artist(artist["artist"]?.string ?? "")) {
-                                        Label(artist["artist"]?.string ?? "Artist", systemImage: "person")
+                                        Label {
+                                            Text(artist["artist"]?.string ?? "Artist")
+                                        } icon: {
+                                            LucideIcon(name: "user", size: 18)
+                                        }
                                     }
                                 }
                             }
                         }
                         if tracks.isEmpty && albums.isEmpty && artists.isEmpty {
-                            StateView(text: "No results for “\(query)”", systemImage: "magnifyingglass")
+                            StateView(text: "No results for “\(query)”", icon: "search")
                         }
                     }
                     .listStyle(.plain)
                 } else {
-                    StateView(text: "Search your library", systemImage: "magnifyingglass")
+                    StateView(text: "Search your library", icon: "search")
                 }
             }
             .navigationTitle("Search")

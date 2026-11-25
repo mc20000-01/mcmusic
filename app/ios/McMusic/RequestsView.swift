@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RequestsView: View {
     @EnvironmentObject private var app: AppState
+    @Environment(\.mcTokens) private var tokens
     @State private var rows: [JSON] = []
     @State private var showingNew = false
     @State private var url = ""
@@ -11,7 +12,7 @@ struct RequestsView: View {
         NavigationStack {
             Group {
                 if rows.isEmpty {
-                    StateView(text: "No download requests", systemImage: "arrow.down.circle")
+                    StateView(text: "No download requests", icon: "download")
                 } else {
                     List {
                         ForEach(rows, id: \.id) { row in
@@ -20,14 +21,18 @@ struct RequestsView: View {
                                     .font(.subheadline)
                                     .textSelection(.enabled)
                                 HStack {
-                                    Label(row["status"]?.string ?? "pending", systemImage: "clock")
-                                        .font(.caption).foregroundStyle(.secondary)
+                                    Label {
+                                        Text(row["status"]?.string ?? "pending")
+                                    } icon: {
+                                        LucideIcon(name: "clock", size: 13, color: tokens.dim)
+                                    }
+                                    .font(.caption).foregroundStyle(tokens.dim)
                                     if let user = row["username"]?.string {
-                                        Text("by \(user)").font(.caption).foregroundStyle(.secondary)
+                                        Text("by \(user)").font(.caption).foregroundStyle(tokens.dim)
                                     }
                                 }
                                 if let preview = row["log"]?.string, !preview.isEmpty {
-                                    Text(preview).font(.caption2).foregroundStyle(.secondary).lineLimit(2)
+                                    Text(preview).font(.caption2).foregroundStyle(tokens.dim).lineLimit(2)
                                 }
                                 HStack(spacing: 8) {
                                     if app.isAdmin {
@@ -63,7 +68,7 @@ struct RequestsView: View {
             }
             .navigationTitle("Requests")
             .toolbar {
-                Button { showingNew = true } label: { Image(systemName: "plus") }
+                Button { showingNew = true } label: { LucideIcon(name: "plus", size: 20, color: tokens.accent) }
             }
             .sheet(isPresented: $showingNew) { newSheet }
             .sheet(item: $log) { value in

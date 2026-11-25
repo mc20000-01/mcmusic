@@ -129,12 +129,12 @@ class WidgetConfigActivity : ComponentActivity() {
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                     textStyle = androidx.compose.ui.text.TextStyle(fontSize = 15.sp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = design.accent,
+                        focusedBorderColor = design.accentText,
                         unfocusedBorderColor = design.hairline,
                         focusedTextColor = design.fg,
                         unfocusedTextColor = design.fg,
-                        cursorColor = design.accent,
-                        focusedLabelColor = design.accent,
+                        cursorColor = design.accentText,
+                        focusedLabelColor = design.accentText,
                         unfocusedLabelColor = design.dim,
                         focusedContainerColor = design.palette.bg2.copy(alpha = 0.35f),
                         unfocusedContainerColor = design.palette.bg2.copy(alpha = 0.35f),
@@ -169,7 +169,7 @@ class WidgetConfigActivity : ComponentActivity() {
                             .padding(horizontal = 18.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text("Add widget", color = design.palette.bg2, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Add widget", color = design.onAccent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }

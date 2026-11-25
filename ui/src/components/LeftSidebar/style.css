@@ -102,5 +102,5 @@
     position: absolute;
     inset: 0;
     z-index: 45;
-    background: #0009;
+    background: var(--shadow);
 }

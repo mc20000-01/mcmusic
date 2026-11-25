@@ -77,12 +77,12 @@ fun AuthSplash() {
                 Modifier.size(44.dp).clip(RoundedCornerShape(design.tileRadius)).background(design.accent),
                 Alignment.Center,
             ) {
-                Text("m", color = design.palette.bg, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Text("m", color = design.onAccent, fontSize = 24.sp, fontWeight = FontWeight.Bold)
             }
             Text("mcmusic", color = design.fg, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
             LinearProgressIndicator(
                 modifier = Modifier.width(120.dp).height(3.dp).clip(RoundedCornerShape(2.dp)),
-                color = design.accent,
+                color = design.accentText,
                 trackColor = design.hairline,
             )
         }
@@ -168,7 +168,7 @@ fun SignInScreen() {
                     Modifier.size(34.dp).clip(RoundedCornerShape(design.tileRadius)).background(design.accent),
                     Alignment.Center,
                 ) {
-                    Text("m", color = design.palette.bg, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                    Text("m", color = design.onAccent, fontSize = 19.sp, fontWeight = FontWeight.Bold)
                 }
                 Spacer(Modifier.width(10.dp))
                 Column {
@@ -219,7 +219,7 @@ fun SignInScreen() {
                             .clickable { scope.launch { Account.refresh() } }
                             .padding(horizontal = 14.dp, vertical = 9.dp),
                     ) {
-                        Text("Retry connection", color = design.accent, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        Text("Retry connection", color = design.accentText, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                     }
                 }
 
@@ -236,15 +236,15 @@ fun SignInScreen() {
                         CircularProgressIndicator(
                             modifier = Modifier.size(18.dp),
                             strokeWidth = 2.dp,
-                            color = design.accent,
+                            color = design.accentText,
                         )
                     } else {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            Text("Sign in", color = design.palette.bg, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                            LucideIcon(Lucide.ChevronRight, design.palette.bg, Modifier.size(16.dp))
+                            Text("Sign in", color = design.onAccent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            LucideIcon(Lucide.ChevronRight, design.onAccent, Modifier.size(16.dp))
                         }
                     }
                 }
@@ -273,7 +273,7 @@ fun SignInScreen() {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        LucideIcon(Lucide.User, design.accent, Modifier.size(16.dp))
+                        LucideIcon(Lucide.User, design.accentText, Modifier.size(16.dp))
                         Text("Continue with Rotur", color = design.fg, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                     }
                 }
@@ -327,7 +327,7 @@ fun SignInScreen() {
                             }
                             .padding(horizontal = 14.dp, vertical = 9.dp),
                     ) {
-                        Text("Use this server", color = design.accent, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        Text("Use this server", color = design.accentText, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                     }
                 }
             }
@@ -347,9 +347,9 @@ fun SignInScreen() {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(7.dp),
             ) {
-                LucideIcon(Lucide.Info, design.accent, Modifier.size(14.dp))
+                LucideIcon(Lucide.Info, design.accentText, Modifier.size(14.dp))
                 Column {
-                    Text("Self-hosting guide", color = design.accent, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                    Text("Self-hosting guide", color = design.accentText, fontSize = 11.sp, fontWeight = FontWeight.Medium)
                     Text(
                         "Point this app at your own mcmusic server.",
                         color = design.dim,
@@ -390,13 +390,13 @@ private fun AuthField(
         colors = OutlinedTextFieldDefaults.colors(
             focusedTextColor = design.fg,
             unfocusedTextColor = design.fg,
-            focusedBorderColor = design.accent,
+            focusedBorderColor = design.accentText,
             unfocusedBorderColor = design.hairline,
-            focusedLabelColor = design.accent,
+            focusedLabelColor = design.accentText,
             unfocusedLabelColor = design.dim,
-            focusedLeadingIconColor = design.accent,
+            focusedLeadingIconColor = design.accentText,
             unfocusedLeadingIconColor = design.dim,
-            cursorColor = design.accent,
+            cursorColor = design.accentText,
             focusedContainerColor = design.accentWash,
             unfocusedContainerColor = design.accentWash,
         ),
@@ -415,7 +415,7 @@ private fun FeatureChip(icon: Int, label: String) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        LucideIcon(icon, design.accent, Modifier.size(14.dp))
+        LucideIcon(icon, design.accentText, Modifier.size(14.dp))
         Text(label, color = design.dim, fontSize = 11.sp, fontWeight = FontWeight.Medium)
     }
 }

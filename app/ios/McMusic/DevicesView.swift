@@ -3,8 +3,9 @@ import SwiftUI
 /// Cross-device sync, pairing and app-password management.
 struct DevicesView: View {
     @EnvironmentObject private var app: AppState
+    @Environment(\.mcTokens) private var tokens
     @State private var devices: [JSON] = []
-    @State private var tokens: [JSON] = []
+    @State private var deviceTokens: [JSON] = []
     @State private var pairing: JSON?
     @State private var claimCode = ""
     @State private var renaming: JSON?
@@ -27,16 +28,17 @@ struct DevicesView: View {
 
                 Section("Registered devices") {
                     if devices.isEmpty {
-                        StateView(text: "No devices yet", systemImage: "laptopcomputer.and.iphone")
+                        StateView(text: "No devices yet", icon: "monitor")
                     }
                     ForEach(devices, id: \.trackID) { device in
                         HStack {
-                            Image(systemName: device["is_active"]?.bool == true ? "speaker.wave.2.fill" : "speaker")
-                                .foregroundStyle(device["is_active"]?.bool == true ? Theme.violet : .secondary)
+                            LucideIcon(name: device["is_active"]?.bool == true ? "volume-2" : "volume-1",
+                                       size: 18,
+                                       color: device["is_active"]?.bool == true ? tokens.accent : tokens.dim)
                             VStack(alignment: .leading) {
                                 Text(device["name"]?.string ?? "Unknown device")
                                 Text(device["track_title"]?.string ?? "Idle")
-                                    .font(.caption).foregroundStyle(.secondary)
+                                    .font(.caption).foregroundStyle(tokens.dim)
                             }
                             Spacer()
                             if device["is_active"]?.bool != true {
@@ -59,7 +61,7 @@ struct DevicesView: View {
                     if let pairing {
                         LabeledContent("Code", value: pairing["code"]?.string ?? "")
                         if let hint = pairing["hint"]?.string {
-                            Text(hint).font(.caption).foregroundStyle(.secondary)
+                            Text(hint).font(.caption).foregroundStyle(tokens.dim)
                         }
                     }
                     SecureField("Pairing code from another device", text: $claimCode)
@@ -74,10 +76,10 @@ struct DevicesView: View {
                 }
 
                 Section("App passwords") {
-                    if tokens.isEmpty {
-                        Text("No device tokens issued").foregroundStyle(.secondary)
+                    if deviceTokens.isEmpty {
+                        Text("No device tokens issued").foregroundStyle(tokens.dim)
                     }
-                    ForEach(tokens, id: \.trackID) { token in
+                    ForEach(deviceTokens, id: \.trackID) { token in
                         HStack {
                             Text(token["prefix"]?.string ?? token["name"]?.string ?? "Token")
                             Spacer()
@@ -110,7 +112,7 @@ struct DevicesView: View {
     private func load() async {
         do {
             devices = try await app.client.devices()
-            tokens = try await app.client.deviceTokens()
+            deviceTokens = try await app.client.deviceTokens()
         } catch { app.show(error) }
     }
 

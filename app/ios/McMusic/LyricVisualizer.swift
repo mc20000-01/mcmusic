@@ -25,6 +25,7 @@ struct LyricVisualizer: View {
     var isPlaying: Bool
     var activeLine: Int? = nil
     var mode: Mode = .bars
+    @Environment(\.mcTokens) private var tokens
 
     var body: some View {
         Canvas { context, size in
@@ -32,9 +33,9 @@ struct LyricVisualizer: View {
             let t = CGFloat(progress.isFinite ? max(0, progress) : 0)
             let energy: CGFloat = (isPlaying ? 1 : 0.5) + (activeLine == nil ? 0 : 0.06)
             switch mode {
-            case .bars: drawBars(&context, size, t, energy)
-            case .wave: drawWave(&context, size, t, energy)
-            case .glow: drawGlow(&context, size, t, energy)
+            case .bars: drawBars(&context, size, t, energy, tokens.accent)
+            case .wave: drawWave(&context, size, t, energy, tokens.accent)
+            case .glow: drawGlow(&context, size, t, energy, tokens.accent, tokens.fg)
             }
         }
         .accessibilityHidden(true) // decorative; the mode picker is the control
@@ -42,7 +43,8 @@ struct LyricVisualizer: View {
 
     // MARK: - Modes
 
-    private func drawBars(_ context: inout GraphicsContext, _ size: CGSize, _ t: CGFloat, _ energy: CGFloat) {
+    private func drawBars(_ context: inout GraphicsContext, _ size: CGSize, _ t: CGFloat,
+                          _ energy: CGFloat, _ accent: Color) {
         let count = 32
         let spacing: CGFloat = 3
         let width = max(2, (size.width - spacing * CGFloat(count - 1)) / CGFloat(count))
@@ -60,12 +62,13 @@ struct LyricVisualizer: View {
             )
             context.fill(
                 Path(roundedRect: rect, cornerRadius: width / 2),
-                with: .color(Theme.violet.opacity(0.4 + 0.6 * motion))
+                with: .color(accent.opacity(0.4 + 0.6 * motion))
             )
         }
     }
 
-    private func drawWave(_ context: inout GraphicsContext, _ size: CGSize, _ t: CGFloat, _ energy: CGFloat) {
+    private func drawWave(_ context: inout GraphicsContext, _ size: CGSize, _ t: CGFloat,
+                          _ energy: CGFloat, _ accent: Color) {
         let middle = size.height / 2
         let steps = max(24, Int(size.width / 4))
         for layer in 0..<3 {
@@ -84,13 +87,14 @@ struct LyricVisualizer: View {
             let opacity: Double = layer == 0 ? 0.95 : 0.4 - Double(layer) * 0.12
             context.stroke(
                 path,
-                with: .color(Theme.violet.opacity(opacity)),
+                with: .color(accent.opacity(opacity)),
                 style: StrokeStyle(lineWidth: layer == 0 ? 3 : 1.5, lineCap: .round, lineJoin: .round)
             )
         }
     }
 
-    private func drawGlow(_ context: inout GraphicsContext, _ size: CGSize, _ t: CGFloat, _ energy: CGFloat) {
+    private func drawGlow(_ context: inout GraphicsContext, _ size: CGSize, _ t: CGFloat,
+                          _ energy: CGFloat, _ accent: Color, _ foreground: Color) {
         let center = CGPoint(x: size.width / 2, y: size.height / 2)
         let radius = min(size.width, size.height) * 0.48
         let pulse = 0.5 + 0.5 * sin(t * 1.1)
@@ -101,13 +105,13 @@ struct LyricVisualizer: View {
             let rect = CGRect(x: center.x - r, y: center.y - r, width: r * 2, height: r * 2)
             context.fill(
                 Path(ellipseIn: rect),
-                with: .color(Theme.violet.opacity(Double(1 - fraction) * 0.3 + 0.02))
+                with: .color(accent.opacity(Double(1 - fraction) * 0.3 + 0.02))
             )
         }
         let core = radius * (0.14 + 0.05 * pulse) * energy
         context.fill(
             Path(ellipseIn: CGRect(x: center.x - core, y: center.y - core, width: core * 2, height: core * 2)),
-            with: .color(Theme.textBright.opacity(0.85))
+            with: .color(foreground.opacity(0.85))
         )
     }
 }
@@ -121,6 +125,7 @@ struct LyricSheet: View {
     let isPlaying: Bool
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.mcTokens) private var tokens
     @State private var mode: LyricVisualizer.Mode = .bars
 
     private var lines: [String] { text.components(separatedBy: .newlines) }
@@ -154,7 +159,7 @@ struct LyricSheet: View {
                         ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
                             Text(line.isEmpty ? " " : line)
                                 .font(.body)
-                                .foregroundStyle(index == activeLine ? Theme.violet : Theme.text)
+                                .foregroundStyle(index == activeLine ? tokens.accent : tokens.fg)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
@@ -163,7 +168,7 @@ struct LyricSheet: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
             .padding(.top, 8)
-            .background(Theme.ink.ignoresSafeArea())
+            .background(tokens.bg.ignoresSafeArea())
             .navigationTitle("Lyrics")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }

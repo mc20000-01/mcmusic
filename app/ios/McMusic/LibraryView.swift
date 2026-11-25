@@ -52,7 +52,7 @@ struct LibraryView: View {
         }
         .listStyle(.plain)
         .overlay {
-            if songs.isEmpty { StateView(text: "Nothing here yet", systemImage: "music.note") }
+            if songs.isEmpty { StateView(text: "Nothing here yet", icon: "music-note") }
         }
     }
 

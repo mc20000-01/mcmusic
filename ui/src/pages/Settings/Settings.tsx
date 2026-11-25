@@ -15,7 +15,11 @@ import { currentUser, logout } from "../../common/auth";
 import { activityError } from "../../common/player";
 import { flushOutbox, pendingWrites } from "../../common/net/api";
 import { PasswordInput } from "../../components/PasswordInput/PasswordInput";
-import { applyPrefs, loadPrefs, setAutoplayPreference, type Settings as Prefs } from "../../common/prefs";
+import {
+    applyPrefs, loadPrefs, setAccentPreference, setAutoplayPreference,
+    setPalettePreference, type Settings as Prefs,
+} from "../../common/prefs";
+import { PALETTE_FAMILIES, resolvePalette } from "../../common/theme";
 
 import "./style.css";
 
@@ -130,6 +134,9 @@ export function SettingsPage() {
 
     function set(key: string, value: unknown) {
         setSettings(s => ({ ...(s ?? {}), [key]: value }));
+        // Preview appearance changes before Save; Save mirrors them to the server.
+        if (key === "theme") setPalettePreference(String(value));
+        if (key === "accent") setAccentPreference(String(value ?? ""));
         setDirty(true);
         setMessage(null);
     }
@@ -258,6 +265,38 @@ export function SettingsPage() {
                             <TextIconButton onClick={() => logout().then(() => { window.location.href = "/auth"; })}>
                                 <LogOut size={18} /> Log out
                             </TextIconButton>
+                        </Container>
+
+                        <Seperator />
+
+                        <Container>
+                            <Header3>Appearance</Header3>
+                            <Text dim content="Palettes follow your device's light or dark setting. Pick a colour family, then save preferences." />
+                            <WrapList min_size={150}>
+                                {PALETTE_FAMILIES.map(f => {
+                                    const active = resolvePalette(settings!.theme);
+                                    const selected = active.family === f.id;
+                                    const preview = f[active.mode];
+                                    return (
+                                        <Button
+                                            key={f.id}
+                                            class="palette-card"
+                                            variant={selected ? "accent-subtle" : "panel"}
+                                            title={`Use ${f.name} palette`}
+                                            onClick={() => set("theme", f.id)}
+                                        >
+                                            <span
+                                                class="palette-card-swatch"
+                                                style={{ background: preview.bg, borderColor: preview.line }}
+                                            >
+                                                <span style={{ background: preview.accent }} />
+                                            </span>
+                                            <Text content={f.name} />
+                                            {selected && <Check size={16} class="palette-card-check" />}
+                                        </Button>
+                                    );
+                                })}
+                            </WrapList>
                         </Container>
 
                         <Seperator />

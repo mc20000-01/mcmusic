@@ -10,8 +10,8 @@
     "window-controls-overlay",
     "standalone"
   ],
-  "background_color": "#08060d",
-  "theme_color": "#08060d",
+  "background_color": "#171721",
+  "theme_color": "#171721",
   "orientation": "any",
   "categories": [
     "music",

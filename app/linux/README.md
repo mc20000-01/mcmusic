@@ -60,7 +60,8 @@ setup, HTTPS and connecting this desktop client.
   shuffle, repeat (off/all/one), next/prev and "up next".
 * Download requests with admin approve/reject; admin stats, user admin toggles
   and library rescan.
-* Settings: 5 palettes (dusk, paper, ink, tide, copper), accent overrides,
+* Settings: 5 palette families (Violet, Indigo, Sky, Aqua, Mint), each with
+  light and dark halves, accent overrides,
   density, cover art, autoplay, hide explicit, YouTube stats, remembered volume,
   prefetch and offline audio cache.
 * Playback is prefetched and cached on disk, so tracks resume instantly and the

@@ -140,7 +140,7 @@ fun LibraryScreen(onOpenPlaylists: () -> Unit, onOpenLikes: () -> Unit, onOpenPl
                     Modifier.size(34.dp).clip(CircleShape).background(design.accentSoft),
                     Alignment.Center,
                 ) {
-                    LucideIcon(Lucide.Heart, design.accent, Modifier.size(16.dp))
+                    LucideIcon(Lucide.Heart, design.accentText, Modifier.size(16.dp))
                 }
                 Column(Modifier.weight(1f)) {
                     Text("Liked songs", color = design.fg, fontSize = 14.sp, fontWeight = FontWeight.Medium)

@@ -8,6 +8,10 @@
  */
 import { useEffect, useRef } from "preact/hooks";
 import { isPlaying, position } from "../../common/player";
+import {
+    currentAccentOverride, currentPaletteValue, DEFAULT_ACCENT_RGB, DEFAULT_BACK_RGB,
+    rgbTriplet, subscribePalette,
+} from "../../common/theme";
 
 export type VisualizerMode = "bars" | "wave" | "glow";
 
@@ -33,7 +37,6 @@ export function saveVisualizerMode(mode: VisualizerMode) {
 
 const BANDS = 36;
 const GLOWS = 5;
-const VIOLET = "160, 107, 255"; // flufi accent #A06BFF
 const FLASH_MS = 520;
 
 function clamp(v: number, lo: number, hi: number): number {
@@ -56,6 +59,8 @@ function paint(
     mode: VisualizerMode,
     t: number,
     flash: number,
+    accentRgb: string,
+    bgRgb: string,
 ) {
     ctx.clearRect(0, 0, w, h);
     const mid = h / 2;
@@ -70,9 +75,9 @@ function paint(
             const bh = Math.max(2, values[i] * (h - 6) * lift);
             const x = i * (barW + gap);
             const y = h - bh;
-            ctx.fillStyle = `rgba(${VIOLET}, ${alpha((0.36 + values[i] * 0.5) * lift)})`;
+            ctx.fillStyle = `rgba(${accentRgb}, ${alpha((0.36 + values[i] * 0.5) * lift)})`;
             ctx.fillRect(x, y, barW, bh);
-            ctx.fillStyle = `rgba(184, 136, 255, ${alpha(0.35 + flash * 0.4)})`;
+            ctx.fillStyle = `rgba(${accentRgb}, ${alpha(0.35 + flash * 0.4)})`;
             ctx.fillRect(x, y, barW, 1);
         }
         return;
@@ -91,10 +96,10 @@ function paint(
             ctx.lineTo((i / (BANDS - 1)) * w, mid + values[i] * amp);
         }
         ctx.closePath();
-        ctx.fillStyle = `rgba(${VIOLET}, ${alpha(0.12 + flash * 0.12)})`;
+        ctx.fillStyle = `rgba(${accentRgb}, ${alpha(0.12 + flash * 0.12)})`;
         ctx.fill();
         ctx.lineWidth = 1.5;
-        ctx.strokeStyle = `rgba(${VIOLET}, ${alpha(0.72 + flash * 0.28)})`;
+        ctx.strokeStyle = `rgba(${accentRgb}, ${alpha(0.72 + flash * 0.28)})`;
         ctx.stroke();
         return;
     }
@@ -105,9 +110,9 @@ function paint(
         const y = mid + Math.sin(t * 1.3 + i * 2.1) * h * 0.12;
         const r = Math.max(4, (h * 0.22 + v * h * 0.3) * lift);
         const gradient = ctx.createRadialGradient(x, y, 0, x, y, r);
-        gradient.addColorStop(0, `rgba(${VIOLET}, ${alpha((0.42 + v * 0.24) * lift)})`);
-        gradient.addColorStop(0.45, `rgba(${VIOLET}, ${alpha(0.16 + flash * 0.14)})`);
-        gradient.addColorStop(1, "rgba(8, 6, 13, 0)"); // ink #08060D
+        gradient.addColorStop(0, `rgba(${accentRgb}, ${alpha((0.42 + v * 0.24) * lift)})`);
+        gradient.addColorStop(0.45, `rgba(${accentRgb}, ${alpha(0.16 + flash * 0.14)})`);
+        gradient.addColorStop(1, `rgba(${bgRgb}, 0)`); // transparent palette background
         ctx.fillStyle = gradient;
         ctx.beginPath();
         ctx.arc(x, y, r, 0, Math.PI * 2);
@@ -137,6 +142,17 @@ export function LyricVisualizer(props: {
         let playing = isPlaying.value;
         let base = position.value;
         let baseAt = performance.now();
+        let accentRgb = DEFAULT_ACCENT_RGB;
+        let bgRgb = DEFAULT_BACK_RGB;
+
+        function refreshColors() {
+            const p = currentPaletteValue();
+            accentRgb = rgbTriplet(currentAccentOverride() || p.accent, DEFAULT_ACCENT_RGB);
+            bgRgb = rgbTriplet(p.bg, DEFAULT_BACK_RGB);
+        }
+        refreshColors();
+        const onColorChange = () => { refreshColors(); schedule(); };
+        const unsubColors = subscribePalette(onColorChange);
 
         function time(): number {
             // Smoothly interpolate between the ~4 Hz position updates while
@@ -149,7 +165,7 @@ export function LyricVisualizer(props: {
         }
 
         function render(flash: number) {
-            paint(ctx!, width, height, modeRef.current, time(), flash);
+            paint(ctx!, width, height, modeRef.current, time(), flash, accentRgb, bgRgb);
         }
 
         function frame() {
@@ -209,6 +225,7 @@ export function LyricVisualizer(props: {
         return () => {
             unsubPosition();
             unsubPlaying();
+            unsubColors();
             if (raf) cancelAnimationFrame(raf);
             observer?.disconnect();
             window.removeEventListener("resize", resize);

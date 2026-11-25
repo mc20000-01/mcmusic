@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PlaylistsView: View {
     @EnvironmentObject private var app: AppState
+    @Environment(\.mcTokens) private var tokens
     @State private var playlists: [JSON] = []
     @State private var showingNew = false
     @State private var newName = ""
@@ -10,7 +11,7 @@ struct PlaylistsView: View {
         NavigationStack {
             Group {
                 if playlists.isEmpty {
-                    StateView(text: "No playlists yet", systemImage: "music.note.list")
+                    StateView(text: "No playlists yet", icon: "list-music")
                 } else {
                     List {
                         ForEach(Array(playlists.enumerated()), id: \.offset) { _, item in
@@ -19,7 +20,7 @@ struct PlaylistsView: View {
                                     CoverView(url: app.client.coverURL(item["cover_id"]), size: 48)
                                     VStack(alignment: .leading) {
                                         Text(item.title)
-                                        Text("\(item.itemCount) songs").font(.caption).foregroundStyle(.secondary)
+                                        Text("\(item.itemCount) songs").font(.caption).foregroundStyle(tokens.dim)
                                     }
                                 }
                             }
@@ -30,7 +31,7 @@ struct PlaylistsView: View {
             }
             .navigationTitle("Playlists")
             .toolbar {
-                Button { showingNew = true } label: { Image(systemName: "plus") }
+                Button { showingNew = true } label: { LucideIcon(name: "plus", size: 20, color: tokens.accent) }
             }
             .sheet(isPresented: $showingNew) {
                 NavigationStack {
@@ -69,6 +70,7 @@ struct PlaylistsView: View {
 
 struct PlaylistView: View {
     @EnvironmentObject private var app: AppState
+    @Environment(\.mcTokens) private var tokens
     let id: Int
     @State private var name = "Playlist"
     @State private var songs: [JSON] = []
@@ -91,10 +93,10 @@ struct PlaylistView: View {
         .toolbar {
             Button("Play all") { Task { await app.player.playQueue(songs) } }
             Button { renameText = name; showingRename = true } label: {
-                Image(systemName: "pencil")
+                LucideIcon(name: "pencil", size: 20, color: tokens.accent)
             }
             Button(role: .destructive) { Task { await delete() } } label: {
-                Image(systemName: "trash")
+                LucideIcon(name: "trash-2", size: 20, color: tokens.fg)
             }
         }
         .sheet(isPresented: $showingRename) {

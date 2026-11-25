@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AdminView: View {
     @EnvironmentObject private var app: AppState
+    @Environment(\.mcTokens) private var tokens
     @State private var stats: JSON?
     @State private var algo: JSON?
     @State private var users: [JSON] = []
@@ -52,7 +53,7 @@ struct AdminView: View {
                             VStack(alignment: .leading) {
                                 Text(user["username"]?.string ?? "User")
                                 Text("\(user["plays"]?.int ?? 0) plays · \(user["likes"]?.int ?? 0) likes")
-                                    .font(.caption).foregroundStyle(.secondary)
+                                    .font(.caption).foregroundStyle(tokens.dim)
                             }
                             Spacer()
                             Toggle("Admin", isOn: Binding(
@@ -75,7 +76,7 @@ struct AdminView: View {
                             Text(invite["code"]?.string ?? "")
                             Spacer()
                             Text("\(invite["uses"]?.int ?? 0)/\(invite["max_uses"]?.int ?? 0)")
-                                .font(.caption).foregroundStyle(.secondary)
+                                .font(.caption).foregroundStyle(tokens.dim)
                             Button("Revoke", role: .destructive) { Task { await revokeInvite(invite.trackID) } }
                                 .buttonStyle(.borderless)
                         }
@@ -87,7 +88,7 @@ struct AdminView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(row["url"]?.string ?? "").font(.caption).lineLimit(1)
                             HStack {
-                                Text(row["status"]?.string ?? "").font(.caption2).foregroundStyle(.secondary)
+                                Text(row["status"]?.string ?? "").font(.caption2).foregroundStyle(tokens.dim)
                                 Spacer()
                                 if ["pending", "failed"].contains(row["status"]?.string ?? "") {
                                     Button("Approve") { Task { await requestAction(row.trackID, "approve") } }
@@ -105,11 +106,13 @@ struct AdminView: View {
                 Section("Devices") {
                     ForEach(devices, id: \.id) { device in
                         HStack {
-                            Image(systemName: device["is_active"]?.bool == true ? "speaker.wave.2.fill" : "speaker")
+                            LucideIcon(name: device["is_active"]?.bool == true ? "volume-2" : "volume-1",
+                                       size: 18,
+                                       color: device["is_active"]?.bool == true ? tokens.accent : tokens.dim)
                             VStack(alignment: .leading) {
                                 Text(device["name"]?.string ?? "Device")
                                 Text(device["username"]?.string ?? "")
-                                    .font(.caption).foregroundStyle(.secondary)
+                                    .font(.caption).foregroundStyle(tokens.dim)
                             }
                         }
                     }
@@ -121,7 +124,7 @@ struct AdminView: View {
                             Text(room["code"]?.string ?? "")
                             Spacer()
                             Text(room["host"]?.string ?? "")
-                                .font(.caption).foregroundStyle(.secondary)
+                                .font(.caption).foregroundStyle(tokens.dim)
                             Button("Close", role: .destructive) { Task { await closeRoom(room["code"]?.string ?? "") } }
                                 .buttonStyle(.borderless)
                         }

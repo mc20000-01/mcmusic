@@ -75,7 +75,7 @@
     color: var(--text-on-light);
     cursor: pointer;
     opacity: 0;
-    box-shadow: 0 2px 8px #0008;
+    box-shadow: 0 2px 8px var(--shadow);
     transition: opacity var(--transition-fast);
 }
 

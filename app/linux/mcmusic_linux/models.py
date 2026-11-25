@@ -315,8 +315,8 @@ class Settings:
     silently revert web/Android preferences.
     """
 
-    theme: str = "dusk"
-    accent: str = "#a06bff"
+    theme: str = "violet"
+    accent: str = ""
     density: str = "comfy"
     material: str = "plane"
     covers: bool = True

@@ -21,7 +21,7 @@ struct BuildsView: View {
 
             Section("Downloads") {
                 if builds.isEmpty {
-                    StateView(text: "No builds published", systemImage: "square.and.arrow.down")
+                    StateView(text: "No builds published", icon: "download")
                 }
                 ForEach(builds, id: \.id) { build in
                     VStack(alignment: .leading, spacing: 4) {

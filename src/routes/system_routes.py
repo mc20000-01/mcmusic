@@ -466,7 +466,7 @@ footer{margin-top:30px;color:var(--text-dark);font-size:13px}
     </div>
     <div class="field"><span>Accent colour</span>
       <span class="row" style="margin:0">
-        <input type="color" id="accent" value="#a06bff">
+        <input type="color" id="accent" value="#9F7EFF">
         <label class="inline"><input type="checkbox" id="accent-off" checked> use theme colour</label>
       </span>
     </div>
@@ -495,14 +495,14 @@ footer{margin-top:30px;color:var(--text-dark);font-size:13px}
 
 <section class="container box">
   <h2>4 · Basic CSS template</h2>
-  <p class="muted">Widgets render inside a shadow root, so your page CSS can't reach their internals — that's why they look consistent anywhere. What <em>does</em> work from outside: width, margins, <code>--mc-radius</code>, <code>--mc-font</code> and the colour variables. The built-in palettes are the flufi v3 ink scale with its violet accent; on a flufi-ui page the widget also inherits <code>--back</code>, <code>--text</code>, <code>--accent</code> and <code>--back-border</code>. Set colours with the <code>theme</code> and <code>accent</code> attributes, or override the <code>--mc-*</code> hooks from your own CSS — page CSS wins.</p>
+  <p class="muted">Widgets render inside a shadow root, so your page CSS can't reach their internals — that's why they look consistent anywhere. What <em>does</em> work from outside: width, margins, <code>--mc-radius</code>, <code>--mc-font</code> and the colour variables. The built-in palettes are Violet, Indigo, Sky, Aqua and Mint, each with a light and dark half; on a flufi-ui page the widget also inherits <code>--back</code>, <code>--text</code>, <code>--accent</code> and <code>--back-border</code>. Set colours with the <code>theme</code> and <code>accent</code> attributes, or override the <code>--mc-*</code> hooks from your own CSS — page CSS wins.</p>
   <pre id="code-css"></pre>
   <div class="row"><button class="button variant-accent" data-copy="code-css">Copy CSS template</button></div>
   <table class="table box">
     <thead><tr><th>Attribute</th><th>Values</th><th>Default</th><th>What it does</th></tr></thead>
     <tbody>
       <tr><td><code>user</code></td><td data-label="Values">any mcmusic username</td><td data-label="Default">—</td><td data-label="What it does">Whose status to show. Required.</td></tr>
-      <tr><td><code>theme</code></td><td data-label="Values"><code>dusk</code> <code>paper</code> <code>ink</code> <code>tide</code> <code>copper</code> <code>forest</code> <code>rose</code> <code>auto</code></td><td data-label="Default"><code>dusk</code></td><td data-label="What it does">Colour palette; <code>auto</code> follows the visitor's light/dark preference.</td></tr>
+      <tr><td><code>theme</code></td><td data-label="Values"><code>system</code> <code>violet</code> <code>indigo</code> <code>sky</code> <code>aqua</code> <code>mint</code></td><td data-label="Default"><code>system</code></td><td data-label="What it does">Colour palette; each family follows the visitor's light/dark preference, and <code>system</code> uses Violet. Pin a half with <code>violet-light</code> or <code>violet-dark</code>, etc.</td></tr>
       <tr><td><code>accent</code></td><td data-label="Values">any CSS colour</td><td data-label="Default">theme accent</td><td data-label="What it does">Overrides the highlight colour (dot, progress bar, links). Page CSS <code>--mc-accent</code> beats it.</td></tr>
       <tr><td><code>compact</code></td><td data-label="Values">presence</td><td data-label="Default">off</td><td data-label="What it does">Smaller padding and artwork.</td></tr>
       <tr><td><code>refresh</code></td><td data-label="Values">seconds, min <code>5</code></td><td data-label="Default"><code>12</code></td><td data-label="What it does">How often the widget re-polls the public API.</td></tr>
@@ -533,7 +533,12 @@ footer{margin-top:30px;color:var(--text-dark);font-size:13px}
 const BASE = "__BASE__";
 const SCRIPT_TAG = '<script src="' + BASE + '/static/embed/widgets.js" data-mcmusic-base="' + BASE + '" defer></' + 'script>';
 
-const THEMES = ['dusk', 'paper', 'ink', 'tide', 'copper', 'forest', 'rose', 'auto'];
+const THEMES = ['system', 'violet', 'indigo', 'sky', 'aqua', 'mint'];
+
+function savedTheme() {
+  const saved = localStorage.getItem('mc-embed-theme');
+  return THEMES.includes(saved) ? saved : 'system';
+}
 
 const WIDGETS = [
   {tag: 'mcmusic-now',         title: 'Now playing',           blurb: 'Cover, track, artist, live progress and listening state — the default card.'},
@@ -549,7 +554,7 @@ const WIDGETS = [
 
 const state = {
   user: localStorage.getItem('mc-embed-user') || '',
-  theme: localStorage.getItem('mc-embed-theme') || 'dusk',
+  theme: savedTheme(),
   accent: localStorage.getItem('mc-embed-accent') || '',
   compact: localStorage.getItem('mc-embed-compact') === '1',
   refresh: localStorage.getItem('mc-embed-refresh') || '12',
@@ -597,9 +602,9 @@ function cssTemplate() {
     '  margin: 16px 0;',
     '  --mc-radius: 10px;     /* flufi one-radius scale */',
     '  --mc-font: inherit;    /* match the surrounding flufi page */',
-    '  /* flufi ink defaults — uncomment to pin a palette: */',
-    '  /* --mc-bg: #08060d;  --mc-bg2: #100c18;  --mc-fg: #ffffff; */',
-    '  /* --mc-dim: #948aa6;  --mc-line: #1f1830;  --mc-accent: #a06bff; */',
+    '  /* violet-dark defaults — uncomment to pin a palette: */',
+    '  /* --mc-bg: #171721;  --mc-bg2: #222130;  --mc-fg: #FFFFFF; */',
+    '  /* --mc-dim: #AAAAB7;  --mc-line: #35344B;  --mc-accent: #9F7EFF; */',
     '}',
     '',
     'mcmusic-bar, mcmusic-marquee, mcmusic-ticker {',
@@ -749,7 +754,7 @@ function syncControls() {
 
 function init() {
   const themes = document.getElementById('theme');
-  themes.innerHTML = THEMES.map(t => '<option value="' + t + '">' + t + (t === 'auto' ? ' (follow system)' : '') + '</option>').join('');
+  themes.innerHTML = THEMES.map(t => '<option value="' + t + '">' + t + (t === 'system' ? ' (follow system)' : '') + '</option>').join('');
 
   document.getElementById('code-script').textContent = SCRIPT_TAG;
   document.getElementById('code-css').textContent = cssTemplate();

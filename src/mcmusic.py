@@ -280,7 +280,7 @@ def api_docs():
 
 # ---------------------------------------------------------------- settings + version
 DEFAULT_SETTINGS = {
-    "theme": "rose", "accent": "#79d8a5", "density": "comfy", "material": "plane",
+    "theme": "violet", "accent": "", "density": "comfy", "material": "plane",
     "covers": True, "autoplay": True, "hide_explicit": False, "private": False,
     "yt_stats": True, "remember_volume": True, "volume": 0.8, "prefetch": True,
     "offline_audio": True, "rotur_activity": False, "discord_activity": False,
@@ -487,11 +487,11 @@ def downloads_page():
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>mcmusic downloads</title>
 <style>
-:root{{color-scheme:dark;--ink:#08060D;--violet:#A06BFF;--fg:#F5F1FF;--dim:#B9B0CC}}
-*{{box-sizing:border-box}}body{{margin:0;background:radial-gradient(circle at 20% 0%,#24143d,var(--ink) 55%);color:var(--fg);font:15px/1.5 system-ui,sans-serif;min-height:100vh}}
+:root{{color-scheme:dark;--ink:#171721;--ink2:#222130;--violet:#9F7EFF;--fg:#FFFFFF;--dim:#AAAAB7;--line:#35344B}}
+*{{box-sizing:border-box}}body{{margin:0;background:var(--ink);color:var(--fg);font:15px/1.5 system-ui,sans-serif;min-height:100vh}}
 main{{max-width:760px;margin:auto;padding:40px 18px 64px}}h1{{font-size:34px;margin:0 0 6px}}p{{color:var(--dim)}}
 a{{color:var(--violet)}}ul{{list-style:none;padding:0;display:grid;gap:12px;margin-top:28px}}
-li{{display:flex;gap:16px;align-items:center;justify-content:space-between;background:#ffffff0d;border:1px solid #ffffff1a;border-radius:16px;padding:16px}}
+li{{display:flex;gap:16px;align-items:center;justify-content:space-between;background:#ffffff0d;border:1px solid var(--line);border-radius:10px;padding:16px}}
 small{{display:block;color:var(--dim);font-size:12px}}li p{{margin:4px 0 0;font-size:13px}}
 .download{{flex:none;text-decoration:none;background:var(--violet);color:#08060D;font-weight:700;border-radius:999px;padding:10px 18px}}
 footer{{margin-top:30px;font-size:13px;color:var(--dim)}}

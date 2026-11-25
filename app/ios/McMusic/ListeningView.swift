@@ -4,13 +4,14 @@ import SwiftUI
 /// listener cards without embedding any web content.
 struct ListeningView: View {
     @EnvironmentObject private var app: AppState
+    @Environment(\.mcTokens) private var tokens
     @State private var listeners: [JSON] = []
 
     var body: some View {
         NavigationStack {
             Group {
                 if listeners.isEmpty {
-                    StateView(text: "Nobody is listening right now", systemImage: "antenna.radiowaves.left.and.right")
+                    StateView(text: "Nobody is listening right now", icon: "radio")
                 } else {
                     List(listeners, id: \.id) { listener in
                         NavigationLink(value: Detail.profile(listener["username"]?.string ?? "")) {
@@ -18,7 +19,7 @@ struct ListeningView: View {
                                 AsyncImage(url: URL(string: listener["cover_url"]?.string ?? "")) { image in
                                     image.resizable().scaledToFill()
                                 } placeholder: {
-                                    RoundedRectangle(cornerRadius: 10).fill(Color(hex: "241A38"))
+                                    RoundedRectangle(cornerRadius: 10).fill(tokens.surface2)
                                 }
                                 .frame(width: 44, height: 44)
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
@@ -29,17 +30,16 @@ struct ListeningView: View {
                                     if let track = listener["track"] {
                                         Text("\(track["title"]?.string ?? "Unknown") — \(track["artist"]?.string ?? "")")
                                             .font(.caption)
-                                            .foregroundStyle(.secondary)
+                                            .foregroundStyle(tokens.dim)
                                             .lineLimit(1)
                                     } else {
                                         Text(listener["listening"]?.bool == true ? "Listening" : "Paused")
-                                            .font(.caption).foregroundStyle(.secondary)
+                                            .font(.caption).foregroundStyle(tokens.dim)
                                     }
                                 }
                                 Spacer()
                                 if listener["listening"]?.bool == true {
-                                    Image(systemName: "waveform")
-                                        .foregroundStyle(Theme.violet)
+                                    LucideIcon(name: "audio-lines", size: 18, color: tokens.accent)
                                 }
                             }
                         }

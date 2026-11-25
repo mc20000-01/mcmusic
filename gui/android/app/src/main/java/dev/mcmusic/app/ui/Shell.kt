@@ -88,13 +88,13 @@ private fun TopBar(onAccount: () -> Unit) {
             Modifier.size(34.dp).clip(CircleShape).background(design.accent),
             Alignment.Center,
         ) {
-            Text("m", color = design.palette.bg, fontSize = 18.sp, fontWeight = FontWeight.Black)
+            Text("m", color = design.onAccent, fontSize = 18.sp, fontWeight = FontWeight.Black)
         }
         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Text("mcmusic", color = design.fg, fontSize = 16.sp, fontWeight = FontWeight.Bold)
             Text(
                 Account.status ?: "your room, your rules",
-                color = if (Account.status != null) design.accent else design.dim,
+                color = if (Account.status != null) design.accentText else design.dim,
                 fontSize = 10.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -111,7 +111,7 @@ private fun TopBar(onAccount: () -> Unit) {
         ) {
             Text(
                 if (me != null) "@${me.username}" else "Sign in",
-                color = design.accent,
+                color = design.accentText,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
@@ -170,7 +170,7 @@ private fun MiniPlayer(onOpen: () -> Unit) {
             ) {
                 LucideIcon(
                     if (state.playing) Lucide.Pause else Lucide.Play,
-                    design.palette.bg,
+                    design.onAccent,
                     Modifier.size(15.dp),
                 )
             }
@@ -208,12 +208,12 @@ private fun BottomBar(tab: Tab, onTab: (Tab) -> Unit) {
             ) {
                 LucideIcon(
                     entry.icon,
-                    if (selected) design.accent else design.dim,
+                    if (selected) design.accentText else design.dim,
                     Modifier.size(20.dp),
                 )
                 Text(
                     entry.label,
-                    color = if (selected) design.accent else design.dim,
+                    color = if (selected) design.accentText else design.dim,
                     fontSize = 10.sp,
                     fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
                     maxLines = 1,
