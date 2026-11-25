@@ -126,6 +126,33 @@ fixes, and the old-client parity audit are consolidated here. Anything marked
       `targetSdk 34`, `compileSdk 36`, and signer SHA-256
       `0b0fd0fa35ff712901d42cab215d5e3cb706daef57bffa7ebef61cacda1dc4ce`.
 
+## 4.0.1 icon styles and desktop bundle fix
+
+- [x] Lucide width choices are `1x/1.5x/2x`, with 1x equal to Lucide's native
+      2-unit stroke, 1.5x at 3 units, 2x at 4 units, and the `size/6` ceiling.
+      Web, iOS, Qt and Android use the same formula; filled mode only touches
+      rect/circle primitives where they exist.
+- [x] Commit `7ea4ece` was pushed to `main`, `native-v3-parity` and
+      `native-ios-desktop-ci` without `[skip ci]`. GitHub Actions run
+      `45545773860` completed all six jobs successfully, including the Windows
+      and macOS PyInstaller bundles and the iOS build.
+- [x] The signed 4.0.1 APK is `dev.mcmusic.app`, `versionCode 53`,
+      `versionName 4.0.1`, `minSdk 34`, `targetSdk 34`, `compileSdk 36`, with
+      signer SHA-256
+      `0b0fd0fa35ff712901d42cab215d5e3cb706daef57bffa7ebef61cacda1dc4ce`.
+      It installed over 4.0.0 on API 34.
+- [x] GitHub `latest`, live `/get`, `/api/builds`, and `builds/mcmusic-4.0.1.apk`
+      all serve
+      `sha256:8a8d8e1a1d42afe4073cbd811175868d68cb7a21024715b952ee66d48fc836ff`
+      (29,347,731 bytes).
+- [x] The Windows zip is identical on GitHub, live `/apps/windows`, and
+      `builds/mcmusic-windows-4.0.1.zip` at
+      `sha256:d311ead7c79ebf59ca15864a39e34016dcb7bf28a8b47da841840b75044a4882`.
+      The exe contains `mcmusic_linux.cli`, the shared client modules and
+      `winsdk`, does not bundle `PySide6.QtDBus`, and ships `version.json` at
+      4.0.1.
+- [ ] Packaged Windows GUI/SMTC smoke test on a real Windows machine.
+
 ## UI research
 
 - [x] Research reusable references for web/Android/desktop GUI work and record
