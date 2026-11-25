@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.join(ROOT, "app", "linux"))
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 try:
-    from mcmusic_linux import icons
+    from mcmusic_linux import icons, widgets
 except ImportError as exc:  # system python may not have PySide6
     QT_ERROR = str(exc)
 else:
@@ -60,6 +60,36 @@ class QtIconStyleTests(unittest.TestCase):
         self.assertEqual(icons.icon_style(), (1.5, True))
         self.assertIn('stroke-width="3.0"', icons._build_svg(
             "radio", "#fff", False, icons._viewbox_stroke(1.5, 32), True))
+
+    def test_theme_refresh_ignores_qt_style_callables(self):
+        class FakeWidget:
+            def __init__(self):
+                self.updates = 0
+
+            def update(self):
+                self.updates += 1
+
+        class FakeRoot(FakeWidget):
+            def __init__(self, child):
+                super().__init__()
+                self.child = child
+
+            def findChildren(self, _cls):
+                return [self.child]
+
+        class FakeQtCallable:
+            def __call__(self):
+                raise AssertionError("Qt callable must not be used as a hook")
+
+        child = FakeWidget()
+        child.refresh_theme = FakeQtCallable()
+        root = FakeRoot(child)
+        root.refresh_theme = lambda: None  # declared functions remain valid
+
+        widgets.refresh_theme(root)
+
+        self.assertEqual(root.updates, 1)
+        self.assertEqual(child.updates, 1)
 
 
 if __name__ == "__main__":
