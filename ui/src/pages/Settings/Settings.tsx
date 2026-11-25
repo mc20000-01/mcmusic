@@ -6,7 +6,8 @@ import {
 } from "flufi-ui/components";
 import {
     BookOpen, Check, CircleCheck, CircleDashed, Download, ExternalLink, KeyRound,
-    Link2, LogOut, Mail, RefreshCw, Save, Send, Smartphone, Unlink, WifiOff,
+    Link2, LogOut, Mail, RefreshCw, Save, Send, Settings as SettingsGlyph,
+    Smartphone, Unlink, WifiOff,
 } from "lucide-preact";
 import { API, userFromJson } from "../../common/net/api";
 import { SELFHOST_GUIDE } from "../../common/links";
@@ -17,9 +18,12 @@ import { flushOutbox, pendingWrites } from "../../common/net/api";
 import { PasswordInput } from "../../components/PasswordInput/PasswordInput";
 import {
     applyPrefs, loadPrefs, setAccentPreference, setAutoplayPreference,
-    setPalettePreference, type Settings as Prefs,
+    setIconFilledPreference, setIconStrokePreference, setPalettePreference,
+    type Settings as Prefs,
 } from "../../common/prefs";
-import { PALETTE_FAMILIES, resolvePalette } from "../../common/theme";
+import {
+    DEFAULT_ICON_STROKE, ICON_STROKE_CHOICES, PALETTE_FAMILIES, resolvePalette,
+} from "../../common/theme";
 
 import "./style.css";
 
@@ -137,6 +141,8 @@ export function SettingsPage() {
         // Preview appearance changes before Save; Save mirrors them to the server.
         if (key === "theme") setPalettePreference(String(value));
         if (key === "accent") setAccentPreference(String(value ?? ""));
+        if (key === "iconStroke") setIconStrokePreference(value);
+        if (key === "iconFilled") setIconFilledPreference(value);
         setDirty(true);
         setMessage(null);
     }
@@ -297,6 +303,43 @@ export function SettingsPage() {
                                     );
                                 })}
                             </WrapList>
+
+                            <Text dim content="Icon width scales Lucide outlines. Filled mode fills circles and squares only; paths stay outlined." />
+                            <WrapList min_size={110}>
+                                {ICON_STROKE_CHOICES.map(choice => {
+                                    const selected =
+                                        Number(settings!.iconStroke ?? DEFAULT_ICON_STROKE) === choice;
+                                    return (
+                                        <Button
+                                            key={choice}
+                                            class="icon-choice"
+                                            variant={selected ? "accent-subtle" : "panel"}
+                                            title={`Use ${choice}x Lucide icons`}
+                                            onClick={() => set("iconStroke", choice)}
+                                        >
+                                            <SettingsGlyph
+                                                size={18}
+                                                class="icon-choice-sample"
+                                            />
+                                            <Text content={`${choice}x`} />
+                                            {selected && (
+                                                <Check size={15} class="palette-card-check" />
+                                            )}
+                                        </Button>
+                                    );
+                                })}
+                            </WrapList>
+                            <Button
+                                class="icon-toggle"
+                                variant={settings!.iconFilled ? "accent-subtle" : "panel"}
+                                onClick={() => set("iconFilled", !settings!.iconFilled)}
+                            >
+                                <CircleCheck size={16} />
+                                <Text content="Filled icons" />
+                                {!!settings!.iconFilled && (
+                                    <Check size={15} class="palette-card-check" />
+                                )}
+                            </Button>
                         </Container>
 
                         <Seperator />

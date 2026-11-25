@@ -328,7 +328,7 @@ private fun VideoPlaybackScreen(
                 dev.mcmusic.app.ui.LucideIcon(
                     if (playing) Lucide.Pause else Lucide.Play,
                     design.onAccent,
-                    Modifier.size(20.dp),
+                    size = 20.dp,
                 )
             }
             IconButton(Lucide.SkipForward, size = 20.dp) { player.seekTo(player.currentPosition + 10_000L) }

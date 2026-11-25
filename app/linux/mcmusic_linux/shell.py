@@ -205,7 +205,7 @@ class PlayButton(QAbstractButton):
         box.moveCenter(QRectF(self.rect()).center())
         if icon == "play":
             box.translate(1, 0)
-        draw_icon(p, icon, box, theme.pal().bg, 1.8)
+        draw_icon(p, icon, box, theme.pal().bg)
 
 
 class Rail(QWidget):
@@ -837,7 +837,7 @@ class PickRow(QAbstractButton):
             p.drawPixmap(box.toRect(), scaled)
             p.restore()
         else:
-            draw_icon(p, "disc-3", box.adjusted(8, 8, -8, -8), theme.pal().dim2, 1.5)
+            draw_icon(p, "disc-3", box.adjusted(8, 8, -8, -8), theme.pal().dim2)
         p.setFont(theme.ui(13, QFont.Weight.Medium))
         p.setPen(QPen(theme.pal().q("fg")))
         p.drawText(QRectF(46, 4, self.width() - 56, 20),
@@ -1385,6 +1385,8 @@ class McWindow(QMainWindow):
             Settings.from_json({**self.settings.to_json(),
                                 "theme": self.store.theme,
                                 "accent": self.store.accent,
+                                "iconStroke": self.store.icon_stroke,
+                                "iconFilled": self.store.icon_filled,
                                 "volume": self.store.volume}),
             persist=False,
         )
@@ -1487,6 +1489,8 @@ class McWindow(QMainWindow):
 
     def _load_settings(self) -> None:
         local = Settings(theme=self.store.theme, accent=self.store.accent,
+                         iconStroke=self.store.icon_stroke,
+                         iconFilled=self.store.icon_filled,
                          volume=self.store.volume, room_url=self.store.room_url)
         self.apply_settings(local, persist=False)
         self.run(self.repo.settings, self._settings_loaded, lambda _exc: None)
@@ -1507,6 +1511,7 @@ class McWindow(QMainWindow):
     def apply_settings(self, settings: Settings, persist: bool = True) -> None:
         self.settings = settings
         theme.set_appearance(settings.theme, settings.accent)
+        icons.set_icon_style(settings.iconStroke, settings.iconFilled)
         app = QApplication.instance()
         if app is not None:
             app.setStyleSheet(theme.stylesheet())
@@ -1515,6 +1520,8 @@ class McWindow(QMainWindow):
         widgets.set_density(settings.density)
         self.store.theme = settings.theme
         self.store.accent = settings.accent
+        self.store.icon_stroke = settings.iconStroke
+        self.store.icon_filled = settings.iconFilled
         if settings.remember_volume:
             self.store.volume = settings.volume
             self.player.set_volume(settings.volume)

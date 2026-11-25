@@ -241,7 +241,7 @@ fun PlayerScreen(onBack: () -> Unit, onVideo: (String?, Long) -> Unit = { _, _ -
                     dev.mcmusic.app.ui.LucideIcon(
                         if (state.playing) Lucide.Pause else Lucide.Play,
                         design.onAccent,
-                        Modifier.size(22.dp),
+                        size = 22.dp,
                     )
                 }
                 IconButton(Lucide.SkipForward, size = 26.dp) { Playback.next() }
@@ -276,7 +276,7 @@ fun PlayerScreen(onBack: () -> Unit, onVideo: (String?, Long) -> Unit = { _, _ -
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    LucideIcon(Lucide.Clock, design.dim, Modifier.size(14.dp))
+                    LucideIcon(Lucide.Clock, design.dim, size = 14.dp)
                     Text(
                         when {
                             state.sleepMinutes == 0 -> "Sleep timer off"
@@ -437,7 +437,7 @@ private fun QueueRow(index: Int, item: Track, state: dev.mcmusic.app.playback.Pl
                 LucideIcon(
                     Lucide.Play,
                     design.accentText,
-                    Modifier.size(14.dp),
+                    size = 14.dp,
                     contentDescription = "Now playing",
                 )
             } else {
@@ -459,7 +459,8 @@ private fun QueueRow(index: Int, item: Track, state: dev.mcmusic.app.playback.Pl
         LucideIcon(
             Lucide.GripVertical,
             design.dim,
-            Modifier.size(16.dp).draggable(
+            size = 16.dp,
+            modifier = Modifier.draggable(
                 state = dragState,
                 orientation = Orientation.Vertical,
                 onDragStopped = { dragged = 0f },
@@ -556,7 +557,7 @@ private fun LyricsPanel(trackId: Int) {
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-            LucideIcon(Lucide.ListMusic, design.accentText, Modifier.size(15.dp))
+            LucideIcon(Lucide.ListMusic, design.accentText, size = 15.dp)
             Text("Lyrics", color = design.fg, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             Box(Modifier.weight(1f))
             Muted(kind, size = 11)
@@ -621,7 +622,7 @@ private fun NowLyric(trackId: Int, onOpen: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        LucideIcon(Lucide.ListMusic, design.accentText, Modifier.size(14.dp))
+        LucideIcon(Lucide.ListMusic, design.accentText, size = 14.dp)
         Text(
             current,
             color = design.accentText,

@@ -27,7 +27,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SwipeToDismissBox
@@ -49,7 +48,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -160,7 +158,7 @@ fun IconButton(
         modifier = modifier.size(44.dp).clip(CircleShape).clickable { onClick() },
         contentAlignment = Alignment.Center,
     ) {
-        LucideIcon(icon, tint ?: design.dim, Modifier.size(size))
+        LucideIcon(icon, tint ?: design.dim, size = size)
     }
 }
 
@@ -280,7 +278,7 @@ fun EmptyState(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Box(Modifier.size(56.dp).clip(CircleShape).background(design.accentSoft), Alignment.Center) {
-            LucideIcon(icon, design.accentText, Modifier.size(24.dp))
+            LucideIcon(icon, design.accentText, size = 24.dp)
         }
         Text(title, color = design.fg, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
         Text(body, color = design.dim, fontSize = 13.sp, lineHeight = 19.sp, textAlign = TextAlign.Center)
@@ -301,7 +299,7 @@ fun ScreenBack(onBack: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        LucideIcon(Lucide.ChevronLeft, LocalDesign.current.accent, Modifier.size(16.dp))
+        LucideIcon(Lucide.ChevronLeft, LocalDesign.current.accent, size = 16.dp)
         Text("Back", color = LocalDesign.current.fg, fontSize = 13.sp, fontWeight = FontWeight.Medium)
     }
 }
@@ -317,7 +315,7 @@ fun TrackCover(track: Track, size: Dp = 44.dp, radius: Dp = 6.dp) {
             Modifier.size(size).clip(RoundedCornerShape(radius)).background(design.accentSoft),
             Alignment.Center,
         ) {
-            LucideIcon(Lucide.ListMusic, design.accentText, Modifier.size(size / 2))
+            LucideIcon(Lucide.ListMusic, design.accentText, size = size / 2)
         }
         return
     }
@@ -417,19 +415,21 @@ fun TrackRow(
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 if (menu) {
-                    Icon(
-                        painterResource(Lucide.Heart),
+                    LucideIcon(
+                        Lucide.Heart,
+                        if (track.liked) design.palette.error else design.accentText,
+                        size = 24.dp,
                         contentDescription = if (track.liked) "Unlike" else "Like",
-                        tint = if (track.liked) design.palette.error else design.accentText,
                     )
                 } else {
                     Box(Modifier.weight(1f))
                 }
                 if (menu && Account.isAdmin) {
-                    Icon(
-                        painterResource(Lucide.Trash),
+                    LucideIcon(
+                        Lucide.Trash,
+                        design.palette.error,
+                        size = 24.dp,
                         contentDescription = "Remove track",
-                        tint = design.palette.error,
                     )
                 }
             }
@@ -531,7 +531,7 @@ fun TrackActionsMenu(
         DropdownMenu(expanded, onDismissRequest = { onExpandedChange(false) }) {
             DropdownMenuItem(
                 text = { Text(if (track.liked) "Unlike" else "Like", fontSize = 13.sp) },
-                leadingIcon = { LucideIcon(Lucide.Heart, LocalDesign.current.accent, Modifier.size(16.dp)) },
+                leadingIcon = { LucideIcon(Lucide.Heart, LocalDesign.current.accent, size = 16.dp) },
                 onClick = {
                     onExpandedChange(false)
                     scope.launch {
@@ -553,12 +553,12 @@ fun TrackActionsMenu(
             )
             DropdownMenuItem(
                 text = { Text("Add to playlist", fontSize = 13.sp) },
-                leadingIcon = { LucideIcon(Lucide.ListPlus, design.accentText, Modifier.size(16.dp)) },
+                leadingIcon = { LucideIcon(Lucide.ListPlus, design.accentText, size = 16.dp) },
                 onClick = { onExpandedChange(false); picker = true },
             )
             DropdownMenuItem(
                 text = { Text("Start radio", fontSize = 13.sp) },
-                leadingIcon = { LucideIcon(Lucide.Radio, design.accentText, Modifier.size(16.dp)) },
+                leadingIcon = { LucideIcon(Lucide.Radio, design.accentText, size = 16.dp) },
                 onClick = {
                     onExpandedChange(false)
                     scope.launch {
@@ -588,19 +588,19 @@ fun TrackActionsMenu(
             onOpenArtist?.let { openArtist ->
                 DropdownMenuItem(
                     text = { Text("Go to artist", fontSize = 13.sp) },
-                    leadingIcon = { LucideIcon(Lucide.User, design.accentText, Modifier.size(16.dp)) },
+                    leadingIcon = { LucideIcon(Lucide.User, design.accentText, size = 16.dp) },
                     onClick = { onExpandedChange(false); openArtist(track.artist) },
                 )
             }
             DropdownMenuItem(
                 text = { Text("Track info", fontSize = 13.sp) },
-                leadingIcon = { LucideIcon(Lucide.Info, design.accentText, Modifier.size(16.dp)) },
+                leadingIcon = { LucideIcon(Lucide.Info, design.accentText, size = 16.dp) },
                 onClick = { onExpandedChange(false); showInfo = true },
             )
             if (Account.isAdmin) {
                 DropdownMenuItem(
                     text = { Text("Remove from mcmusic", color = design.palette.error, fontSize = 13.sp) },
-                    leadingIcon = { LucideIcon(Lucide.Trash, design.palette.error, Modifier.size(16.dp)) },
+                    leadingIcon = { LucideIcon(Lucide.Trash, design.palette.error, size = 16.dp) },
                     onClick = { onExpandedChange(false); onRemove() },
                 )
             }
@@ -640,7 +640,7 @@ fun TrackActionsMenu(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            LucideIcon(Lucide.ListMusic, LocalDesign.current.accent, Modifier.size(16.dp))
+                            LucideIcon(Lucide.ListMusic, LocalDesign.current.accent, size = 16.dp)
                             Text(playlist.name, color = LocalDesign.current.fg, fontSize = 13.sp)
                         }
                     }
@@ -748,7 +748,7 @@ fun SettingRow(
                     .background(if (danger) design.palette.error.copy(alpha = 0.12f) else design.accentSoft),
                 Alignment.Center,
             ) {
-                LucideIcon(icon, if (danger) design.palette.error else design.accentText, Modifier.size(14.dp))
+                LucideIcon(icon, if (danger) design.palette.error else design.accentText, size = 14.dp)
             }
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {

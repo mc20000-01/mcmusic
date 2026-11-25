@@ -121,7 +121,7 @@ class Txt(QLabel):
 
 class Glyph(QWidget):
     def __init__(self, name: str, size: int = 16, token: str = "dim",
-                 fill: bool = False, stroke: float = 1.8, parent=None):
+                 fill: bool = False, stroke: float | None = None, parent=None):
         super().__init__(parent)
         self._name = name
         self._token = token
@@ -183,7 +183,7 @@ class IconButton(QAbstractButton):
         side = min(self.width(), self.height()) * (self._icon_size / max(1, self.width()))
         rect = QRectF(0, 0, side, side)
         rect.moveCenter(QRectF(self.rect()).center())
-        draw_icon(p, self._name, rect, color, 1.8, self._fill)
+        draw_icon(p, self._name, rect, color, fill=self._fill)
 
     def enterEvent(self, event) -> None:
         self.update()
@@ -264,7 +264,7 @@ class McButton(QAbstractButton):
         x = rect.center().x() - total / 2
         if self._symbol:
             icon_rect = QRectF(x, rect.center().y() - 7, 14, 14)
-            draw_icon(p, self._symbol, icon_rect, fg, 1.8)
+            draw_icon(p, self._symbol, icon_rect, fg)
             x += icon_w + 7
         p.setFont(self._font)
         p.setPen(QPen(fg))
@@ -310,7 +310,7 @@ class NavButton(QAbstractButton):
             p.setBrush(C("accent"))
             p.drawRect(QRectF(0, 7, 2, self.height() - 14))
         draw_icon(p, self._icon, QRectF(12, (self.height() - 16) / 2, 16, 16),
-                  C("accent" if self._active else "dim"), 1.8)
+                  C("accent" if self._active else "dim"))
         p.setFont(self._font)
         p.setPen(QPen(C("fg" if self._active else "dim")))
         p.drawText(QRectF(38, 0, self.width() - 42, self.height()),
@@ -451,7 +451,7 @@ class Artwork(QWidget):
             box = QRectF(0, 0, side, side)
             box.moveCenter(rect.center())
             p.setOpacity(0.5)
-            draw_icon(p, icon, box, C("dim2"), 1.6)
+            draw_icon(p, icon, box, C("dim2"))
         p.restore()
         p.setBrush(Qt.BrushStyle.NoBrush)
         p.setPen(QPen(C("line"), 1))
@@ -652,11 +652,11 @@ class TrackList(QWidget):
                 box = QRectF(0, 0, 15, 15)
                 box.moveCenter(heart.center())
                 color = C("accent" if track.liked else ("fg" if hovered else "dim"))
-                draw_icon(p, "heart", box, color, 1.7, fill=track.liked)
+                draw_icon(p, "heart", box, color, fill=track.liked)
             more = m["more"]
             box = QRectF(0, 0, 15, 15)
             box.moveCenter(more.center())
-            draw_icon(p, "more-vertical", box, C("fg" if hovered else "dim"), 1.8)
+            draw_icon(p, "more-vertical", box, C("fg" if hovered else "dim"))
 
     def _paint_cover(self, p: QPainter, track: Track, rect: QRectF) -> None:
         path = QPainterPath()
@@ -680,7 +680,7 @@ class TrackList(QWidget):
             box = QRectF(0, 0, rect.width() * 0.5, rect.height() * 0.5)
             box.moveCenter(rect.center())
             p.setOpacity(0.45)
-            draw_icon(p, "disc-3", box, C("dim2"), 1.5)
+            draw_icon(p, "disc-3", box, C("dim2"))
         p.restore()
         p.setBrush(Qt.BrushStyle.NoBrush)
         p.setPen(QPen(C("line"), 1))
@@ -814,7 +814,7 @@ class Tile(QAbstractButton):
             box = QRectF(0, 0, art.width() * 0.36, art.height() * 0.36)
             box.moveCenter(art.center())
             p.setOpacity(0.45)
-            draw_icon(p, icon, box, C("dim2"), 1.6)
+            draw_icon(p, icon, box, C("dim2"))
         p.restore()
         p.setBrush(Qt.BrushStyle.NoBrush)
         p.setPen(QPen(C("line"), 1))
@@ -827,7 +827,7 @@ class Tile(QAbstractButton):
             p.drawEllipse(play)
             box = QRectF(0, 0, 14, 14)
             box.moveCenter(play.center())
-            draw_icon(p, "play", box, C("accent_fg"), 1.8)
+            draw_icon(p, "play", box, C("accent_fg"))
 
         font_title = theme.ui(13, QFont.Weight.Medium)
         font_sub = theme.mono(10, spacing=0.2)
@@ -1360,7 +1360,7 @@ class VolumeControl(QWidget):
         if not self._muted and self._level > 0.01:
             icon = "volume-1" if self._level < 0.5 else "volume-2"
         draw_icon(p, icon, QRectF(1, (self.height() - 17) / 2, 17, 17),
-                  C("dim" if not self._hover else "fg"), 1.7)
+                  C("dim" if not self._hover else "fg"))
         groove = self._groove()
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(C("line"))

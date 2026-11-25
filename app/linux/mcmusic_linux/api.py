@@ -10,6 +10,7 @@ import json
 import os
 import platform
 import re
+import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -37,6 +38,7 @@ from .models import (
     Settings,
     Track,
 )
+from .paths import audio_cache_dir, settings_file
 from .version import USER_AGENT, VERSION
 
 DEFAULT_SERVER = "http://127.0.0.1:8000"
@@ -152,7 +154,16 @@ class SessionStore:
     """QSettings-backed session cookie + local preferences."""
 
     def __init__(self) -> None:
-        self._s = QSettings("mcmusic", "mcmusic-desktop")
+        if sys.platform == "win32":
+            # The Windows bundle keeps its settings beside the other per-user
+            # app data instead of the registry, so roaming/profile cleanup and
+            # the documented %APPDATA% location actually agree.
+            path = settings_file()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            self._s = QSettings(str(path), QSettings.IniFormat)
+        else:
+            # Preserve the existing native QSettings location on Linux/macOS.
+            self._s = QSettings("mcmusic", "mcmusic-desktop")
 
     # base url -------------------------------------------------------------
     @property
@@ -271,7 +282,7 @@ class SessionStore:
     def cache_stats(self) -> tuple[int, int]:
         cache = self._json_value("http_cache", {})
         files = 0
-        root = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "mcmusic" / "audio"
+        root = audio_cache_dir()
         if root.is_dir():
             files = sum(1 for p in root.iterdir() if p.is_file() and p.suffix != ".part")
         return len(cache), files
@@ -282,7 +293,7 @@ class SessionStore:
             removed += len(self._json_value("http_cache", {}))
             self._s.remove("http_cache")
         if audio:
-            root = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "mcmusic" / "audio"
+            root = audio_cache_dir()
             if root.is_dir():
                 for p in root.iterdir():
                     if p.is_file():
@@ -296,7 +307,7 @@ class SessionStore:
 
     def cache_prune(self, max_age_days: int = 30, max_bytes: int = 2 * 1024**3) -> int:
         """Drop old audio files until the cache is under *max_bytes*."""
-        root = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "mcmusic" / "audio"
+        root = audio_cache_dir()
         if not root.is_dir():
             return 0
         files = [p for p in root.iterdir() if p.is_file()]
@@ -393,6 +404,30 @@ class SessionStore:
     @accent.setter
     def accent(self, value: str) -> None:
         self._s.setValue("accent", value)
+
+    @staticmethod
+    def _icon_stroke(value) -> float:
+        try:
+            scale = float(value)
+        except (TypeError, ValueError):
+            return 1.0
+        return min((1.0, 1.5, 2.0), key=lambda choice: abs(choice - scale))
+
+    @property
+    def icon_stroke(self) -> float:
+        return self._icon_stroke(self._s.value("iconStroke", 1.0))
+
+    @icon_stroke.setter
+    def icon_stroke(self, value: float) -> None:
+        self._s.setValue("iconStroke", self._icon_stroke(value))
+
+    @property
+    def icon_filled(self) -> bool:
+        return bool(self._s.value("iconFilled", False))
+
+    @icon_filled.setter
+    def icon_filled(self, value: bool) -> None:
+        self._s.setValue("iconFilled", bool(value))
 
     @property
     def volume(self) -> float:

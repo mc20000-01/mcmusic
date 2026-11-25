@@ -44,6 +44,7 @@ from .models import (
     fmt_time,
     fmt_uptime,
 )
+from .paths import settings_file, tui_cache_dir, tui_config_file
 
 VERSION = "1.0.0"
 DEFAULT_SERVER = "http://127.0.0.1:8000"
@@ -81,13 +82,11 @@ HINTS = ("1-9 views · / search · Enter play · space pause · n/p skip · "
 
 
 def config_path() -> Path:
-    root = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
-    return root / "mcmusic" / "tui.json"
+    return tui_config_file()
 
 
 def cache_path() -> Path:
-    root = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
-    path = root / "mcmusic" / "tui-audio"
+    path = tui_cache_dir()
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -106,7 +105,7 @@ def normalize(raw: str, fallback: str = DEFAULT_SERVER) -> str:
 
 def gui_base_url() -> str:
     """Best-effort read of the Qt client's saved server, so both agree."""
-    conf = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "mcmusic" / "mcmusic-desktop.conf"
+    conf = settings_file()
     try:
         text = conf.read_text("utf-8", "replace")
     except OSError:

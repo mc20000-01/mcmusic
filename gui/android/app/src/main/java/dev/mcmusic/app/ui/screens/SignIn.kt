@@ -244,7 +244,7 @@ fun SignInScreen() {
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Text("Sign in", color = design.onAccent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                            LucideIcon(Lucide.ChevronRight, design.onAccent, Modifier.size(16.dp))
+                            LucideIcon(Lucide.ChevronRight, design.onAccent, size = 16.dp)
                         }
                     }
                 }
@@ -273,7 +273,7 @@ fun SignInScreen() {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        LucideIcon(Lucide.User, design.accentText, Modifier.size(16.dp))
+                        LucideIcon(Lucide.User, design.accentText, size = 16.dp)
                         Text("Continue with Rotur", color = design.fg, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                     }
                 }
@@ -295,14 +295,14 @@ fun SignInScreen() {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    LucideIcon(Lucide.Server, design.dim, Modifier.size(15.dp))
+                    LucideIcon(Lucide.Server, design.dim, size = 15.dp)
                     Text(
                         "Server: ${Prefs.server.removePrefix("https://").removePrefix("http://")}",
                         color = design.dim,
                         fontSize = 11.sp,
                         modifier = Modifier.weight(1f),
                     )
-                    LucideIcon(Lucide.ChevronRight, design.dim, Modifier.size(14.dp))
+                    LucideIcon(Lucide.ChevronRight, design.dim, size = 14.dp)
                 }
                 if (showServer) {
                     AuthField(
@@ -347,7 +347,7 @@ fun SignInScreen() {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(7.dp),
             ) {
-                LucideIcon(Lucide.Info, design.accentText, Modifier.size(14.dp))
+                LucideIcon(Lucide.Info, design.accentText, size = 14.dp)
                 Column {
                     Text("Self-hosting guide", color = design.accentText, fontSize = 11.sp, fontWeight = FontWeight.Medium)
                     Text(
@@ -381,7 +381,7 @@ private fun AuthField(
         shape = RoundedCornerShape(design.tileRadius),
         textStyle = TextStyle(color = design.fg, fontSize = 14.sp),
         visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
-        leadingIcon = { LucideIcon(icon, design.dim, Modifier.size(17.dp)) },
+        leadingIcon = { LucideIcon(icon, design.dim, size = 17.dp) },
         keyboardOptions = KeyboardOptions(
             imeAction = imeAction,
             keyboardType = if (password) KeyboardType.Password else KeyboardType.Uri,
@@ -415,7 +415,7 @@ private fun FeatureChip(icon: Int, label: String) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        LucideIcon(icon, design.accentText, Modifier.size(14.dp))
+        LucideIcon(icon, design.accentText, size = 14.dp)
         Text(label, color = design.dim, fontSize = 11.sp, fontWeight = FontWeight.Medium)
     }
 }

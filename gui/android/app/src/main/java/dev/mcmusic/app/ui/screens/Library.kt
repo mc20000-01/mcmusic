@@ -140,13 +140,13 @@ fun LibraryScreen(onOpenPlaylists: () -> Unit, onOpenLikes: () -> Unit, onOpenPl
                     Modifier.size(34.dp).clip(CircleShape).background(design.accentSoft),
                     Alignment.Center,
                 ) {
-                    LucideIcon(Lucide.Heart, design.accentText, Modifier.size(16.dp))
+                    LucideIcon(Lucide.Heart, design.accentText, size = 16.dp)
                 }
                 Column(Modifier.weight(1f)) {
                     Text("Liked songs", color = design.fg, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                     Text("Your favourites, newest first · play them all", color = design.dim, fontSize = 11.sp)
                 }
-                LucideIcon(Lucide.ChevronRight, design.dim, Modifier.size(16.dp))
+                LucideIcon(Lucide.ChevronRight, design.dim, size = 16.dp)
             }
         }
 

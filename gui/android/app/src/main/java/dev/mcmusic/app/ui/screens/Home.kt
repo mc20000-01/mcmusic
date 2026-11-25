@@ -275,7 +275,7 @@ private fun TrackCard(track: Track, onPlay: () -> Unit) {
                     .background(design.accent),
                 Alignment.Center,
             ) {
-                dev.mcmusic.app.ui.LucideIcon(Lucide.Play, design.onAccent, Modifier.size(11.dp))
+                dev.mcmusic.app.ui.LucideIcon(Lucide.Play, design.onAccent, size = 11.dp)
             }
         }
         Text(track.title, color = design.fg, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)

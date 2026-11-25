@@ -38,7 +38,22 @@ apps\windows\mainbuild.zip      # published for /api/builds unless -NoPublish
 
 The script creates `.venv-windows`, installs `app\linux` in editable mode plus
 PyInstaller and Pillow (to turn `web\icon-512.png` into a multi-size `.ico`),
-then bundles the shared package with `--collect-data`.
+then bundles the shared package. The PyInstaller step is explicit about the
+shared client so an editable install cannot leave `mcmusic_linux.cli` out of
+the frozen app:
+
+```powershell
+python -m PyInstaller --noconfirm --clean --windowed `
+  --name mcmusic --icon build\mcmusic.ico `
+  --paths ..\linux `
+  --hidden-import mcmusic_linux.cli `
+  --collect-submodules mcmusic_linux --collect-data mcmusic_linux `
+  --hidden-import winsdk.windows.media launcher.py
+```
+
+Settings live in `%APPDATA%\mcmusic\mcmusic-desktop.ini` and cached audio in
+`%LOCALAPPDATA%\mcmusic\audio`. MPRIS is not imported on Windows; SMTC is
+provided by the same `MediaBridge` the macOS build uses.
 
 Useful switches:
 

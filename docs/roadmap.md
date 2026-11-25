@@ -37,9 +37,9 @@ that produce `mcmusic.app` and an optional `.dmg`.
 `app/windows/` holds the launcher and a `build.ps1` that produces
 `dist\mcmusic\mcmusic.exe` (plus an optional zip):
 
-- `pyinstaller --windowed --name mcmusic --collect-data mcmusic_linux launcher.py`
+- `python -m PyInstaller --noconfirm --clean --windowed --name mcmusic --icon build\mcmusic.ico --paths app\linux --hidden-import mcmusic_linux.cli --collect-submodules mcmusic_linux --collect-data mcmusic_linux --hidden-import winsdk.windows.media launcher.py`
 - Icon is generated from `web/icon-512.png` into a multi-size `.ico`.
-- Swap MPRIS for the Windows media transport controls (SMTC) later.
+- MPRIS is skipped on Windows; the shared `MediaBridge` supplies SMTC instead.
 - Audio currently goes through QtMultimedia; verify the WASAPI backend.
 
 **Effort:** an afternoon once a Windows machine is available.

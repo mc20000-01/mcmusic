@@ -35,6 +35,7 @@ import dev.mcmusic.app.BuildConfig
 import dev.mcmusic.app.data.Account
 import dev.mcmusic.app.data.Api
 import dev.mcmusic.app.data.AppUpdate
+import dev.mcmusic.app.data.IconStroke
 import dev.mcmusic.app.data.SELFHOST_GUIDE_URL
 import dev.mcmusic.app.data.Downloads
 import dev.mcmusic.app.data.LinkEvents
@@ -75,6 +76,7 @@ fun SettingsScreen(onAdmin: () -> Unit, onSignedOut: () -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
     var palettePicker by remember { mutableStateOf(false) }
+    var iconStrokePicker by remember { mutableStateOf(false) }
 
     var server by remember { mutableStateOf(Prefs.server) }
     var email by remember { mutableStateOf("") }
@@ -318,6 +320,14 @@ fun SettingsScreen(onAdmin: () -> Unit, onSignedOut: () -> Unit) {
                 )
                 SettingDivider()
                 SettingRow(
+                    "Icon width",
+                    "Lucide outline thickness; filled icons are not available",
+                    icon = Lucide.Pencil,
+                    value = Prefs.iconStroke.label,
+                    onClick = { iconStrokePicker = true },
+                )
+                SettingDivider()
+                SettingRow(
                     "Design language",
                     "One shared layout in this build",
                     icon = Lucide.Compass,
@@ -375,6 +385,28 @@ fun SettingsScreen(onAdmin: () -> Unit, onSignedOut: () -> Unit) {
                         }
                     },
                     confirmButton = { TextButton(onClick = { palettePicker = false }) { Text("Done") } },
+                )
+            }
+            if (iconStrokePicker) {
+                AlertDialog(
+                    onDismissRequest = { iconStrokePicker = false },
+                    title = { Text("Icon width") },
+                    text = {
+                        Column {
+                            IconStroke.choices.forEach { option ->
+                                TextButton(onClick = {
+                                    Prefs.saveIconStroke(option)
+                                    iconStrokePicker = false
+                                }) {
+                                    Text(
+                                        if (Prefs.iconStroke == option) "${option.label} (selected)"
+                                        else option.label
+                                    )
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = { TextButton(onClick = { iconStrokePicker = false }) { Text("Done") } },
                 )
             }
         }

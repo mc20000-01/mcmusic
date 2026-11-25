@@ -170,7 +170,7 @@ fun SearchScreen(onPlaylist: (Int) -> Unit, onOpenPlayer: () -> Unit) {
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
-                    dev.mcmusic.app.ui.LucideIcon(Lucide.User, design.dim, Modifier.size(16.dp))
+                    dev.mcmusic.app.ui.LucideIcon(Lucide.User, design.dim, size = 16.dp)
                 }
             }
         }

@@ -19,6 +19,7 @@ from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 
 from .api import Api, Repo, SessionStore
 from .models import Settings, Track
+from .paths import audio_cache_dir
 
 EXT_BY_TYPE = {
     "audio/mpeg": ".mp3",
@@ -37,8 +38,7 @@ EXT_BY_TYPE = {
 
 
 def cache_dir() -> Path:
-    root = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
-    path = root / "mcmusic" / "audio"
+    path = audio_cache_dir()
     path.mkdir(parents=True, exist_ok=True)
     return path
 

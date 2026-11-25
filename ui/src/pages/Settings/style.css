@@ -29,6 +29,16 @@
     color: var(--accent);
 }
 
+/* Icon width sample buttons and the filled-icons card reuse palette styling. */
+.icon-choice,
+.icon-toggle {
+    width: 100%;
+}
+
+.icon-choice-sample {
+    color: var(--accent);
+}
+
 .status-actions {
     gap: 8px;
 }
