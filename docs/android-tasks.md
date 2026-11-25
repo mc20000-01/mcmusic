@@ -118,9 +118,23 @@ release verification.
       tokens and every icon comes from a shared Lucide path registry.
 - [x] **Version:** APK bumped to `3.3.9`, code `51`, with the same package,
       signing identity and SDK levels.
+- [x] **Release verification:** CI run `45523137833` was green; the signed APK
+      was verified against the original signer and installed over 3.3.8 on API 34.
+- [x] **Delivery verification:** GitHub `latest` and live `/get` served
+      `sha256:6a83502b6eda906825c3b5220162cbfea38538973581ba10f1fdf3a6dab081b2`
+      (29,331,347 bytes). This was the interim Material/Lucide build; the client
+      version line was then unified at 4.0.0.
+
+## 4.0.0 unified version round
+
+- [x] **Version:** web, Android, iOS, macOS, Windows and Linux all report
+      `4.0.0`; Android code `52` and iOS build `52`, with the same signer and
+      SDK levels.
+- [x] **Cache:** the web shell cache and server shell generation were bumped so
+      clients fetch the new bundle instead of the 3.3.9 shell.
 - [ ] **Release verification:** wait for GitHub Actions `Release builds` to go
-      green and confirm the signed APK installs over 3.3.8 on API 34.
-- [ ] **Delivery verification:** record the published 3.3.9 SHA-256 here, and
+      green and confirm the signed APK installs over 3.3.9 on API 34.
+- [ ] **Delivery verification:** record the published 4.0.0 SHA-256 here and
       verify GitHub `latest` and live `/get` serve those exact bytes.
 
 ## Verification commands

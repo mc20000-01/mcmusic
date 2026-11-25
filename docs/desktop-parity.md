@@ -183,11 +183,12 @@ No files were changed by the audit itself.
 - **Do:** Poll `/api/builds`, surface “download available”; for packaged builds,
   optionally download installer and launch it with explicit user consent.
 
-### 6.3 Version metadata is inconsistent
-- **Status:** `pyproject.toml` is `2.6.0`, `Api.VERSION` is `1.0.0`, macOS
-  `build.sh` defaults `VERSION=1.1`, Windows `build.ps1` defaults `"1.1"`.
-- **Do:** Generate one version module or read installed package metadata; use it
-  everywhere and in Settings/About.
+### 6.3 Version metadata is inconsistent — resolved
+- **Status:** `app/linux/mcmusic_linux/version.py` is the single source for the
+  shared desktop client, read by `pyproject.toml`, macOS `build.sh`, Windows
+  `build.ps1` and `build_deb.sh`. All clients now report `4.0.0`.
+- **Do:** Keep the shared version in step with Android and iOS marketing
+  versions; Settings/About reads it through `VERSION`.
 
 ## 7. Notifications, MPRIS, media keys
 

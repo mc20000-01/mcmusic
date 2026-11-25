@@ -44,8 +44,8 @@ targets:
       base:
         PRODUCT_NAME: McMusic
         PRODUCT_BUNDLE_IDENTIFIER: dev.mcmusic.ios
-        MARKETING_VERSION: "2.6.0"
-        CURRENT_PROJECT_VERSION: "1"
+        MARKETING_VERSION: "4.0.0"
+        CURRENT_PROJECT_VERSION: "52"
         SWIFT_VERSION: "5.10"
         TARGETED_DEVICE_FAMILY: "1,2"
         ENABLE_PREVIEWS: YES
