@@ -136,6 +136,9 @@ fixes, and the old-client parity audit are consolidated here. Anything marked
       `native-ios-desktop-ci` without `[skip ci]`. GitHub Actions run
       `45545773860` completed all six jobs successfully, including the Windows
       and macOS PyInstaller bundles and the iOS build.
+- [x] The soft, layered Material 3 + Lucide polish was pushed to all three
+      branches without `[skip ci]`; GitHub Actions run `45556919521` completed
+      all five jobs successfully and rebuilt the rolling release.
 - [x] The signed 4.0.1 APK is `dev.mcmusic.app`, `versionCode 53`,
       `versionName 4.0.1`, `minSdk 34`, `targetSdk 34`, `compileSdk 36`, with
       signer SHA-256
@@ -143,11 +146,11 @@ fixes, and the old-client parity audit are consolidated here. Anything marked
       It installed over 4.0.0 on API 34.
 - [x] GitHub `latest`, live `/get`, `/api/builds`, and `builds/mcmusic-4.0.1.apk`
       all serve
-      `sha256:8a8d8e1a1d42afe4073cbd811175868d68cb7a21024715b952ee66d48fc836ff`
-      (29,347,731 bytes).
+      `sha256:190bca660cc3210fab3b7352c2087cc20fbba262b2be7004964a2167997da08e`
+      (29,347,731 bytes), with the expected signer SHA-256.
 - [x] The Windows zip is identical on GitHub, live `/apps/windows`, and
       `builds/mcmusic-windows-4.0.1.zip` at
-      `sha256:d311ead7c79ebf59ca15864a39e34016dcb7bf28a8b47da841840b75044a4882`.
+      `sha256:7edcbf481a065af966473b1639a1ad8b97f68f896962d6adb09048432ec27c0a`.
       The exe contains `mcmusic_linux.cli`, the shared client modules and
       `winsdk`, does not bundle `PySide6.QtDBus`, and ships `version.json` at
       4.0.1.
