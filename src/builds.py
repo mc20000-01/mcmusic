@@ -68,12 +68,14 @@ BUILDS = {
         "dir": os.path.join(APPS, "macos"),
         "pattern": ".zip",
         "latest": "mainbuild.zip",
-        "hint": "Unzip and open mcmusic.app. If Gatekeeper blocks an unsigned "
-                "build, right-click it and choose Open.",
+        "hint": "Free ad-hoc signed build — no paid Apple account needed. "
+                "Unzip, move mcmusic.app to Applications. If macOS says it is "
+                "damaged or from an unidentified developer, run "
+                "xattr -cr /Applications/mcmusic.app, then right-click → Open.",
         "ext": "zip",
         "maintype": "application",
         "subtype": "zip",
-        "note": "Apple silicon or Intel via Rosetta 2.",
+        "note": "Apple silicon or Intel via Rosetta 2. Ad-hoc signed; no Developer ID required.",
     },
     "macos-dmg": {
         "label": "macOS (disk image)",
@@ -81,11 +83,14 @@ BUILDS = {
         "dir": os.path.join(APPS, "macos"),
         "pattern": ".dmg",
         "latest": "mainbuild.dmg",
-        "hint": "Open the image and drag mcmusic.app into Applications.",
+        "hint": "Free ad-hoc signed build — no paid Apple account needed. "
+                "Open the image, drag mcmusic.app to Applications. If macOS "
+                "blocks it, run xattr -cr /Applications/mcmusic.app, then "
+                "right-click → Open.",
         "ext": "dmg",
         "maintype": "application",
         "subtype": "x-apple-diskimage",
-        "note": "Signed and notarized builds when release credentials are set.",
+        "note": "Apple silicon or Intel via Rosetta 2. Ad-hoc signed; notarization is optional.",
     },
     "windows": {
         "label": "Windows",
