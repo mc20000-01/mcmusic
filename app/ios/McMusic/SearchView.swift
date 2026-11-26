@@ -10,18 +10,23 @@ struct SearchView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                HStack {
+                HStack(spacing: M3Shape.sm) {
                     LucideIcon(name: "search", size: 18, color: tokens.dim)
+                        .frame(width: M3Shape.touch, height: M3Shape.touch)
                     TextField("Songs, albums, artists", text: $query)
+                        .font(M3Type.body)
                         .onSubmit { Task { await search() } }
                     if !query.isEmpty {
-                        Button { query = ""; results = nil } label: {
-                            LucideIcon(name: "x-circle", size: 18, color: tokens.dim)
+                        PlayfulIconButton(icon: "x-circle", size: 18,
+                                          tint: tokens.dim, label: "Clear search") {
+                            query = ""
+                            results = nil
                         }
                     }
                 }
-                .padding(10)
-                .background(tokens.surface.opacity(0.6))
+                .padding(.horizontal, M3Shape.md)
+                .frame(minHeight: M3Shape.touch)
+                .background(Capsule().fill(tokens.surfaceContainerLow))
 
                 if searching {
                     ProgressView().frame(maxWidth: .infinity)
@@ -46,7 +51,9 @@ struct SearchView: View {
                                 ForEach(Array(albums.enumerated()), id: \.offset) { _, album in
                                     NavigationLink(value: Detail.album(album["album"]?.string ?? "")) {
                                         HStack {
-                                            CoverView(url: app.client.coverURL(album["cover_id"]), size: 44)
+                                            CoverView(url: app.client.coverURL(album["cover_id"]),
+                                                      seed: album["album"]?.string ?? "Album",
+                                                      size: 44)
                                             VStack(alignment: .leading) {
                                                 Text(album["album"]?.string ?? "Album")
                                                 Text(album["artist"]?.string ?? "")
@@ -67,6 +74,7 @@ struct SearchView: View {
                                         } icon: {
                                             LucideIcon(name: "user", size: 18)
                                         }
+                                        .frame(minHeight: M3Shape.touch)
                                     }
                                 }
                             }

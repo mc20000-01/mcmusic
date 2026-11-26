@@ -429,6 +429,20 @@ class SessionStore:
     def icon_filled(self, value: bool) -> None:
         self._s.setValue("iconFilled", bool(value))
 
+    # Local 4.2.0 motion switch. It lives in QSettings only: server settings
+    # have no `playfulMotion` key and the stored server payload is unchanged.
+    @property
+    def playful_motion(self) -> bool:
+        value = self._s.value("playfulMotion", True)
+        if isinstance(value, str):
+            return value.casefold() in ("1", "true", "yes", "on")
+        return bool(value)
+
+    @playful_motion.setter
+    def playful_motion(self, value: bool) -> None:
+        self._s.setValue("playfulMotion", bool(value))
+        self._s.sync()
+
     @property
     def volume(self) -> float:
         try:

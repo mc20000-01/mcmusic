@@ -24,12 +24,29 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import dev.mcmusic.app.data.Api
+import dev.mcmusic.app.data.Prefs
+import dev.mcmusic.app.ui.design.DynamicColour
+import dev.mcmusic.app.ui.design.LocalDesign
 
 private val cache = LruCache<String, Bitmap>(64)
+
+private val placeholderGlyphs = listOf(
+    Lucide.Circle,
+    Lucide.Squircle,
+    Lucide.Cookie,
+    Lucide.Flower,
+    Lucide.Pentagon,
+)
+
+/** A stable, varied glyph for sleeves with no artwork. Real art is never altered. */
+internal fun coverPlaceholder(key: String): Int =
+    placeholderGlyphs[(key.hashCode().toLong() and 0x7fff_ffffL).mod(placeholderGlyphs.size.toLong()).toInt()]
 
 /**
  * Cover art straight from the public API. A tiny cache plus a request per URL
  * is enough here: covers are 72 px and the API sets a short max-age.
+ *
+ * [dynamic] is only true for the playing cover; other tiles never retint the app.
  */
 @Composable
 fun Cover(
@@ -37,7 +54,9 @@ fun Cover(
     shape: Shape,
     modifier: Modifier = Modifier,
     fallback: Color = Color.White.copy(alpha = 0.06f),
+    dynamic: Boolean = false,
 ) {
+    val design = LocalDesign.current
     var bitmap by remember(url) { mutableStateOf(cache.get(url)) }
 
     LaunchedEffect(url) {
@@ -50,18 +69,30 @@ fun Cover(
         }
     }
 
+    LaunchedEffect(url, bitmap, dynamic, Prefs.dynamicColour, Prefs.showCovers) {
+        // Non-dynamic tiles must never clear a seed that the player owns, even
+        // when they show the same URL in a list.
+        if (!dynamic) return@LaunchedEffect
+        if (!Prefs.dynamicColour || !Prefs.showCovers) {
+            DynamicColour.clearCover(url)
+            return@LaunchedEffect
+        }
+        val art = bitmap
+        if (art != null) DynamicColour.setCover(art, url) else DynamicColour.clearCover(url)
+    }
+
     Box(
         modifier
             .clip(shape)
             .background(fallback)
-            .border(1.dp, Color.White.copy(alpha = 0.06f), shape),
+            .border(1.dp, design.hairline, shape),
     ) {
         if (bitmap == null) {
             BoxWithConstraints(Modifier.fillMaxSize(), Alignment.Center) {
                 LucideIcon(
-                    Lucide.Play,
-                    Color.White.copy(alpha = 0.24f),
-                    size = minOf(maxWidth, maxHeight) * 0.34f,
+                    coverPlaceholder(url),
+                    design.accentText,
+                    size = minOf(maxWidth, maxHeight) * 0.42f,
                 )
             }
         }

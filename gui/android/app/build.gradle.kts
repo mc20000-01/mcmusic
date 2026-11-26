@@ -12,8 +12,8 @@ android {
         applicationId = "dev.mcmusic.app"
         minSdk = 34
         targetSdk = 34
-        versionCode = 54
-        versionName = "4.1.0"
+        versionCode = 55
+        versionName = "4.2.0"
         buildConfigField("String", "DEFAULT_SERVER", "\"https://mcmusic.sdisk.us\"")
     }
 
@@ -80,7 +80,9 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui-tooling-preview")
 
-    implementation("io.github.kyant0:backdrop:1.0.6")
+    // HCT tonal roles for cover- and wallpaper-derived colours. Pinned to the
+    // last release built with the Kotlin version used by this app.
+    implementation("com.materialkolor:material-color-utilities:4.1.1")
 
     val media3 = "1.11.1"
     implementation("androidx.media3:media3-exoplayer:$media3")

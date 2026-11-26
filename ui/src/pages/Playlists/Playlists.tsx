@@ -1,10 +1,11 @@
 import { useEffect, useState } from "preact/hooks";
 import { useSignal } from "@preact/signals";
 import {
-    Container, Content, FormalInput, Header2, Image, Input, LinkButton, Loading, Text, TextIconButton, WrapList
+    Container, Content, FormalInput, Header2, Input, LinkButton, Loading, Text, TextIconButton, WrapList
 } from "flufi-ui/components";
 import { Plus } from "lucide-preact";
 import { API, fallbackCover } from "../../common/net/api";
+import { CoverArt } from "../../components/Library/CoverArt";
 
 type PlaylistRow = { id: number; name: string; n: number; cover_id: number | null };
 
@@ -57,8 +58,10 @@ export function PlaylistsPage() {
                             <WrapList min_size={140}>
                                 {playlists!.map(p => (
                                     <LinkButton variant="always-transparent" class="library-card text" href={`/playlist/${p.id}`}>
-                                        <Image
+                                        <CoverArt
                                             src={p.cover_id ? API.getTrackCoverUrl(String(p.cover_id)) : fallbackCover(p.name, "album")}
+                                            name={p.name}
+                                            kind="album"
                                             size={140}
                                         />
                                         <Text content={p.name} />

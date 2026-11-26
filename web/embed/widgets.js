@@ -4,25 +4,41 @@
   /* Five palette families. Bare family ids (and auto/system) follow the
      visitor's light/dark preference; *-light / *-dark pin one half. Older
      names remain aliases so existing embed tags keep their colours. */
-  const THEMES = {
-    'violet-light': { bg:'#F5F2FF', bg2:'#EDE7FF', surface:'#FFFFFF', surface2:'#F7F4FF', fg:'#08060D', dim:'#473872', dim2:'#6A54AA', line:'#DACDFF', line2:'#CAB8FF', accent:'#9F7EFF' },
-    'violet-dark':  { bg:'#171721', bg2:'#222130', surface:'#2A293C', surface2:'#444361', fg:'#FFFFFF', dim:'#AAAAB7', dim2:'#8B8A9D', line:'#35344B', line2:'#605F78', accent:'#9F7EFF' },
-    'indigo-light': { bg:'#F2F4FF', bg2:'#E8EBFF', surface:'#FFFFFF', surface2:'#F5F6FF', fg:'#08060D', dim:'#3B4172', dim2:'#5761AA', line:'#CFD5FF', line2:'#BAC3FF', accent:'#8293FF' },
-    'indigo-dark':  { bg:'#12171F', bg2:'#1B212D', surface:'#212838', surface2:'#36425B', fg:'#FFFFFF', dim:'#A4A9B5', dim2:'#828999', line:'#2A3346', line2:'#545E73', accent:'#8293FF' },
-    'sky-light':    { bg:'#F1F8FE', bg2:'#E7F3FE', surface:'#FFFFFF', surface2:'#F4F9FE', fg:'#08060D', dim:'#385272', dim2:'#527CA9', line:'#CCE5FE', line2:'#B6DAFE', accent:'#7BBDFE' },
-    'sky-dark':     { bg:'#182127', bg2:'#222F39', surface:'#2A3A46', surface2:'#455F72', fg:'#FFFFFF', dim:'#ABB7BF', dim2:'#8B9BA7', line:'#354A58', line2:'#607787', accent:'#7BBDFE' },
-    'aqua-light':   { bg:'#F1FBFC', bg2:'#E7F9FA', surface:'#FFFFFF', surface2:'#F4FCFD', fg:'#08060D', dim:'#386168', dim2:'#53939A', line:'#CDF3F5', line2:'#B6EDF1', accent:'#7CE0E6' },
-    'aqua-dark':    { bg:'#15241C', bg2:'#1F3328', surface:'#263F32', surface2:'#3E6751', fg:'#FFFFFF', dim:'#A8BAB0', dim2:'#87A093', line:'#30503F', line2:'#5A7D6B', accent:'#7CE0E6' },
-    'mint-light':   { bg:'#F1FFF5', bg2:'#E7FFEE', surface:'#FFFFFF', surface2:'#F4FFF7', fg:'#08060D', dim:'#386E4C', dim2:'#52A76F', line:'#CCFFDC', line2:'#B6FFCC', accent:'#7BFFA4' },
-    'mint-dark':    { bg:'#15241A', bg2:'#1F3425', surface:'#26412E', surface2:'#3E694B', fg:'#FFFFFF', dim:'#A8BBAE', dim2:'#87A28F', line:'#30513A', line2:'#5A7F66', accent:'#7BFFA4' },
-    violet: 'system', indigo: 'system', sky: 'system', aqua: 'system', mint: 'system',
-    auto: 'system', system: 'system',
-    flufi: 'violet-dark', dark: 'violet-dark', dusk: 'violet-dark',
-    paper: 'violet-light', light: 'violet-light',
-    ink: 'indigo-dark', amoled: 'indigo-dark',
-    midnight: 'sky-dark', tide: 'aqua-dark', forest: 'mint-dark',
-    rose: 'violet-dark', copper: 'violet-dark', mocha: 'violet-dark',
+  // BEGIN GENERATED THEMES
+const THEMES = {
+    'violet-light': { bg:'#F5F2FF', bg2:'#EDE7FF', surface:'#FFFFFF', surface2:'#F7F4FF', fg:'#08060D', dim:'#473872', dim2:'#6A54AA', line:'#DACDFF', line2:'#CAB8FF', accent:'#9F7EFF', accentText:'#5B3F9E' },
+    'violet-dark': { bg:'#171721', bg2:'#222130', surface:'#2A293C', surface2:'#444361', fg:'#FFFFFF', dim:'#AAAAB7', dim2:'#8B8A9D', line:'#35344B', line2:'#605F78', accent:'#9F7EFF', accentText:'#C6B2FF' },
+    'indigo-light': { bg:'#F2F4FF', bg2:'#E8EBFF', surface:'#FFFFFF', surface2:'#F5F6FF', fg:'#08060D', dim:'#3B4172', dim2:'#5761AA', line:'#CFD5FF', line2:'#BAC3FF', accent:'#8293FF', accentText:'#4A56A8' },
+    'indigo-dark': { bg:'#12171F', bg2:'#1B212D', surface:'#212838', surface2:'#36425B', fg:'#FFFFFF', dim:'#A4A9B5', dim2:'#828999', line:'#2A3346', line2:'#545E73', accent:'#8293FF', accentText:'#B4BEFF' },
+    'sky-light': { bg:'#F1F8FE', bg2:'#E7F3FE', surface:'#FFFFFF', surface2:'#F4F9FE', fg:'#08060D', dim:'#385272', dim2:'#527CA9', line:'#CCE5FE', line2:'#B6DAFE', accent:'#7BBDFE', accentText:'#235F93' },
+    'sky-dark': { bg:'#182127', bg2:'#222F39', surface:'#2A3A46', surface2:'#455F72', fg:'#FFFFFF', dim:'#ABB7BF', dim2:'#8B9BA7', line:'#354A58', line2:'#607787', accent:'#7BBDFE', accentText:'#A9D5FF' },
+    'aqua-light': { bg:'#F1FBFC', bg2:'#E7F9FA', surface:'#FFFFFF', surface2:'#F4FCFD', fg:'#08060D', dim:'#386168', dim2:'#53939A', line:'#CDF3F5', line2:'#B6EDF1', accent:'#7CE0E6', accentText:'#126F77' },
+    'aqua-dark': { bg:'#15241C', bg2:'#1F3328', surface:'#263F32', surface2:'#3E6751', fg:'#FFFFFF', dim:'#A8BAB0', dim2:'#87A093', line:'#30503F', line2:'#5A7D6B', accent:'#7CE0E6', accentText:'#A6EFF3' },
+    'mint-light': { bg:'#F1FFF5', bg2:'#E7FFEE', surface:'#FFFFFF', surface2:'#F4FFF7', fg:'#08060D', dim:'#386E4C', dim2:'#52A76F', line:'#CCFFDC', line2:'#B6FFCC', accent:'#7BFFA4', accentText:'#216A43' },
+    'mint-dark': { bg:'#15241A', bg2:'#1F3425', surface:'#26412E', surface2:'#3E694B', fg:'#FFFFFF', dim:'#A8BBAE', dim2:'#87A28F', line:'#30513A', line2:'#5A7F66', accent:'#7BFFA4', accentText:'#A9FFC2' },
+    violet: 'system',
+    indigo: 'system',
+    sky: 'system',
+    aqua: 'system',
+    mint: 'system',
+    "": 'system',
+    "auto": 'system',
+    "system": 'system',
+    "flufi": "violet-dark",
+    "dark": "violet-dark",
+    "dusk": "violet-dark",
+    "paper": "violet-light",
+    "light": "violet-light",
+    "ink": "indigo-dark",
+    "amoled": "indigo-dark",
+    "midnight": "sky-dark",
+    "tide": "aqua-dark",
+    "forest": "mint-dark",
+    "rose": "violet-dark",
+    "copper": "violet-dark",
+    "mocha": "violet-dark",
   };
+// END GENERATED THEMES
 
   /* Colour hooks a host page may set on the tag itself; anything declared out
      there (stylesheet or inline style) beats the theme we resolve here. */
@@ -129,14 +145,14 @@
   .sub{font-size:13px;color:var(--_dim);margin:4px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .foot{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-top:12px;padding-top:10px;border-top:1px solid var(--_line);font-size:12px;color:var(--_dim)}
   .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:var(--_radius);border:1px solid var(--_line);background:var(--_bg2)}
-  .dot{width:7px;height:7px;border-radius:50%;background:var(--_accent);box-shadow:0 0 0 3px var(--_soft)}
-  .dot.off{background:var(--_dim);box-shadow:none}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--_accent);border:1px solid var(--_soft)}
+  .dot.off{background:var(--_dim)}
   a{color:var(--_accent-text);text-decoration:none}
   .turn{grid-template-columns:auto 1fr;gap:16px}
   .platter{position:relative;width:96px;height:96px;border-radius:50%;background:var(--_bg2);border:1px solid var(--_line);display:grid;place-items:center}
   .platter::after{content:"";position:absolute;inset:10px;border-radius:50%;border:1px solid var(--_line)}
   .disc{width:64px;height:64px;border-radius:50%;object-fit:cover;border:1px solid var(--_line)}
-  .spindle{position:absolute;width:8px;height:8px;border-radius:50%;background:var(--_accent);box-shadow:0 0 0 2px var(--_bg)}
+  .spindle{position:absolute;width:8px;height:8px;border-radius:50%;background:var(--_accent);border:1px solid var(--_bg)}
   .spin{animation:spin 4.5s linear infinite}
   .paused .spin{animation-play-state:paused}
   @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}

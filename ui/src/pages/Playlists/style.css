@@ -5,3 +5,10 @@
     flex: 1;
     min-width: 0;
 }
+
+.playlists .library-card {
+    padding: 12px;
+    border-radius: var(--radius);
+    background: var(--md-surface-container-low);
+    text-align: center;
+}

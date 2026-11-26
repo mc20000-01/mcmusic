@@ -1,11 +1,13 @@
-"""Custom-painted widgets that carry the mcmusic look natively.
+"""Custom-painted widgets that carry the mcmusic 4.2.0 look natively.
 
-Everything here draws with QPainter from the shared palette tokens: squared
-blocks, hairline rules, mono labels, brass accent. No HTML, no QWebEngine.
+Everything draws with QPainter from the generated palette and authored shape,
+type and motion tokens: flat tonal containers, very round pills and cards,
+Lucide glyphs and short springs. No HTML, no QWebEngine, no effects.
 """
 from __future__ import annotations
 
 import inspect
+import math
 from typing import Callable, Optional, Sequence
 
 from PySide6.QtCore import QPointF, QRect, QRectF, QSize, Qt, QTimer, Signal
@@ -13,7 +15,6 @@ from PySide6.QtGui import (
     QColor,
     QFont,
     QFontMetrics,
-    QLinearGradient,
     QPainter,
     QPainterPath,
     QPen,
@@ -23,7 +24,6 @@ from PySide6.QtWidgets import (
     QAbstractButton,
     QDialog,
     QFrame,
-    QGraphicsDropShadowEffect,
     QGridLayout,
     QHBoxLayout,
     QLabel,
@@ -34,7 +34,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from . import theme
+from . import design, motion, theme
 from .art import ART
 from .icons import draw_icon
 from .models import Track, fmt_time
@@ -85,7 +85,7 @@ def _elide(font: QFont, text: str, width: float) -> str:
 
 
 class Rule(QWidget):
-    def __init__(self, height: int = 1, token: str = "line", parent=None):
+    def __init__(self, height: int = 1, token: str = "outline_variant", parent=None):
         super().__init__(parent)
         self._token = token
         self.setFixedHeight(height)
@@ -96,18 +96,20 @@ class Rule(QWidget):
 
 
 class Txt(QLabel):
-    def __init__(self, text: str = "", *, size: float = 13, token: str = "fg",
+    """Label in the shared M3 type scale, tinted by a generated palette role."""
+
+    def __init__(self, text: str = "", *, size: float = 16, token: str = "on_surface",
                  family: str = "ui", weight: QFont.Weight = QFont.Weight.Normal,
                  spacing: float = 0.0, wrap: bool = False, selectable: bool = False,
                  align: Qt.AlignmentFlag | None = None, parent=None):
         super().__init__(text, parent)
         self._token = token
-        if family == "display":
-            self._font = theme.display(size, weight)
-        elif family == "mono":
-            self._font = theme.mono(size, weight, spacing)
-        else:
-            self._font = theme.ui(size, weight)
+        role = "display" if family == "display" else "body"
+        self._font = design.font(
+            role, size=int(size), weight=int(weight) if int(weight) in (400, 500, 600, 700) else 400
+        )
+        if family == "mono" and spacing:
+            self._font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, spacing)
         self.setFont(self._font)
         self.setWordWrap(wrap)
         if align is not None:
@@ -128,7 +130,7 @@ class Txt(QLabel):
 
 
 class Glyph(QWidget):
-    def __init__(self, name: str, size: int = 16, token: str = "dim",
+    def __init__(self, name: str, size: int = 16, token: str = "on_surface_variant",
                  fill: bool = False, stroke: float | None = None, parent=None):
         super().__init__(parent)
         self._name = name
@@ -150,8 +152,11 @@ class Glyph(QWidget):
 
 
 class IconButton(QAbstractButton):
-    def __init__(self, name: str, *, size: int = 32, icon_size: float = 17,
-                 token: str = "dim", active_token: str = "accent", fill: bool = False,
+    """Lucide button with a 48px hit target and the shared press spring."""
+
+    def __init__(self, name: str, *, size: int = design.Shape.touch,
+                 icon_size: float = 20, token: str = "on_surface_variant",
+                 active_token: str = "primary", fill: bool = False,
                  tooltip: str = "", parent=None):
         super().__init__(parent)
         self._name = name
@@ -160,10 +165,21 @@ class IconButton(QAbstractButton):
         self._active_token = active_token
         self._fill = fill
         self._active = False
+        self._press = 0.0
+        size = max(design.Shape.touch, int(size))
         self.setFixedSize(size, size)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setToolTip(tooltip)
         self.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+        self.pressed.connect(lambda: self._animate_press(1.0))
+        self.released.connect(lambda: self._animate_press(0.0))
+
+    def _animate_press(self, end: float) -> None:
+        motion.tween(self._press, end, self._set_press, self, duration=120)
+
+    def _set_press(self, value) -> None:
+        self._press = max(0.0, min(1.0, float(value)))
+        self.update()
 
     def set_active(self, active: bool) -> None:
         if self._active != active:
@@ -180,18 +196,26 @@ class IconButton(QAbstractButton):
         self.update()
 
     def paintEvent(self, _event) -> None:
+        pal = theme.pal()
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        rect = QRectF(self.rect())
+        scale = 1.0 - (1.0 - motion.PRESS_SCALE) * self._press
+        center = rect.center()
+        p.translate(center)
+        p.scale(scale, scale)
+        p.translate(-center)
         if self.underMouse() or self._active:
             p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(C("accent", 42) if self._active else C("surface"))
-            p.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 14, 14)
-        color = getattr(theme.pal(), self._active_token if self._active else
-                        ("fg" if self.underMouse() else self._token))
-        side = min(self.width(), self.height()) * (self._icon_size / max(1, self.width()))
-        rect = QRectF(0, 0, side, side)
-        rect.moveCenter(QRectF(self.rect()).center())
-        draw_icon(p, self._name, rect, color, fill=self._fill)
+            p.setBrush(pal.q("primary_container" if self._active else "secondary_container"))
+            radius = rect.height() / 2.0
+            p.drawRoundedRect(rect, radius, radius)
+        color = getattr(pal, self._active_token if self._active else
+                        ("on_surface" if self.underMouse() else self._token))
+        side = min(float(self._icon_size), rect.width() - 16)
+        icon_rect = QRectF(0, 0, side, side)
+        icon_rect.moveCenter(center)
+        draw_icon(p, self._name, icon_rect, color, fill=self._fill)
 
     def enterEvent(self, event) -> None:
         self.update()
@@ -203,6 +227,8 @@ class IconButton(QAbstractButton):
 
 
 class McButton(QAbstractButton):
+    """Friendly pill action with a 48px target and flat tonal fills."""
+
     def __init__(self, text: str, *, solid: bool = False, ghost: bool = False,
                  danger: bool = False, small: bool = False, icon: Optional[str] = None,
                  parent=None):
@@ -213,12 +239,22 @@ class McButton(QAbstractButton):
         self._ghost = ghost
         self._danger = danger
         self._small = small
-        self._font = theme.mono(9 if small else 10, QFont.Weight.DemiBold, 1.1)
+        self._font = design.font("label")
+        self._press = 0.0
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFocusPolicy(Qt.FocusPolicy.TabFocus)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        self.setFixedHeight(28 if small else 36)
+        self.setFixedHeight(design.Shape.touch)
         self.setMinimumWidth(self.sizeHint().width())
+        self.pressed.connect(lambda: self._animate_press(1.0))
+        self.released.connect(lambda: self._animate_press(0.0))
+
+    def _animate_press(self, end: float) -> None:
+        motion.tween(self._press, end, self._set_press, self, duration=120)
+
+    def _set_press(self, value) -> None:
+        self._press = max(0.0, min(1.0, float(value)))
+        self.update()
 
     def set_text(self, text: str) -> None:
         self._text = text
@@ -226,63 +262,62 @@ class McButton(QAbstractButton):
         self.update()
 
     def sizeHint(self) -> QSize:
-        label = self._text.upper()
-        width = _fm(self._font, label) + (34 if not self._small else 24)
+        width = _fm(self._font, self._text) + 40
         if self._symbol:
-            width += 20 if not self._small else 17
-        return QSize(max(52, width), 28 if self._small else 36)
+            width += 24
+        return QSize(max(72, width), design.Shape.touch)
 
     def paintEvent(self, _event) -> None:
+        pal = theme.pal()
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         rect = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
-        radius = 14 if self._small else 18
+        scale = 1.0 - (1.0 - motion.PRESS_SCALE) * self._press
+        center = rect.center()
+        p.translate(center)
+        p.scale(scale, scale)
+        p.translate(-center)
+        radius = rect.height() / 2.0
         hover = self.underMouse()
+        transparent = QColor(0, 0, 0, 0)
         if self._solid:
-            bg = C("accent")
+            bg, fg = pal.q("primary"), pal.q("on_primary")
+            border = transparent
             if hover:
-                bg = C("accent").lighter(108)
-            border = bg
-            fg = C("accent_fg")
+                bg = pal.q("primary").lighter(108)
         elif self._ghost:
-            bg = C("surface") if hover else QColor(0, 0, 0, 0)
-            border = QColor(0, 0, 0, 0)
-            fg = C("fg" if hover else "dim")
+            bg = pal.q("secondary_container") if hover else transparent
+            border = transparent
+            fg = pal.q("on_surface")
         elif self._danger:
-            bg = C("err", 30) if hover else QColor(0, 0, 0, 0)
-            border = C("err", 120)
-            fg = C("err")
+            bg = pal.q("error_container")
+            border = transparent
+            fg = pal.q("on_error_container")
         else:
-            bg = C("surface") if hover else QColor(0, 0, 0, 0)
-            border = C("dim2" if hover else "line2")
-            fg = C("fg")
+            bg = pal.q("secondary_container" if hover else "surface_container_high")
+            border = pal.q("outline_variant")
+            fg = pal.q("on_surface")
         if not self.isEnabled():
-            fg = C("dim2")
-            bg = QColor(0, 0, 0, 0) if not self._solid else C("line")
-            border = C("line")
-        # A tonal underlay gives the button a soft second layer on every palette.
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(C("accent" if self._solid else "line2", 34))
-        p.drawRoundedRect(rect.translated(0, 2), radius, radius)
+            fg = pal.q("on_surface_variant")
+            bg = transparent
+            border = pal.q("outline_variant")
         p.setPen(QPen(border, 1))
         p.setBrush(bg)
         p.drawRoundedRect(rect, radius, radius)
 
-        label = self._text.upper()
-        icon_w = 0
+        icon_w = 20 if self._symbol else 0
+        text_w = _fm(self._font, self._text)
+        total = text_w + (icon_w + 8 if self._symbol else 0)
+        x = center.x() - total / 2
         if self._symbol:
-            icon_w = 15
-        text_w = _fm(self._font, label)
-        total = text_w + (icon_w + 7 if self._symbol else 0)
-        x = rect.center().x() - total / 2
-        if self._symbol:
-            icon_rect = QRectF(x, rect.center().y() - 7, 14, 14)
+            icon_rect = QRectF(x, center.y() - 10, 20, 20)
             draw_icon(p, self._symbol, icon_rect, fg)
-            x += icon_w + 7
+            x += icon_w + 8
         p.setFont(self._font)
         p.setPen(QPen(fg))
         p.drawText(QRectF(x, rect.top(), text_w + 4, rect.height()),
-                   int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter), label)
+                   int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
+                   self._text)
 
     def enterEvent(self, event) -> None:
         self.update()
@@ -299,10 +334,10 @@ class NavButton(QAbstractButton):
         self._text = text
         self._icon = icon
         self._active = False
-        self.setFixedHeight(36)
+        self.setFixedHeight(design.Shape.touch)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self._font = theme.ui(13, QFont.Weight.Medium)
+        self._font = design.font("label")
         self.setFont(self._font)
 
     def set_active(self, active: bool) -> None:
@@ -316,17 +351,18 @@ class NavButton(QAbstractButton):
         rect = QRectF(self.rect()).adjusted(0, 1, 0, -1)
         if self._active or self.underMouse():
             p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(C("accent", 46) if self._active else C("surface"))
-            p.drawRoundedRect(rect, 18, 18)
+            p.setBrush(C("primary_container" if self._active else "secondary_container"))
+            radius = rect.height() / 2
+            p.drawRoundedRect(rect, radius, radius)
         if self._active:
             p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(C("accent"))
-            p.drawRoundedRect(QRectF(4, 8, 4, self.height() - 16), 2, 2)
-        draw_icon(p, self._icon, QRectF(12, (self.height() - 16) / 2, 16, 16),
-                  C("accent" if self._active else "dim"))
+            p.setBrush(C("primary"))
+            p.drawRoundedRect(QRectF(4, 10, 4, self.height() - 20), 2, 2)
+        draw_icon(p, self._icon, QRectF(14, (self.height() - 20) / 2, 20, 20),
+                  C("primary" if self._active else "on_surface_variant"))
         p.setFont(self._font)
-        p.setPen(QPen(C("fg" if self._active else "dim")))
-        p.drawText(QRectF(38, 0, self.width() - 42, self.height()),
+        p.setPen(QPen(C("on_primary_container" if self._active else "on_surface")))
+        p.drawText(QRectF(44, 0, self.width() - 48, self.height()),
                    int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter), self._text)
 
     def enterEvent(self, event) -> None:
@@ -343,9 +379,9 @@ class PlaylistNavButton(QAbstractButton):
         super().__init__(parent)
         self._text = text
         self._active = False
-        self.setFixedHeight(30)
+        self.setFixedHeight(design.Shape.touch)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._font = theme.ui(13)
+        self._font = design.font("label")
         self.setFont(self._font)
 
     def set_text(self, text: str) -> None:
@@ -360,16 +396,18 @@ class PlaylistNavButton(QAbstractButton):
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        rect = QRectF(self.rect()).adjusted(0, 1, 0, -1)
         if self._active or self.underMouse():
             p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(C("accent", 42) if self._active else C("surface"))
-            p.drawRoundedRect(QRectF(self.rect()).adjusted(0, 1, 0, -1), 15, 15)
+            p.setBrush(C("primary_container" if self._active else "secondary_container"))
+            radius = rect.height() / 2
+            p.drawRoundedRect(rect, radius, radius)
         p.setFont(self._font)
-        p.setPen(QPen(C("fg" if self._active else "dim")))
+        p.setPen(QPen(C("on_primary_container" if self._active else "on_surface")))
         text = QFontMetrics(self._font).elidedText(
-            self._text, Qt.TextElideMode.ElideRight, self.width() - 20
+            self._text, Qt.TextElideMode.ElideRight, self.width() - 24
         )
-        p.drawText(QRectF(10, 0, self.width() - 20, self.height()),
+        p.drawText(QRectF(12, 0, self.width() - 24, self.height()),
                    int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter), text)
 
     def enterEvent(self, event) -> None:
@@ -385,15 +423,22 @@ class PlaylistNavButton(QAbstractButton):
 
 
 class Artwork(QWidget):
+    """Flat tonal cover surface with deterministic Lucide placeholders.
+
+    Real artwork is painted untouched. Missing artwork becomes a tonal tile
+    using the same circle/squircle/cookie/flower/pentagon rotation as web and
+    Android; there is no offset elevation treatment.
+    """
+
     clicked = Signal()
 
-    def __init__(self, size: int = 46, round_: bool = False, kind: str = "disc",
-                 shadow: bool = False, parent=None):
+    def __init__(self, size: int = 46, round_: bool = False, kind: str = "album",
+                 name: str = "", parent=None):
         super().__init__(parent)
         self._size = size
         self._round = round_
         self._kind = kind
-        self._shadow = shadow
+        self._name = name
         self._track_id: Optional[int] = None
         self._pixmap: Optional[QPixmap] = None
         self.setFixedSize(size, size)
@@ -404,9 +449,17 @@ class Artwork(QWidget):
     def kind(self) -> str:
         return self._kind
 
-    def set_cover(self, track_id: Optional[int], kind: Optional[str] = None) -> None:
+    def set_name(self, name: str) -> None:
+        if self._name != name:
+            self._name = name
+            self.update()
+
+    def set_cover(self, track_id: Optional[int], kind: Optional[str] = None,
+                  name: Optional[str] = None) -> None:
         if kind:
             self._kind = kind
+        if name:
+            self._name = name
         if track_id == self._track_id:
             return
         self._track_id = track_id
@@ -422,30 +475,33 @@ class Artwork(QWidget):
             self._pixmap = ART.cached(track_id)
             self.update()
 
+    def _radius(self) -> float:
+        if self._size >= 200:
+            return float(design.Shape.hero)
+        if self._size >= 96:
+            return float(design.Shape.card)
+        if self._size >= 48:
+            return float(design.Shape.cover_max)
+        return min(self._size / 2.0, float(design.Shape.cover_min))
+
     def _path(self, rect: QRectF) -> QPainterPath:
         path = QPainterPath()
         if self._round:
             path.addEllipse(rect)
         else:
-            path.addRoundedRect(rect, 12, 12)
+            radius = self._radius()
+            path.addRoundedRect(rect, radius, radius)
         return path
 
     def paintEvent(self, _event) -> None:
+        pal = theme.pal()
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
         rect = QRectF(self.rect()).adjusted(1, 1, -1, -1)
-        if self._shadow:
-            p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(C("accent", 58))
-            shadow = QRectF(rect).translated(3, 5)
-            if self._round:
-                p.drawEllipse(shadow)
-            else:
-                p.drawRoundedRect(shadow, 14, 14)
         path = self._path(rect)
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(C("surface2"))
+        p.setBrush(pal.q("primary_container"))
         p.drawPath(path)
         p.save()
         p.setClipPath(path)
@@ -459,15 +515,15 @@ class Artwork(QWidget):
                         rect.width(), rect.height())
             p.drawPixmap(rect, pm, QRectF(src))
         else:
-            icon = "users" if self._kind == "artist" else "disc-3"
-            side = rect.width() * 0.38
+            kind = self._kind if self._kind in ("track", "artist", "album") else "album"
+            icon = design.placeholder_glyph(self._name or self._kind, kind)
+            side = rect.width() * 0.42
             box = QRectF(0, 0, side, side)
             box.moveCenter(rect.center())
-            p.setOpacity(0.5)
-            draw_icon(p, icon, box, C("dim2"))
+            draw_icon(p, icon, box, pal.q("on_primary_container"))
         p.restore()
         p.setBrush(Qt.BrushStyle.NoBrush)
-        p.setPen(QPen(C("line"), 1))
+        p.setPen(QPen(pal.q("outline_variant"), 1))
         p.drawPath(path)
 
     def mouseReleaseEvent(self, event) -> None:
@@ -507,7 +563,7 @@ class TrackList(QWidget):
 
     @property
     def row_height(self) -> int:
-        return 34 if self.compact else 44
+        return design.Shape.touch if self.compact else 56
 
     # data ---------------------------------------------------------------
     def set_tracks(self, tracks: Sequence[Track], current_id: Optional[int] = None,
@@ -553,14 +609,16 @@ class TrackList(QWidget):
     def _metrics(self, index: int) -> dict[str, QRectF]:
         rh = self.row_height
         y = index * rh
-        art = 26 if self.compact else 36
-        x = 8.0 + 22 + 10
+        art = 32 if self.compact else 40
+        x = 12.0 + 24 + 12
         art_rect = QRectF(x, y + (rh - art) / 2, art, art)
-        x += art + 10
-        right = self.width() - 8
-        more = QRectF(right - 26, y + (rh - 26) / 2, 26, 26)
-        like = QRectF(right - 26 - 4 - 26, y + (rh - 26) / 2, 26, 26)
-        right = like.left() - 6
+        x += art + 12
+        right = self.width() - 12
+        more = QRectF(right - design.Shape.touch, y + 4,
+                      design.Shape.touch, design.Shape.touch)
+        like = QRectF(more.left() - design.Shape.touch, y + 4,
+                      design.Shape.touch, design.Shape.touch)
+        right = like.left() - 8
         dur = QRectF(right - 40, y, 40, rh)
         right -= 46
         stats = None
@@ -572,8 +630,8 @@ class TrackList(QWidget):
             album_w = min(190.0, self.width() * 0.2)
             album = QRectF(right - album_w, y, album_w, rh)
             right -= album_w + 12
-        title = QRectF(x, y + (rh - 32) / 2, max(40.0, right - x), 18)
-        artist = QRectF(x, title.bottom() + 1, max(40.0, right - x), 15)
+        title = QRectF(x, y + (rh - 40) / 2, max(40.0, right - x), 22)
+        artist = QRectF(x, title.bottom() + 1, max(40.0, right - x), 20)
         return {
             "row": QRectF(0, y, self.width(), rh),
             "index": QRectF(8, y, 22, rh),
@@ -597,11 +655,11 @@ class TrackList(QWidget):
         rh = self.row_height
         top = max(0, event.rect().top() // rh)
         bottom = min(len(self.tracks), event.rect().bottom() // rh + 2)
-        num_font = theme.mono(10, spacing=0.3)
-        title_font = theme.ui(13, QFont.Weight.Medium)
-        title_font_c = theme.ui(13, QFont.Weight.Medium)
-        small_font = theme.mono(10, spacing=0.2)
-        chip_font = theme.mono(8, QFont.Weight.DemiBold)
+        num_font = design.font("label", size=12)
+        title_font = design.font("label")
+        title_font_c = design.font("label", weight=700)
+        small_font = design.font("body", size=14)
+        chip_font = design.font("label", size=12, weight=700)
 
         for i in range(top, bottom):
             track = self.tracks[i]
@@ -611,21 +669,20 @@ class TrackList(QWidget):
             hovered = i == self._hover
             if hovered or current:
                 p.setPen(Qt.PenStyle.NoPen)
-                p.setBrush(C("accent", 46) if current else C("glass"))
-                p.drawRoundedRect(row.adjusted(2, 1, 2, -1), 16, 16)
-                if current:
-                    p.setPen(QPen(C("accent", 110), 1))
-                    p.drawRoundedRect(row.adjusted(2.5, 1.5, 2.5, -1.5), 16, 16)
+                p.setBrush(C("secondary_container" if hovered and not current
+                             else "primary_container"))
+                p.drawRoundedRect(row.adjusted(2, 1, 2, -1),
+                                  design.Shape.card, design.Shape.card)
 
             p.setFont(num_font)
-            p.setPen(QPen(C("accent" if current else "dim2")))
+            p.setPen(QPen(C("primary" if current else "outline")))
             p.drawText(m["index"], int(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
                        f"{i + 1:02d}")
 
             self._paint_cover(p, track, m["art"])
 
             p.setFont(title_font_c if current else title_font)
-            p.setPen(QPen(C("accent" if current else "fg")))
+            p.setPen(QPen(C("primary" if current else "on_surface")))
             chip_w = 0
             if track.explicit:
                 chip_w = 15
@@ -635,31 +692,31 @@ class TrackList(QWidget):
             if track.explicit:
                 chip = QRectF(m["title"].x() + title_width + 4,
                               m["title"].center().y() - 7, 14, 14)
-                p.setPen(QPen(C("dim2"), 1))
+                p.setPen(QPen(C("on_surface_variant"), 1))
                 p.setBrush(Qt.BrushStyle.NoBrush)
                 p.drawRoundedRect(chip, 2, 2)
                 p.setFont(chip_font)
-                p.setPen(QPen(C("dim")))
+                p.setPen(QPen(C("on_surface_variant")))
                 p.drawText(chip, int(Qt.AlignmentFlag.AlignCenter), "E")
 
             p.setFont(small_font)
-            p.setPen(QPen(C("dim")))
+            p.setPen(QPen(C("on_surface_variant")))
             p.drawText(m["artist"], int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
                        _elide(small_font, track.artist, m["artist"].width()))
 
             if m["album"] is not None:
                 p.setFont(small_font)
-                p.setPen(QPen(C("dim2")))
+                p.setPen(QPen(C("on_surface_variant")))
                 p.drawText(m["album"], int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
                            _elide(small_font, track.album, m["album"].width()))
             if m["stats"] is not None:
                 from .models import fmt_count
                 p.setFont(small_font)
-                p.setPen(QPen(C("dim2")))
+                p.setPen(QPen(C("on_surface_variant")))
                 p.drawText(m["stats"], int(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
                            fmt_count(track.yt_likes))
             p.setFont(small_font)
-            p.setPen(QPen(C("dim2")))
+            p.setPen(QPen(C("on_surface_variant")))
             p.drawText(m["duration"], int(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
                        fmt_time(track.duration))
 
@@ -667,20 +724,21 @@ class TrackList(QWidget):
                 heart = m["like"]
                 box = QRectF(0, 0, 15, 15)
                 box.moveCenter(heart.center())
-                color = C("accent" if track.liked else ("fg" if hovered else "dim"))
+                color = C("primary" if track.liked else ("on_surface" if hovered else "on_surface_variant"))
                 draw_icon(p, "heart", box, color, fill=track.liked)
             more = m["more"]
             box = QRectF(0, 0, 15, 15)
             box.moveCenter(more.center())
-            draw_icon(p, "more-vertical", box, C("fg" if hovered else "dim"))
+            draw_icon(p, "more-vertical", box, C("on_surface" if hovered else "on_surface_variant"))
 
     def _paint_cover(self, p: QPainter, track: Track, rect: QRectF) -> None:
         path = QPainterPath()
-        path.addRoundedRect(rect, 8, 8)
+        radius = design.Shape.cover_min if self.compact else design.Shape.cover_max
+        path.addRoundedRect(rect, radius, radius)
         p.save()
         p.setClipPath(path)
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(C("surface2"))
+        p.setBrush(C("surface_container_high"))
         p.drawPath(path)
         pm = ART.request(track.id) if STATE["covers"] else None
         if pm is not None and not pm.isNull():
@@ -695,11 +753,11 @@ class TrackList(QWidget):
         else:
             box = QRectF(0, 0, rect.width() * 0.5, rect.height() * 0.5)
             box.moveCenter(rect.center())
-            p.setOpacity(0.45)
-            draw_icon(p, "disc-3", box, C("dim2"))
+            draw_icon(p, design.placeholder_glyph(track.title, "track"), box,
+                      C("on_primary_container"))
         p.restore()
         p.setBrush(Qt.BrushStyle.NoBrush)
-        p.setPen(QPen(C("line"), 1))
+        p.setPen(QPen(C("outline_variant"), 1))
         p.drawPath(path)
 
     # interaction --------------------------------------------------------
@@ -793,7 +851,8 @@ class Tile(QAbstractButton):
 
     def _play_rect(self) -> QRectF:
         art = self._art_rect()
-        return QRectF(art.right() - 44, art.bottom() - 44, 38, 38)
+        return QRectF(art.right() - 52, art.bottom() - 52,
+                      design.Shape.touch, design.Shape.touch)
 
     def _art_loaded(self, track_id: int) -> None:
         if self.cover_id == track_id:
@@ -809,11 +868,12 @@ class Tile(QAbstractButton):
         if self.round_:
             path.addEllipse(art)
         else:
-            path.addRoundedRect(art, 18, 18)
+            radius = design.Shape.card if self._width >= 120 else design.Shape.cover_max
+            path.addRoundedRect(art, radius, radius)
         p.save()
         p.setClipPath(path)
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(C("surface2"))
+        p.setBrush(C("surface_container_high"))
         p.drawPath(path)
         pm = ART.request(self.cover_id) if STATE["covers"] else None
         if pm is not None and not pm.isNull():
@@ -826,39 +886,37 @@ class Tile(QAbstractButton):
                          art.width(), art.height())
             p.drawPixmap(art, scaled, src)
         else:
-            icon = "users" if self.round_ else "disc-3"
+            kind = "artist" if self.round_ else self.kind
+            icon = design.placeholder_glyph(self.title, kind)
             box = QRectF(0, 0, art.width() * 0.36, art.height() * 0.36)
             box.moveCenter(art.center())
-            p.setOpacity(0.45)
-            draw_icon(p, icon, box, C("dim2"))
+            draw_icon(p, icon, box, C("on_primary_container"))
         p.restore()
         p.setBrush(Qt.BrushStyle.NoBrush)
-        p.setPen(QPen(C("line"), 1))
+        p.setPen(QPen(C("outline_variant"), 1))
         p.drawPath(path)
 
         if self._hover:
             play = self._play_rect()
             p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(C("accent", 64))
-            p.drawEllipse(play.translated(0, 2))
-            p.setBrush(C("accent"))
+            p.setBrush(C("primary"))
             p.drawEllipse(play)
-            box = QRectF(0, 0, 15, 15)
+            box = QRectF(0, 0, 20, 20)
             box.moveCenter(play.center())
-            draw_icon(p, "play", box, C("accent_fg"))
+            draw_icon(p, "play", box, C("on_primary"))
 
-        font_title = theme.ui(13, QFont.Weight.Medium)
-        font_sub = theme.mono(10, spacing=0.2)
+        font_title = design.font("label")
+        font_sub = design.font("body", size=14)
         text_align = (Qt.AlignmentFlag.AlignHCenter if self.round_
                       else Qt.AlignmentFlag.AlignLeft)
         title_rect = QRectF(10, art.bottom() + 8, self._width - 20, 18)
         sub_rect = QRectF(10, title_rect.bottom() + 1, self._width - 20, 14)
         p.setFont(font_title)
-        p.setPen(QPen(C("fg")))
+        p.setPen(QPen(C("on_surface")))
         p.drawText(title_rect, int(text_align | Qt.AlignmentFlag.AlignVCenter),
                    _elide(font_title, self.title, title_rect.width()))
         p.setFont(font_sub)
-        p.setPen(QPen(C("dim")))
+        p.setPen(QPen(C("on_surface_variant")))
         p.drawText(sub_rect, int(text_align | Qt.AlignmentFlag.AlignVCenter),
                    _elide(font_sub, self.subtitle, sub_rect.width()))
 
@@ -983,9 +1041,9 @@ class Shelf(QWidget):
         head = QHBoxLayout()
         head.setContentsMargins(0, 0, 0, 0)
         head.setSpacing(10)
-        self.title_label = Txt(title, size=18, family="display", token="fg")
+        self.title_label = Txt(title, size=18, family="display", token="on_surface")
         head.addWidget(self.title_label, 0, Qt.AlignmentFlag.AlignBottom)
-        self.meta_label = Txt(meta.upper(), size=9, family="mono", token="dim2", spacing=1.1)
+        self.meta_label = Txt(meta.upper(), size=9, family="mono", token="on_surface_variant", spacing=1.1)
         head.addWidget(self.meta_label, 0, Qt.AlignmentFlag.AlignBottom)
         head.addStretch(1)
         self._actions = QHBoxLayout()
@@ -1038,15 +1096,15 @@ class PageHead(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
         if kicker:
-            self.kicker = Txt(kicker.upper(), size=10, family="mono", token="accent", spacing=1.8)
+            self.kicker = Txt(kicker.upper(), size=10, family="mono", token="primary", spacing=1.8)
             layout.addWidget(self.kicker)
         row = QHBoxLayout()
         row.setContentsMargins(0, 0, 0, 0)
         row.setSpacing(12)
-        self.title_label = Txt(title, size=30, family="display", token="fg")
+        self.title_label = Txt(title, size=30, family="display", token="on_surface")
         row.addWidget(self.title_label, 0, Qt.AlignmentFlag.AlignBottom)
         if meta:
-            self.meta_label = Txt(meta.upper(), size=9, family="mono", token="dim2", spacing=1.2)
+            self.meta_label = Txt(meta.upper(), size=9, family="mono", token="on_surface_variant", spacing=1.2)
             row.addWidget(self.meta_label, 0, Qt.AlignmentFlag.AlignBottom)
         row.addStretch(1)
         self.action_row = QHBoxLayout()
@@ -1074,20 +1132,21 @@ class Hero(QWidget):
         row.setContentsMargins(0, 0, 0, 0)
         row.setSpacing(26)
         row.setAlignment(Qt.AlignmentFlag.AlignBottom)
-        self.art = Artwork(190, round_, "artist" if round_ else "album", shadow=True)
-        self.art.set_cover(cover_id)
+        self.art = Artwork(190, round_, "artist" if round_ else "album", name=title)
+        self.art.set_cover(cover_id, name=title)
         row.addWidget(self.art, 0, Qt.AlignmentFlag.AlignBottom)
 
         info = QVBoxLayout()
         info.setContentsMargins(0, 0, 0, 2)
         info.setSpacing(7)
         info.addStretch(1)
-        self.kicker = Txt(kicker.upper(), size=10, family="mono", token="accent", spacing=1.8)
+        self.kicker = Txt(kicker.upper(), size=14, token="primary",
+                          weight=QFont.Weight.Bold)
         info.addWidget(self.kicker)
-        self.title_label = Txt(title, size=34, family="display", token="fg", wrap=True)
+        self.title_label = Txt(title, size=36, family="display", token="on_surface", wrap=True)
         info.addWidget(self.title_label)
-        self.sub_label = Txt("  ·  ".join([s for s in subs if s]), size=11, family="mono",
-                             token="dim", spacing=0.4, wrap=True)
+        self.sub_label = Txt("  ·  ".join([s for s in subs if s]), size=16,
+                             token="on_surface_variant", wrap=True)
         info.addWidget(self.sub_label)
         self.action_row = QHBoxLayout()
         self.action_row.setContentsMargins(0, 6, 0, 0)
@@ -1102,16 +1161,13 @@ class Hero(QWidget):
         self.action_row.addWidget(widget)
 
     def paintEvent(self, _event) -> None:
+        pal = theme.pal()
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        gradient = QLinearGradient(0, 0, 0, min(self.height(), 210))
-        soft = C("accent")
-        soft.setAlpha(28)
-        gradient.setColorAt(0.0, soft)
-        transparent = QColor(soft)
-        transparent.setAlpha(0)
-        gradient.setColorAt(1.0, transparent)
-        p.fillRect(QRectF(0, 0, self.width(), min(self.height(), 210)), gradient)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(pal.q("surface_container_low"))
+        rect = QRectF(self.rect()).adjusted(4, 4, -4, -4)
+        p.drawRoundedRect(rect, design.Shape.hero, design.Shape.hero)
 
 
 class EmptyState(QWidget):
@@ -1122,12 +1178,13 @@ class EmptyState(QWidget):
         layout.setContentsMargins(20, 48, 20, 48)
         layout.setSpacing(10)
         layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        glyph = Glyph(icon, 26, "dim2")
+        glyph = Glyph(icon, 32, "primary")
         layout.addWidget(glyph, 0, Qt.AlignmentFlag.AlignHCenter)
-        title_label = Txt(title, size=18, family="display", token="fg", align=Qt.AlignmentFlag.AlignHCenter)
+        title_label = Txt(title, size=28, family="display", token="on_surface",
+                          align=Qt.AlignmentFlag.AlignHCenter)
         layout.addWidget(title_label, 0, Qt.AlignmentFlag.AlignHCenter)
         if hint:
-            hint_label = Txt(hint, size=13, token="dim2", wrap=True,
+            hint_label = Txt(hint, size=16, token="on_surface_variant", wrap=True,
                              align=Qt.AlignmentFlag.AlignHCenter)
             hint_label.setMaximumWidth(420)
             layout.addWidget(hint_label, 0, Qt.AlignmentFlag.AlignHCenter)
@@ -1142,10 +1199,10 @@ class EmptyState(QWidget):
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        pen = QPen(C("line2"), 1, Qt.PenStyle.DashLine)
-        p.setPen(pen)
-        p.setBrush(Qt.BrushStyle.NoBrush)
-        p.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 7, 7)
+        p.setPen(QPen(C("outline_variant"), 1))
+        p.setBrush(C("surface_container_low"))
+        rect = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        p.drawRoundedRect(rect, design.Shape.card, design.Shape.card)
 
 
 class Panel(QWidget):
@@ -1155,8 +1212,9 @@ class Panel(QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
         if title:
-            head = Txt(title.upper(), size=10, family="mono", token="dim2", spacing=1.5)
-            head.setContentsMargins(16, 12, 16, 11)
+            head = Txt(title.upper(), size=14, token="primary",
+                       weight=QFont.Weight.Bold)
+            head.setContentsMargins(20, 16, 20, 12)
             outer.addWidget(head)
             outer.addWidget(Rule())
         self.body = QWidget()
@@ -1178,9 +1236,10 @@ class Panel(QWidget):
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        p.setPen(QPen(C("glass_border"), 1))
-        p.setBrush(C("glass"))
-        p.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 22, 22)
+        p.setPen(QPen(C("outline_variant"), 1))
+        p.setBrush(C("surface_container"))
+        p.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5),
+                          design.Shape.card, design.Shape.card)
 
 
 class SettingRow(QWidget):
@@ -1189,16 +1248,16 @@ class SettingRow(QWidget):
         super().__init__(parent)
         self._last = last
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(16, 12, 16, 12)
+        layout.setContentsMargins(20, 12, 20, 12)
         layout.setSpacing(16)
         text = QVBoxLayout()
         text.setContentsMargins(0, 0, 0, 0)
-        text.setSpacing(1)
-        self.title_label = Txt(title, size=13, token="fg", weight=QFont.Weight.Medium)
+        text.setSpacing(2)
+        self.title_label = Txt(title, size=16, token="on_surface")
         text.addWidget(self.title_label)
         self.subtitle_label = None
         if subtitle:
-            self.subtitle_label = Txt(subtitle, size=11, token="dim2", wrap=True)
+            self.subtitle_label = Txt(subtitle, size=14, token="on_surface_variant", wrap=True)
             text.addWidget(self.subtitle_label)
         layout.addLayout(text, 1)
         if trailing is not None:
@@ -1207,20 +1266,21 @@ class SettingRow(QWidget):
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
         if not self._last:
-            p.fillRect(QRect(16, self.height() - 1, self.width() - 16, 1), C("line"))
+            p.fillRect(QRect(20, self.height() - 1, self.width() - 20, 1),
+                       C("outline_variant"))
 
 
 class StatCard(QWidget):
-    """A soft elevated tile for admin counters."""
+    """Flat tonal card for admin counters."""
 
     def __init__(self, value: str, label: str, parent=None):
         super().__init__(parent)
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 10, 12, 10)
-        layout.setSpacing(2)
-        self.value_label = Txt(value, size=18, family="mono", token="fg", weight=QFont.Weight.DemiBold)
+        layout.setContentsMargins(20, 16, 20, 16)
+        layout.setSpacing(4)
+        self.value_label = Txt(value, size=28, family="display", token="on_surface")
         layout.addWidget(self.value_label)
-        layout.addWidget(Txt(label.upper(), size=9, family="mono", token="dim2", spacing=1.1))
+        layout.addWidget(Txt(label.upper(), size=14, token="on_surface_variant"))
         self.setMinimumWidth(112)
 
     def paintEvent(self, _event) -> None:
@@ -1228,26 +1288,27 @@ class StatCard(QWidget):
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         rect = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(C("accent", 30))
-        p.drawRoundedRect(rect.translated(0, 2), 18, 18)
-        p.setPen(QPen(C("line"), 1))
-        p.setBrush(C("bg2"))
-        p.drawRoundedRect(rect, 18, 18)
+        p.setBrush(C("primary_container"))
+        p.drawRoundedRect(rect, design.Shape.card, design.Shape.card)
 
 
 # ── controls ───────────────────────────────────────────────────────────────
 
 
 class SeekBar(QWidget):
+    """Flat progress line that waves only while playback is active."""
+
     seeked = Signal(float)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._position = 0.0
         self._duration = 0.0
+        self._phase = 0.0
+        self._playing = False
         self._drag: Optional[float] = None
         self._hover = False
-        self.setFixedHeight(20)
+        self.setFixedHeight(design.Shape.touch)
         self.setMinimumWidth(90)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -1255,7 +1316,13 @@ class SeekBar(QWidget):
     def set_values(self, position: float, duration: float) -> None:
         self._position = max(0.0, position or 0)
         self._duration = max(0.0, duration or 0)
+        self._phase = self._position * motion.WAVE_HZ * math.tau
         self.update()
+
+    def set_playing(self, playing: bool) -> None:
+        if self._playing != bool(playing):
+            self._playing = bool(playing)
+            self.update()
 
     def fraction(self) -> float:
         if self._drag is not None:
@@ -1265,8 +1332,8 @@ class SeekBar(QWidget):
         return min(1.0, max(0.0, self._position / self._duration))
 
     def _apply(self, event) -> None:
-        width = max(1, self.width() - 8)
-        frac = (event.position().x() - 4) / width
+        width = max(1, self.width() - 16)
+        frac = (event.position().x() - 8) / width
         self._drag = min(1.0, max(0.0, frac))
         self.update()
 
@@ -1302,20 +1369,25 @@ class SeekBar(QWidget):
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        left = 4.0
-        width = self.width() - 8.0
+        left = 8.0
+        width = max(1.0, self.width() - 16.0)
         cy = self.height() / 2
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(C("line"))
-        p.drawRoundedRect(QRectF(left, cy - 2, width, 4), 1, 1)
         frac = self.fraction()
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(C("outline_variant"))
+        p.drawRoundedRect(QRectF(left, cy - 3, width, 6), 3, 3)
         if frac > 0:
-            p.setBrush(C("accent"))
-            p.drawRoundedRect(QRectF(left, cy - 2, width * frac, 4), 1, 1)
+            p.setBrush(C("primary"))
+            if self._playing and not self._drag:
+                path = motion.wave_path(width, 6, frac, True, self._phase)
+                path.translate(left, cy - 3)
+                p.drawPath(path)
+            else:
+                p.drawRoundedRect(QRectF(left, cy - 3, width * frac, 6), 3, 3)
         if self._hover or self._drag is not None:
-            p.setBrush(C("fg"))
-            p.setPen(QPen(C("bg2"), 2))
-            p.drawEllipse(QPointF(left + width * frac, cy), 5, 5)
+            p.setBrush(C("on_primary"))
+            p.setPen(Qt.PenStyle.NoPen)
+            p.drawEllipse(QPointF(left + width * frac, cy), 8, 8)
 
 
 class VolumeControl(QWidget):
@@ -1328,7 +1400,7 @@ class VolumeControl(QWidget):
         self._muted = False
         self._hover = False
         self._drag = False
-        self.setFixedSize(132, 26)
+        self.setFixedSize(140, design.Shape.touch)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
     def set_level(self, value: float, muted: bool = False) -> None:
@@ -1337,7 +1409,7 @@ class VolumeControl(QWidget):
         self.update()
 
     def _groove(self) -> QRectF:
-        return QRectF(28, self.height() / 2 - 2, self.width() - 32, 4)
+        return QRectF(32, self.height() / 2 - 3, self.width() - 40, 6)
 
     def mousePressEvent(self, event) -> None:
         if event.button() != Qt.MouseButton.LeftButton:
@@ -1383,28 +1455,32 @@ class VolumeControl(QWidget):
         icon = "volume-x"
         if not self._muted and self._level > 0.01:
             icon = "volume-1" if self._level < 0.5 else "volume-2"
-        draw_icon(p, icon, QRectF(1, (self.height() - 17) / 2, 17, 17),
-                  C("dim" if not self._hover else "fg"))
+        draw_icon(p, icon, QRectF(6, (self.height() - 20) / 2, 20, 20),
+                  C("on_surface_variant" if not self._hover else "on_surface"))
         groove = self._groove()
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(C("line"))
-        p.drawRoundedRect(groove, 1, 1)
+        p.setBrush(C("outline_variant"))
+        p.drawRoundedRect(groove, 3, 3)
         frac = 0.0 if self._muted else self._level
         if frac > 0:
-            p.setBrush(C("accent"))
-            p.drawRoundedRect(QRectF(groove.x(), groove.y(), groove.width() * frac, groove.height()), 1, 1)
+            p.setBrush(C("primary"))
+            p.drawRoundedRect(QRectF(groove.x(), groove.y(), groove.width() * frac,
+                                     groove.height()), 3, 3)
         if self._hover or self._drag:
-            p.setBrush(C("fg"))
-            p.setPen(QPen(C("bg2"), 2))
-            p.drawEllipse(QPointF(groove.x() + groove.width() * frac, groove.center().y()), 4.5, 4.5)
+            p.setBrush(C("on_primary"))
+            p.setPen(Qt.PenStyle.NoPen)
+            p.drawEllipse(QPointF(groove.x() + groove.width() * frac,
+                                  groove.center().y()), 7, 7)
 
 
 class Switch(QAbstractButton):
+    """44px visual track inside a 48px hit target."""
+
     def __init__(self, checked: bool = False, parent=None):
         super().__init__(parent)
         self.setCheckable(True)
         self.setChecked(checked)
-        self.setFixedSize(38, 20)
+        self.setFixedSize(design.Shape.touch, design.Shape.touch)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.toggled.connect(lambda _=False: self.update())
 
@@ -1412,11 +1488,11 @@ class Switch(QAbstractButton):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(C("accent" if self.isChecked() else "line2"))
-        p.drawRoundedRect(QRectF(0, 0, 38, 20), 10, 10)
-        p.setBrush(C("accent_fg" if self.isChecked() else "fg"))
-        x = 20 if self.isChecked() else 2
-        p.drawEllipse(QRectF(x, 2, 16, 16))
+        p.setBrush(C("primary" if self.isChecked() else "outline_variant"))
+        p.drawRoundedRect(QRectF(2, 14, 44, 20), 10, 10)
+        p.setBrush(C("on_primary" if self.isChecked() else "on_surface"))
+        x = 26 if self.isChecked() else 6
+        p.drawEllipse(QRectF(x, 16, 16, 16))
 
 
 class Segmented(QWidget):
@@ -1426,8 +1502,8 @@ class Segmented(QWidget):
         super().__init__(parent)
         self._options = list(options)
         self._selected = selected or (self._options[0][0] if self._options else "")
-        self._font = theme.mono(9, QFont.Weight.DemiBold, 0.9)
-        self.setFixedHeight(28)
+        self._font = design.font("label")
+        self.setFixedHeight(design.Shape.touch)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.setMinimumWidth(self.sizeHint().width())
@@ -1451,22 +1527,24 @@ class Segmented(QWidget):
         return out
 
     def sizeHint(self) -> QSize:
-        return QSize(int(sum(r.width() for _, _, r in self._segment_rects()) + 6), 28)
+        return QSize(int(sum(r.width() for _, _, r in self._segment_rects()) + 6),
+                     design.Shape.touch)
 
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        p.setPen(QPen(C("line"), 1))
-        p.setBrush(C("bg2"))
-        p.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 14, 14)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(C("surface_container_high"))
+        rect = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        p.drawRoundedRect(rect, rect.height() / 2, rect.height() / 2)
         p.setFont(self._font)
         for key, label, rect in self._segment_rects():
             on = key == self._selected
             if on:
                 p.setPen(Qt.PenStyle.NoPen)
-                p.setBrush(C("accent"))
-                p.drawRoundedRect(rect, 10, 10)
-            p.setPen(QPen(C("accent_fg" if on else "dim")))
+                p.setBrush(C("primary"))
+                p.drawRoundedRect(rect, rect.height() / 2, rect.height() / 2)
+            p.setPen(QPen(C("on_primary" if on else "on_surface_variant")))
             p.drawText(rect, int(Qt.AlignmentFlag.AlignCenter), label.upper())
 
     def mouseReleaseEvent(self, event) -> None:
@@ -1482,29 +1560,29 @@ class Segmented(QWidget):
 
 
 class StatusChip(QWidget):
-    def __init__(self, text: str, token: str = "dim", parent=None):
+    """Flat tonal status pill."""
+
+    def __init__(self, text: str, token: str = "on_surface_variant", parent=None):
         super().__init__(parent)
         self._text = text.upper()
         self._token = token
-        self._font = theme.mono(9, spacing=0.5)
-        self.setFixedHeight(18)
+        self._font = design.font("label", size=12)
+        self.setFixedHeight(28)
         self.setMinimumWidth(self.sizeHint().width())
 
     def sizeHint(self) -> QSize:
-        return QSize(_fm(self._font, self._text) + 16, 18)
+        return QSize(_fm(self._font, self._text) + 24, 28)
 
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        color = C(self._token)
-        border = QColor(color)
-        border.setAlpha(120)
-        p.setPen(QPen(border, 1))
-        p.setBrush(Qt.BrushStyle.NoBrush)
-        p.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 2, 2)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(C("secondary_container"))
+        rect = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        p.drawRoundedRect(rect, rect.height() / 2, rect.height() / 2)
         p.setFont(self._font)
-        p.setPen(QPen(color))
-        p.drawText(QRectF(self.rect()), int(Qt.AlignmentFlag.AlignCenter), self._text)
+        p.setPen(QPen(C(self._token)))
+        p.drawText(rect, int(Qt.AlignmentFlag.AlignCenter), self._text)
 
 
 class Spinner(QWidget):
@@ -1515,7 +1593,8 @@ class Spinner(QWidget):
         self._timer = QTimer(self)
         self._timer.setInterval(16)
         self._timer.timeout.connect(self._step)
-        self._timer.start()
+        if motion.enabled():
+            self._timer.start()
 
     def _step(self) -> None:
         self._angle = (self._angle + 9) % 360
@@ -1525,9 +1604,9 @@ class Spinner(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         rect = QRectF(self.rect()).adjusted(2, 2, -2, -2)
-        p.setPen(QPen(C("line2"), 2))
+        p.setPen(QPen(C("outline_variant"), 2))
         p.drawArc(rect, 0, 5760)
-        p.setPen(QPen(C("accent"), 2))
+        p.setPen(QPen(C("primary"), 2))
         p.drawArc(rect, -self._angle * 16, 120 * 16)
 
 
@@ -1540,13 +1619,13 @@ class SearchField(QWidget):
 
     def __init__(self, placeholder: str = "Search songs, albums, artists", parent=None):
         super().__init__(parent)
-        self.setFixedHeight(34)
+        self.setFixedHeight(design.Shape.touch)
         self.setMinimumWidth(200)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(10, 0, 4, 0)
-        layout.setSpacing(7)
-        self.icon_glyph = Glyph("search", 15, "dim2")
+        layout.setContentsMargins(18, 0, 4, 0)
+        layout.setSpacing(10)
+        self.icon_glyph = Glyph("search", 22, "on_surface_variant")
         layout.addWidget(self.icon_glyph)
         self.line_edit = QLineEdit()
         self.line_edit.setPlaceholderText(placeholder)
@@ -1560,7 +1639,8 @@ class SearchField(QWidget):
         self.line_edit.returnPressed.connect(lambda: self.submitted.emit(self.line_edit.text()))
         self.line_edit.installEventFilter(self)
         layout.addWidget(self.line_edit, 1)
-        self.clear_button = IconButton("x", size=26, icon_size=14, tooltip="Clear search")
+        self.clear_button = IconButton("x", size=design.Shape.touch, icon_size=20,
+                                       tooltip="Clear search")
         self.clear_button.clicked.connect(self._clear)
         self.clear_button.setVisible(False)
         layout.addWidget(self.clear_button)
@@ -1598,9 +1678,10 @@ class SearchField(QWidget):
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        p.setPen(QPen(C("glass_highlight" if self._focused else "glass_border"), 1))
-        p.setBrush(C("glass"))
-        p.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 16, 16)
+        p.setPen(QPen(C("primary" if self._focused else "outline_variant"), 1))
+        p.setBrush(C("surface_container_high"))
+        rect = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        p.drawRoundedRect(rect, rect.height() / 2, rect.height() / 2)
         p.end()
         super().paintEvent(_event)
 
@@ -1615,14 +1696,15 @@ class LabeledField(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(5)
-        layout.addWidget(Txt(label.upper(), size=9, family="mono", token="dim2", spacing=1.4))
+        layout.addWidget(Txt(label.upper(), size=14, token="primary",
+                             weight=QFont.Weight.Bold))
         row = QWidget()
-        row.setFixedHeight(38)
+        row.setFixedHeight(design.Shape.touch)
         row_layout = QHBoxLayout(row)
-        row_layout.setContentsMargins(10, 0, 10, 0)
-        row_layout.setSpacing(7)
+        row_layout.setContentsMargins(18, 0, 18, 0)
+        row_layout.setSpacing(10)
         if leading:
-            row_layout.addWidget(Glyph(leading, 15, "dim2"))
+            row_layout.addWidget(Glyph(leading, 20, "on_surface_variant"))
         self.line_edit = QLineEdit()
         self.line_edit.setPlaceholderText(placeholder)
         self.line_edit.setFrame(False)
@@ -1640,14 +1722,15 @@ class LabeledField(QWidget):
 
 
 class FieldFrame(QWidget):
-    """Rounded bg2 field frame; keyboard input is a transparent QLineEdit."""
+    """Pill field frame; keyboard input is a transparent QLineEdit."""
 
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        p.setPen(QPen(C("line2"), 1))
-        p.setBrush(C("bg2"))
-        p.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 4, 4)
+        p.setPen(QPen(C("outline_variant"), 1))
+        p.setBrush(C("surface_container"))
+        rect = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        p.drawRoundedRect(rect, rect.height() / 2, rect.height() / 2)
 
 
 # ── dialogs and overlays ───────────────────────────────────────────────────
@@ -1666,11 +1749,6 @@ class Sheet(QDialog):
         self.card = QWidget()
         self.card.setObjectName("sheetCard")
         self.card.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        shadow = QGraphicsDropShadowEffect(self.card)
-        shadow.setBlurRadius(48)
-        shadow.setOffset(0, 14)
-        shadow.setColor(QColor(0, 0, 0, 150))
-        self.card.setGraphicsEffect(shadow)
         outer.addWidget(self.card)
 
         card_layout = QVBoxLayout(self.card)
@@ -1678,17 +1756,17 @@ class Sheet(QDialog):
         card_layout.setSpacing(0)
         head = QWidget()
         head_layout = QHBoxLayout(head)
-        head_layout.setContentsMargins(16, 14, 10, 10)
-        head_layout.setSpacing(8)
-        head_layout.addWidget(Txt(title, size=18, family="display", token="fg"), 1)
-        close = IconButton("x", size=28, icon_size=15, tooltip="Close")
+        head_layout.setContentsMargins(24, 16, 12, 12)
+        head_layout.setSpacing(12)
+        head_layout.addWidget(Txt(title, size=22, family="display", token="on_surface"), 1)
+        close = IconButton("x", size=design.Shape.touch, icon_size=20, tooltip="Close")
         close.clicked.connect(self.reject)
         head_layout.addWidget(close)
         card_layout.addWidget(head)
         card_layout.addWidget(Rule())
         body = QWidget()
         self.body = QVBoxLayout(body)
-        self.body.setContentsMargins(16, 14, 16, 18)
+        self.body.setContentsMargins(24, 16, 24, 24)
         self.body.setSpacing(10)
         card_layout.addWidget(body)
         self.setFixedWidth(470)
@@ -1697,8 +1775,9 @@ class Sheet(QDialog):
     def refresh_theme(self) -> None:
         p = theme.pal()
         self.card.setStyleSheet(
-            f"QWidget#sheetCard{{background:{p.bg2};border:1px solid {p.line2};"
-            f"border-radius:12px;}}"
+            f"QWidget#sheetCard{{background:{p.surface_container};"
+            f"border:1px solid {p.outline_variant};"
+            f"border-radius:{design.Shape.card}px;}}"
         )
 
     def showEvent(self, event) -> None:
@@ -1747,7 +1826,7 @@ def prompt(parent, title: str, label: str, *, placeholder: str = "", initial: st
 def confirm(parent, title: str, message: str, *, confirm_label: str = "Delete",
             danger: bool = True) -> bool:
     sheet = Sheet(parent, title)
-    sheet.body.addWidget(Txt(message, size=13, token="dim", wrap=True))
+    sheet.body.addWidget(Txt(message, size=13, token="on_surface_variant", wrap=True))
     answer = {"ok": False}
 
     def accept() -> None:
@@ -1761,7 +1840,7 @@ def confirm(parent, title: str, message: str, *, confirm_label: str = "Delete",
 
 def message(parent, title: str, text: str) -> None:
     sheet = Sheet(parent, title)
-    sheet.body.addWidget(Txt(text, size=13, token="dim", wrap=True))
+    sheet.body.addWidget(Txt(text, size=13, token="on_surface_variant", wrap=True))
     row = QHBoxLayout()
     row.addStretch(1)
     ok = McButton("OK", solid=True)
@@ -1775,7 +1854,7 @@ class Toast(QWidget):
     def __init__(self, parent):
         super().__init__(parent)
         self._message = ""
-        self._font = theme.ui(13, QFont.Weight.Medium)
+        self._font = design.font("body", size=14, weight=500)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         self.hide()
         self._timer = QTimer(self)
@@ -1787,7 +1866,7 @@ class Toast(QWidget):
         self._timer.start(msec)
         fm = QFontMetrics(self._font)
         width = min(int(fm.horizontalAdvance(text)) + 28, max(200, self.parent().width() - 48))
-        self.setFixedSize(width, 34)
+        self.setFixedSize(width, design.Shape.touch)
         self._reposition()
         self.show()
         self.raise_()
@@ -1803,12 +1882,13 @@ class Toast(QWidget):
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        p.setPen(QPen(C("glass_border"), 1))
-        p.setBrush(C("glass_strong"))
-        p.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 16, 16)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(C("inverse_surface"))
+        rect = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        p.drawRoundedRect(rect, rect.height() / 2, rect.height() / 2)
         p.setFont(self._font)
-        p.setPen(QPen(C("fg")))
-        p.drawText(QRectF(14, 0, self.width() - 28, self.height()),
+        p.setPen(QPen(C("inverse_on_surface")))
+        p.drawText(QRectF(20, 0, self.width() - 40, self.height()),
                    int(Qt.AlignmentFlag.AlignCenter),
                    QFontMetrics(self._font).elidedText(
                        self._message, Qt.TextElideMode.ElideRight, self.width() - 28))

@@ -7,17 +7,16 @@ from typing import Any, Callable, Optional, Sequence
 
 from shiboken6 import isValid
 from PySide6.QtCore import (
-    QPoint, QPointF, QRectF, QSize, Qt, QTimer, QUrl, QMimeData,
+    QPoint, QRectF, QSize, Qt, QTimer, QUrl, QMimeData,
 )
 from PySide6.QtGui import (
-    QColor,
     QDesktopServices,
     QDrag,
     QFont,
     QGuiApplication,
     QKeySequence,
-    QLinearGradient,
     QPainter,
+    QPainterPath,
     QPen,
     QShortcut,
 )
@@ -39,7 +38,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from . import icons, theme, widgets
+from . import design, icons, motion, theme, widgets
 from .api import Api, ApiError, Async, Repo, SessionStore, device_name
 from .art import ART
 from .icons import draw_icon
@@ -89,6 +88,12 @@ def _elide(text: str, width: int, font: QFont) -> str:
     return QFontMetrics(font).elidedText(text, Qt.TextElideMode.ElideRight, max(10, width))
 
 
+def _rounded(rect: QRectF, radius: float) -> QPainterPath:
+    path = QPainterPath()
+    path.addRoundedRect(rect, float(radius), float(radius))
+    return path
+
+
 class Mark(QWidget):
     def __init__(self, size: int = 26, parent=None):
         super().__init__(parent)
@@ -97,7 +102,7 @@ class Mark(QWidget):
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        icons.draw_mark(p, QRectF(self.rect()), theme.pal().q("accent"))
+        icons.draw_mark(p, QRectF(self.rect()), theme.pal().q("primary"))
 
 
 class OnlineDot(QWidget):
@@ -114,7 +119,7 @@ class OnlineDot(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(theme.pal().q("ok" if self._online else "err"))
+        p.setBrush(theme.pal().q("primary" if self._online else "error"))
         p.drawEllipse(QRectF(self.rect()))
 
 
@@ -123,7 +128,7 @@ class UserButton(QAbstractButton):
         super().__init__(parent)
         self._name = username
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedHeight(30)
+        self.setFixedHeight(design.Shape.touch)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
     def set_user(self, username: str) -> None:
@@ -132,32 +137,35 @@ class UserButton(QAbstractButton):
         self.update()
 
     def sizeHint(self) -> QSize:
-        font = theme.ui(11)
-        width = 32 + (QFontMetricsWidth(font, self._name) + 10 if self._name else 0)
-        return QSize(max(30, width), 30)
+        font = design.font("label")
+        width = 48 + (QFontMetricsWidth(font, self._name) + 12 if self._name else 0)
+        return QSize(max(design.Shape.touch, width), design.Shape.touch)
 
     def paintEvent(self, _event) -> None:
         from PySide6.QtGui import QFontMetrics
+        pal = theme.pal()
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         if self.underMouse():
             p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(theme.pal().q("surface"))
-            p.drawRoundedRect(QRectF(self.rect()).adjusted(0, 1, 0, -1), 4, 4)
+            p.setBrush(pal.q("secondary_container"))
+            radius = self.height() / 2.0
+            p.drawRoundedRect(QRectF(self.rect()), radius, radius)
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(theme.pal().q("accent"))
-        p.drawEllipse(QRectF(2, 4, 22, 22))
-        p.setFont(theme.mono(9, QFont.Weight.Bold))
-        p.setPen(QPen(theme.pal().q("accent_fg")))
-        p.drawText(QRectF(2, 4, 22, 22), int(Qt.AlignmentFlag.AlignCenter),
+        p.setBrush(pal.q("primary"))
+        p.drawEllipse(QRectF(6, 8, 32, 32))
+        p.setFont(design.font("label"))
+        p.setPen(QPen(pal.q("on_primary")))
+        p.drawText(QRectF(6, 8, 32, 32), int(Qt.AlignmentFlag.AlignCenter),
                    (self._name[:1] or "?").upper())
         if self._name:
-            p.setFont(theme.ui(11))
-            p.setPen(QPen(theme.pal().q("dim")))
-            text = QFontMetrics(theme.ui(11)).elidedText(
-                self._name, Qt.TextElideMode.ElideRight, self.width() - 38
+            font = design.font("label")
+            p.setFont(font)
+            p.setPen(QPen(pal.q("on_surface")))
+            text = QFontMetrics(font).elidedText(
+                self._name, Qt.TextElideMode.ElideRight, self.width() - 52
             )
-            p.drawText(QRectF(32, 0, self.width() - 34, self.height()),
+            p.drawText(QRectF(44, 0, self.width() - 46, self.height()),
                        int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter), text)
 
     def enterEvent(self, event) -> None:
@@ -175,34 +183,58 @@ def QFontMetricsWidth(font: QFont, text: str) -> int:
 
 
 class PlayButton(QAbstractButton):
-    def __init__(self, size: int = 38, parent=None):
+    """Pill-to-squircle transport button with the shared press treatment."""
+
+    def __init__(self, size: int = design.Shape.touch + 10, parent=None):
         super().__init__(parent)
         self._size = size
         self._playing = False
+        self._morph = 0.0
+        self._press = 0.0
         self.setFixedSize(size, size)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.pressed.connect(lambda: self._animate_press(1.0))
+        self.released.connect(lambda: self._animate_press(0.0))
+
+    def _animate_press(self, end: float) -> None:
+        motion.tween(self._press, end, self._set_press, self, duration=120)
+
+    def _set_morph(self, value) -> None:
+        self._morph = max(0.0, min(1.0, float(value)))
+        self.update()
+
+    def _set_press(self, value) -> None:
+        self._press = max(0.0, min(1.0, float(value)))
+        self.update()
 
     def set_playing(self, playing: bool) -> None:
         if self._playing != playing:
             self._playing = playing
-            self.update()
+            motion.tween(self._morph, 1.0 if playing else 0.0,
+                         self._set_morph, self)
 
     def paintEvent(self, _event) -> None:
+        pal = theme.pal()
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        rect = QRectF(self.rect())
+        scale = 1.0 - (1.0 - motion.PRESS_SCALE) * self._press
+        center = rect.center()
+        p.translate(center)
+        p.scale(scale, scale)
+        p.translate(-center)
         p.setPen(Qt.PenStyle.NoPen)
-        color = theme.pal().q("fg")
-        if self.underMouse():
-            color = color.lighter(110)
-        p.setBrush(color)
-        p.drawEllipse(QRectF(self.rect()))
+        p.setBrush(pal.q("primary"))
+        radius = (1.0 - self._morph) * (self._size / 2.0) \
+            + self._morph * design.Shape.lg
+        p.drawRoundedRect(rect, radius, radius)
         icon = "pause" if self._playing else "play"
         side = self._size * 0.42
         box = QRectF(0, 0, side, side)
-        box.moveCenter(QRectF(self.rect()).center())
+        box.moveCenter(center)
         if icon == "play":
             box.translate(1, 0)
-        draw_icon(p, icon, box, theme.pal().bg)
+        draw_icon(p, icon, box, pal.q("on_primary"))
 
 
 class Rail(QWidget):
@@ -212,7 +244,7 @@ class Rail(QWidget):
         self._nav: dict[str, NavButton] = {}
         self._pl_buttons: list[PlaylistNavButton] = []
         self._online = OnlineDot(5)
-        self._net_label = Txt("ONLINE", size=8, family="mono", token="dim2", spacing=1.4)
+        self._net_label = Txt("ONLINE", size=14, token="primary", weight=QFont.Weight.Bold)
         self.setFixedWidth(252)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
 
@@ -225,9 +257,9 @@ class Rail(QWidget):
         brand_line.setContentsMargins(10, 0, 10, 16)
         brand_line.setSpacing(9)
         brand_line.addWidget(Mark(26))
-        brand_line.addWidget(Txt("mcmusic", size=20, family="display", token="fg"))
+        brand_line.addWidget(Txt("mcmusic", size=20, family="display", token="on_surface"))
         brand_line.addStretch(1)
-        brand_line.addWidget(Txt("LINUX", size=8, family="mono", token="dim2", spacing=1.6))
+        brand_line.addWidget(Txt("LINUX", size=14, token="primary", weight=QFont.Weight.Bold))
         layout.addWidget(brand)
 
         for key, label, icon in (
@@ -260,7 +292,7 @@ class Rail(QWidget):
         pl_line = QHBoxLayout(pl_head)
         pl_line.setContentsMargins(10, 0, 6, 6)
         pl_line.setSpacing(4)
-        pl_line.addWidget(Txt("PLAYLISTS", size=9, family="mono", token="dim2", spacing=1.6))
+        pl_line.addWidget(Txt("PLAYLISTS", size=14, token="primary", weight=QFont.Weight.Bold))
         pl_line.addStretch(1)
         new_pl = IconButton("plus", size=20, icon_size=12, tooltip="New playlist")
         new_pl.clicked.connect(window.create_playlist)
@@ -314,7 +346,7 @@ class Rail(QWidget):
         return button
 
     def _label(self, text: str) -> Txt:
-        label = Txt(text, size=9, family="mono", token="dim2", spacing=1.6)
+        label = Txt(text.upper(), size=14, token="primary", weight=QFont.Weight.Bold)
         label.setContentsMargins(10, 0, 10, 6)
         return label
 
@@ -371,11 +403,9 @@ class Rail(QWidget):
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         palette = theme.pal()
         card = QRectF(self.rect()).adjusted(8, 12, -8, -12)
-        p.setPen(QPen(palette.glass_border, 1))
-        p.setBrush(palette.glass)
-        p.drawRoundedRect(card, 28, 28)
-        p.setPen(QPen(palette.glass_highlight, 1))
-        p.drawLine(card.topLeft() + QPointF(20, 1), card.topRight() + QPointF(-20, 1))
+        p.setPen(QPen(palette.q("outline_variant"), 1))
+        p.setBrush(palette.q("surface_container_low"))
+        p.drawRoundedRect(card, design.Shape.card, design.Shape.card)
 
 
 class TopBar(QWidget):
@@ -403,16 +433,16 @@ class TopBar(QWidget):
         line.addWidget(self.user)
 
     def paintEvent(self, _event) -> None:
-        # The shell gradient shows through; no attached masthead bar.
+        # The shell background shows through; no attached masthead bar.
         pass
 
 
 class Deck(QWidget):
     def __init__(self, window: "McWindow"):
         super().__init__()
-        self.setFixedHeight(76)
+        self.setFixedHeight(104)
         grid = QGridLayout(self)
-        grid.setContentsMargins(26, 6, 26, 10)
+        grid.setContentsMargins(26, 8, 26, 10)
         grid.setHorizontalSpacing(18)
         grid.setVerticalSpacing(3)
         grid.setColumnStretch(0, 1)
@@ -423,16 +453,16 @@ class Deck(QWidget):
         left_line = QHBoxLayout(left)
         left_line.setContentsMargins(0, 0, 0, 0)
         left_line.setSpacing(11)
-        self.art = Artwork(46, kind="track")
+        self.art = Artwork(52, kind="track")
         self.art.clicked.connect(window.show_now_playing)
         left_line.addWidget(self.art)
         meta = QVBoxLayout()
         meta.setContentsMargins(0, 0, 0, 0)
         meta.setSpacing(1)
-        self.title = Txt("Nothing playing right now", size=13, token="fg", weight=QFont.Weight.Medium)
+        self.title = Txt("Nothing playing right now", size=16, token="on_surface",
+                         weight=QFont.Weight.Bold)
         self.title.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
-        self.artist = Txt("Pick a song from your library", size=10, family="mono",
-                          token="dim", spacing=0.3)
+        self.artist = Txt("Pick a song from your library", size=14, token="on_surface_variant")
         self.artist.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         meta.addWidget(self.title)
         meta.addWidget(self.artist)
@@ -453,13 +483,13 @@ class Deck(QWidget):
         self.shuffle = IconButton("shuffle", size=28, icon_size=15, tooltip="Shuffle")
         self.shuffle.clicked.connect(window.toggle_shuffle)
         controls.addWidget(self.shuffle)
-        prev = IconButton("skip-back", size=28, icon_size=16, token="fg", tooltip="Previous")
+        prev = IconButton("skip-back", size=28, icon_size=16, token="on_surface", tooltip="Previous")
         prev.clicked.connect(window.player.prev)
         controls.addWidget(prev)
-        self.play = PlayButton(38)
+        self.play = PlayButton()
         self.play.clicked.connect(window.player.toggle)
         controls.addWidget(self.play)
-        nxt = IconButton("skip-forward", size=28, icon_size=16, token="fg", tooltip="Next")
+        nxt = IconButton("skip-forward", size=28, icon_size=16, token="on_surface", tooltip="Next")
         nxt.clicked.connect(window.player.next)
         controls.addWidget(nxt)
         self.repeat = IconButton("repeat", size=28, icon_size=15, tooltip="Repeat")
@@ -471,14 +501,14 @@ class Deck(QWidget):
         progress = QHBoxLayout()
         progress.setContentsMargins(0, 0, 0, 0)
         progress.setSpacing(9)
-        self.pos_label = Txt("0:00", size=10, family="mono", token="dim", spacing=0.3,
+        self.pos_label = Txt("0:00", size=14, token="on_surface_variant",
                        align=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self.pos_label.setFixedWidth(36)
         progress.addWidget(self.pos_label)
         self.seek = SeekBar()
         self.seek.seeked.connect(window.player.seek_fraction)
         progress.addWidget(self.seek, 1)
-        self.dur = Txt("0:00", size=10, family="mono", token="dim", spacing=0.3)
+        self.dur = Txt("0:00", size=14, token="on_surface_variant")
         self.dur.setFixedWidth(36)
         progress.addWidget(self.dur)
         center_line.addLayout(progress)
@@ -506,11 +536,9 @@ class Deck(QWidget):
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         palette = theme.pal()
         card = QRectF(self.rect()).adjusted(12, 2, -12, -8)
-        p.setPen(QPen(palette.glass_border, 1))
-        p.setBrush(palette.glass)
-        p.drawRoundedRect(card, 20, 20)
-        p.setPen(QPen(palette.glass_highlight, 1))
-        p.drawLine(card.topLeft() + QPointF(18, 1), card.topRight() + QPointF(-18, 1))
+        p.setPen(QPen(palette.q("outline_variant"), 1))
+        p.setBrush(palette.q("surface_container"))
+        p.drawRoundedRect(card, design.Shape.card, design.Shape.card)
 
 
 QUEUE_MIME = "application/x-mcmusic-queue-index"
@@ -530,7 +558,7 @@ class QueueRow(QWidget):
         self._drag_start: Optional[QPoint] = None
         self._dragging = False
         self._drop_target = False
-        self.setFixedHeight(46)
+        self.setFixedHeight(56)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         if self._reorder:
             self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
@@ -540,16 +568,17 @@ class QueueRow(QWidget):
         line.setContentsMargins(6, 5, 6, 5)
         line.setSpacing(10)
         art = Artwork(34, kind="track")
-        art.set_cover(track.id)
+        art.set_cover(track.id, name=track.title)
         art.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         line.addWidget(art)
         meta = QVBoxLayout()
         meta.setContentsMargins(0, 0, 0, 0)
         meta.setSpacing(1)
-        title = Txt(track.title, size=13, token="accent" if current else "fg")
+        title = Txt(track.title, size=14, token="primary" if current else "on_surface",
+                    weight=QFont.Weight.DemiBold)
         title.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         meta.addWidget(title)
-        artist = Txt(track.artist, size=10, family="mono", token="dim", spacing=0.2)
+        artist = Txt(track.artist, size=14, token="on_surface_variant")
         artist.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         meta.addWidget(artist)
         line.addLayout(meta, 1)
@@ -691,10 +720,11 @@ class QueueRow(QWidget):
             p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
             if self._hover or self.hasFocus():
                 p.setPen(Qt.PenStyle.NoPen)
-                p.setBrush(palette.q("surface"))
-                p.drawRoundedRect(QRectF(self.rect()).adjusted(0, 1, 0, -1), 4, 4)
+                p.setBrush(palette.q("secondary_container"))
+                p.drawRoundedRect(QRectF(self.rect()).adjusted(0, 1, 0, -1),
+                                  design.Shape.lg, design.Shape.lg)
             if self._drop_target:
-                p.setPen(QPen(palette.q("accent"), 2))
+                p.setPen(QPen(palette.q("primary"), 2))
                 p.drawLine(QPoint(2, 1), QPoint(self.width() - 2, 1))
 
 
@@ -706,7 +736,9 @@ class Scrim(QWidget):
         self.hide()
 
     def paintEvent(self, _event) -> None:
-        QPainter(self).fillRect(self.rect(), QColor(0, 0, 0, 135))
+        color = theme.pal().q("scrim_color")
+        color.setAlpha(135)
+        QPainter(self).fillRect(self.rect(), color)
 
     def mouseReleaseEvent(self, event) -> None:
         self.shell.close_overlays()
@@ -725,7 +757,7 @@ class QueueDrawer(QWidget):
         head = QWidget()
         head_line = QHBoxLayout(head)
         head_line.setContentsMargins(16, 16, 12, 12)
-        head_line.addWidget(Txt("Queue", size=18, family="display", token="fg"))
+        head_line.addWidget(Txt("Queue", size=18, family="display", token="on_surface"))
         head_line.addStretch(1)
         close = IconButton("x", size=28, icon_size=15, tooltip="Close queue")
         close.clicked.connect(window.close_overlays)
@@ -763,10 +795,10 @@ class QueueDrawer(QWidget):
         player = self.shell.player
         current = player.current
         if current is None:
-            self.body.addWidget(Txt("Queue is empty", size=13, token="dim"))
+            self.body.addWidget(Txt("Queue is empty", size=16, token="on_surface_variant"))
             self.body.addStretch(1)
             return
-        label = Txt("NOW PLAYING", size=9, family="mono", token="dim2", spacing=1.6)
+        label = Txt("NOW PLAYING", size=14, token="primary", weight=QFont.Weight.Bold)
         label.setContentsMargins(6, 8, 6, 4)
         self.body.addWidget(label)
         current_row = QueueRow(self.shell, current, player.index, current=True,
@@ -777,8 +809,8 @@ class QueueDrawer(QWidget):
         head = QWidget()
         head_line = QHBoxLayout(head)
         head_line.setContentsMargins(6, 16, 4, 6)
-        head_line.addWidget(Txt(f"Next up ({len(upcoming)})", size=9, family="mono",
-                                token="dim2", spacing=1.2))
+        head_line.addWidget(Txt(f"Next up ({len(upcoming)})", size=14,
+                                token="primary", weight=QFont.Weight.Bold))
         head_line.addStretch(1)
         if upcoming:
             clear = McButton("Clear next", small=True, ghost=True)
@@ -790,25 +822,27 @@ class QueueDrawer(QWidget):
             self._rows[index] = row
             self.body.addWidget(row)
         if not upcoming:
-            self.body.addWidget(Txt("Nothing queued", size=11, token="dim2"))
+            self.body.addWidget(Txt("Nothing queued", size=16,
+                                    token="on_surface_variant"))
         else:
-            hint = Txt("Drag to reorder or focus a row and press Up/Down", size=10,
-                       token="dim2")
+            hint = Txt("Drag to reorder or focus a row and press Up/Down", size=14,
+                       token="on_surface_variant")
             hint.setContentsMargins(6, 8, 6, 0)
             self.body.addWidget(hint)
         self.body.addStretch(1)
 
     def paintEvent(self, _event) -> None:
+        pal = theme.pal()
         p = QPainter(self)
-        p.fillRect(self.rect(), theme.pal().q("bg2"))
-        p.fillRect(0, 0, 1, self.height(), theme.pal().q("line2"))
+        p.fillRect(self.rect(), pal.q("surface_container_low"))
+        p.fillRect(0, 0, 1, self.height(), pal.q("outline_variant"))
 
 
 class PickRow(QAbstractButton):
     def __init__(self, playlist: PlaylistRef, parent=None):
         super().__init__(parent)
         self.playlist = playlist
-        self.setFixedHeight(44)
+        self.setFixedHeight(56)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
@@ -816,33 +850,37 @@ class PickRow(QAbstractButton):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+        pal = theme.pal()
         if self.underMouse():
             p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(theme.pal().q("surface"))
-            p.drawRoundedRect(QRectF(self.rect()).adjusted(0, 1, 0, -1), 4, 4)
-        box = QRectF(4, (self.height() - 32) / 2, 32, 32)
+            p.setBrush(pal.q("secondary_container"))
+            p.drawRoundedRect(QRectF(self.rect()).adjusted(0, 1, 0, -1),
+                              design.Shape.lg, design.Shape.lg)
+        box = QRectF(6, (self.height() - 44) / 2, 44, 44)
         path = QRectF(box)
         pm = ART.request(self.playlist.cover_id)
-        p.setPen(QPen(theme.pal().q("line"), 1))
-        p.setBrush(theme.pal().q("surface2"))
-        p.drawRoundedRect(path, 4, 4)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(pal.q("primary_container"))
+        p.drawRoundedRect(path, design.Shape.cover_min, design.Shape.cover_min)
         if pm is not None and not pm.isNull():
             p.save()
-            p.setClipRect(path)
-            scaled = pm.scaled(32, 32, Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+            p.setClipPath(_rounded(path, design.Shape.cover_min))
+            scaled = pm.scaled(44, 44, Qt.AspectRatioMode.KeepAspectRatioByExpanding,
                                Qt.TransformationMode.SmoothTransformation)
             p.drawPixmap(box.toRect(), scaled)
             p.restore()
         else:
-            draw_icon(p, "disc-3", box.adjusted(8, 8, -8, -8), theme.pal().dim2)
-        p.setFont(theme.ui(13, QFont.Weight.Medium))
-        p.setPen(QPen(theme.pal().q("fg")))
-        p.drawText(QRectF(46, 4, self.width() - 56, 20),
+            draw_icon(p, design.placeholder_glyph(self.playlist.name),
+                      box.adjusted(11, 11, -11, -11), pal.q("on_primary_container"))
+        font = design.font("label")
+        p.setFont(font)
+        p.setPen(QPen(pal.q("on_surface")))
+        p.drawText(QRectF(60, 6, self.width() - 70, 22),
                    int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
-                   _elide(self.playlist.name, self.width() - 56, theme.ui(13)))
-        p.setFont(theme.mono(10, spacing=0.2))
-        p.setPen(QPen(theme.pal().q("dim2")))
-        p.drawText(QRectF(46, 22, self.width() - 56, 16),
+                   _elide(self.playlist.name, self.width() - 70, font))
+        p.setFont(design.font("label"))
+        p.setPen(QPen(pal.q("on_surface_variant")))
+        p.drawText(QRectF(60, 28, self.width() - 70, 20),
                    int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
                    f"{self.playlist.n} tracks")
 
@@ -873,8 +911,8 @@ class NowPlayingOverlay(QWidget):
         close.clicked.connect(window.close_overlays)
         header.addWidget(close)
         header.addStretch(1)
-        header.addWidget(Txt("NOW PLAYING", size=10, family="mono", token="accent",
-                             spacing=2.2))
+        header.addWidget(Txt("NOW PLAYING", size=14, token="primary",
+                             weight=QFont.Weight.DemiBold))
         header.addStretch(1)
         self.more = IconButton("more-vertical", size=32, tooltip="Track options")
         self.more.clicked.connect(self._more)
@@ -884,17 +922,18 @@ class NowPlayingOverlay(QWidget):
 
         art_row = QHBoxLayout()
         art_row.addStretch(1)
-        self.art = Artwork(300, kind="track", shadow=True)
+        self.art = Artwork(300, kind="track")
         art_row.addWidget(self.art)
         art_row.addStretch(1)
         body.addLayout(art_row)
         body.addSpacing(20)
 
-        self.title = Txt("Nothing playing right now", size=27, family="display", token="fg",
-                         wrap=True, align=Qt.AlignmentFlag.AlignHCenter)
+        self.title = Txt("Nothing playing right now", size=28, family="display",
+                         token="on_surface", weight=QFont.Weight.Bold, wrap=True,
+                         align=Qt.AlignmentFlag.AlignHCenter)
         body.addWidget(self.title)
         body.addSpacing(4)
-        self.artist = Txt("", size=11, family="mono", token="dim", spacing=0.6,
+        self.artist = Txt("", size=14, token="on_surface_variant",
                           align=Qt.AlignmentFlag.AlignHCenter)
         body.addWidget(self.artist)
         body.addSpacing(18)
@@ -903,13 +942,13 @@ class NowPlayingOverlay(QWidget):
         seek_line = QHBoxLayout(seek_wrap)
         seek_line.setContentsMargins(0, 0, 0, 0)
         seek_line.setSpacing(9)
-        self.pos_label = Txt("0:00", size=10, family="mono", token="dim", spacing=0.3)
+        self.pos_label = Txt("0:00", size=14, token="on_surface_variant")
         self.pos_label.setFixedWidth(38)
         seek_line.addWidget(self.pos_label)
         self.seek = SeekBar()
         self.seek.seeked.connect(window.player.seek_fraction)
         seek_line.addWidget(self.seek, 1)
-        self.dur = Txt("0:00", size=10, family="mono", token="dim", spacing=0.3,
+        self.dur = Txt("0:00", size=14, token="on_surface_variant",
                        align=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self.dur.setFixedWidth(38)
         seek_line.addWidget(self.dur)
@@ -926,13 +965,13 @@ class NowPlayingOverlay(QWidget):
         self.shuffle = IconButton("shuffle", size=40, icon_size=18, tooltip="Shuffle")
         self.shuffle.clicked.connect(window.toggle_shuffle)
         controls.addWidget(self.shuffle)
-        prev = IconButton("skip-back", size=44, icon_size=20, token="fg")
+        prev = IconButton("skip-back", size=44, icon_size=20, token="on_surface")
         prev.clicked.connect(window.player.prev)
         controls.addWidget(prev)
-        self.play = PlayButton(58)
+        self.play = PlayButton()
         self.play.clicked.connect(window.player.toggle)
         controls.addWidget(self.play)
-        nxt = IconButton("skip-forward", size=44, icon_size=20, token="fg")
+        nxt = IconButton("skip-forward", size=44, icon_size=20, token="on_surface")
         nxt.clicked.connect(window.player.next)
         controls.addWidget(nxt)
         self.repeat = IconButton("repeat", size=40, icon_size=18, tooltip="Repeat")
@@ -967,7 +1006,8 @@ class NowPlayingOverlay(QWidget):
 
         body.addWidget(Rule())
         body.addSpacing(14)
-        self.up_next_label = Txt("UP NEXT", size=9, family="mono", token="dim2", spacing=1.6)
+        self.up_next_label = Txt("UP NEXT", size=14, token="primary",
+                                 weight=QFont.Weight.DemiBold)
         body.addWidget(self.up_next_label)
         body.addSpacing(6)
         self.up_next = QVBoxLayout()
@@ -995,7 +1035,7 @@ class NowPlayingOverlay(QWidget):
             self.more.setEnabled(False)
             self.like.setVisible(False)
         else:
-            self.art.set_cover(track.id)
+            self.art.set_cover(track.id, name=track.title)
             self.title.setText(track.title)
             parts = [track.artist]
             if track.album:
@@ -1006,6 +1046,7 @@ class NowPlayingOverlay(QWidget):
             self.like.set_active(track.liked)
             self.like.set_fill(track.liked)
         self.play.set_playing(player.playing)
+        self.seek.set_playing(player.playing)
         self.shuffle.set_active(player.shuffle)
         name = "repeat-1" if player.repeat == "one" else "repeat"
         self.repeat.set_icon(name)
@@ -1033,19 +1074,12 @@ class NowPlayingOverlay(QWidget):
             for index, queued in upcoming:
                 self.up_next.addWidget(QueueRow(self.shell, queued, index))
             if not upcoming:
-                self.up_next.addWidget(Txt("Nothing queued", size=11, token="dim2"))
+                self.up_next.addWidget(Txt("Nothing queued", size=16,
+                                           token="on_surface_variant"))
 
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
-        p.fillRect(self.rect(), theme.pal().q("bg"))
-        grad = QLinearGradient(0, 0, 0, min(self.height(), 300))
-        soft = theme.pal().q("accent")
-        soft.setAlpha(18)
-        clear = QColor(soft)
-        clear.setAlpha(0)
-        grad.setColorAt(0, soft)
-        grad.setColorAt(1, clear)
-        p.fillRect(0, 0, self.width(), min(self.height(), 300), grad)
+        p.fillRect(self.rect(), theme.pal().q("surface_container_lowest"))
 
 
 class StatusStrip(QWidget):
@@ -1061,9 +1095,9 @@ class StatusStrip(QWidget):
         line = QHBoxLayout(self)
         line.setContentsMargins(30, 0, 26, 0)
         line.setSpacing(8)
-        self.icon_glyph = Glyph("check", 13, "ok")
+        self.icon_glyph = Glyph("check", 16, "primary")
         line.addWidget(self.icon_glyph)
-        self.label = Txt("", size=10, family="mono", token="dim", spacing=0.4)
+        self.label = Txt("", size=14, token="on_surface_variant")
         line.addWidget(self.label, 1)
         self.sync = McButton("Sync now", small=True, ghost=True, icon="refresh-cw")
         self.sync.clicked.connect(window.sync_outbox)
@@ -1094,16 +1128,17 @@ class StatusStrip(QWidget):
             self.icon_glyph.set_icon("check")
         self.label.setText(text)
         self.setVisible(bool(text))
-        self.setFixedHeight(24 if text else 0)
+        self.setFixedHeight(56 if text else 0)
         self.sync.setVisible(online and self._pending > 0)
         self.update_button.setVisible(online and has_update)
 
     def paintEvent(self, _event) -> None:
         if not self.height():
             return
+        pal = theme.pal()
         p = QPainter(self)
-        p.fillRect(self.rect(), theme.pal().q("bg2"))
-        p.fillRect(0, self.height() - 1, self.width(), 1, theme.pal().q("line"))
+        p.fillRect(self.rect(), pal.q("surface_container"))
+        p.fillRect(0, self.height() - 1, self.width(), 1, pal.q("outline_variant"))
 
 
 class ShellPage(QWidget):
@@ -1112,7 +1147,7 @@ class ShellPage(QWidget):
         self.shell = window
 
     def paintEvent(self, _event) -> None:
-        QPainter(self).fillRect(self.rect(), theme.pal().q("bg"))
+        QPainter(self).fillRect(self.rect(), theme.pal().q("background"))
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
@@ -1123,6 +1158,7 @@ class McWindow(QMainWindow):
     def __init__(self, store: SessionStore, api: Api, repo: Repo, runner: Async,
                  player: PlayerEngine):
         super().__init__()
+        motion.bind(store)
         self.store = store
         self.api = api
         self.repo = repo
@@ -1219,18 +1255,10 @@ class McWindow(QMainWindow):
 
     # ── construction ────────────────────────────────────────────────────
     def paintEvent(self, _event) -> None:
-        """The window itself is the artwork-derived tint behind glass panes."""
+        """A flat background sits behind every screen."""
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        palette = theme.pal()
-        p.fillRect(self.rect(), palette.q("bg"))
-        grad = QLinearGradient(0, 0, 0, self.height())
-        tint = palette.q("accent")
-        tint.setAlpha(46)
-        grad.setColorAt(0, tint)
-        grad.setColorAt(0.55, palette.q("bg"))
-        grad.setColorAt(1, palette.q("bg"))
-        p.fillRect(self.rect(), grad)
+        p.fillRect(self.rect(), theme.pal().q("background"))
 
     def _build_pages(self) -> None:
         self.stack = QStackedWidget()
@@ -1804,8 +1832,9 @@ class McWindow(QMainWindow):
             self.deck.like.setVisible(True)
             self.deck.like.set_active(track.liked)
             self.deck.like.set_fill(track.liked)
-            self.deck.art.set_cover(track.id)
+            self.deck.art.set_cover(track.id, name=track.title)
         self.deck.play.set_playing(player.playing)
+        self.deck.seek.set_playing(player.playing)
         self.deck.shuffle.set_active(player.shuffle)
         self.deck.repeat.set_icon("repeat-1" if player.repeat == "one" else "repeat")
         self.deck.repeat.set_active(player.repeat != "off")
@@ -1819,6 +1848,7 @@ class McWindow(QMainWindow):
             return
         player = self.player
         self.deck.seek.set_values(player.position, player.duration)
+        self.deck.seek.set_playing(player.playing)
         self.deck.pos_label.setText(fmt_time(player.position))
         self.deck.dur.setText(fmt_time(player.duration))
         self.deck.play.set_playing(player.playing)
@@ -1826,6 +1856,7 @@ class McWindow(QMainWindow):
             self.overlay.pos_label.setText(fmt_time(player.position))
             self.overlay.dur.setText(fmt_time(player.duration))
             self.overlay.seek.set_values(player.position, player.duration)
+            self.overlay.seek.set_playing(player.playing)
             self.overlay.play.set_playing(player.playing)
         self._publish_activity()
 
@@ -1884,7 +1915,7 @@ class McWindow(QMainWindow):
             self.toast_widget._reposition()
 
     # ── menus and dialogs ───────────────────────────────────────────────
-    def _menu_icon(self, name: str, token: str = "dim"):
+    def _menu_icon(self, name: str, token: str = "on_surface_variant"):
         return icons.icon(name, getattr(theme.pal(), token), 16)
 
     def open_track_menu(self, track: Track, index: int = 0, pos=None,
@@ -1892,7 +1923,7 @@ class McWindow(QMainWindow):
         menu = QMenu(self)
 
         def add(icon_name: str, label: str, callback: Callable[[], None],
-                *, token: str = "dim", shortcut: str = "") -> None:
+                *, token: str = "on_surface_variant", shortcut: str = "") -> None:
             action = menu.addAction(self._menu_icon(icon_name, token), label)
             if shortcut:
                 action.setShortcut(QKeySequence(shortcut))
@@ -1914,12 +1945,12 @@ class McWindow(QMainWindow):
         menu.addSeparator()
         add("heart", "Remove from liked" if track.liked else "Like",
             lambda: self.toggle_like(track),
-            token="accent" if track.liked else "dim")
+            token="primary" if track.liked else "on_surface_variant")
         add("info", "Track info", lambda: self._track_info(track))
         if playlist_id is not None:
             menu.addSeparator()
             add("trash-2", "Remove from playlist",
-                lambda: self._remove_from_playlist(playlist_id, track), token="err")
+                lambda: self._remove_from_playlist(playlist_id, track), token="error")
         if self.me and self.me.is_admin:
             menu.addSeparator()
             add("triangle-alert",
@@ -1945,14 +1976,15 @@ class McWindow(QMainWindow):
         head = QHBoxLayout()
         head.setSpacing(12)
         art = Artwork(64, kind="track")
-        art.set_cover(track.id)
+        art.set_cover(track.id, name=track.title)
         head.addWidget(art)
         text = QVBoxLayout()
         text.setContentsMargins(0, 0, 0, 0)
         text.setSpacing(3)
-        text.addWidget(Txt(track.title, size=13, token="fg", weight=QFont.Weight.Medium))
+        text.addWidget(Txt(track.title, size=16, token="on_surface",
+                           weight=QFont.Weight.Bold))
         text.addWidget(Txt(" · ".join(x for x in (track.artist, track.album) if x),
-                           size=11, token="dim2"))
+                           size=14, token="on_surface_variant"))
         head.addLayout(text, 1)
         sheet.body.addLayout(head)
         sheet.body.addSpacing(10)
@@ -1977,16 +2009,17 @@ class McWindow(QMainWindow):
         grid.setHorizontalSpacing(14)
         grid.setVerticalSpacing(7)
         for i, (key, value) in enumerate(rows):
-            grid.addWidget(Txt(key.upper(), size=9, family="mono", token="dim2",
-                               spacing=0.8), i, 0)
-            grid.addWidget(Txt(value, size=13, token="fg"), i, 1)
+            grid.addWidget(Txt(key.upper(), size=14, token="primary",
+                               weight=QFont.Weight.Bold), i, 0)
+            grid.addWidget(Txt(value, size=16, token="on_surface"), i, 1)
         grid.setColumnStretch(1, 1)
         sheet.body.addLayout(grid)
 
         sheet.body.addSpacing(10)
-        sheet.body.addWidget(Txt("SOURCES", size=9, family="mono", token="dim2",
-                                 spacing=1.2))
-        sources = Txt("Reading source metadata…", size=11, token="dim", wrap=True)
+        sheet.body.addWidget(Txt("SOURCES", size=14, token="primary",
+                                 weight=QFont.Weight.Bold))
+        sources = Txt("Reading source metadata…", size=16,
+                      token="on_surface_variant", wrap=True)
         sheet.body.addWidget(sources)
 
         def sources_ok(rows: list[dict]) -> None:
@@ -2021,7 +2054,8 @@ class McWindow(QMainWindow):
         listing.setContentsMargins(0, 0, 0, 0)
         listing.setSpacing(1)
         sheet.body.addWidget(list_host)
-        hint = Txt("No playlists yet — name one below.", size=11, token="dim2")
+        hint = Txt("No playlists yet — name one below.", size=16,
+                   token="on_surface_variant")
         hint.setVisible(False)
         sheet.body.addWidget(hint)
 
@@ -2103,8 +2137,8 @@ class McWindow(QMainWindow):
             self.toast("Play a track to see its lyrics")
             return
         sheet = Sheet(self, "Lyrics")
-        sheet.body.addWidget(Txt(f"{track.title} — {track.artist}", size=12,
-                                 token="dim", wrap=True))
+        sheet.body.addWidget(Txt(f"{track.title} — {track.artist}", size=16,
+                                 token="on_surface_variant", wrap=True))
         visualizer = LyricVisualizer(self.player, sheet)
         sheet.body.addWidget(visualizer)
         view = QTextEdit()

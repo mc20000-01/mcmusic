@@ -26,5 +26,9 @@ fi
 # start on the default palette; the SPA then pins its palette inline at runtime.
 cat ui/node_modules/flufi-ui/dist/style.css ui/src/env.css > web/ui/flufi-ui.css
 
+# Fonts are served from the locally bundled @fontsource-variable packages;
+# flufi-ui's own stylesheet still starts with a Google Fonts CDN import.
+node scripts/strip-font-cdn.mjs .
+
 test -f web/ui/index.html
 echo "built web/ui ($(du -sh web/ui | cut -f1))"

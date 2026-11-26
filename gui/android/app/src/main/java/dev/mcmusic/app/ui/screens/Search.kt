@@ -145,7 +145,7 @@ fun SearchScreen(onPlaylist: (Int) -> Unit, onOpenPlayer: () -> Unit) {
             item { SectionLabel("People") }
             items(people, key = { "p-${it.username}" }) { person ->
                 Row(
-                    Modifier.fillMaxWidth().mcSurface(RoundedCornerShape(8.dp))
+                    Modifier.fillMaxWidth().mcSurface(RoundedCornerShape(design.cardRadius))
                         .clickable(enabled = person.profileUrl.isNotBlank()) {
                             Api.externalUrl(person.profileUrl)?.let { runCatching { uriHandler.openUri(it) } }
                         }
@@ -180,7 +180,7 @@ fun SearchScreen(onPlaylist: (Int) -> Unit, onOpenPlayer: () -> Unit) {
                 item { SectionLabel("Artists") }
                 items(found.artists, key = { "a-${it.artist}" }) { entry ->
                     Row(
-                        Modifier.fillMaxWidth().mcSurface(RoundedCornerShape(8.dp))
+                        Modifier.fillMaxWidth().mcSurface(RoundedCornerShape(design.cardRadius))
                             .clickable { artist = entry }
                             .padding(10.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -208,7 +208,7 @@ fun SearchScreen(onPlaylist: (Int) -> Unit, onOpenPlayer: () -> Unit) {
                 item { SectionLabel("Albums") }
                 items(found.albums, key = { "b-${it.album}" }) { entry ->
                     Row(
-                        Modifier.fillMaxWidth().mcSurface(RoundedCornerShape(8.dp))
+                        Modifier.fillMaxWidth().mcSurface(RoundedCornerShape(design.cardRadius))
                             .clickable { album = entry }
                             .padding(10.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -216,7 +216,7 @@ fun SearchScreen(onPlaylist: (Int) -> Unit, onOpenPlayer: () -> Unit) {
                     ) {
                         Cover(
                             url = albumCoverUrl(entry.coverId),
-                            shape = RoundedCornerShape(6.dp),
+                            shape = RoundedCornerShape(20.dp),
                             modifier = Modifier.size(40.dp),
                             fallback = design.accentSoft,
                         )

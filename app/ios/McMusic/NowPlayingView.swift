@@ -3,6 +3,7 @@ import SwiftUI
 struct NowPlayingView: View {
     @EnvironmentObject private var app: AppState
     @Environment(\.mcTokens) private var tokens
+    @Environment(\.playfulMotion) private var motion
     @Environment(\.dismiss) private var dismiss
     @State private var showQueue = false
     @State private var showLyrics = false
@@ -12,79 +13,98 @@ struct NowPlayingView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 22) {
-                CoverView(url: app.client.coverURL(player.current?.coverID), size: 280)
-                    .padding(.top, 12)
+            VStack(spacing: M3Shape.lg) {
+                CoverView(url: app.client.coverURL(player.current?.coverID),
+                          seed: player.currentTitle,
+                          size: 280,
+                          radius: M3Shape.hero)
+                    .padding(.top, M3Shape.sm)
 
-                VStack(spacing: 4) {
-                    Text(player.currentTitle).font(.title2.bold()).multilineTextAlignment(.center)
-                    Text(player.currentArtist).font(.subheadline).foregroundStyle(tokens.dim)
+                VStack(spacing: M3Shape.xs) {
+                    Text(player.currentTitle)
+                        .font(M3Type.headline)
+                        .multilineTextAlignment(.center)
+                    Text(player.currentArtist)
+                        .font(M3Type.body)
+                        .foregroundStyle(tokens.dim)
                 }
 
-                VStack(spacing: 2) {
-                    Slider(value: Binding(
-                        get: { player.progress },
-                        set: { player.seek(to: $0) }
-                    ), in: 0...max(player.duration, 1))
+                VStack(spacing: 0) {
+                    PlayfulSeek(value: player.progress,
+                                duration: player.duration,
+                                playing: player.isPlaying) { seconds in
+                        player.seek(to: seconds)
+                    }
                     HStack {
                         Text(time(player.progress))
                         Spacer()
                         Text(time(player.duration))
                     }
-                    .font(.caption).foregroundStyle(tokens.dim)
+                    .font(M3Type.label)
+                    .foregroundStyle(tokens.dim)
                 }
 
-                HStack(spacing: 28) {
-                    Button { player.shuffle.toggle() } label: {
-                        LucideIcon(name: "shuffle", size: 22,
-                                   color: player.shuffle ? tokens.accent : tokens.dim)
+                HStack(spacing: M3Shape.sm) {
+                    PlayfulIconButton(icon: "shuffle", size: 20,
+                                      tint: player.shuffle ? tokens.primary : tokens.dim,
+                                      label: player.shuffle ? "Turn shuffle off" : "Turn shuffle on") {
+                        player.shuffle.toggle()
                     }
-                    Button { player.previous() } label: {
-                        LucideIcon(name: "skip-back", size: 26, color: tokens.fg)
+                    PlayfulIconButton(icon: "skip-back", size: 24,
+                                      tint: tokens.fg, label: "Previous track") {
+                        player.previous()
                     }
-                    Button { player.toggle() } label: {
-                        LucideIcon(name: player.isPlaying ? "pause" : "play",
-                                   size: 48, color: tokens.accent)
+                    PlayPauseButton(playing: player.isPlaying, size: 64) {
+                        player.toggle()
                     }
-                    Button { player.next() } label: {
-                        LucideIcon(name: "skip-forward", size: 26, color: tokens.fg)
+                    PlayfulIconButton(icon: "skip-forward", size: 24,
+                                      tint: tokens.fg, label: "Next track") {
+                        player.next()
                     }
-                    Button { cycleRepeat() } label: {
-                        LucideIcon(name: player.repeatMode == 2 ? "repeat-1" : "repeat",
-                                   size: 22,
-                                   color: player.repeatMode > 0 ? tokens.accent : tokens.dim)
+                    PlayfulIconButton(icon: player.repeatMode == 2 ? "repeat-1" : "repeat",
+                                      size: 20,
+                                      tint: player.repeatMode > 0 ? tokens.primary : tokens.dim,
+                                      label: "Change repeat mode") {
+                        cycleRepeat()
                     }
                 }
+                .padding(.horizontal, M3Shape.sm)
+                .padding(.vertical, M3Shape.xs)
+                .background(Capsule().fill(tokens.surfaceContainerHigh))
 
-                HStack {
-                    Button {
+                HStack(spacing: M3Shape.md) {
+                    PlayfulIconButton(icon: app.player.volume > 0 ? "volume-2" : "volume-x",
+                                      size: 20, tint: tokens.dim, label: "Mute") {
                         app.player.volume = app.player.volume > 0 ? 0 : 0.8
-                    } label: {
-                        LucideIcon(name: app.player.volume > 0 ? "volume-2" : "volume-x",
-                                   size: 20, color: tokens.dim)
                     }
                     Slider(value: Binding(
                         get: { Double(app.player.volume) },
                         set: { app.player.volume = Float($0) }
                     ), in: 0...1)
+                    .tint(tokens.primary)
                     LucideIcon(name: "volume-2", size: 20, color: tokens.dim)
+                        .frame(width: M3Shape.touch, height: M3Shape.touch)
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, M3Shape.sm)
+                .background(Capsule().fill(tokens.surfaceContainerLow))
 
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, M3Shape.lg)
             .navigationTitle("Now playing")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    HStack {
-                        Button { Task { await loadLyrics() } } label: {
-                            LucideIcon(name: "message-circle", size: 20, color: tokens.accent)
+                    HStack(spacing: 0) {
+                        PlayfulIconButton(icon: "message-circle", size: 20,
+                                          tint: tokens.primary, label: "Lyrics") {
+                            Task { await loadLyrics() }
                         }
                         Menu {
                             Button("Sleep timer: off") { player.setSleepTimer(minutes: 0) }
                             ForEach([5, 15, 30, 45, 60], id: \.self) { minutes in
-                                Button("Sleep timer: \(minutes) min") { player.setSleepTimer(minutes: minutes) }
+                                Button("Sleep timer: \(minutes) min") {
+                                    player.setSleepTimer(minutes: minutes)
+                                }
                             }
                             if player.sleepMinutes > 0 {
                                 Button("Stop timer (\(player.sleepRemaining / 60)m left)", role: .destructive) {
@@ -93,20 +113,27 @@ struct NowPlayingView: View {
                             }
                         } label: {
                             LucideIcon(name: "moon", size: 20,
-                                       color: player.sleepMinutes > 0 ? tokens.accent : tokens.dim)
+                                       color: player.sleepMinutes > 0 ? tokens.primary : tokens.dim)
+                                .frame(width: M3Shape.touch, height: M3Shape.touch)
+                                .contentShape(Capsule())
                         }
-                        Button { showQueue = true } label: {
-                            LucideIcon(name: "list", size: 20, color: tokens.accent)
+                        PlayfulIconButton(icon: "list", size: 20,
+                                          tint: tokens.primary, label: "Queue") {
+                            showQueue = true
                         }
                     }
                 }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") { dismiss() }
+                        .buttonStyle(PlayfulButtonStyle())
                 }
             }
             .sheet(isPresented: $showQueue) { queueView }
             .sheet(isPresented: $showLyrics) {
-                LyricSheet(text: lyricsText, progress: player.progress, duration: player.duration, isPlaying: player.isPlaying)
+                LyricSheet(text: lyricsText,
+                           progress: player.progress,
+                           duration: player.duration,
+                           isPlaying: player.isPlaying)
             }
         }
     }
@@ -121,7 +148,9 @@ struct NowPlayingView: View {
                         })
                         TrackMenu(track: song, tracks: player.queue)
                     }
-                    .foregroundStyle(index == player.index ? tokens.accent : tokens.fg)
+                    .foregroundStyle(index == player.index ? tokens.primary : tokens.fg)
+                    .scaleEffect(index == player.index && motion ? 1.01 : 1)
+                    .animation(motion ? Playful.spring : nil, value: index == player.index)
                 }
                 .onMove { source, destination in
                     for offset in source.indices {
@@ -133,7 +162,7 @@ struct NowPlayingView: View {
                 }
             }
             .listStyle(.plain)
-            .navigationTitle("Queue")
+            .navigationTitle("Up next")
             .toolbar { EditButton() }
         }
     }
@@ -149,7 +178,11 @@ struct NowPlayingView: View {
     }
 
     private func loadLyrics() async {
-        guard let id = player.currentTrackID else { lyricsText = "Nothing playing."; showLyrics = true; return }
+        guard let id = player.currentTrackID else {
+            lyricsText = "Nothing playing."
+            showLyrics = true
+            return
+        }
         do {
             let value = try await app.client.lyrics(id)
             lyricsText = value["lyrics"]?.string ?? value["text"]?.string ?? "No lyrics yet."
