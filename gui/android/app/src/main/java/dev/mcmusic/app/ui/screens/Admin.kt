@@ -90,8 +90,8 @@ fun AdminScreen(onBack: () -> Unit) {
                 listOf("Overview", "Users", "Invites", "Queue").forEachIndexed { index, label ->
                     val selected = tab == index
                     Box(
-                        Modifier.clip(RoundedCornerShape(7.dp))
-                            .then(if (selected) Modifier.mcSurface(RoundedCornerShape(7.dp)) else Modifier)
+                        Modifier.clip(RoundedCornerShape(design.cardRadius))
+                            .then(if (selected) Modifier.mcSurface(RoundedCornerShape(design.cardRadius)) else Modifier)
                             .clickable { tab = index; error = null }
                             .padding(horizontal = 10.dp, vertical = 7.dp),
                     ) {
@@ -152,7 +152,7 @@ fun AdminScreen(onBack: () -> Unit) {
                 } else {
                     item { SectionLabel("Users", Modifier) { GhostButton("Refresh") { reload++ } } }
                     items(list, key = { it.id }) { user ->
-                        Column(Modifier.fillMaxWidth().mcSurface(RoundedCornerShape(8.dp)).padding(11.dp)) {
+                        Column(Modifier.fillMaxWidth().mcSurface(RoundedCornerShape(design.cardRadius)).padding(11.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f)) {
                                     Text(
@@ -232,7 +232,7 @@ fun AdminScreen(onBack: () -> Unit) {
                     item { EmptyState(Lucide.Lock, "No invite codes", "Create one above to let someone sign up.") }
                 } else {
                     items(list, key = { it.id }) { code ->
-                        Column(Modifier.fillMaxWidth().mcSurface(RoundedCornerShape(8.dp)).padding(11.dp)) {
+                        Column(Modifier.fillMaxWidth().mcSurface(RoundedCornerShape(design.cardRadius)).padding(11.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f)) {
                                     Text(code.code, color = design.fg, fontSize = 14.sp, fontWeight = FontWeight.Medium)
@@ -265,7 +265,7 @@ fun AdminScreen(onBack: () -> Unit) {
                     item { EmptyState(Lucide.Download, "Queue is empty", "New requests appear here for approval.") }
                 } else {
                     items(list, key = { it.id }) { request ->
-                        Column(Modifier.fillMaxWidth().mcSurface(RoundedCornerShape(8.dp)).padding(11.dp)) {
+                        Column(Modifier.fillMaxWidth().mcSurface(RoundedCornerShape(design.cardRadius)).padding(11.dp)) {
                             Text(
                                 request.url,
                                 color = design.fg,
@@ -320,7 +320,7 @@ private fun StatRow(left: String, leftValue: String, right: String, rightValue: 
 @Composable
 private fun StatTile(label: String, value: String, modifier: Modifier = Modifier) {
     val design = LocalDesign.current
-    Column(modifier.mcSurface(RoundedCornerShape(8.dp)).padding(11.dp)) {
+    Column(modifier.mcSurface(RoundedCornerShape(design.cardRadius)).padding(11.dp)) {
         Text(label, color = design.dim, fontSize = 10.sp)
         Text(value, color = design.fg, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
     }

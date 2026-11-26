@@ -58,6 +58,7 @@ import dev.mcmusic.app.ui.SettingRow
 import dev.mcmusic.app.ui.SwitchRow
 import dev.mcmusic.app.playback.Playback
 import dev.mcmusic.app.ui.design.DesignLanguage
+import dev.mcmusic.app.ui.design.DynamicColour
 import dev.mcmusic.app.ui.design.LocalDesign
 import dev.mcmusic.app.ui.design.Palettes
 import dev.mcmusic.app.ui.formatBytes
@@ -313,14 +314,22 @@ fun SettingsScreen(onAdmin: () -> Unit, onSignedOut: () -> Unit) {
             SettingCard {
                 SettingRow(
                     "Palette",
-                    "Five swappable defaults; System follows light and dark",
+                    "Five families, System, and wallpaper on Android 12+",
                     icon = Lucide.Palette,
-                    value = if (Prefs.palette == Palettes.AUTO) {
-                        "System (${Palettes.resolve(Prefs.palette, isSystemInDarkTheme()).label})"
-                    } else {
-                        Palettes.resolve(Prefs.palette, isSystemInDarkTheme()).label
+                    value = when (Prefs.palette) {
+                        DynamicColour.WALLPAPER -> "Wallpaper"
+                        Palettes.AUTO -> "System (${DynamicColour.resolve(Prefs.palette, isSystemInDarkTheme()).label})"
+                        else -> DynamicColour.resolve(Prefs.palette, isSystemInDarkTheme()).label
                     },
                     onClick = { palettePicker = true },
+                )
+                SettingDivider()
+                SwitchRow(
+                    "Colour from cover",
+                    "Tint the app with the playing artwork; real sleeves stay unchanged",
+                    icon = Lucide.Image,
+                    checked = Prefs.dynamicColour,
+                    onChange = { Prefs.saveDynamicColour(it) },
                 )
                 SettingDivider()
                 SettingRow(
@@ -376,6 +385,19 @@ fun SettingsScreen(onAdmin: () -> Unit, onSignedOut: () -> Unit) {
                                     Text(
                                         if (activeFamily == option.id) "${option.label} (selected)"
                                         else option.label
+                                    )
+                                }
+                            }
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                TextButton(onClick = {
+                                    DynamicColour.refreshWallpaper(context)
+                                    Prefs.savePalette(DynamicColour.WALLPAPER)
+                                    Widgets.refresh(context)
+                                    palettePicker = false
+                                }) {
+                                    Text(
+                                        if (Prefs.palette == DynamicColour.WALLPAPER) "Wallpaper (selected)"
+                                        else "Wallpaper"
                                     )
                                 }
                             }
@@ -573,11 +595,11 @@ fun SettingsScreen(onAdmin: () -> Unit, onSignedOut: () -> Unit) {
         item {
             SettingCard {
                 SwitchRow(
-                    "Reduce motion",
-                    "Turns off tab transitions.",
+                    "Playful motion",
+                    "Springs, shape morphs and taps; system reduce-motion still wins",
                     icon = Lucide.RefreshCw,
-                    checked = !Prefs.motion,
-                    onChange = { Prefs.saveMotion(!it) },
+                    checked = Prefs.playfulMotion,
+                    onChange = { Prefs.savePlayfulMotion(it) },
                 )
                 SettingDivider()
                 SwitchRow(

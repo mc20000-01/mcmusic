@@ -73,7 +73,7 @@ fun CollectionSheet(
             Modifier
                 .fillMaxWidth()
                 .heightIn(max = 560.dp)
-                .mcSurface(RoundedCornerShape(12.dp))
+                .mcSurface(RoundedCornerShape(design.cardRadius))
                 .padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {

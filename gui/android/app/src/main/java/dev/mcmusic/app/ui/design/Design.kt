@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.mcmusic.app.data.Prefs
 
 /**
  * Material 3 shape, type and colour roles with Lucide as the only icon source.
@@ -264,15 +265,22 @@ class McDesign(
     /** Retained so older call sites still compile. */
     val ios: Boolean get() = false
 
-    // Material 3 shape scale: generous corners and a small, even rhythm.
-    val cardRadius = 18.dp
-    val tileRadius = 18.dp
+    // 4.2.0 shape scale: 4/8/12/16/28/36 + pill. Large, friendly corners
+    // are structural, not decoration; covers stay inside the 20-28 range.
+    val cardRadius = 28.dp
+    val tileRadius = 28.dp
+    val heroRadius = 36.dp
+    val coverRadius = 28.dp
+    val chipRadius = 50
     val screenPadding = 16.dp
     val gap = 12.dp
+    val touchTarget = 48.dp
 
-    val titleSize = 28.sp
-    val titleWeight = FontWeight.SemiBold
-    val sectionSize = 11.sp
+    val displaySize = 36.sp
+    val headlineSize = 28.sp
+    val titleSize = 22.sp
+    val titleWeight = FontWeight.Bold
+    val sectionSize = 12.sp
     val sectionWeight = FontWeight.SemiBold
 
     val fg = palette.fg
@@ -287,7 +295,7 @@ class McDesign(
     val hairline = palette.line
 
     /** Material 3 surface container: a calm fill with a tonal edge. */
-    val cardFill = palette.surface
+    val cardFill = palette.surfaceContainerLow
 }
 
 val LocalDesign = compositionLocalOf { McDesign(DesignLanguage.Flufi, Palettes.violet.dark) }
@@ -299,21 +307,21 @@ private fun Stage(modifier: Modifier, design: McDesign) {
 }
 
 private val McTypography = Typography(
-    displayLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 40.sp),
-    displayMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 34.sp),
-    displaySmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold, fontSize = 28.sp),
-    headlineLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 28.sp),
-    headlineMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold, fontSize = 24.sp),
-    headlineSmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold, fontSize = 22.sp),
-    titleLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 22.sp),
-    titleMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold, fontSize = 16.sp),
-    titleSmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold, fontSize = 14.sp),
+    displayLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 36.sp, lineHeight = 44.sp),
+    displayMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 28.sp, lineHeight = 36.sp),
+    displaySmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold, fontSize = 24.sp, lineHeight = 32.sp),
+    headlineLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 28.sp, lineHeight = 36.sp),
+    headlineMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold, fontSize = 24.sp, lineHeight = 32.sp),
+    headlineSmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold, fontSize = 22.sp, lineHeight = 28.sp),
+    titleLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 22.sp, lineHeight = 28.sp),
+    titleMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 24.sp),
+    titleSmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 20.sp),
     bodyLarge = TextStyle(fontFamily = FontFamily.Default, fontSize = 16.sp, lineHeight = 24.sp),
     bodyMedium = TextStyle(fontFamily = FontFamily.Default, fontSize = 14.sp, lineHeight = 20.sp),
-    bodySmall = TextStyle(fontFamily = FontFamily.Default, fontSize = 12.sp, lineHeight = 17.sp),
-    labelLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold, fontSize = 14.sp),
-    labelMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold, fontSize = 12.sp),
-    labelSmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium, fontSize = 11.sp),
+    bodySmall = TextStyle(fontFamily = FontFamily.Default, fontSize = 12.sp, lineHeight = 16.sp),
+    labelLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 20.sp),
+    labelMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, lineHeight = 16.sp),
+    labelSmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 16.sp),
 )
 
 /**
@@ -326,70 +334,77 @@ fun McTheme(
     language: DesignLanguage = DesignLanguage.Flufi,
     content: @Composable () -> Unit,
 ) {
-    val palette = Palettes.resolve(paletteId, isSystemInDarkTheme())
+    val systemDark = isSystemInDarkTheme()
+    val coverSeed = DynamicColour.coverSeed
+    val wallpaperSeed = DynamicColour.wallpaperSeed
+    val followCover = Prefs.dynamicColour
+    val palette = remember(paletteId, systemDark, coverSeed, wallpaperSeed, followCover) {
+        DynamicColour.resolve(paletteId, systemDark)
+    }
     val design = remember(palette, language) { McDesign(language, palette) }
-    val onError = if (palette.dark) palette.bg else Color.White
     val scheme = if (palette.dark) {
         darkColorScheme(
-            primary = palette.accent,
-            onPrimary = palette.accentFg,
-            primaryContainer = palette.surface2,
-            onPrimaryContainer = palette.fg,
-            secondary = palette.accent,
-            onSecondary = palette.accentFg,
-            secondaryContainer = palette.surface,
-            onSecondaryContainer = palette.fg,
-            tertiary = palette.accent,
-            onTertiary = palette.accentFg,
-            tertiaryContainer = palette.surface2,
-            onTertiaryContainer = palette.fg,
-            background = palette.bg,
-            onBackground = palette.fg,
-            surface = palette.surface,
-            onSurface = palette.fg,
-            surfaceVariant = palette.surface2,
-            onSurfaceVariant = palette.dim,
-            surfaceTint = palette.accent,
-            outline = palette.line,
-            outlineVariant = palette.line2,
+            primary = palette.primary,
+            onPrimary = palette.onPrimary,
+            primaryContainer = palette.primaryContainer,
+            onPrimaryContainer = palette.onPrimaryContainer,
+            secondary = palette.secondary,
+            onSecondary = palette.onSecondary,
+            secondaryContainer = palette.secondaryContainer,
+            onSecondaryContainer = palette.onSecondaryContainer,
+            tertiary = palette.tertiary,
+            onTertiary = palette.onTertiary,
+            tertiaryContainer = palette.tertiaryContainer,
+            onTertiaryContainer = palette.onTertiaryContainer,
             error = palette.error,
-            onError = onError,
-            onErrorContainer = palette.fg,
-            inverseSurface = palette.fg,
-            inverseOnSurface = palette.bg,
-            inversePrimary = palette.accentText,
-            scrim = Color(0x99000000),
+            onError = palette.onError,
+            errorContainer = palette.errorContainer,
+            onErrorContainer = palette.onErrorContainer,
+            background = palette.background,
+            onBackground = palette.onBackground,
+            surface = palette.surfaceContainerLow,
+            onSurface = palette.onSurface,
+            surfaceVariant = palette.surfaceVariant,
+            onSurfaceVariant = palette.onSurfaceVariant,
+            surfaceTint = palette.primary,
+            outline = palette.outline,
+            outlineVariant = palette.outlineVariant,
+            inverseSurface = palette.inverseSurface,
+            inverseOnSurface = palette.inverseOnSurface,
+            inversePrimary = palette.inversePrimary,
+            scrim = palette.scrim,
         )
     } else {
         lightColorScheme(
-            primary = palette.accent,
-            onPrimary = palette.accentFg,
-            primaryContainer = palette.surface2,
-            onPrimaryContainer = palette.fg,
-            secondary = palette.accent,
-            onSecondary = palette.accentFg,
-            secondaryContainer = palette.surface,
-            onSecondaryContainer = palette.fg,
-            tertiary = palette.accent,
-            onTertiary = palette.accentFg,
-            tertiaryContainer = palette.surface2,
-            onTertiaryContainer = palette.fg,
-            background = palette.bg,
-            onBackground = palette.fg,
-            surface = palette.surface,
-            onSurface = palette.fg,
-            surfaceVariant = palette.surface2,
-            onSurfaceVariant = palette.dim,
-            surfaceTint = palette.accent,
-            outline = palette.line,
-            outlineVariant = palette.line2,
+            primary = palette.primary,
+            onPrimary = palette.onPrimary,
+            primaryContainer = palette.primaryContainer,
+            onPrimaryContainer = palette.onPrimaryContainer,
+            secondary = palette.secondary,
+            onSecondary = palette.onSecondary,
+            secondaryContainer = palette.secondaryContainer,
+            onSecondaryContainer = palette.onSecondaryContainer,
+            tertiary = palette.tertiary,
+            onTertiary = palette.onTertiary,
+            tertiaryContainer = palette.tertiaryContainer,
+            onTertiaryContainer = palette.onTertiaryContainer,
             error = palette.error,
-            onError = onError,
-            onErrorContainer = palette.fg,
-            inverseSurface = palette.fg,
-            inverseOnSurface = palette.bg,
-            inversePrimary = palette.accent,
-            scrim = Color(0x99000000),
+            onError = palette.onError,
+            errorContainer = palette.errorContainer,
+            onErrorContainer = palette.onErrorContainer,
+            background = palette.background,
+            onBackground = palette.onBackground,
+            surface = palette.surfaceContainerLow,
+            onSurface = palette.onSurface,
+            surfaceVariant = palette.surfaceVariant,
+            onSurfaceVariant = palette.onSurfaceVariant,
+            surfaceTint = palette.primary,
+            outline = palette.outline,
+            outlineVariant = palette.outlineVariant,
+            inverseSurface = palette.inverseSurface,
+            inverseOnSurface = palette.inverseOnSurface,
+            inversePrimary = palette.inversePrimary,
+            scrim = palette.scrim,
         )
     }
     CompositionLocalProvider(LocalDesign provides design) {

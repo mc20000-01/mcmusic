@@ -100,8 +100,16 @@ object Prefs {
     var downloadSources by mutableStateOf<List<DownloadSource>>(emptyList())
         private set
 
-    /** Tab changes and other small transitions animate. */
+    /** Legacy tab-transition flag; kept in sync with [playfulMotion]. */
     var motion by mutableStateOf(true)
+        private set
+
+    /** Springs, shape morphs and haptics. Stored under the shared 4.2.0 key. */
+    var playfulMotion by mutableStateOf(true)
+        private set
+
+    /** Tint the app from the dominant colour of the playing cover. */
+    var dynamicColour by mutableStateOf(true)
         private set
 
     /** Keep filling the queue from radio when the last track ends. */
@@ -141,7 +149,10 @@ object Prefs {
         autoFaves = p.getBoolean("auto_faves", false)
         autoFavesNetwork = normalizeNetwork(p.getString("auto_faves_network", "wifi"))
         downloadSources = readSources(p.getString("download_sources", null))
-        motion = p.getBoolean("motion", true)
+        val legacyMotion = p.getBoolean("motion", true)
+        playfulMotion = p.getBoolean("playfulMotion", legacyMotion)
+        motion = playfulMotion
+        dynamicColour = p.getBoolean("dynamic_colour", true)
         autoplay = p.getBoolean("autoplay", true)
         roturActivity = p.getBoolean("rotur_activity", true)
         discordActivity = p.getBoolean("discord_activity", false)
@@ -233,9 +244,21 @@ object Prefs {
         sp?.edit()?.putString("download_sources", arr.toString())?.apply()
     }
 
-    fun saveMotion(enabled: Boolean) {
+    /** One switch for playful motion; the legacy key stays usable by old code. */
+    fun savePlayfulMotion(enabled: Boolean) {
+        playfulMotion = enabled
         motion = enabled
-        sp?.edit()?.putBoolean("motion", enabled)?.apply()
+        sp?.edit()
+            ?.putBoolean("playfulMotion", enabled)
+            ?.putBoolean("motion", enabled)
+            ?.apply()
+    }
+
+    fun saveMotion(enabled: Boolean) = savePlayfulMotion(enabled)
+
+    fun saveDynamicColour(enabled: Boolean) {
+        dynamicColour = enabled
+        sp?.edit()?.putBoolean("dynamic_colour", enabled)?.apply()
     }
 
     fun saveAutoplay(enabled: Boolean) {
