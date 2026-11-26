@@ -280,9 +280,20 @@ class PlayerEngine(QObject):
         if self.queue and not self.playing:
             self.toggle()
 
+    def _report_skip(self) -> None:
+        track = self.current
+        if track is None or self.position < 3.0 or not self.playing:
+            return
+        self.runner.submit(
+            lambda: self.repo.report_metric(track.id, "skip", self.position, self.duration),
+            error=lambda _e: None,
+        )
+
     def next(self, auto: bool = False) -> None:
         if not self.queue:
             return
+        if not auto:
+            self._report_skip()
         count = len(self.queue)
         if auto and self.repeat == "one":
             self.seek(0)
@@ -304,6 +315,7 @@ class PlayerEngine(QObject):
     def prev(self) -> None:
         if not self.queue:
             return
+        self._report_skip()
         if self.position > 3.0:
             self.seek(0)
             return
@@ -317,7 +329,14 @@ class PlayerEngine(QObject):
         if not self.queue:
             return
         seconds = max(0.0, seconds)
+        previous = self.position
         self.media.setPosition(int(seconds * 1000))
+        if abs(seconds - previous) > 1.0 and self.current and self._source_token == self._token:
+            tid = self.current.id
+            self.runner.submit(
+                lambda: self.repo.report_metric(tid, "seek", seconds, self.duration),
+                error=lambda _e: None,
+            )
         self._last_seek = time.time()
         self.seeked.emit(seconds)
         self.tick.emit()
@@ -535,6 +554,7 @@ class PlayerEngine(QObject):
 
             def report() -> None:
                 self.repo.report_play(track.id, False)
+                self.repo.report_metric(track.id, "play", self.position, self.duration)
 
             QTimer.singleShot(2500, lambda: self.runner.submit(report, error=lambda _e: None))
 
@@ -552,6 +572,7 @@ class PlayerEngine(QObject):
 
                 def report_done() -> None:
                     self.repo.report_play(tid, True)
+                    self.repo.report_metric(tid, "complete", self.duration, self.duration)
 
                 self.runner.submit(report_done, error=lambda _e: None)
             if self.repeat == "one":

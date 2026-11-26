@@ -129,6 +129,23 @@ object Playback {
                     suppressAutoplayKey = null
                 }
 
+                override fun onPositionDiscontinuity(
+                    oldPosition: Player.PositionInfo,
+                    newPosition: Player.PositionInfo,
+                    reason: Int,
+                ) {
+                    // Natural transitions count as completions; manual skips are
+                    // recorded by next()/previous() instead.
+                    if (reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION) {
+                        val id = oldPosition.mediaItem?.mediaId?.substringBefore('@')?.toIntOrNull()
+                        if (id != null) {
+                            reportScope.launch {
+                                runCatching { Api.recordMetric(id, "complete", oldPosition.positionMs) }
+                            }
+                        }
+                    }
+                }
+
                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                     state = state.copy(error = error.message ?: "playback failed", playing = false)
                 }
@@ -168,7 +185,8 @@ object Playback {
         return queueTracks[safe] to safe
     }
 
-    private fun itemsOf(tracks: List<Track>): List<MediaItem> = tracks.mapIndexed { index, track ->
+    private fun itemsOf(tracks: List<Track>, offset: Int = 0): List<MediaItem> = tracks.mapIndexed { i, track ->
+        val index = offset + i
         val local = Downloads.file(track.id)
         val item = MediaItem.Builder().setMediaId(mediaId(track.id, index))
         if (local != null) item.setUri(Uri.fromFile(local)) else item.setUri(Api.streamUrl(track.id))
@@ -357,11 +375,19 @@ object Playback {
         state = state.copy(sleepMinutes = minutes.coerceAtLeast(0), sleepRemaining = remaining)
     }
 
-    private fun installQueue(player: Player, tracks: List<Track>, startIndex: Int, positionMs: Long = 0L) {
+    private fun installQueue(
+        player: Player,
+        tracks: List<Track>,
+        startIndex: Int,
+        positionMs: Long = 0L,
+        keepAutoplay: Boolean = false,
+    ) {
         if (tracks.isEmpty()) return
         queueTracks = tracks
-        autoplayDoneKey = null
-        suppressAutoplayKey = null
+        if (!keepAutoplay) {
+            autoplayDoneKey = null
+            suppressAutoplayKey = null
+        }
         player.setMediaItems(itemsOf(tracks), startIndex.coerceIn(0, tracks.lastIndex), positionMs)
         saveQueue(player, positionMs)
     }
@@ -380,6 +406,30 @@ object Playback {
         val index = queue.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
         play(queue, index)
     }
+
+    /**
+     * Add tracks without interrupting the current song. [playNext] inserts
+     * directly after it; otherwise the tracks go to the end of the queue.
+     */
+    fun enqueue(tracks: List<Track>, playNext: Boolean = false) {
+        val player = controller ?: return
+        if (tracks.isEmpty() || queueTracks.isEmpty()) {
+            if (tracks.isNotEmpty()) play(tracks)
+            return
+        }
+        val current = currentTrack(player).second
+        val at = (if (playNext) current + 1 else queueTracks.size).coerceIn(0, queueTracks.size)
+        val updated = queueTracks.toMutableList().also { it.addAll(at, tracks) }
+        // addMediaItems keeps the playing item and its position intact.
+        player.addMediaItems(at, itemsOf(tracks, at))
+        queueTracks = updated
+        saveQueue(player, player.currentPosition)
+        publish(player)
+    }
+
+    fun playNext(track: Track) = enqueue(listOf(track), playNext = true)
+
+    fun addToQueue(track: Track) = enqueue(listOf(track))
 
     /**
      * Drop a track that was removed from the server library. The local queue
@@ -491,24 +541,45 @@ object Playback {
         val c = controller ?: return
         if (from == to) return
         if (from !in queueTracks.indices || to !in queueTracks.indices) return
-        val currentIndex = currentTrack(c).second
+        val current = currentTrack(c).second
         val currentPosition = c.currentPosition
         queueTracks = queueTracks.toMutableList().also { it.add(to, it.removeAt(from)) }
+        // Follow the playing item to its new slot; moving neighbours around it
+        // must not start a different song.
+        val nextCurrent = when {
+            current == from -> to
+            from < current && to >= current -> current - 1
+            from > current && to <= current -> current + 1
+            else -> current
+        }
         // Rebuild media ids so each occurrence keeps its position in the moved queue.
-        installQueue(c, queueTracks, currentIndex, currentPosition)
+        installQueue(c, queueTracks, nextCurrent, currentPosition, keepAutoplay = true)
         c.prepare()
         publish(c)
+    }
+
+    /** A manual leave counts against a song when Faves is rebuilt. */
+    private fun recordSkip() {
+        val c = controller ?: return
+        if (c.currentPosition < 3_000L) return
+        val (track, _) = currentTrack(c)
+        val id = track?.id ?: return
+        reportScope.launch { runCatching { Api.recordMetric(id, "skip", c.currentPosition) } }
     }
 
     /** Manual Next never triggers radio, even when it happens on the last item. */
     fun next() {
         val c = controller ?: return
         val (track, index) = currentTrack(c)
+        recordSkip()
         suppressAutoplayKey = trackKey(index, track)
         c.seekToNextMediaItem()
     }
 
-    fun previous() { controller?.seekToPreviousMediaItem() }
+    fun previous() {
+        recordSkip()
+        controller?.seekToPreviousMediaItem()
+    }
 
     /**
      * Jump straight to a queue index. Used by the player's drag-to-browse
@@ -520,17 +591,24 @@ object Playback {
         if (index !in queueTracks.indices) return
         val (track, currentIndex) = currentTrack(c)
         if (index == currentIndex) return
+        recordSkip()
         suppressAutoplayKey = trackKey(currentIndex, track)
         c.seekTo(index, 0L)
         publish(c)
     }
 
     fun seekTo(ms: Long) {
-        controller?.seekTo(ms.coerceAtLeast(0))
-        controller?.let {
-            position(it)
-            saveQueue(it, ms.coerceAtLeast(0))
+        val c = controller ?: return
+        val target = ms.coerceAtLeast(0)
+        val (track, _) = currentTrack(c)
+        track?.id?.let { id ->
+            reportScope.launch {
+                runCatching { Api.recordMetric(id, "seek", target, state.duration) }
+            }
         }
+        c.seekTo(target)
+        position(c)
+        saveQueue(c, target)
     }
 
     fun seekFraction(fraction: Float) {

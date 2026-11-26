@@ -1072,10 +1072,10 @@ class StatusStrip(QWidget):
         self.sync.clicked.connect(window.sync_outbox)
         self.sync.setVisible(False)
         line.addWidget(self.sync)
-        self.update = McButton("Download", small=True, ghost=True, icon="download")
-        self.update.clicked.connect(window.open_update)
-        self.update.setVisible(False)
-        line.addWidget(self.update)
+        self.update_button = McButton("Download", small=True, ghost=True, icon="download")
+        self.update_button.clicked.connect(window.open_update)
+        self.update_button.setVisible(False)
+        line.addWidget(self.update_button)
 
     def set_state(self, *, online: bool, pending: int = 0, notice: str = "",
                   has_update: bool = False) -> None:
@@ -1098,7 +1098,7 @@ class StatusStrip(QWidget):
         self.setVisible(bool(text))
         self.setFixedHeight(24 if text else 0)
         self.sync.setVisible(online and self._pending > 0)
-        self.update.setVisible(online and has_update)
+        self.update_button.setVisible(online and has_update)
 
     def paintEvent(self, _event) -> None:
         if not self.height():

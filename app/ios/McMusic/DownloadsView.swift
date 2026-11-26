@@ -9,15 +9,27 @@ struct DownloadsView: View {
     @State private var url = ""
     @State private var log: JSON?
     @State private var cacheBytes: Int64 = 0
+    @State private var tab = 0
 
     var body: some View {
         NavigationStack {
-            List {
-                Section("Local cache") {
-                    LabeledContent("Cached audio", value: byteCount(cacheBytes))
-                    Button("Clear audio cache", role: .destructive) { clearCache() }
+            VStack(spacing: 0) {
+                Picker("Downloads", selection: $tab) {
+                    Text("Requests").tag(0)
+                    Text("Your downloads").tag(1)
                 }
+                .pickerStyle(.segmented)
+                .padding()
 
+                List {
+                if tab == 1 {
+                    Section("Your downloads") {
+                        LabeledContent("Cached audio", value: byteCount(cacheBytes))
+                        Text("Saved tracks play offline and stay in sync with this device's queue.")
+                            .font(.caption).foregroundStyle(tokens.dim)
+                        Button("Clear audio cache", role: .destructive) { clearCache() }
+                    }
+                } else {
                 Section("Requests") {
                     if rows.isEmpty {
                         StateView(text: "No download requests", icon: "download")
@@ -63,6 +75,7 @@ struct DownloadsView: View {
                             .padding(.vertical, 4)
                         }
                     }
+                }
                 }
             }
             .navigationTitle("Downloads")

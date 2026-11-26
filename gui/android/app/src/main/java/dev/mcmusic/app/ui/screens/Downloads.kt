@@ -1,6 +1,9 @@
 package dev.mcmusic.app.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -8,16 +11,20 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -123,6 +130,7 @@ fun DownloadsScreen(onOpenPlayer: () -> Unit, onOpenVideos: () -> Unit) {
     var sending by remember { mutableStateOf(false) }
     var requests by remember { mutableStateOf<List<DownloadRequest>?>(null) }
     var reload by remember { mutableStateOf(0) }
+    var tab by remember { mutableIntStateOf(0) } // 0 requests, 1 on this device
 
     LaunchedEffect(reload) {
         Api.myRequests().fold(
@@ -170,6 +178,27 @@ fun DownloadsScreen(onOpenPlayer: () -> Unit, onOpenVideos: () -> Unit) {
                 else "${items.size} tracks · ${formatBytes(Downloads.totalBytes())}",
             )
         }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf("Requests", "Your downloads").forEachIndexed { index, label ->
+                    Box(
+                        Modifier
+                            .clip(RoundedCornerShape(design.tileRadius))
+                            .background(if (tab == index) design.accentSoft else Color.Transparent)
+                            .clickable { tab = index }
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                    ) {
+                        Text(
+                            label,
+                            color = if (tab == index) design.accentText else design.dim,
+                            fontSize = 13.sp,
+                            fontWeight = if (tab == index) FontWeight.SemiBold else FontWeight.Normal,
+                        )
+                    }
+                }
+            }
+        }
+        if (tab == 0) {
         item {
             Column(
                 Modifier.fillMaxWidth().padding(horizontal = 4.dp),
@@ -237,6 +266,7 @@ fun DownloadsScreen(onOpenPlayer: () -> Unit, onOpenVideos: () -> Unit) {
                 }
             }
         }
+        } else {
         if (items.isNotEmpty()) {
             item {
                 SectionLabel("On this device") {
@@ -295,6 +325,7 @@ fun DownloadsScreen(onOpenPlayer: () -> Unit, onOpenVideos: () -> Unit) {
                     "Downloads are not synced between devices."
                 },
             )
+        }
         }
     }
 }

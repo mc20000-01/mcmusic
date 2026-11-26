@@ -37,13 +37,16 @@ import dev.mcmusic.app.data.Api
 import dev.mcmusic.app.data.AppUpdate
 import dev.mcmusic.app.data.IconStroke
 import dev.mcmusic.app.data.SELFHOST_GUIDE_URL
+import dev.mcmusic.app.data.AutoDownload
 import dev.mcmusic.app.data.Downloads
+import dev.mcmusic.app.data.DownloadSource
 import dev.mcmusic.app.data.LinkEvents
 import dev.mcmusic.app.data.LinkStatus
 import dev.mcmusic.app.data.Prefs
 import dev.mcmusic.app.data.Updater
 import dev.mcmusic.app.ui.ErrorLine
 import dev.mcmusic.app.ui.GhostButton
+import dev.mcmusic.app.ui.IconButton
 import dev.mcmusic.app.ui.Lucide
 import dev.mcmusic.app.ui.McField
 import dev.mcmusic.app.ui.Muted
@@ -77,6 +80,7 @@ fun SettingsScreen(onAdmin: () -> Unit, onSignedOut: () -> Unit) {
     var notice by remember { mutableStateOf<String?>(null) }
     var palettePicker by remember { mutableStateOf(false) }
     var iconStrokePicker by remember { mutableStateOf(false) }
+    var addSource by remember { mutableStateOf(false) }
 
     var server by remember { mutableStateOf(Prefs.server) }
     var email by remember { mutableStateOf("") }
@@ -409,6 +413,16 @@ fun SettingsScreen(onAdmin: () -> Unit, onSignedOut: () -> Unit) {
                     confirmButton = { TextButton(onClick = { iconStrokePicker = false }) { Text("Done") } },
                 )
             }
+            if (addSource) {
+                AddSourceDialog(
+                    dismiss = { addSource = false },
+                    add = { source ->
+                        Prefs.saveDownloadSources(Prefs.downloadSources + source)
+                        addSource = false
+                        scope.launch { AutoDownload.runIfAllowed(force = true) }
+                    },
+                )
+            }
         }
 
         item { SectionLabel("Social") }
@@ -481,6 +495,77 @@ fun SettingsScreen(onAdmin: () -> Unit, onSignedOut: () -> Unit) {
                     icon = Lucide.MessageCircle,
                     onClick = { openUrl("https://discord.com") },
                 )
+            }
+        }
+
+        item { SectionLabel("Auto-download") }
+        item {
+            SettingCard {
+                SwitchRow(
+                    "Keep Faves offline",
+                    "Saves the metrics-ranked top songs on this device",
+                    icon = Lucide.Radio,
+                    checked = Prefs.autoFaves,
+                    onChange = {
+                        Prefs.saveAutoFaves(it)
+                        if (it) scope.launch { AutoDownload.runIfAllowed(force = true) }
+                    },
+                )
+                SettingDivider()
+                SettingRow(
+                    "Faves connection",
+                    "Wi-Fi only, stable connection, or any connection",
+                    icon = Lucide.Wifi,
+                    value = networkLabel(Prefs.autoFavesNetwork),
+                    onClick = {
+                        val next = when (Prefs.autoFavesNetwork) {
+                            "wifi" -> "stable"
+                            "stable" -> "any"
+                            else -> "wifi"
+                        }
+                        Prefs.saveAutoFavesNetwork(next)
+                    },
+                )
+                Prefs.downloadSources.forEachIndexed { index, source ->
+                    SettingDivider()
+                    SettingRow(
+                        source.name,
+                        "Tap to change the connection rule",
+                        icon = Lucide.Download,
+                        value = networkLabel(source.network),
+                        onClick = {
+                            val next = when (source.network) {
+                                "wifi" -> "stable"
+                                "stable" -> "any"
+                                else -> "wifi"
+                            }
+                            Prefs.saveDownloadSources(
+                                Prefs.downloadSources.toMutableList().also { it[index] = source.copy(network = next) },
+                            )
+                        },
+                        trailing = {
+                            IconButton(Lucide.Trash) {
+                                Prefs.saveDownloadSources(Prefs.downloadSources.filterIndexed { i, _ -> i != index })
+                            }
+                        },
+                    )
+                }
+                SettingDivider()
+                SettingRow(
+                    "Add a source",
+                    "Keep a playlist, artist, album or Likes offline",
+                    icon = Lucide.ListPlus,
+                    onClick = { addSource = true },
+                )
+                if (Prefs.downloadSources.isNotEmpty()) {
+                    SettingDivider()
+                    SettingRow(
+                        "Sync now",
+                        "Respects each source's connection rule",
+                        icon = Lucide.RefreshCw,
+                        onClick = { scope.launch { AutoDownload.runIfAllowed(force = true) } },
+                    )
+                }
             }
         }
 
@@ -591,4 +676,52 @@ fun SettingsScreen(onAdmin: () -> Unit, onSignedOut: () -> Unit) {
             )
         }
     }
+}
+
+private fun networkLabel(network: String): String = when (network) {
+    "stable" -> "Stable"
+    "any" -> "Any connection"
+    else -> "Wi-Fi only"
+}
+
+/** Picker for the managed offline sources shown in the Auto-download card. */
+@Composable
+private fun AddSourceDialog(dismiss: () -> Unit, add: (DownloadSource) -> Unit) {
+    var playlists by remember { mutableStateOf<List<dev.mcmusic.app.data.Playlist>>(emptyList()) }
+    var artists by remember { mutableStateOf<List<dev.mcmusic.app.data.ArtistSummary>>(emptyList()) }
+    var albums by remember { mutableStateOf<List<dev.mcmusic.app.data.AlbumSummary>>(emptyList()) }
+    LaunchedEffect(Unit) {
+        Api.playlists().onSuccess { playlists = it }
+        Api.search("").onSuccess {
+            artists = it.artists.take(20)
+            albums = it.albums.take(20)
+        }
+    }
+    AlertDialog(
+        onDismissRequest = dismiss,
+        title = { Text("Keep offline") },
+        text = {
+            Column {
+                TextButton(onClick = { add(DownloadSource("likes", "likes", "Liked songs")) }) {
+                    Text("Liked songs")
+                }
+                playlists.forEach { playlist ->
+                    TextButton(onClick = {
+                        add(DownloadSource("playlist", playlist.id.toString(), playlist.name))
+                    }) { Text(playlist.name) }
+                }
+                artists.forEach { artist ->
+                    TextButton(onClick = {
+                        add(DownloadSource("artist", artist.artist, artist.artist))
+                    }) { Text(artist.artist) }
+                }
+                albums.forEach { album ->
+                    TextButton(onClick = {
+                        add(DownloadSource("album", album.album, album.album))
+                    }) { Text(album.album) }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = dismiss) { Text("Done") } },
+    )
 }

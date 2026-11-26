@@ -14,7 +14,7 @@ import "./style.css";
 
 // Admin endpoint groups, one pane each. Tabs is flufi-ui's own control,
 // so the admin view looks like the rest of the client.
-type Tab = "overview" | "requests" | "users" | "invites" | "devices" | "channels" | "enrich";
+type Tab = "overview" | "metrics" | "requests" | "users" | "invites" | "devices" | "channels" | "enrich";
 
 function when(ts?: number | null): string {
     if (!ts) return "—";
@@ -31,6 +31,7 @@ export function AdminPage() {
                     value={tab}
                     tabs={[
                         { name: "Overview", value: "overview" },
+                        { name: "Metrics", value: "metrics" },
                         { name: "Requests", value: "requests" },
                         { name: "Users", value: "users" },
                         { name: "Invites", value: "invites" },
@@ -41,6 +42,7 @@ export function AdminPage() {
                     onChange={(v) => setTab(v as Tab)}
                 />
                 {tab == "overview" && <Overview />}
+                {tab == "metrics" && <Metrics />}
                 {tab == "requests" && <Requests />}
                 {tab == "users" && <Users />}
                 {tab == "invites" && <Invites />}
@@ -148,6 +150,98 @@ function Overview() {
                 </Container>
             )}
         </Loading>
+    )
+}
+
+/** Admin-only listening insight: always-on events, never a public feed. */
+function Metrics() {
+    const [data, setData] = useState<any>(null);
+    const [history, setHistory] = useState<any>(null);
+    const [error, setError] = useState<string | null>(null);
+
+    const load = () => {
+        API.adminMetrics()
+            .then(d => { setData(d); setError(null); })
+            .catch(e => setError(e instanceof Error ? e.message : String(e)));
+    };
+    useEffect(load, []);
+
+    async function openHistory(id: number) {
+        try { setHistory(await API.adminHistory(id)); }
+        catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    }
+
+    return (
+        <Container extra_gap>
+            <Container horizontal centered_y class="section-head">
+                <Header3>Listening metrics</Header3>
+                <IconButton title="Refresh metrics" onClick={load}><RefreshCw size={15} /></IconButton>
+            </Container>
+            <Text dim content="Always-on, admin-only. Skips, completions and seeks rank Faves; nothing here is public." />
+            {error && <Text class="error" content={error} />}
+            {!data ? <Text dim content="Loading metrics…" /> : (
+                <>
+                    <Table>
+                        <TableBody>
+                            {[
+                                ["Events", data.events],
+                                ["Completion rate", `${Math.round((data.completion_rate ?? 0) * 100)}%`],
+                                ...Object.entries(data.by_event ?? {}).map(([k, v]) => [k, v]),
+                            ].map(([label, value]) => (
+                                <TableRow>
+                                    <TableCell><Text dim content={String(label)} /></TableCell>
+                                    <TableCell><Text content={String(value)} /></TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                    <Header3>Top tracks</Header3>
+                    <Table>
+                        <TableBody>
+                            {(data.top_tracks ?? []).map((t: any) => (
+                                <TableRow key={t.track_id}>
+                                    <TableCell><Text content={t.title} /></TableCell>
+                                    <TableCell><Text dim content={t.artist} /></TableCell>
+                                    <TableCell><Text dim content={`${t.plays} plays · ${t.completions} done · ${t.skips} skips`} /></TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                    <Header3>Listeners</Header3>
+                    <Table>
+                        <TableBody>
+                            {(data.listeners ?? []).map((u: any) => (
+                                <TableRow key={u.user_id}>
+                                    <TableCell><Text content={u.username} /></TableCell>
+                                    <TableCell><Text dim content={`${u.events} events · ${when(u.last_seen)}`} /></TableCell>
+                                    <TableCell>
+                                        <TextIconButton title="View recent history" onClick={() => void openHistory(u.user_id)}>
+                                            <FileText size={14} /> History
+                                        </TextIconButton>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                    {history && (
+                        <>
+                            <Header3>{history.user?.username ?? "History"}</Header3>
+                            <Table>
+                                <TableBody>
+                                    {(history.events ?? []).map((e: any, i: number) => (
+                                        <TableRow key={`${e.ts}-${i}`}>
+                                            <TableCell><Text dim content={when(e.ts)} /></TableCell>
+                                            <TableCell><Text content={e.event} /></TableCell>
+                                            <TableCell><Text dim content={`${e.title ?? e.track_id} · ${e.client ?? "?"}`} /></TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </>
+                    )}
+                </>
+            )}
+        </Container>
     )
 }
 

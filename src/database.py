@@ -47,7 +47,8 @@ create table if not exists playlists(
   id integer primary key,
   user_id integer references users(id) on delete cascade,
   name text,
-  created real
+  created real,
+  system_kind text default ''
 );
 create table if not exists playlist_tracks(
   playlist_id integer references playlists(id) on delete cascade,
@@ -64,6 +65,22 @@ create table if not exists plays(
 );
 create index if not exists plays_u on plays(user_id, ts);
 create index if not exists plays_uid_id on plays(user_id, id);
+-- Always-on listening metrics. `plays` stays as the simple play counter used
+-- by older clients; this table keeps the richer timeline (skips, completions,
+-- position, client) that powers Faves and the admin insight pages.
+create table if not exists listening_events(
+  id integer primary key,
+  user_id integer references users(id) on delete cascade,
+  track_id integer references tracks(id) on delete cascade,
+  ts real,
+  event text,
+  position real default 0,
+  duration real default 0,
+  client text
+);
+create index if not exists listening_events_u on listening_events(user_id, ts);
+create index if not exists listening_events_e on listening_events(event, ts);
+create index if not exists listening_events_t on listening_events(track_id);
 create table if not exists likes(
   user_id integer references users(id) on delete cascade,
   track_id integer references tracks(id) on delete cascade,
@@ -270,6 +287,7 @@ NEW_USER_COLS = {
 # the row (the hash columns stay for backwards compatibility).
 NEW_ROTUR_COLS = {"access_token": "text", "refresh_token": "text"}
 NEW_PENDING_COLS = {"email": "text", "app": "text", "device_hash": "text"}
+NEW_PLAYLIST_COLS = {"system_kind": "text default ''"}
 
 
 def _connect():
@@ -350,6 +368,10 @@ def _ensure_cols(c):
     for k, t in NEW_PENDING_COLS.items():
         if k not in phave:
             c.execute(f"alter table rotur_pending add column {k} {t}")
+    plhave = {r["name"] for r in c.execute("pragma table_info(playlists)")}
+    for k, t in NEW_PLAYLIST_COLS.items():
+        if k not in plhave:
+            c.execute(f"alter table playlists add column {k} {t}")
     ahave = {r["name"] for r in c.execute("pragma table_info(track_artists)")}
     if "artist_key" not in ahave:
         c.execute("alter table track_artists add column artist_key text")

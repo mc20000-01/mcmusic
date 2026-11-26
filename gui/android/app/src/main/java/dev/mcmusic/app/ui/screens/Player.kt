@@ -16,13 +16,13 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -40,12 +40,12 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -73,23 +73,81 @@ import dev.mcmusic.app.ui.formatDuration
 import dev.mcmusic.app.ui.trackCoverUrl
 import dev.mcmusic.app.data.Track
 import kotlinx.coroutines.delay
-import kotlin.math.roundToInt
+import kotlinx.coroutines.flow.collect
+import kotlin.math.abs
 
 /**
  * Now playing, with the same queue the service is playing. The scrubber writes
  * through to ExoPlayer, and the sleep timer is Playback's own (it pauses the
  * controller when the clock runs out).
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PlayerScreen(onBack: () -> Unit, onVideo: (String?, Long) -> Unit = { _, _ -> }) {
     val design = LocalDesign.current
     val state = Playback.state
     var scrub by remember { mutableStateOf<Float?>(null) }
     var lyricsOpen by remember { mutableStateOf(false) }
-    // Drag state is shared by the artwork and the title block: the finger can
-    // start on either, but nothing is played until it is lifted.
-    val swipe = rememberSwipeNav()
-    val stepPx = with(LocalDensity.current) { 96.dp.toPx() }
+    // YouTube Music-style artwork carousel: one page per queue entry. The
+    // settled page is the source of truth for playback, not the live page
+    // during a fling, so a half-swipe never changes the song.
+    val pagerState = rememberPagerState(
+        initialPage = state.index.coerceAtLeast(0),
+        pageCount = { state.queue.size.coerceAtLeast(1) },
+    )
+    LaunchedEffect(state.index) {
+        val last = state.queue.lastIndex.coerceAtLeast(0)
+        if (pagerState.currentPage != state.index && !pagerState.isScrollInProgress) {
+            pagerState.animateScrollToPage(state.index.coerceIn(0, last))
+        }
+    }
+    LaunchedEffect(Unit) {
+        snapshotFlow { pagerState.settledPage }.collect { page ->
+            if (page != state.index && page < state.queue.size) Playback.playIndex(page)
+        }
+    }
+
+    val listState = rememberLazyListState()
+    var heldRow by remember { mutableIntStateOf(-1) }
+    var dragOffset by remember { mutableFloatStateOf(0f) }
+    var dropSlot by remember { mutableIntStateOf(-1) }
+
+    fun rowCenter(index: Int): Float? =
+        listState.layoutInfo.visibleItemsInfo
+            .firstOrNull { it.key == "queue-$index" }
+            ?.let { it.offset + it.size / 2f }
+
+    fun startQueueDrag(index: Int) {
+        heldRow = index
+        dropSlot = index
+        dragOffset = 0f
+    }
+
+    fun dragQueue(dy: Float) {
+        dragOffset += dy
+        val index = heldRow
+        val center = if (index >= 0) rowCenter(index) else null
+        dropSlot = center?.let { nearestQueueIndex(it + dragOffset) }
+            ?.coerceIn(0, state.queue.lastIndex.coerceAtLeast(0)) ?: index
+    }
+
+    fun endQueueDrag() {
+        val from = heldRow
+        val to = dropSlot
+        heldRow = -1
+        dropSlot = -1
+        dragOffset = 0f
+        if (from >= 0 && to >= 0 && from != to && to < state.queue.size) Playback.move(from, to)
+    }
+
+    val queueDrag = QueueDragState(
+        index = heldRow,
+        offset = dragOffset,
+        target = dropSlot,
+        onStart = ::startQueueDrag,
+        onDrag = ::dragQueue,
+        onEnd = ::endQueueDrag,
+    )
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -113,11 +171,6 @@ fun PlayerScreen(onBack: () -> Unit, onVideo: (String?, Long) -> Unit = { _, _ -
         return
     }
 
-    val lastIndex = (state.queue.lastIndex).coerceAtLeast(0)
-    val targetIndex = (state.index + swipe.steps).coerceIn(0, lastIndex)
-    val previewTrack = state.queue.getOrNull(targetIndex)
-    val shownTrack = if (swipe.steps != 0 && previewTrack != null) previewTrack else track
-
     val fraction = if (state.duration > 0) {
         scrub ?: (state.position.toFloat() / state.duration).coerceIn(0f, 1f)
     } else 0f
@@ -128,55 +181,72 @@ fun PlayerScreen(onBack: () -> Unit, onVideo: (String?, Long) -> Unit = { _, _ -
     ) {
         item { ScreenBack(onBack) }
         item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 44.dp),
+                pageSpacing = 12.dp,
+                verticalAlignment = Alignment.Top,
+            ) { page ->
+                val pageTrack = state.queue.getOrNull(page)
+                val distance = abs(page - (pagerState.currentPage + pagerState.currentPageOffsetFraction))
+                    .coerceAtMost(2f)
                 Box(
                     Modifier
-                        .size(264.dp)
-                        .clip(RoundedCornerShape(34.dp))
-                        .background(design.accentSoft)
-                        .snapOnSwipe(swipe, state.index, state.queue.size, stepPx) { index ->
-                            Playback.playIndex(index)
+                        .fillMaxWidth()
+                        .heightIn(min = 288.dp)
+                        .graphicsLayer {
+                            val scale = 1f - 0.07f * distance
+                            scaleX = scale
+                            scaleY = scale
+                            alpha = 1f - 0.22f * distance
+                        }
+                        .clickable {
+                            if (page != state.index && pageTrack != null) Playback.playIndex(page)
                         },
                     Alignment.Center,
                 ) {
-                    Cover(
-                        url = trackCoverUrl(track.id),
-                        shape = RoundedCornerShape(26.dp),
-                        modifier = Modifier
-                            .size(244.dp)
-                            .graphicsLayer { translationX = swipe.drag * 0.18f },
-                        fallback = design.accentWash,
-                    )
-                    if (swipe.steps != 0 && previewTrack != null) {
-                        Box(
-                            Modifier
-                                .align(Alignment.BottomCenter)
-                                .padding(bottom = 12.dp)
-                                .clip(RoundedCornerShape(50))
-                                .background(design.palette.bg.copy(alpha = 0.86f))
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
-                        ) {
-                            Text(
-                                "${if (swipe.steps > 0) "Next" else "Prev"} · ${previewTrack.title}",
-                                color = design.fg,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium,
-                            )
-                        }
+                    Box(
+                        Modifier
+                            .size(264.dp)
+                            .clip(RoundedCornerShape(34.dp))
+                            .background(design.accentSoft),
+                        Alignment.Center,
+                    ) {
+                        Cover(
+                            url = pageTrack?.let { trackCoverUrl(it.id) } ?: "",
+                            shape = RoundedCornerShape(26.dp),
+                            modifier = Modifier.size(244.dp),
+                            fallback = design.accentWash,
+                        )
                     }
+                }
+            }
+            Row(
+                Modifier.fillMaxWidth().padding(top = 2.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                repeat(state.queue.size.coerceAtMost(12)) { dot ->
+                    Box(
+                        Modifier
+                            .padding(horizontal = 3.dp)
+                            .clip(CircleShape)
+                            .background(if (dot == pagerState.currentPage) design.accent else design.hairline)
+                            .size(if (dot == pagerState.currentPage) 7.dp else 5.dp)
+                            .clickable { if (dot < state.queue.size) Playback.playIndex(dot) },
+                    )
                 }
             }
         }
         item {
             Column(
-                Modifier.fillMaxWidth().padding(top = 6.dp).snapOnSwipe(
-                    swipe, state.index, state.queue.size, stepPx
-                ) { index -> Playback.playIndex(index) },
+                Modifier.fillMaxWidth().padding(top = 6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
                 Text(
-                    shownTrack.title,
+                    track.title,
                     color = design.fg,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -185,14 +255,15 @@ fun PlayerScreen(onBack: () -> Unit, onVideo: (String?, Long) -> Unit = { _, _ -
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    "${shownTrack.artist} · ${shownTrack.album}",
+                    "${track.artist} · ${track.album}",
                     color = design.dim,
                     fontSize = 12.sp,
                     textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Muted(
-                    if (swipe.steps != 0) "Release to play · keep dragging for more songs"
-                    else "Drag artwork/title to browse · release on the closest · queue row left to remove",
+                    "Swipe artwork to change song · hold a queue row to reorder · swipe left to remove",
                     size = 10,
                 )
                 state.error?.let { message ->
@@ -317,8 +388,8 @@ fun PlayerScreen(onBack: () -> Unit, onVideo: (String?, Long) -> Unit = { _, _ -
         if (state.queue.isEmpty()) {
             item { Muted("The queue is empty.") }
         }
-        itemsIndexed(state.queue, key = { index, item -> "${item.id}@$index" }) { index, item ->
-            QueueRow(index, item, state)
+        itemsIndexed(state.queue, key = { index, _ -> "queue-$index" }) { index, item ->
+            QueueRow(index, item, state, queueDrag)
         }
         item {
             SwitchRow(
@@ -332,70 +403,34 @@ fun PlayerScreen(onBack: () -> Unit, onVideo: (String?, Long) -> Unit = { _, _ -
     }
 }
 
-/** Shared drag state for the artwork/title swipe. */
-private class SwipeNavState {
-    var drag by mutableFloatStateOf(0f)
-    var steps by mutableIntStateOf(0)
-}
+/** Which queue row is held, how far it moved, and where it would land. */
+private data class QueueDragState(
+    val index: Int = -1,
+    val offset: Float = 0f,
+    val target: Int = -1,
+    val onStart: (Int) -> Unit = {},
+    val onDrag: (Float) -> Unit = {},
+    val onEnd: () -> Unit = {},
+)
 
-@Composable
-private fun rememberSwipeNav(): SwipeNavState = remember { SwipeNavState() }
+/** Queue row under the nearest visible row centre, used as the drop slot. */
+private fun LazyListState.nearestQueueIndex(centerY: Float): Int? =
+    layoutInfo.visibleItemsInfo
+        .filter { (it.key as? String)?.startsWith("queue-") == true }
+        .minByOrNull { abs(it.offset + it.size / 2f - centerY) }
+        ?.let { (it.key as String).removePrefix("queue-").toIntOrNull() }
 
-/**
- * Drag through the queue without changing playback. The offset is quantised
- * into whole songs while the finger is down; only the nearest song is played
- * when the finger is lifted. Right drag = previous, left drag = next.
- */
-private fun Modifier.snapOnSwipe(
-    nav: SwipeNavState,
-    currentIndex: Int,
-    queueSize: Int,
-    stepPx: Float,
-    onCommit: (Int) -> Unit,
-): Modifier = pointerInput(currentIndex, queueSize, stepPx) {
-    detectHorizontalDragGestures(
-        onDragStart = {
-            nav.drag = 0f
-            nav.steps = 0
-        },
-        onDragEnd = {
-            val last = (queueSize - 1).coerceAtLeast(0)
-            val target = (currentIndex + nav.steps).coerceIn(0, last)
-            nav.drag = 0f
-            nav.steps = 0
-            if (queueSize > 1 && target != currentIndex) onCommit(target)
-        },
-        onDragCancel = {
-            nav.drag = 0f
-            nav.steps = 0
-        },
-    ) { _, amount ->
-        nav.drag += amount
-        val min = -currentIndex.coerceAtLeast(0)
-        val max = (queueSize - 1 - currentIndex).coerceAtLeast(0)
-        nav.steps = (-nav.drag / stepPx).roundToInt().coerceIn(min, max)
-    }
-}
-
-/** One queue entry, keyed by occurrence so duplicate track ids stay visible. */
+/** One queue entry. Hold to lift/reorder; swipe left past the edge to remove. */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
-private fun QueueRow(index: Int, item: Track, state: dev.mcmusic.app.playback.PlaybackState) {
+private fun QueueRow(
+    index: Int,
+    item: Track,
+    state: dev.mcmusic.app.playback.PlaybackState,
+    drag: QueueDragState,
+) {
     val design = LocalDesign.current
-    val density = LocalDensity.current
-    val rowHeight = with(density) { 56.dp.toPx() }
-    var dragged by remember { mutableFloatStateOf(0f) }
-    val dragState = rememberDraggableState { delta ->
-        dragged += delta
-        val steps = (dragged / rowHeight).toInt()
-        if (steps != 0) {
-            val target = (index + steps).coerceIn(0, state.queue.lastIndex)
-            if (target != index) {
-                Playback.move(index, target)
-                dragged -= steps * rowHeight
-            }
-        }
-    }
+    val lifted = drag.index == index
     val current = index == state.index
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
@@ -421,55 +456,72 @@ private fun QueueRow(index: Int, item: Track, state: dev.mcmusic.app.playback.Pl
                 Text("Remove from queue", color = design.palette.error, fontSize = 12.sp)
             }
         },
-        content = {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(7.dp))
-            .background(if (current) design.accentSoft else design.palette.bg)
-            .clickable { Playback.play(state.queue, index) }
-            .padding(horizontal = 8.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(9.dp),
     ) {
-        Box(Modifier.width(20.dp), Alignment.Center) {
-            if (current) {
-                LucideIcon(
-                    Lucide.Play,
-                    design.accentText,
-                    size = 14.dp,
-                    contentDescription = "Now playing",
-                )
-            } else {
-                Text("${index + 1}", color = design.dim, fontSize = 12.sp)
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .graphicsLayer {
+                    translationY = if (lifted) drag.offset else 0f
+                    val scale = if (lifted) 1.02f else 1f
+                    scaleX = scale
+                    scaleY = scale
+                    shadowElevation = if (lifted) 12f else 0f
+                }
+                .clip(RoundedCornerShape(7.dp))
+                .background(if (lifted || current) design.accentSoft else design.palette.bg)
+                .pointerInput(index) {
+                    detectDragGesturesAfterLongPress(
+                        onDragStart = { drag.onStart(index) },
+                        onDrag = { _, amount -> drag.onDrag(amount.y) },
+                        onDragEnd = { drag.onEnd() },
+                        onDragCancel = { drag.onEnd() },
+                    )
+                }
+                .clickable { if (!lifted) Playback.play(state.queue, index) }
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(9.dp),
+        ) {
+            Box(Modifier.width(20.dp), Alignment.Center) {
+                when {
+                    lifted && drag.target >= 0 ->
+                        Text("${drag.target + 1}", color = design.accentText, fontSize = 12.sp)
+                    current -> LucideIcon(
+                        Lucide.Play,
+                        design.accentText,
+                        size = 14.dp,
+                        contentDescription = "Now playing",
+                    )
+                    else -> Text("${index + 1}", color = design.dim, fontSize = 12.sp)
+                }
             }
-        }
-        Column(Modifier.weight(1f)) {
-            Text(
-                item.title,
-                color = if (current) design.accentText else design.fg,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+            Column(Modifier.weight(1f)) {
+                Text(
+                    item.title,
+                    color = if (current || lifted) design.accentText else design.fg,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    if (lifted && drag.target >= 0 && drag.target != index)
+                        "Move to ${drag.target + 1}" else item.artist,
+                    color = if (lifted) design.accentText else design.dim,
+                    fontSize = 10.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Muted(formatDuration(item.duration), size = 10)
+            LucideIcon(
+                Lucide.GripVertical,
+                design.dim,
+                size = 16.dp,
+                contentDescription = "Hold to reorder",
             )
-            Text(item.artist, color = design.dim, fontSize = 10.sp, maxLines = 1)
         }
-        Muted(formatDuration(item.duration), size = 10)
-        LucideIcon(
-            Lucide.GripVertical,
-            design.dim,
-            size = 16.dp,
-            modifier = Modifier.draggable(
-                state = dragState,
-                orientation = Orientation.Vertical,
-                onDragStopped = { dragged = 0f },
-            ),
-            contentDescription = "Drag to reorder",
-        )
     }
-        },
-    )
 }
 
 private data class LyricLine(val time: Double, val text: String)

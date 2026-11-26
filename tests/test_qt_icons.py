@@ -10,6 +10,8 @@ sys.path.insert(0, os.path.join(ROOT, "app", "linux"))
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 try:
+    from PySide6.QtWidgets import QApplication, QWidget
+
     from mcmusic_linux import icons, widgets
 except ImportError as exc:  # system python may not have PySide6
     QT_ERROR = str(exc)
@@ -90,6 +92,22 @@ class QtIconStyleTests(unittest.TestCase):
 
         self.assertEqual(root.updates, 1)
         self.assertEqual(child.updates, 1)
+
+    def test_theme_refresh_ignores_shadowed_update_attribute(self):
+        # A real widget can have a Python field named `update` (the status
+        # strip used to store its Download button there). Repainting must use
+        # the inherited QWidget method, not that shadowing field.
+        QApplication.instance() or QApplication([])
+
+        class Shadowed(QWidget):
+            def __init__(self):
+                super().__init__()
+                self.update = object()
+                self.refresh_theme = object()
+
+        widget = Shadowed()
+        widgets.refresh_theme(widget)
+        self.assertIsInstance(widget.update, object)
 
 
 if __name__ == "__main__":
