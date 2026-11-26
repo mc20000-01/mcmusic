@@ -253,7 +253,7 @@ private fun TabContent(
             Tab.Home -> HomeScreen(onOpenSearch = { onTab(Tab.Search) }, onOpenPlayer = { onTab(Tab.Player) })
             Tab.Search -> SearchScreen(onPlaylist = onPlaylist, onOpenPlayer = { onTab(Tab.Player) })
             Tab.Library -> LibraryScreen(
-                onOpenPlaylists = { onTab(Tab.Playlists) },
+                onOpenPlaylist = onPlaylist,
                 onOpenLikes = { onTab(Tab.Likes) },
                 onOpenPlayer = { onTab(Tab.Player) },
             )

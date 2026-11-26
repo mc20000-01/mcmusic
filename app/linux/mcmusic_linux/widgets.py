@@ -65,7 +65,13 @@ def refresh_theme(root: QWidget) -> None:
         # attribute names; only invoke hooks we actually declared as methods.
         if inspect.ismethod(hook) or inspect.isfunction(hook):
             hook()
-        widget.update()
+        # Use the inherited QWidget implementation: a widget can legitimately
+        # hold a field called `update` (for example a Download button), which
+        # shadows the repaint method and made theme refresh crash at startup.
+        if isinstance(widget, QWidget):
+            QWidget.update(widget)
+        else:
+            widget.update()
 
 
 def _fm(font: QFont, text: str) -> int:

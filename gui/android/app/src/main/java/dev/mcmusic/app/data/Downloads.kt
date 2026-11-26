@@ -45,6 +45,13 @@ object Downloads {
         items = readIndex(d)
     }
 
+    fun context(): Context? = appContext
+
+    /** Re-read the index after a background writer (auto-download) changed it. */
+    fun refreshFromDisk() {
+        dir?.let { items = readIndex(it) }
+    }
+
     fun totalBytes(): Long = items.sumOf { it.bytes }
 
     fun clearAll() {

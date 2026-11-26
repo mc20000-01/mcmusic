@@ -48,6 +48,23 @@ export async function isCached(id: string): Promise<boolean> {
     return !!hit;
 }
 
+/** Fill the browse cache without adding a track to the Downloads list. Used
+ *  when "Keep audio offline" is on: anything you browse stays playable. */
+export async function cacheForBrowse(id: string): Promise<void> {
+    if (typeof caches === "undefined" || await isCached(id)) return;
+    const res = await fetch(API.streamUrl(id), { credentials: "same-origin" });
+    if (!res.ok) throw new Error(`cache failed (HTTP ${res.status})`);
+    const blob = await res.blob();
+    const cache = await caches.open("mcmusic-media-v1");
+    await cache.put(offlineUrl(id), new Response(blob, {
+        headers: {
+            "content-type": res.headers.get("content-type") || "audio/mpeg",
+            "accept-ranges": "bytes",
+            "content-length": String(blob.size),
+        },
+    }));
+}
+
 export async function downloadTrack(id: string, title: string, artist: string): Promise<void> {
     downloadBusy.value = id;
     try {

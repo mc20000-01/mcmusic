@@ -1,10 +1,11 @@
 /** Liked tracks, with a one-click “play all” and per-track unlike. */
 import { useEffect, useState } from "preact/hooks";
 import { Button, Container, Content, Header2, Loading, openContextMenu, Text } from "flufi-ui/components";
-import { Heart, Play } from "lucide-preact";
+import { Download, Heart, ListPlus, Play } from "lucide-preact";
 import { API } from "../../common/net/api";
 import type { Track } from "../../common/net/types";
-import { playQueue } from "../../common/player";
+import { downloadTrack } from "../../common/downloads";
+import { enqueueTrack, playQueue } from "../../common/player";
 import { TrackList } from "../../components/TrackList/TrackList";
 import { parseArtistUuid } from "../../common/net/api";
 
@@ -64,10 +65,28 @@ export function LikesPage() {
                             tracks={tracks!}
                             showDuration={true}
                             onContextMenu={(track, event) => {
+                                const meta = {
+                                    title: track.name.value,
+                                    artist: artistNames(track),
+                                    setUuid: track.set ?? undefined,
+                                    artistUuid: track.artists.value[0],
+                                };
                                 openContextMenu([
+                                    { type: "button", label: "Play", icon: <Play size={14} />,
+                                      click: () => playQueue(tracks!.map(t => ({
+                                          id: t.uuid,
+                                          title: t.name.value,
+                                          artist: artistNames(t),
+                                          setUuid: t.set ?? undefined,
+                                          artistUuid: t.artists.value[0],
+                                      })), tracks!.indexOf(track)) },
+                                    { type: "button", label: "Add to queue", icon: <ListPlus size={14} />,
+                                      click: () => enqueueTrack(String(track.uuid), meta) },
+                                    { type: "button", label: "Download", icon: <Download size={14} />,
+                                      click: () => void downloadTrack(String(track.uuid), meta.title, meta.artist).catch(() => {}) },
+                                    { type: "separator" },
                                     { type: "button", label: "Unlike", icon: <Heart size={14} />,
                                       click: () => unlike(String(track.uuid)) },
-                                    { type: "separator" },
                                     { type: "button", label: "Refresh", click: load },
                                 ], event);
                             }}

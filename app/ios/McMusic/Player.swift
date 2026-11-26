@@ -228,6 +228,9 @@ final class Player: NSObject, ObservableObject {
     }
 
     func next() {
+        if let id = currentTrackID, currentTime >= 3 {
+            Task { await client.reportMetric(id, event: "skip", position: currentTime, duration: duration) }
+        }
         if shuffle && queue.count > 1 {
             var candidate = index
             while candidate == index { candidate = Int.random(in: 0..<queue.count) }
@@ -244,6 +247,9 @@ final class Player: NSObject, ObservableObject {
     }
 
     func previous() {
+        if let id = currentTrackID, currentTime >= 3 {
+            Task { await client.reportMetric(id, event: "skip", position: currentTime, duration: duration) }
+        }
         if currentTime > 3 {
             seek(to: 0)
             return
@@ -256,6 +262,9 @@ final class Player: NSObject, ObservableObject {
     func seek(to seconds: Double) {
         guard let player, duration > 0 else { return }
         let time = CMTime(seconds: min(max(seconds, 0), duration), preferredTimescale: 600)
+        if abs(seconds - currentTime) > 1, let id = currentTrackID {
+            Task { await client.reportMetric(id, event: "seek", position: seconds, duration: duration) }
+        }
         player.seek(to: time)
         progress = time.seconds
         persistQueue()
@@ -309,13 +318,24 @@ final class Player: NSObject, ObservableObject {
             self.player = newPlayer
             updateNowPlaying()
             newPlayer.play()
+            if let id = currentTrackID {
+                Task {
+                    await client.reportPlay(id, completed: false)
+                    await client.reportMetric(id, event: "play", position: 0, duration: duration)
+                }
+            }
         } catch {
             isPlaying = false
         }
     }
 
     private func itemDidFinish() {
-        if let id = currentTrackID { Task { await client.reportPlay(id, completed: true) } }
+        if let id = currentTrackID {
+            Task {
+                await client.reportPlay(id, completed: true)
+                await client.reportMetric(id, event: "complete", position: duration, duration: duration)
+            }
+        }
         if repeatMode == 2 {
             seek(to: 0)
             player?.play()

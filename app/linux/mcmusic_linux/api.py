@@ -878,7 +878,21 @@ class Repo:
         return bool(data.get("liked"))
 
     def report_play(self, track_id: int, completed: bool) -> None:
-        self.api.post("plays", {"track_id": track_id, "completed": completed})
+        self.api.post("plays", {
+            "track_id": track_id, "completed": completed, "client": "desktop",
+        })
+
+    def report_metric(
+        self, track_id: int, event: str, position: float = 0.0, duration: float = 0.0,
+    ) -> None:
+        """Always-on listening events: admin insight and Faves ranking."""
+        if event not in {"play", "skip", "complete", "seek"}:
+            return
+        self.api.post("metrics", {"events": [{
+            "track_id": track_id, "event": event,
+            "position": float(position), "duration": float(duration),
+            "client": "desktop",
+        }]})
 
     def set_explicit(self, track_id: int, explicit: bool) -> bool:
         return bool(self.api.patch(f"tracks/{track_id}", {"explicit": explicit}).get("explicit"))
