@@ -443,6 +443,18 @@ class SessionStore:
         self._s.setValue("playfulMotion", bool(value))
         self._s.sync()
 
+    # Local-only lyrics-sheet tab; the server settings payload is untouched.
+    @property
+    def local_lyrics_tab(self) -> str:
+        value = str(self._s.value("localLyricsTab", "lyrics") or "lyrics")
+        return value if value in ("lyrics", "up-next") else "lyrics"
+
+    @local_lyrics_tab.setter
+    def local_lyrics_tab(self, value: str) -> None:
+        key = str(value)
+        self._s.setValue("localLyricsTab", key if key in ("lyrics", "up-next") else "lyrics")
+        self._s.sync()
+
     @property
     def volume(self) -> float:
         try:

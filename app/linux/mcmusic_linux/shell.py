@@ -41,6 +41,7 @@ from PySide6.QtWidgets import (
 from . import design, icons, motion, theme, widgets
 from .api import Api, ApiError, Async, Repo, SessionStore, device_name
 from .art import ART
+from .blob_paths import blob_path
 from .icons import draw_icon
 from .lyric_visualizer import LyricVisualizer
 from .login import LoginPage, SplashPage
@@ -76,6 +77,7 @@ from .widgets import (
     Rule,
     SearchField,
     SeekBar,
+    Segmented,
     Sheet,
     Txt,
     VolumeControl,
@@ -225,9 +227,12 @@ class PlayButton(QAbstractButton):
         p.translate(-center)
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(pal.q("primary"))
-        radius = (1.0 - self._morph) * (self._size / 2.0) \
-            + self._morph * design.Shape.lg
-        p.drawRoundedRect(rect, radius, radius)
+        if motion.enabled() and self._morph >= 0.5:
+            p.drawPath(blob_path("blob-2", rect))
+        else:
+            radius = (1.0 - self._morph) * (self._size / 2.0) \
+                + self._morph * design.Shape.lg
+            p.drawRoundedRect(rect, radius, radius)
         icon = "pause" if self._playing else "play"
         side = self._size * 0.42
         box = QRectF(0, 0, side, side)
@@ -473,6 +478,7 @@ class Deck(QWidget):
         grid.addWidget(left, 0, 0)
 
         center = QWidget()
+        self._center = center
         center_line = QVBoxLayout(center)
         center_line.setContentsMargins(0, 0, 0, 0)
         center_line.setSpacing(2)
@@ -535,10 +541,11 @@ class Deck(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         palette = theme.pal()
-        card = QRectF(self.rect()).adjusted(12, 2, -12, -8)
+        capsule = QRectF(self._center.geometry()).adjusted(-12, -4, 12, 4)
         p.setPen(QPen(palette.q("outline_variant"), 1))
         p.setBrush(palette.q("surface_container"))
-        p.drawRoundedRect(card, design.Shape.card, design.Shape.card)
+        radius = capsule.height() / 2.0
+        p.drawRoundedRect(capsule, radius, radius)
 
 
 QUEUE_MIME = "application/x-mcmusic-queue-index"
@@ -2137,14 +2144,49 @@ class McWindow(QMainWindow):
             self.toast("Play a track to see its lyrics")
             return
         sheet = Sheet(self, "Lyrics")
-        sheet.body.addWidget(Txt(f"{track.title} — {track.artist}", size=16,
+        segments = Segmented([("lyrics", "Lyrics"), ("up-next", "Up next")],
+                             self.store.local_lyrics_tab)
+        tabs_row = QHBoxLayout()
+        tabs_row.addStretch(1)
+        tabs_row.addWidget(segments)
+        tabs_row.addStretch(1)
+        sheet.body.addLayout(tabs_row)
+
+        lyrics_pane = QWidget()
+        lyric_line = QVBoxLayout(lyrics_pane)
+        lyric_line.setContentsMargins(0, 0, 0, 0)
+        lyric_line.setSpacing(10)
+        lyric_line.addWidget(Txt(f"{track.title} — {track.artist}", size=16,
                                  token="on_surface_variant", wrap=True))
-        visualizer = LyricVisualizer(self.player, sheet)
-        sheet.body.addWidget(visualizer)
+        visualizer = LyricVisualizer(self.player, lyrics_pane)
+        lyric_line.addWidget(visualizer)
         view = QTextEdit()
         view.setReadOnly(True)
         view.setPlaceholderText("No lyrics have been found for this track yet.")
-        sheet.body.addWidget(view, 1)
+        lyric_line.addWidget(view, 1)
+        sheet.body.addWidget(lyrics_pane, 1)
+
+        queue_pane = QWidget()
+        queue_line = QVBoxLayout(queue_pane)
+        queue_line.setContentsMargins(0, 0, 0, 0)
+        queue_line.setSpacing(1)
+        upcoming = [(i, queued) for i, queued in enumerate(self.player.queue)
+                    if i > self.player.index][:8]
+        for index, queued in upcoming:
+            queue_line.addWidget(QueueRow(self, queued, index))
+        if not upcoming:
+            queue_line.addWidget(Txt("Nothing queued", size=16,
+                                     token="on_surface_variant"))
+        queue_line.addStretch(1)
+        sheet.body.addWidget(queue_pane, 1)
+
+        def select(key: str) -> None:
+            self.store.local_lyrics_tab = key
+            lyrics_pane.setVisible(key == "lyrics")
+            queue_pane.setVisible(key == "up-next")
+
+        segments.changed.connect(select)
+        select(segments.selected)
         sheet.resize(560, 520)
 
         def ok(data: dict) -> None:

@@ -36,6 +36,7 @@ from PySide6.QtWidgets import (
 
 from . import design, motion, theme
 from .art import ART
+from .blob_paths import blob_id_for, blob_path
 from .icons import draw_icon
 from .models import Track, fmt_time
 
@@ -500,12 +501,14 @@ class Artwork(QWidget):
         p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
         rect = QRectF(self.rect()).adjusted(1, 1, -1, -1)
         path = self._path(rect)
+        has_cover = (STATE["covers"] and self._pixmap is not None
+                     and not self._pixmap.isNull())
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(pal.q("primary_container"))
+        p.setBrush(pal.q("primary_container" if has_cover else "surface_container_high"))
         p.drawPath(path)
         p.save()
         p.setClipPath(path)
-        if self._pixmap is not None and not self._pixmap.isNull() and STATE["covers"]:
+        if has_cover:
             pm = self._pixmap.scaled(
                 int(rect.width()), int(rect.height()),
                 Qt.AspectRatioMode.KeepAspectRatioByExpanding,
@@ -516,7 +519,10 @@ class Artwork(QWidget):
             p.drawPixmap(rect, pm, QRectF(src))
         else:
             kind = self._kind if self._kind in ("track", "artist", "album") else "album"
-            icon = design.placeholder_glyph(self._name or self._kind, kind)
+            name = self._name or self._kind
+            p.setBrush(pal.q("primary_container"))
+            p.drawPath(blob_path(blob_id_for(name), rect))
+            icon = design.placeholder_glyph(name, kind)
             side = rect.width() * 0.42
             box = QRectF(0, 0, side, side)
             box.moveCenter(rect.center())
@@ -751,6 +757,8 @@ class TrackList(QWidget):
                          rect.width(), rect.height())
             p.drawPixmap(rect, scaled, src)
         else:
+            p.setBrush(C("primary_container"))
+            p.drawPath(blob_path(blob_id_for(track.title), rect))
             box = QRectF(0, 0, rect.width() * 0.5, rect.height() * 0.5)
             box.moveCenter(rect.center())
             draw_icon(p, design.placeholder_glyph(track.title, "track"), box,
@@ -886,6 +894,8 @@ class Tile(QAbstractButton):
                          art.width(), art.height())
             p.drawPixmap(art, scaled, src)
         else:
+            p.setBrush(C("primary_container"))
+            p.drawPath(blob_path(blob_id_for(self.title), art))
             kind = "artist" if self.round_ else self.kind
             icon = design.placeholder_glyph(self.title, kind)
             box = QRectF(0, 0, art.width() * 0.36, art.height() * 0.36)
