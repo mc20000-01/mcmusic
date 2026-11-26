@@ -33,7 +33,6 @@ def _arc_cubics(start: QPointF, args: list[float]) -> list[tuple[QPointF, ...]]:
     """Turn one SVG arc into (control1, control2, end) cubic segments."""
     rx, ry, rotation, large, sweep, end_x, end_y = args
     x1, y1 = start.x(), start.y()
-    end = QPointF(end_x, end_y)
     if rx == 0 or ry == 0 or (x1 == end_x and y1 == end_y):
         return []
 
