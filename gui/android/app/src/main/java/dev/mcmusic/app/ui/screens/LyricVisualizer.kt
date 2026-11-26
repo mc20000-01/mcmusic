@@ -17,6 +17,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import dev.mcmusic.app.ui.design.LocalDesign
+import dev.mcmusic.app.ui.design.playfulMotionEnabled
 import kotlin.math.PI
 import kotlin.math.sin
 
@@ -44,7 +45,9 @@ fun LyricVisualizer(
     onCycle: () -> Unit,
 ) {
     val design = LocalDesign.current
-    val seconds = positionMs / 1000f
+    val motion = playfulMotionEnabled()
+    // Reduced motion keeps the same flat, deterministic shape without a pulse.
+    val seconds = if (motion) positionMs / 1000f else 0f
     val pulse = if (activeLine >= 0) 1f else 0.72f
     val alpha = if (playing) 1f else 0.55f
     val visualAccent = if (design.palette.dark) design.accent else design.accentText
@@ -52,7 +55,7 @@ fun LyricVisualizer(
         Modifier
             .fillMaxWidth()
             .height(58.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(design.cardRadius))
             .background(design.accentWash)
             .clickable(onClick = onCycle),
         contentAlignment = Alignment.Center,

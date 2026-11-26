@@ -80,6 +80,10 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui-tooling-preview")
 
+    // HCT tonal roles for cover- and wallpaper-derived colours. Pinned to the
+    // last release built with the Kotlin version used by this app.
+    implementation("com.materialkolor:material-color-utilities:4.1.1")
+
     val media3 = "1.11.1"
     implementation("androidx.media3:media3-exoplayer:$media3")
     implementation("androidx.media3:media3-session:$media3")
