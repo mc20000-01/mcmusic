@@ -63,7 +63,10 @@ styles is three sets of bugs.
 - **Home / Charts / Podcasts / Moods.** A discovery feed is the thing mcmusic
   exists to not have. "No feed. No algorithm. Only the records you put here." is
   a promise, not marketing.
-- **Listening analytics and a yearly "Wrapped".** Same reason.
+- **A public listening feed or yearly "Wrapped".** Always-on metrics are kept
+  for the account owner and admins: they rank Faves and explain the library on
+  admin pages. They never become a public chart, discovery feed or shareable
+  recap.
 - **Cast/output picker.** We solve this differently and more simply: the server
   allows one active speaker, and taking over is an explicit "Play here".
 - **Synced group listening ("Listen Together").** Our room link is *presence*,

@@ -41,6 +41,8 @@ export function setIconFilledPreference(value: unknown) {
 
 export const covers = signal(true);
 export const hideExplicit = signal(false);
+/** Keep played tracks in the browser's browse cache for offline playback. */
+export const offlineAudio = signal(false);
 /** Mirrors the server flags the player needs to publish listening activity. */
 export const roturActivity = signal(false);
 export const discordActivity = signal(false);
@@ -67,6 +69,7 @@ export async function loadPrefs(): Promise<Settings | null> {
         volume.value = Math.min(1, Math.max(0, Number(s.volume ?? 0.8)));
         covers.value = s.covers !== false;
         hideExplicit.value = !!s.hide_explicit;
+        offlineAudio.value = s.offline_audio === true;
         roturActivity.value = !!s.rotur_activity;
         discordActivity.value = !!s.discord_activity;
         setPalettePreference(typeof s.theme === "string" ? s.theme : DEFAULT_PALETTE);
@@ -85,6 +88,7 @@ export function applyPrefs(s: Settings) {
     if (s.volume != null) volume.value = Math.min(1, Math.max(0, Number(s.volume)));
     if (s.covers != null) covers.value = !!s.covers;
     if (s.hide_explicit != null) hideExplicit.value = !!s.hide_explicit;
+    if (s.offline_audio != null) offlineAudio.value = !!s.offline_audio;
     if (s.rotur_activity != null) roturActivity.value = !!s.rotur_activity;
     if (s.discord_activity != null) discordActivity.value = !!s.discord_activity;
     if (s.theme != null) setPalettePreference(String(s.theme));

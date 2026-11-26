@@ -39,6 +39,7 @@ import dev.mcmusic.app.data.AlbumSummary
 import dev.mcmusic.app.data.Api
 import dev.mcmusic.app.data.ArtistSummary
 import dev.mcmusic.app.data.LibraryState
+import dev.mcmusic.app.data.Playlist
 import dev.mcmusic.app.data.Track
 import dev.mcmusic.app.playback.Playback
 import dev.mcmusic.app.ui.Cover
@@ -49,6 +50,7 @@ import dev.mcmusic.app.ui.Loading
 import dev.mcmusic.app.ui.Lucide
 import dev.mcmusic.app.ui.LucideIcon
 import dev.mcmusic.app.ui.MediaCard
+import dev.mcmusic.app.ui.Muted
 import dev.mcmusic.app.ui.ScreenTitle
 import dev.mcmusic.app.ui.TrackRow
 import dev.mcmusic.app.ui.visibleTracks
@@ -61,9 +63,14 @@ import dev.mcmusic.app.ui.design.mcSurface
  * it needs no extra endpoint and stays consistent with search results.
  */
 @Composable
-fun LibraryScreen(onOpenPlaylists: () -> Unit, onOpenLikes: () -> Unit, onOpenPlayer: () -> Unit) {
+fun LibraryScreen(
+    onOpenPlaylist: (Int) -> Unit,
+    onOpenLikes: () -> Unit,
+    onOpenPlayer: () -> Unit,
+) {
     val design = LocalDesign.current
     var tab by remember { mutableIntStateOf(0) }
+    var playlists by remember { mutableStateOf<List<Playlist>>(emptyList()) }
     var tracks by remember { mutableStateOf<List<Track>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var album by remember { mutableStateOf<AlbumSummary?>(null) }
@@ -75,6 +82,7 @@ fun LibraryScreen(onOpenPlaylists: () -> Unit, onOpenLikes: () -> Unit, onOpenPl
             onSuccess = { tracks = it; error = null },
             onFailure = { error = it.message ?: "could not load the library" },
         )
+        Api.playlists().onSuccess { playlists = it }
     }
 
     val all = tracks.orEmpty()
@@ -111,7 +119,7 @@ fun LibraryScreen(onOpenPlaylists: () -> Unit, onOpenLikes: () -> Unit, onOpenPl
         ) {
             ScreenTitle("Library", "${all.size} tracks · ${albums.size} albums · ${artists.size} artists")
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf("Albums", "Artists", "Tracks").forEachIndexed { index, label ->
+                listOf("Albums", "Artists", "Playlists", "Tracks").forEachIndexed { index, label ->
                     val selected = tab == index
                     Box(
                         Modifier
@@ -129,7 +137,6 @@ fun LibraryScreen(onOpenPlaylists: () -> Unit, onOpenLikes: () -> Unit, onOpenPl
                     }
                 }
                 Box(Modifier.weight(1f))
-                GhostButton("Playlists", onClick = onOpenPlaylists)
             }
             Row(
                 Modifier.fillMaxWidth().mcSurface().clickable { onOpenLikes() }.padding(12.dp),
@@ -210,7 +217,55 @@ fun LibraryScreen(onOpenPlaylists: () -> Unit, onOpenLikes: () -> Unit, onOpenPl
                             }
                         }
                     }
-                    else -> LazyColumn(
+                    2 -> LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(design.screenPadding, 8.dp, design.screenPadding, 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        items(playlists, key = { it.id }) { playlist ->
+                            Row(
+                                Modifier.fillMaxWidth().mcSurface().clickable { onOpenPlaylist(playlist.id) }
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                Box(
+                                    Modifier.size(40.dp).clip(CircleShape).background(design.accentSoft),
+                                    Alignment.Center,
+                                ) {
+                                    LucideIcon(
+                                        if (playlist.name.equals("faves", true)) Lucide.Radio
+                                        else if (playlist.name.equals("likes", true)) Lucide.Heart
+                                        else Lucide.ListMusic,
+                                        design.accentText,
+                                        size = 17.dp,
+                                    )
+                                }
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        playlist.name,
+                                        color = design.fg,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Muted("${playlist.count} tracks", size = 11)
+                                }
+                                LucideIcon(Lucide.ChevronRight, design.dim, size = 16.dp)
+                            }
+                        }
+                        if (playlists.isEmpty()) {
+                            item {
+                                EmptyState(
+                                    icon = Lucide.ListMusic,
+                                    title = "No playlists",
+                                    body = "Faves and Likes appear here automatically once you listen and like tracks.",
+                                )
+                            }
+                        }
+                    }
+                    3 -> LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(design.screenPadding, 8.dp, design.screenPadding, 24.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp),

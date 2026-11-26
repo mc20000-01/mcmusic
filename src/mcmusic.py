@@ -251,7 +251,7 @@ def api_docs():
             "personal": ["GET|POST /api/playlists", "GET|PATCH|DELETE /api/playlists/<id>",
                          "POST|DELETE /api/playlists/<id>/tracks[/<track>]",
                          "POST /api/like/<track>", "GET /api/likes", "POST /api/plays",
-                         "GET /api/home", "GET /api/radio/<track>",
+                         "POST /api/metrics", "GET /api/home", "GET /api/radio/<track>",
                          "GET|PUT /api/settings", "GET|POST /api/playback",
                          "GET /api/queue", "POST /api/playback/command"],
             "channels": ["GET|POST /api/channels", "DELETE /api/channels/<id>",
@@ -274,7 +274,8 @@ def api_docs():
                       "DELETE /api/admin/invite-codes/<id>", "GET /api/admin/stats",
                       "GET /api/admin/users", "GET /api/admin/requests",
                       "POST /api/admin/scan", "GET|POST /api/admin/enrich",
-                      "GET /api/admin/algo"],
+                      "GET /api/admin/algo", "GET /api/admin/metrics",
+                      "GET /api/admin/history/<user>"],
         })
 
 

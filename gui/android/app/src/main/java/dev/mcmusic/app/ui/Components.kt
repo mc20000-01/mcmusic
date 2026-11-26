@@ -552,6 +552,24 @@ fun TrackActionsMenu(
                 },
             )
             DropdownMenuItem(
+                text = { Text("Play next", fontSize = 13.sp) },
+                leadingIcon = { LucideIcon(Lucide.ListPlus, design.accentText, size = 16.dp) },
+                onClick = {
+                    onExpandedChange(false)
+                    dev.mcmusic.app.playback.Playback.playNext(track)
+                    Toast.makeText(context, "Playing ${track.title} next", Toast.LENGTH_SHORT).show()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("Add to queue", fontSize = 13.sp) },
+                leadingIcon = { LucideIcon(Lucide.ListMusic, design.accentText, size = 16.dp) },
+                onClick = {
+                    onExpandedChange(false)
+                    dev.mcmusic.app.playback.Playback.addToQueue(track)
+                    Toast.makeText(context, "Added ${track.title} to the queue", Toast.LENGTH_SHORT).show()
+                },
+            )
+            DropdownMenuItem(
                 text = { Text("Add to playlist", fontSize = 13.sp) },
                 leadingIcon = { LucideIcon(Lucide.ListPlus, design.accentText, size = 16.dp) },
                 onClick = { onExpandedChange(false); picker = true },
