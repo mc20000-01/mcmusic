@@ -83,4 +83,25 @@ final class McMusicTests: XCTestCase {
         XCTAssertTrue(Lucide.Primitive.rect(3, 4, 18, 13, 2).isFillable)
         XCTAssertFalse(Lucide.Primitive.path("M7 4.5 L19 12 L7 19.5 Z").isFillable)
     }
+
+    func testEveryGeneratedBlobPathHasBoundsInsideTheCanvas() throws {
+        XCTAssertFalse(BlobShapes.ids.isEmpty)
+        for id in BlobShapes.ids {
+            let box = try XCTUnwrap(BlobPathParser.bounds(for: id), "\(id) has no path")
+            XCTAssertGreaterThan(box.width, 1, "\(id) width")
+            XCTAssertGreaterThan(box.height, 1, "\(id) height")
+            XCTAssertGreaterThanOrEqual(box.minX, -1, "\(id) minX")
+            XCTAssertGreaterThanOrEqual(box.minY, -1, "\(id) minY")
+            XCTAssertLessThanOrEqual(box.maxX, 101, "\(id) maxX")
+            XCTAssertLessThanOrEqual(box.maxY, 101, "\(id) maxY")
+        }
+    }
+
+    func testBlobIdIsDeterministicAndGenerated() {
+        let seed = "album/17/song-3"
+        let id = blobId(for: seed)
+        XCTAssertEqual(id, blobId(for: seed))
+        XCTAssertEqual(blobId(for: ""), blobId(for: ""))
+        XCTAssertTrue(BlobShapes.ids.contains(id))
+    }
 }

@@ -49,16 +49,24 @@ struct CoverView: View {
         seed ?? url?.absoluteString ?? "cover"
     }
 
+    private var placeholderBlob: String { blobId(for: placeholderSeed) }
+
     var body: some View {
         Group {
             if let image {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
+                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius,
+                                                style: .continuous))
             } else {
                 ZStack {
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    BlobShape(id: placeholderBlob)
                         .fill(tokens.primaryContainer)
+                        .overlay(
+                            BlobShape(id: placeholderBlob)
+                                .stroke(tokens.outlineVariant, lineWidth: 1)
+                        )
                     LucideIcon(name: CoverPlaceholder.glyph(for: placeholderSeed),
                                size: max(16, min(size * 0.42, 56)),
                                color: tokens.onPrimaryContainer)
@@ -66,7 +74,6 @@ struct CoverView: View {
             }
         }
         .frame(width: size, height: size)
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .task(id: url?.absoluteString) {
             image = nil
             if let url { image = await ImageCache.shared.image(for: url) }

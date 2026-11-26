@@ -1,5 +1,13 @@
 import SwiftUI
 
+private enum DetailPanel: String, CaseIterable, Identifiable {
+    case lyrics
+    case upNext
+
+    var id: String { rawValue }
+    var label: String { self == .lyrics ? "Lyrics" : "Up next" }
+}
+
 struct NowPlayingView: View {
     @EnvironmentObject private var app: AppState
     @Environment(\.mcTokens) private var tokens
@@ -8,12 +16,18 @@ struct NowPlayingView: View {
     @State private var showQueue = false
     @State private var showLyrics = false
     @State private var lyricsText = "Loading…"
+    @State private var detailPanel: DetailPanel = .lyrics
 
     private var player: Player { app.player }
+    private var lyricLines: [String] {
+        LyricParser.parse(lyricsText)?.map(\.text)
+            ?? lyricsText.components(separatedBy: .newlines)
+    }
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: M3Shape.lg) {
+            ScrollView {
+                VStack(spacing: M3Shape.lg) {
                 CoverView(url: app.client.coverURL(player.current?.coverID),
                           seed: player.currentTitle,
                           size: 280,
@@ -54,7 +68,7 @@ struct NowPlayingView: View {
                                       tint: tokens.fg, label: "Previous track") {
                         player.previous()
                     }
-                    PlayPauseButton(playing: player.isPlaying, size: 64) {
+                    MorphingPlayPauseButton(playing: player.isPlaying, size: 64) {
                         player.toggle()
                     }
                     PlayfulIconButton(icon: "skip-forward", size: 24,
@@ -88,15 +102,34 @@ struct NowPlayingView: View {
                 .padding(.horizontal, M3Shape.sm)
                 .background(Capsule().fill(tokens.surfaceContainerLow))
 
+                Picker("Now playing details", selection: $detailPanel) {
+                    ForEach(DetailPanel.allCases) { panel in
+                        Text(panel.label).tag(panel).accessibilityLabel(panel.label)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, M3Shape.sm)
+                .frame(minHeight: M3Shape.touch)
+                .accessibilityLabel("Now playing details")
+                .accessibilityHint("Show lyrics or the up next queue")
+
+                if detailPanel == .lyrics {
+                    lyricsPanel
+                } else {
+                    upNextPanel
+                }
+
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, M3Shape.lg)
+            }
             .navigationTitle("Now playing")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     HStack(spacing: 0) {
                         PlayfulIconButton(icon: "message-circle", size: 20,
                                           tint: tokens.primary, label: "Lyrics") {
+                            detailPanel = .lyrics
                             Task { await loadLyrics() }
                         }
                         Menu {
@@ -119,6 +152,7 @@ struct NowPlayingView: View {
                         }
                         PlayfulIconButton(icon: "list", size: 20,
                                           tint: tokens.primary, label: "Queue") {
+                            detailPanel = .upNext
                             showQueue = true
                         }
                     }
@@ -138,33 +172,59 @@ struct NowPlayingView: View {
         }
     }
 
+    /// Same rows as the full queue sheet, shared by the inline Up next panel.
+    private var queueRows: some View {
+        ForEach(Array(player.queue.enumerated()), id: \.offset) { index, song in
+            HStack {
+                TrackRow(track: song, number: index + 1, onPlay: {
+                    Task { await app.player.play(track: song, from: player.queue) }
+                })
+                TrackMenu(track: song, tracks: player.queue)
+            }
+            .foregroundStyle(index == player.index ? tokens.primary : tokens.fg)
+            .scaleEffect(index == player.index && motion ? 1.01 : 1)
+            .animation(motion ? Playful.spring : nil, value: index == player.index)
+        }
+        .onMove { source, destination in
+            for offset in source.indices {
+                player.move(from: source[offset], to: destination)
+            }
+        }
+        .onDelete { offsets in
+            for offset in offsets.sorted(by: >) { player.remove(at: offset) }
+        }
+    }
+
     private var queueView: some View {
         NavigationStack {
-            List {
-                ForEach(Array(player.queue.enumerated()), id: \.offset) { index, song in
-                    HStack {
-                        TrackRow(track: song, number: index + 1, onPlay: {
-                            Task { await app.player.play(track: song, from: player.queue) }
-                        })
-                        TrackMenu(track: song, tracks: player.queue)
-                    }
-                    .foregroundStyle(index == player.index ? tokens.primary : tokens.fg)
-                    .scaleEffect(index == player.index && motion ? 1.01 : 1)
-                    .animation(motion ? Playful.spring : nil, value: index == player.index)
-                }
-                .onMove { source, destination in
-                    for offset in source.indices {
-                        player.move(from: source[offset], to: destination)
-                    }
-                }
-                .onDelete { offsets in
-                    for offset in offsets.sorted(by: >) { player.remove(at: offset) }
-                }
-            }
-            .listStyle(.plain)
-            .navigationTitle("Up next")
-            .toolbar { EditButton() }
+            List { queueRows }
+                .listStyle(.plain)
+                .navigationTitle("Up next")
+                .toolbar { EditButton() }
         }
+    }
+
+    private var lyricsPanel: some View {
+        VStack(alignment: .leading, spacing: M3Shape.sm) {
+            LyricVisualizer(progress: player.progress, isPlaying: player.isPlaying)
+                .frame(height: 72)
+            ForEach(Array(lyricLines.enumerated()), id: \.offset) { _, line in
+                Text(line.isEmpty ? " " : line)
+                    .font(M3Type.body)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            Button("Open full lyrics") { Task { await loadLyrics() } }
+                .buttonStyle(PlayfulButtonStyle())
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityLabel("Lyrics")
+        .task(id: player.currentTrackID) { await fetchLyrics() }
+    }
+
+    private var upNextPanel: some View {
+        LazyVStack(spacing: 0) { queueRows }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityLabel("Up next queue")
     }
 
     private func cycleRepeat() {
@@ -177,10 +237,9 @@ struct NowPlayingView: View {
         return "\(value / 60):\(String(format: "%02d", value % 60))"
     }
 
-    private func loadLyrics() async {
+    private func fetchLyrics() async {
         guard let id = player.currentTrackID else {
             lyricsText = "Nothing playing."
-            showLyrics = true
             return
         }
         do {
@@ -189,6 +248,49 @@ struct NowPlayingView: View {
         } catch {
             lyricsText = "No lyrics yet."
         }
+    }
+
+    private func loadLyrics() async {
+        await fetchLyrics()
         showLyrics = true
+    }
+}
+
+/// Transport control in this sheet: a capsule becomes the canonical squircle
+/// blob while playing. The shape change uses the shared spring only when
+/// playful motion is on; haptics and VoiceOver semantics are unchanged.
+private struct MorphingPlayPauseButton: View {
+    let playing: Bool
+    var size: CGFloat = 64
+    let action: () -> Void
+
+    @Environment(\.playfulMotion) private var motion
+    @Environment(\.mcTokens) private var tokens
+
+    var body: some View {
+        Button {
+            if motion { PlayfulHaptic.impact(.medium) }
+            action()
+        } label: {
+            ZStack {
+                Group {
+                    if playing {
+                        BlobShape(id: "blob-2")
+                            .fill(tokens.primary)
+                    } else {
+                        Capsule()
+                            .fill(tokens.primary)
+                    }
+                }
+                .animation(motion ? Playful.morph : nil, value: playing)
+                LucideIcon(name: playing ? "pause" : "play",
+                           size: size * 0.38, color: tokens.onPrimary)
+                    .rotationEffect(.degrees(playing && motion ? 90 : 0))
+            }
+        }
+        .buttonStyle(PlayfulButtonStyle(haptic: false))
+        .frame(width: size, height: size)
+        .animation(motion ? Playful.morph : nil, value: playing)
+        .accessibilityLabel(playing ? "Pause" : "Play")
     }
 }
