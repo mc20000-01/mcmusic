@@ -6,26 +6,11 @@
     z-index: 40;
     padding: 8px 12px;
     padding-bottom: max(8px, env(safe-area-inset-bottom));
-    /* One calm, layered surface: tonal wash plus a hairline accent glow. */
-    background:
-        linear-gradient(180deg, var(--accent-faint), var(--back-raised) 58%);
+    /* One calm, flat tonal surface with a hairline rim. */
+    background: var(--back-raised);
     border-top: 1px solid var(--layer-rim);
-    box-shadow: 0 -12px 38px -26px var(--shadow), inset 0 1px 0 var(--layer-highlight);
     display: flex;
     align-items: center;
-}
-
-#player-bar::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 50%;
-    width: min(520px, 58vw);
-    height: 1px;
-    transform: translateX(-50%);
-    background: linear-gradient(90deg, transparent, var(--accent), transparent);
-    opacity: 0.65;
-    pointer-events: none;
 }
 
 #player-bar .player {
@@ -45,7 +30,6 @@
     overflow: hidden;
     background: var(--surface-lift);
     border: 1px solid var(--layer-rim);
-    box-shadow: var(--elevation-1);
 }
 
 #player-bar .art {
@@ -139,7 +123,7 @@
     height: 6px;
     border-radius: var(--radius-pill);
     background: color-mix(in srgb, var(--accent) 14%, var(--prim-brighter));
-    box-shadow: inset 0 1px 2px var(--shadow);
+    border: 1px solid var(--layer-rim);
     cursor: pointer;
 }
 
@@ -220,7 +204,7 @@
     height: 6px;
     border-radius: var(--radius-pill);
     background: color-mix(in srgb, var(--accent) 14%, var(--prim-brighter));
-    box-shadow: inset 0 1px 2px var(--shadow);
+    border: 1px solid var(--layer-rim);
     cursor: pointer;
 }
 
@@ -273,7 +257,6 @@
     background: var(--prim);
     border: 1px solid var(--back-border);
     border-radius: var(--radius);
-    box-shadow: var(--shadow-raised);
     width: min(460px, calc(100vw - 24px));
     margin-left: auto;
     margin-right: auto;

@@ -13,7 +13,6 @@ from PySide6.QtGui import (
     QColor,
     QFont,
     QFontMetrics,
-    QLinearGradient,
     QPainter,
     QPainterPath,
     QPen,
@@ -23,7 +22,6 @@ from PySide6.QtWidgets import (
     QAbstractButton,
     QDialog,
     QFrame,
-    QGraphicsDropShadowEffect,
     QGridLayout,
     QHBoxLayout,
     QLabel,
@@ -611,7 +609,7 @@ class TrackList(QWidget):
             hovered = i == self._hover
             if hovered or current:
                 p.setPen(Qt.PenStyle.NoPen)
-                p.setBrush(C("accent", 46) if current else C("glass"))
+                p.setBrush(C("surface2"))
                 p.drawRoundedRect(row.adjusted(2, 1, 2, -1), 16, 16)
                 if current:
                     p.setPen(QPen(C("accent", 110), 1))
@@ -1103,15 +1101,7 @@ class Hero(QWidget):
 
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        gradient = QLinearGradient(0, 0, 0, min(self.height(), 210))
-        soft = C("accent")
-        soft.setAlpha(28)
-        gradient.setColorAt(0.0, soft)
-        transparent = QColor(soft)
-        transparent.setAlpha(0)
-        gradient.setColorAt(1.0, transparent)
-        p.fillRect(QRectF(0, 0, self.width(), min(self.height(), 210)), gradient)
+        p.fillRect(self.rect(), C("bg2"))
 
 
 class EmptyState(QWidget):
@@ -1178,8 +1168,8 @@ class Panel(QWidget):
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        p.setPen(QPen(C("glass_border"), 1))
-        p.setBrush(C("glass"))
+        p.setPen(QPen(C("line2"), 1))
+        p.setBrush(C("surface"))
         p.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 22, 22)
 
 
@@ -1598,8 +1588,8 @@ class SearchField(QWidget):
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        p.setPen(QPen(C("glass_highlight" if self._focused else "glass_border"), 1))
-        p.setBrush(C("glass"))
+        p.setPen(QPen(C("fg" if self._focused else "line2"), 1))
+        p.setBrush(C("surface"))
         p.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 16, 16)
         p.end()
         super().paintEvent(_event)
@@ -1666,11 +1656,6 @@ class Sheet(QDialog):
         self.card = QWidget()
         self.card.setObjectName("sheetCard")
         self.card.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        shadow = QGraphicsDropShadowEffect(self.card)
-        shadow.setBlurRadius(48)
-        shadow.setOffset(0, 14)
-        shadow.setColor(QColor(0, 0, 0, 150))
-        self.card.setGraphicsEffect(shadow)
         outer.addWidget(self.card)
 
         card_layout = QVBoxLayout(self.card)
@@ -1803,8 +1788,8 @@ class Toast(QWidget):
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        p.setPen(QPen(C("glass_border"), 1))
-        p.setBrush(C("glass_strong"))
+        p.setPen(QPen(C("line2"), 1))
+        p.setBrush(C("surface2"))
         p.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 16, 16)
         p.setFont(self._font)
         p.setPen(QPen(C("fg")))

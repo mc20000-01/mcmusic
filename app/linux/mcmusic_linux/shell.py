@@ -16,7 +16,6 @@ from PySide6.QtGui import (
     QFont,
     QGuiApplication,
     QKeySequence,
-    QLinearGradient,
     QPainter,
     QPen,
     QShortcut,
@@ -371,10 +370,10 @@ class Rail(QWidget):
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         palette = theme.pal()
         card = QRectF(self.rect()).adjusted(8, 12, -8, -12)
-        p.setPen(QPen(palette.glass_border, 1))
-        p.setBrush(palette.glass)
+        p.setPen(QPen(palette.q("line2"), 1))
+        p.setBrush(palette.q("surface"))
         p.drawRoundedRect(card, 28, 28)
-        p.setPen(QPen(palette.glass_highlight, 1))
+        p.setPen(QPen(palette.q("fg"), 1))
         p.drawLine(card.topLeft() + QPointF(20, 1), card.topRight() + QPointF(-20, 1))
 
 
@@ -403,7 +402,7 @@ class TopBar(QWidget):
         line.addWidget(self.user)
 
     def paintEvent(self, _event) -> None:
-        # The shell gradient shows through; no attached masthead bar.
+        # The shell background shows through; no attached masthead bar.
         pass
 
 
@@ -506,10 +505,10 @@ class Deck(QWidget):
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         palette = theme.pal()
         card = QRectF(self.rect()).adjusted(12, 2, -12, -8)
-        p.setPen(QPen(palette.glass_border, 1))
-        p.setBrush(palette.glass)
+        p.setPen(QPen(palette.q("line2"), 1))
+        p.setBrush(palette.q("surface"))
         p.drawRoundedRect(card, 20, 20)
-        p.setPen(QPen(palette.glass_highlight, 1))
+        p.setPen(QPen(palette.q("fg"), 1))
         p.drawLine(card.topLeft() + QPointF(18, 1), card.topRight() + QPointF(-18, 1))
 
 
@@ -1037,15 +1036,7 @@ class NowPlayingOverlay(QWidget):
 
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
-        p.fillRect(self.rect(), theme.pal().q("bg"))
-        grad = QLinearGradient(0, 0, 0, min(self.height(), 300))
-        soft = theme.pal().q("accent")
-        soft.setAlpha(18)
-        clear = QColor(soft)
-        clear.setAlpha(0)
-        grad.setColorAt(0, soft)
-        grad.setColorAt(1, clear)
-        p.fillRect(0, 0, self.width(), min(self.height(), 300), grad)
+        p.fillRect(self.rect(), theme.pal().q("bg2"))
 
 
 class StatusStrip(QWidget):
@@ -1219,18 +1210,10 @@ class McWindow(QMainWindow):
 
     # ── construction ────────────────────────────────────────────────────
     def paintEvent(self, _event) -> None:
-        """The window itself is the artwork-derived tint behind glass panes."""
+        """A flat background sits behind every screen."""
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        palette = theme.pal()
-        p.fillRect(self.rect(), palette.q("bg"))
-        grad = QLinearGradient(0, 0, 0, self.height())
-        tint = palette.q("accent")
-        tint.setAlpha(46)
-        grad.setColorAt(0, tint)
-        grad.setColorAt(0.55, palette.q("bg"))
-        grad.setColorAt(1, palette.q("bg"))
-        p.fillRect(self.rect(), grad)
+        p.fillRect(self.rect(), theme.pal().q("bg"))
 
     def _build_pages(self) -> None:
         self.stack = QStackedWidget()

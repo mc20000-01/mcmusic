@@ -14,8 +14,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import dev.mcmusic.app.ui.design.LocalDesign
@@ -97,14 +95,7 @@ fun LyricVisualizer(
                     for (i in 6 downTo 1) {
                         val r = radius * (1f + i * 0.22f)
                         drawCircle(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    visualAccent.copy(alpha = 0.22f * alpha / i),
-                                    Color.Transparent,
-                                ),
-                                center = Offset(w / 2, h / 2),
-                                radius = r,
-                            ),
+                            color = visualAccent.copy(alpha = 0.10f * alpha / i),
                             center = Offset(w / 2, h / 2),
                             radius = r,
                         )

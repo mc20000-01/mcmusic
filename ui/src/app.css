@@ -34,20 +34,16 @@ main[class^="content-"] {
     flex-direction: column;
     gap: 18px;
 
-    /* Two very quiet washes give content a layered base without decoration. */
-    background:
-        radial-gradient(900px 420px at 88% -10%, var(--accent-faint), transparent 72%),
-        radial-gradient(620px 360px at -10% 0%, var(--accent-soft), transparent 68%),
-        var(--back);
+    background: var(--back);
 }
 
 /* ── Soft Material 3 layer polish ─────────────────────────────────────────
    Shared across flufi controls so the app reads like a set of calm, rounded
-   surfaces. The tokens are palette-derived, so every family gets its own ink,
-   accent wash and elevation. */
+   flat surfaces. The tokens are palette-derived, so every family gets its own
+   ink, accent wash and rim. */
 :where(button, a).button {
     border-radius: var(--radius-pill);
-    transition: background var(--transition-fast), box-shadow var(--transition-fast),
+    transition: background var(--transition-fast),
                 transform var(--transition-fast), color var(--transition-fast);
 }
 
@@ -56,14 +52,15 @@ main[class^="content-"] {
 }
 
 :where(button, a).button.variant-accent {
-    box-shadow: var(--elevation-1), inset 0 1px 0 var(--layer-highlight);
+    background: var(--accent);
+    color: var(--text-on-light);
+    border: 1px solid var(--accent-hover);
 }
 
 :where(button, a).button.variant-panel,
 :where(button, a).button.variant-secondary {
     background: var(--surface-lift);
     border: 1px solid var(--layer-rim);
-    box-shadow: var(--elevation-1);
 }
 
 :where(input, textarea, select).input,
@@ -71,21 +68,22 @@ main[class^="content-"] {
 .search-bar {
     background: var(--surface-lift);
     border: 1px solid var(--layer-rim);
-    box-shadow: inset 0 1px 0 var(--layer-highlight);
 }
 
 :where(input, textarea, select).input:focus-within,
 .select-box:focus-within,
 .search-bar:focus-within {
-    box-shadow: 0 0 0 3px var(--accent-soft), var(--elevation-1);
+    border-color: var(--accent);
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
 }
 
 .palette-card,
 .icon-choice,
 .icon-toggle,
 .popout {
+    background: var(--surface-lift);
     border: 1px solid var(--layer-rim);
-    box-shadow: var(--elevation-1);
 }
 
 /* Page actions should hug their label, not stretch across the pane. */

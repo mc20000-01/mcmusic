@@ -80,12 +80,8 @@ struct SettingsView: View {
                     Picker("Density", selection: $density) {
                         ForEach(["compact", "comfy", "roomy"], id: \.self) { Text($0).tag($0) }
                     }
-                    Picker("Material", selection: $material) {
-                        ForEach(["plane", "glass", "liquid"], id: \.self) { Text($0).tag($0) }
-                    }
-                    Picker("Glass effect", selection: $realGlass) {
-                        ForEach(["auto", "on", "off"], id: \.self) { Text($0).tag($0) }
-                    }
+                    // Server-synced appearance values are read and written back
+                    // unchanged, but no translucent effect is exposed in the UI.
                     Picker("Icon width", selection: $iconStroke) {
                         ForEach(Lucide.strokeChoices, id: \.self) { value in
                             Text("\(value.formatted())x").tag(value)

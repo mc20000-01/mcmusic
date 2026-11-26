@@ -8,9 +8,7 @@
     height: var(--topbar-h);
     padding: 0 12px;
     border-bottom: 1px solid var(--layer-rim);
-    background:
-        linear-gradient(180deg, var(--surface-lift), var(--back) 88%);
-    box-shadow: 0 1px 0 var(--layer-highlight), var(--elevation-1);
+    background: var(--back);
     position: relative;
     z-index: 2;
 }
@@ -60,7 +58,7 @@
     background: var(--accent-soft);
     border: 1px solid var(--layer-rim);
     border-radius: 11px;
-    box-shadow: inset 0 1px 0 var(--layer-highlight), var(--elevation-1);
+    border-color: var(--accent);
 }
 
 .mobile {

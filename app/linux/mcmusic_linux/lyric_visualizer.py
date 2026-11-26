@@ -15,7 +15,6 @@ import math
 from PySide6.QtCore import QPointF, QRectF, Qt, QTimer
 from PySide6.QtGui import (
     QBrush, QColor, QFont, QFontMetrics, QPainter, QPainterPath, QPen,
-    QRadialGradient,
 )
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
@@ -195,18 +194,14 @@ class LyricVisualizer(QWidget):
         center = QPointF(inner.center().x(), inner.center().y())
         pulse = 0.5 + 0.5 * math.sin(t * 1.7)
         base = min(inner.width(), inner.height()) * (0.22 + 0.06 * pulse)
-        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(Qt.BrushStyle.NoBrush)
         for ring in range(4):
             radius = base * (1.0 + ring * 0.62)
-            grad = QRadialGradient(center, radius)
-            core = QColor(accent)
-            core.setAlphaF(0.30 * (1.0 - ring / 4.0) * (0.65 + 0.35 * pulse))
-            edge = QColor(accent)
-            edge.setAlpha(0)
-            grad.setColorAt(0.0, core)
-            grad.setColorAt(1.0, edge)
-            p.setBrush(grad)
+            color = QColor(accent)
+            color.setAlphaF(0.30 * (1.0 - ring / 4.0) * (0.65 + 0.35 * pulse))
+            p.setPen(QPen(color, 1.5))
             p.drawEllipse(center, radius, radius)
+        p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(accent)
         dot = 3.5 + 2.0 * pulse
         p.drawEllipse(center, dot, dot)

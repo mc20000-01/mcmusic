@@ -39,7 +39,6 @@ struct CoverView: View {
         .frame(width: size, height: size)
         .clipShape(RoundedRectangle(cornerRadius: radius))
         .overlay(RoundedRectangle(cornerRadius: radius).stroke(tokens.accentSoft, lineWidth: 1))
-        .shadow(color: tokens.accentWash, radius: 6, y: 3)
         .task(id: url?.absoluteString) {
             if let url { image = await ImageCache.shared.image(for: url) }
         }
@@ -135,7 +134,6 @@ private struct MCFieldBackground: View {
         RoundedRectangle(cornerRadius: 16)
             .fill(tokens.surface)
             .overlay(RoundedRectangle(cornerRadius: 16).stroke(tokens.line, lineWidth: 1))
-            .shadow(color: tokens.accentWash, radius: 4, y: 2)
     }
 }
 

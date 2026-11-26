@@ -1,13 +1,13 @@
 
 .library-img {
     border-radius: var(--radius-lg);
-    box-shadow: var(--elevation-1), inset 0 1px 0 var(--layer-highlight);
-    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+    border: 1px solid var(--layer-rim);
+    transition: transform var(--transition-fast), border-color var(--transition-fast);
 }
 
 .library-card:hover .library-img {
     transform: translateY(-2px);
-    box-shadow: var(--elevation-2), inset 0 1px 0 var(--layer-highlight);
+    border-color: var(--accent);
 }
 
 .library-card {
@@ -76,13 +76,12 @@
     width: 40px;
     height: 40px;
     padding: 0;
-    border: 1px solid var(--layer-rim);
+    border: 1px solid var(--accent-hover);
     border-radius: 50%;
     background: var(--accent);
     color: var(--text-on-light);
     cursor: pointer;
     opacity: 0;
-    box-shadow: var(--elevation-1), inset 0 1px 0 var(--layer-highlight);
     transform: translateY(4px);
     transition: opacity var(--transition-fast), transform var(--transition-fast);
 }
