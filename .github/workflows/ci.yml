@@ -154,8 +154,9 @@ jobs:
       # audio backend, so all client logic still runs for real.
       MC_MUSIC_QT_AUDIO_STUB: "1"
       # QSettings caches its native path on first use, so isolate the whole
-      # process before any Qt suite creates a QApplication.
-      XDG_CONFIG_HOME: ${{ runner.temp }}/mcmusic-config
+      # process before any Qt suite creates a QApplication. The runner context
+      # is not available at job level; github.workspace is.
+      XDG_CONFIG_HOME: ${{ github.workspace }}/.mcmusic-config
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
