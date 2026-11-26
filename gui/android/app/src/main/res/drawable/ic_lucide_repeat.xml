@@ -14,7 +14,7 @@
         android:strokeWidth="2" />
     <path
         android:fillColor="#00000000"
-        android:pathData="M 3 11L 3 -1A 4 4 0 0 1 4 -4L 14 -4"
+        android:pathData="M 3 11L 3 10A 4 4 0 0 1 7 6L 21 6"
         android:strokeColor="#FF000000"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
@@ -28,7 +28,7 @@
         android:strokeWidth="2" />
     <path
         android:fillColor="#00000000"
-        android:pathData="M 21 13L 21 1A 4 4 0 0 1 -4 4L -1 4"
+        android:pathData="M 21 13L 21 14A 4 4 0 0 1 17 18L 3 18"
         android:strokeColor="#FF000000"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"

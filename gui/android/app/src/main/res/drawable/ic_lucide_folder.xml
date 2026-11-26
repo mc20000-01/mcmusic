@@ -7,7 +7,7 @@
     android:viewportHeight="24">
     <path
         android:fillColor="#00000000"
-        android:pathData="M 20 20A 2 2 0 0 0 2 -2L 2 6A 2 2 0 0 0 -2 -2L -7.9 -2A 2 2 0 0 1 -1.69 -0.9L 7.91 3A 2 2 0 0 0 15.84 6L 19.84 6A 2 2 0 0 0 -2 2L -2 13A 2 2 0 0 0 2 2Z"
+        android:pathData="M 20 20A 2 2 0 0 0 22 18L 22 8A 2 2 0 0 0 20 6L 12.1 6A 2 2 0 0 1 10.41 5.1L 9.6 3.9A 2 2 0 0 0 7.93 3L 4 3A 2 2 0 0 0 2 5L 2 18A 2 2 0 0 0 4 20Z"
         android:strokeColor="#FF000000"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"

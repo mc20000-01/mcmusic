@@ -21,21 +21,21 @@
         android:strokeWidth="2" />
     <path
         android:fillColor="#00000000"
-        android:pathData="M 2 18L 1.973 18A 4 4 0 0 0 3.3 -1.7L 5.454 -8.6A 4 4 0 0 1 3.3 -1.7L 25.3 -1.7"
+        android:pathData="M 2 18L 3.973 18A 4 4 0 0 0 7.273 16.3L 12.727 7.7A 4 4 0 0 1 16.027 6L 22 6"
         android:strokeColor="#FF000000"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
         android:strokeWidth="2" />
     <path
         android:fillColor="#00000000"
-        android:pathData="M 2 6L 1.972 6A 4 4 0 0 1 3.6 2.2"
+        android:pathData="M 2 6L 3.972 6A 4 4 0 0 1 7.572 8.2"
         android:strokeColor="#FF000000"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
         android:strokeWidth="2" />
     <path
         android:fillColor="#00000000"
-        android:pathData="M 22 18L -6.041 18A 4 4 0 0 1 -3.3 -1.8L -0.359 -0.45"
+        android:pathData="M 22 18L 15.959 18A 4 4 0 0 1 12.659 16.2L 12.3 15.75"
         android:strokeColor="#FF000000"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"

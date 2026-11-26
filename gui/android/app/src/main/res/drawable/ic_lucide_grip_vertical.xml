@@ -7,42 +7,42 @@
     android:viewportHeight="24">
     <path
         android:fillColor="#00000000"
-        android:pathData="M 8 12A 1 1 0 1 0 2 0A 1 1 0 1 0 -2 0Z"
+        android:pathData="M 8 12A 1 1 0 1 0 10 12A 1 1 0 1 0 8 12Z"
         android:strokeColor="#FF000000"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
         android:strokeWidth="2" />
     <path
         android:fillColor="#00000000"
-        android:pathData="M 8 5A 1 1 0 1 0 2 0A 1 1 0 1 0 -2 0Z"
+        android:pathData="M 8 5A 1 1 0 1 0 10 5A 1 1 0 1 0 8 5Z"
         android:strokeColor="#FF000000"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
         android:strokeWidth="2" />
     <path
         android:fillColor="#00000000"
-        android:pathData="M 8 19A 1 1 0 1 0 2 0A 1 1 0 1 0 -2 0Z"
+        android:pathData="M 8 19A 1 1 0 1 0 10 19A 1 1 0 1 0 8 19Z"
         android:strokeColor="#FF000000"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
         android:strokeWidth="2" />
     <path
         android:fillColor="#00000000"
-        android:pathData="M 14 12A 1 1 0 1 0 2 0A 1 1 0 1 0 -2 0Z"
+        android:pathData="M 14 12A 1 1 0 1 0 16 12A 1 1 0 1 0 14 12Z"
         android:strokeColor="#FF000000"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
         android:strokeWidth="2" />
     <path
         android:fillColor="#00000000"
-        android:pathData="M 14 5A 1 1 0 1 0 2 0A 1 1 0 1 0 -2 0Z"
+        android:pathData="M 14 5A 1 1 0 1 0 16 5A 1 1 0 1 0 14 5Z"
         android:strokeColor="#FF000000"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
         android:strokeWidth="2" />
     <path
         android:fillColor="#00000000"
-        android:pathData="M 14 19A 1 1 0 1 0 2 0A 1 1 0 1 0 -2 0Z"
+        android:pathData="M 14 19A 1 1 0 1 0 16 19A 1 1 0 1 0 14 19Z"
         android:strokeColor="#FF000000"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"

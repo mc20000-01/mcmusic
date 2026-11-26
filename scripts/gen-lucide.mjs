@@ -172,7 +172,7 @@ function androidPath(d) {
         if (/[a-zA-Z]/.test(tokensInPath[i])) command = tokensInPath[i++];
         if (!command) throw new Error(`gen-lucide: path starts without a command: "${d}"`);
         const letter = command.toLowerCase();
-        const relative = command !== letter;
+        const relative = command === letter;
         if (letter !== "c" && letter !== "s") cubicControl = null;
         if (letter !== "q" && letter !== "t") quadControl = null;
 
