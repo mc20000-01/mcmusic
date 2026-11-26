@@ -54,10 +54,17 @@ Build the web client (this writes `web/ui/`, which `/` serves):
 # or: ( cd ui && npm ci && npm run build )
 ```
 
-Run it directly for a smoke test:
+Run it directly for a smoke test (from any working directory):
 
 ```bash
-PYTHONPATH=.:src .venv/bin/gunicorn -w 1 --threads 8 -b 0.0.0.0:8000 \
+./scripts/run.sh
+```
+
+The launcher sets `PYTHONPATH` and binds `127.0.0.1:8000`. The equivalent
+explicit command from the repository root is:
+
+```bash
+PYTHONPATH=.:src .venv/bin/gunicorn -w 1 --threads 8 -b 127.0.0.1:8000 \
   --timeout 600 mcmusic:app
 ```
 
@@ -66,11 +73,11 @@ Visit `https://<your-host>/auth` and create the first account with
 
 ## 3. Run as a service
 
-An example unit is in `deploy/mcmusic.service`. Adjust the paths, user and
+An example unit is in `deploy/mcmusic.service.example`. Adjust the paths, user and
 Python location, then install it:
 
 ```bash
-sudo cp deploy/mcmusic.service /etc/systemd/system/mcmusic.service
+sudo cp deploy/mcmusic.service.example /etc/systemd/system/mcmusic.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now mcmusic.service
 sudo systemctl status mcmusic.service

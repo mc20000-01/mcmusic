@@ -162,6 +162,12 @@ jobs:
             algo/mdl.py
       - name: Install test dependencies
         run: pip install -r requirements.txt pytest
+      - name: Smoke test documented server commands
+        # Uses the same .venv path as the docs while reusing the system site
+        # packages installed above. Each command gets its own temp data dir.
+        run: |
+          python -m venv --system-site-packages .venv
+          ./tests/test_server_startup.sh
       - name: Run Python test suite
         # Qt-dependent suites live in qt-checks, which installs PySide6 and
         # sets QT_QPA_PLATFORM=offscreen. Running them here without Qt would
