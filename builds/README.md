@@ -9,7 +9,7 @@ by `scripts/publish_apps.sh` and by `.github/workflows/release.yml`).
 | `mcmusic-desktop_<version>_all.deb` | Debian/Ubuntu desktop client |
 | `mcmusic-x86_64.AppImage` | Portable Linux desktop client (when present) |
 | `mcmusic-linux-source.zip` | Desktop client sources, ready to run |
-| `SHA256SUMS` | Checksums for every file above |
+| `SHA256SUMS` | Checksums for the current files above only; the immutable release must not describe files it does not carry |
 
 The current files are attached to the rolling **latest** GitHub Release on
 every push to `main`, and `https://<server>/get` redirects to the newest Android

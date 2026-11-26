@@ -3,8 +3,10 @@ name: Release builds
 # Every push to main produces the same artifacts the server hands out and
 # refreshes the rolling "latest" GitHub Release plus the repo-root builds/
 # snapshot. A new version also gets one immutable v<version> release; older
-# versions are never backfilled or overwritten. Pushes made by this workflow
-# use GITHUB_TOKEN, which does not trigger another run, so there is no build loop.
+# versions are never backfilled or overwritten. Version releases are created as
+# drafts, uploaded, checksum-verified, then published; failures clean up the
+# draft and its tag. Pushes made by this workflow use GITHUB_TOKEN, which does
+# not trigger another run, so there is no build loop.
 #
 # The desktop and iOS builds need their own runners: PyInstaller cannot
 # cross-build a .app/.exe and Xcode only runs on macOS. Those jobs upload
