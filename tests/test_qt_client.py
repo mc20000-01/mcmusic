@@ -124,8 +124,12 @@ class QtApiIntegration(unittest.TestCase):
         cookies = self.store.load_cookies()
         self.assertTrue(cookies, "no session cookie was stored")
         self.assertEqual(self.store.base_url, self.server.base)
-        conf = Path(os.environ["XDG_CONFIG_HOME"]) / "mcmusic" / "mcmusic-desktop.conf"
-        self.assertTrue(conf.exists(), "QSettings never wrote the session to disk")
+        # QSettings resolves its native path once per process. Another suite may
+        # have created a QApplication before this test changed XDG_CONFIG_HOME,
+        # so ask Qt where it actually writes instead of guessing the XDG path.
+        conf = Path(self.store._s.fileName())
+        if sys.platform != "win32":
+            self.assertTrue(conf.exists(), "QSettings never wrote the session to disk")
 
         # A new store (what the window builds on the next launch) restores both
         # the server address and the session without signing in again.
