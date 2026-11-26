@@ -1,13 +1,8 @@
-"""Updater selection, version comparison and verified download tests."""
+"""Version comparison, platform selection and download-page URL tests."""
 from __future__ import annotations
 
-import hashlib
 import os
-import tempfile
-import threading
 import unittest
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
 from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -19,7 +14,7 @@ from mcmusic_linux import updates  # noqa: E402
 def build(**changes) -> BuildInfo:
     values = dict(kind="windows-zip", label="Windows", name="mcmusic for Windows",
                   available=True, file="mcmusic-windows-4.2.0.zip",
-                  version="4.2.0", url="/apps/windows/mcmusic-windows-4.2.0.zip?v=abc",
+                  version="4.2.0", url="/apps/windows/mcmusic-windows-4.2.0.zip",
                   bytes=0)
     values.update(changes)
     return BuildInfo(**values)
@@ -66,71 +61,12 @@ class SelectionTests(unittest.TestCase):
         self.assertIsNone(updates.find_update(rows, "4.1.0", system="Windows"))
 
 
-class DownloadTests(unittest.TestCase):
-    def test_streams_verifies_and_reuses_the_cached_artifact(self) -> None:
-        payload = b"mcmusic installer bytes" * 128
-        digest = hashlib.sha256(payload).hexdigest()[:16]
-        requests_seen = []
-
-        class Handler(BaseHTTPRequestHandler):
-            def do_GET(self):
-                requests_seen.append(self.path)
-                self.send_response(200)
-                self.send_header("Content-Length", str(len(payload)))
-                self.end_headers()
-                self.wfile.write(payload)
-
-            def log_message(self, *_args):
-                pass
-
-        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-        root = tempfile.TemporaryDirectory()
-        # addCleanup runs in reverse order: stop serving first, then join.
-        self.addCleanup(thread.join)
-        self.addCleanup(server.server_close)
-        self.addCleanup(server.shutdown)
-        self.addCleanup(root.cleanup)
-        with patch.object(updates, "updates_dir", return_value=Path(root.name)):
-            artifact = build(bytes=len(payload), url=f"/build.zip?v={digest}")
-            first = updates.download(artifact, f"http://127.0.0.1:{server.server_port}")
-            second = updates.download(artifact, f"http://127.0.0.1:{server.server_port}")
-
-        self.assertEqual(first, second)
-        self.assertEqual(payload, first.read_bytes())
-        self.assertTrue(hashlib.sha256(payload).hexdigest().startswith(digest))
-        self.assertEqual(1, len(requests_seen))
-        self.assertEqual([], list(Path(root.name).glob("*.part")))
-
-    def test_corrupt_payload_is_rejected(self) -> None:
-        payload = b"not the published bytes"
-
-        class Handler(BaseHTTPRequestHandler):
-            def do_GET(self):
-                self.send_response(200)
-                self.send_header("Content-Length", str(len(payload)))
-                self.end_headers()
-                self.wfile.write(payload)
-
-            def log_message(self, *_args):
-                pass
-
-        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-        root = tempfile.TemporaryDirectory()
-        # addCleanup runs in reverse order: stop serving first, then join.
-        self.addCleanup(thread.join)
-        self.addCleanup(server.server_close)
-        self.addCleanup(server.shutdown)
-        self.addCleanup(root.cleanup)
-        with patch.object(updates, "updates_dir", return_value=Path(root.name)):
-            artifact = build(bytes=len(payload),
-                             url="/build.zip?v=" + "0" * 16)
-            with self.assertRaises(IOError):
-                updates.download(artifact, f"http://127.0.0.1:{server.server_port}")
-        self.assertEqual([], list(Path(root.name).glob("*.part")))
+class DownloadPageTests(unittest.TestCase):
+    def test_points_at_the_public_page_not_an_artifact(self) -> None:
+        self.assertEqual("https://mcmusic.example/downloads",
+                         updates.download_page("https://mcmusic.example/"))
+        self.assertEqual("http://localhost:8000/downloads",
+                         updates.download_page("http://localhost:8000"))
 
 
 if __name__ == "__main__":

@@ -139,6 +139,12 @@ struct BuildsView: View {
         return URL(string: path.hasPrefix("/") ? app.client.baseURL + path : path)
     }
 
+    /// The public no-sign-in build list. The update notice opens this page in
+    /// Safari; it never opens an artifact directly or downloads one itself.
+    private var downloadPageURL: URL? {
+        URL(string: app.client.baseURL + "/downloads")
+    }
+
     private func checkForUpdate(_ rows: [JSON]) {
         let installed = AppVersion.current
         let found = rows.first { row in
@@ -154,8 +160,7 @@ struct BuildsView: View {
             return
         }
         updateBuild = found
-        updateURL = downloadURL(for: found)
-            ?? URL(string: "https://mcmusic.sdisk.us/downloads")
+        updateURL = downloadPageURL
         if !promptedForUpdate {
             promptedForUpdate = true
             showingUpdate = true

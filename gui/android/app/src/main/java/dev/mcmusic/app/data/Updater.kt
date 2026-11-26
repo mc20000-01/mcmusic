@@ -10,8 +10,6 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
-import java.net.HttpURLConnection
-import java.net.URL
 
 /** The Android entry in the server's build registry. */
 data class AppUpdate(
@@ -20,8 +18,9 @@ data class AppUpdate(
     val bytes: Long,
     val note: String,
 ) {
-    val url: String get() = Prefs.server.trimEnd('/') + path
+    val url: String get() = Api.url(path)
 }
+
 
 /**
  * In-app updates use the same registry the website downloads from, so the APK
@@ -49,11 +48,9 @@ object Updater {
 
     suspend fun check(): Result<AppUpdate?> = withContext(Dispatchers.IO) {
         runCatching {
-            val conn = (URL(Prefs.server.trimEnd('/') + "/api/builds").openConnection() as HttpURLConnection).apply {
-                connectTimeout = 10_000
-                readTimeout = 15_000
-                setRequestProperty("Accept", "application/json")
-            }
+            val conn = CheckedHttp.open(
+                Api.url("/api/builds"), headers = mapOf("Accept" to "application/json"),
+            )
             val text = try {
                 conn.inputStream.bufferedReader().use { it.readText() }
             } finally {
@@ -98,12 +95,10 @@ object Updater {
         runCatching {
             val dir = File(context.cacheDir, "updates").apply { mkdirs() }
             val file = File(dir, "mcmusic-${update.version}.apk")
-            val conn = (URL(update.url).openConnection() as HttpURLConnection).apply {
-                connectTimeout = 15_000
-                readTimeout = 60_000
-                setRequestProperty("Accept", "application/vnd.android.package-archive")
-                instanceFollowRedirects = true
-            }
+            val conn = CheckedHttp.open(
+                update.url, connectTimeout = 15_000, readTimeout = 60_000,
+                headers = mapOf("Accept" to "application/vnd.android.package-archive"),
+            )
             val total = try {
                 val length = conn.contentLength
                 conn.inputStream.use { input ->

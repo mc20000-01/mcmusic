@@ -738,7 +738,7 @@ class PlaybackService : MediaSessionService() {
         }
         // DefaultHttpDataSource cannot open file:// URIs. The delegate keeps the
         // auth headers for streams while DefaultDataSource handles local files.
-        val sources = androidx.media3.datasource.DefaultDataSource.Factory(this, http)
+        val sources = androidx.media3.datasource.DefaultDataSource.Factory(this, checkedFactory(http))
         val player = androidx.media3.exoplayer.ExoPlayer.Builder(this)
             .setMediaSourceFactory(androidx.media3.exoplayer.source.DefaultMediaSourceFactory(sources))
             .setAudioAttributes(

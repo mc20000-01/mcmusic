@@ -841,6 +841,6 @@ fun formatBytes(bytes: Long): String = when {
     else -> "$bytes B"
 }
 
-fun trackCoverUrl(id: Int): String = "${dev.mcmusic.app.data.Api.server}/api/tracks/$id/cover"
+fun trackCoverUrl(id: Int): String = Api.url("/api/tracks/$id/cover")
 
 fun emptyModifier(): Modifier = Modifier.fillMaxSize()

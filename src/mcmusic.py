@@ -172,12 +172,20 @@ def _api_gate():
 @app.after_request
 def _api_headers(resp):
     if request.path.startswith("/api/") or request.path in ("/manifest.webmanifest", "/sw.js"):
-        resp.headers.setdefault("Access-Control-Allow-Origin", CORS_ORIGIN)
-        resp.headers["Access-Control-Allow-Headers"] = "Content-Type, X-MCMUSIC-BOT, Authorization"
-        resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-        resp.headers["Access-Control-Expose-Headers"] = (
-            "Retry-After, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset")
-        resp.headers["Vary"] = "Origin"
+        # An empty CORS_ORIGIN means "no cross-origin grant". Do not emit empty
+        # or wildcard-adjacent headers at all: native clients do not need CORS,
+        # and an empty Allow-Origin is still a cross-origin signal to proxies.
+        if CORS_ORIGIN:
+            resp.headers.setdefault("Access-Control-Allow-Origin", CORS_ORIGIN)
+            resp.headers["Access-Control-Allow-Headers"] = "Content-Type, X-MCMUSIC-BOT, Authorization"
+            resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+            resp.headers["Access-Control-Expose-Headers"] = (
+                "Retry-After, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset")
+            vary = [part.strip() for part in
+                    resp.headers.get("Vary", "").split(",") if part.strip()]
+            if "Origin" not in vary:
+                vary.append("Origin")
+            resp.headers["Vary"] = ", ".join(vary)
     # Cloudflare and several other edges ignore Cache-Control on binaries and
     # keep serving an old APK for hours. CDN-Cache-Control/Cloudflare-CDN-Cache-Control
     # are the headers those edges actually honour, and builds.py adds a content

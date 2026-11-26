@@ -1188,9 +1188,10 @@ class SettingsScreen(Screen):
         update_line = QHBoxLayout(update_actions)
         update_line.setContentsMargins(0, 0, 0, 0)
         update_line.setSpacing(6)
-        self._update_button = McButton("Install", small=True, ghost=True, icon="download")
+        self._update_button = McButton("Open page", small=True, ghost=True, icon="download")
+        self._update_button.setToolTip("Open the public download page in your browser")
         self._update_button.clicked.connect(
-            lambda _=False: self.shell.install_update(self.shell._update)
+            lambda _=False: self.shell.open_update()
         )
         self._update_button.setVisible(False)
         check = McButton("Check", small=True, ghost=True, icon="refresh-cw")
@@ -1450,7 +1451,7 @@ class SettingsScreen(Screen):
         if self._update_row is None or not isValid(self._update_row):
             return
         if build and build.available and build.version:
-            subtitle = f"{build.version} available · {fmt_bytes(build.bytes)}"
+            subtitle = f"{build.version} available — open the download page"
         else:
             subtitle = f"Up to date ({VERSION})"
         if self._update_row.subtitle_label is not None:
