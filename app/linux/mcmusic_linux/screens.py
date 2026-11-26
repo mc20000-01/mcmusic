@@ -993,7 +993,6 @@ class SettingsScreen(Screen):
         self._mode: Optional[Segmented] = None
         self._density: Optional[Segmented] = None
         self._material: Optional[Segmented] = None
-        self._glass: Optional[Segmented] = None
         self._stroke: Optional[Segmented] = None
         self._filled: Optional[Switch] = None
         self._rotur_layout: Optional[QHBoxLayout] = None
@@ -1070,17 +1069,12 @@ class SettingsScreen(Screen):
         self._density.changed.connect(lambda value: self._set(density=value))
         panel.add_row("Density", "Row height in track lists", self._density)
         self._material = Segmented(
-            [("plane", "Plane"), ("glass", "Glass"), ("solid", "Solid")],
+            [("plane", "Plane"), ("solid", "Solid")],
             settings.material,
         )
         self._material.changed.connect(lambda value: self._set(material=value))
         panel.add_row("Surface", "Background treatment shared with the web player",
                       self._material)
-        self._glass = Segmented(
-            [("auto", "Auto"), ("on", "On"), ("off", "Off")], settings.real_glass
-        )
-        self._glass.changed.connect(lambda value: self._set(real_glass=value))
-        panel.add_row("Glass effect", "Let the desktop use real translucency", self._glass)
         covers = Switch(settings.covers)
         covers.toggled.connect(lambda value: self._set(covers=value))
         panel.add_row("Cover art", "Show embedded artwork", covers, last=True)
@@ -1539,8 +1533,6 @@ class SettingsScreen(Screen):
             self._density.set_selected(settings.density)
         if self._material is not None:
             self._material.set_selected(settings.material)
-        if self._glass is not None:
-            self._glass.set_selected(settings.real_glass)
         if self._stroke is not None:
             self._stroke.set_selected(f"{settings.iconStroke:g}")
         if self._filled is not None:

@@ -465,7 +465,6 @@ private fun QueueRow(
                     val scale = if (lifted) 1.02f else 1f
                     scaleX = scale
                     scaleY = scale
-                    shadowElevation = if (lifted) 12f else 0f
                 }
                 .clip(RoundedCornerShape(7.dp))
                 .background(if (lifted || current) design.accentSoft else design.palette.bg)

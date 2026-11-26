@@ -6,10 +6,7 @@
     width: 250px;
     
     border-right: 1px solid var(--layer-rim);
-    background:
-        radial-gradient(320px 260px at 0% 0%, var(--accent-faint), transparent 74%),
-        linear-gradient(180deg, var(--back), var(--seco));
-    box-shadow: 1px 0 0 var(--layer-highlight), var(--elevation-1);
+    background: var(--back);
     
     overflow: hidden;
     
@@ -100,9 +97,8 @@
     gap: 12px;
     padding: 10px 14px;
     border-radius: var(--radius-pill);
-    background: var(--surface-lift);
+    background: var(--accent-faint);
     border: 1px solid var(--layer-rim);
-    box-shadow: inset 0 1px 0 var(--layer-highlight);
 }
 
 .mobile-sidebar-scrim {

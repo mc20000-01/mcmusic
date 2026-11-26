@@ -181,7 +181,7 @@ private fun MiniPlayer(onOpen: () -> Unit) {
     }
 }
 
-/** Glassy tab dock, grouped into one floating pill. */
+/** Flat tab dock, grouped into one pill. */
 @Composable
 private fun BottomBar(tab: Tab, onTab: (Tab) -> Unit) {
     val design = LocalDesign.current
