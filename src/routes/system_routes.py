@@ -1795,7 +1795,7 @@ def admin_req_delete(rid):
 def admin_users():
     """Accounts with play/like/playlist counts."""
     rows = _db().execute(
-        """select u.id, u.username, u.email, u.is_admin, u.created,
+        """select u.id, u.username, u.email, u.is_admin, u.created, u.notes,
             (select count(*) from plays p where p.user_id=u.id) plays,
             (select count(*) from likes l where l.user_id=u.id) likes,
             (select count(*) from playlists pl where pl.user_id=u.id) playlists,
@@ -1830,9 +1830,12 @@ def admin_user_delete(uid):
     """Delete an account and everything it owns."""
     if uid == session["uid"]:
         return jsonify(error="you can't delete yourself"), 400
-    u = _db().execute("select id, is_admin from users where id=?", (uid,)).fetchone()
+    u = _db().execute("select id, is_admin, notes from users where id=?", (uid,)).fetchone()
     if not u:
         return jsonify(error="not found"), 404
+    notes = u["notes"] or ""
+    if "DO_NOT_DELETE" in notes:
+        return jsonify(error="this account is protected by an operator note; remove the DO_NOT_DELETE note first"), 409
     if u["is_admin"]:
         n = _db().execute("select count(*) n from users where is_admin=1 and id!=?", (uid,)).fetchone()["n"]
         if n == 0:
