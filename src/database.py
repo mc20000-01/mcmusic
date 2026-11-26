@@ -16,7 +16,8 @@ create table if not exists users(
   is_admin integer default 0,
   created real,
   rotur_id text,
-  email text
+  email text,
+  notes text default ''
 );
 create table if not exists tracks(
   id integer primary key,
@@ -281,6 +282,9 @@ NEW_USER_COLS = {
     "room_code": "text",
     # how a person got in: the invite they used and the admin who made it
     "invite_code": "text", "invited_by": "integer",
+    # operator notes. A note containing DO_NOT_DELETE blocks account deletion
+    # in both the admin API and a SQLite trigger (defence in depth).
+    "notes": "text default ''",
 }
 # Access tokens are needed again for server-side Rotur calls, so they are kept on
 # the row (the hash columns stay for backwards compatibility).
@@ -322,6 +326,15 @@ def ensure_schema(c):
     """Create tables if missing and backfill columns for existing databases."""
     c.executescript(SCHEMA)
     _ensure_cols(c)
+    # An operator note with DO_NOT_DELETE is a hard delete guard, not just a
+    # label. It also covers direct sqlite writes and old admin tooling that may
+    # not use the Flask endpoint.
+    c.execute(
+        "create trigger if not exists users_protected_no_delete "
+        "before delete on users "
+        "when old.notes like '%DO_NOT_DELETE%' "
+        "begin select raise(abort, 'protected account: DO_NOT_DELETE'); end"
+    )
     # Split collab credits once for libraries scanned before track_artists existed;
     # new files are indexed by the scanner itself.
     # device-to-device control: who sent a command, and which device it is for
