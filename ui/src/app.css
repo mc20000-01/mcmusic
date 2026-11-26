@@ -185,6 +185,48 @@ main[class^="content-"] .button {
     min-width: 0;
 }
 
+/* Shared ellipsis helper: rows stay single-line and the full value is only
+   shown in a context menu or a detail dialog. */
+.clip {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Menus are detail surfaces: never truncate their labels. */
+:where(.flufi-context-menu, .context-menu, [role="menu"]) :where(.label, .menu-label, span) {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+/* Narrow screens: keep every page inside the viewport and stop cards, admin
+   tables and form rows from pushing controls off the edge. */
+@media (max-width: 800px) {
+    main[class^="content-"] {
+        padding: 12px 12px calc(var(--player-h) + 18px);
+        gap: 12px;
+    }
+
+    main[class^="content-"] :where(.container, .wrap-list, .settings-card, .admin-card) {
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    main[class^="content-"] :where(.row, .build-row, .download-row, .admin-row) {
+        min-width: 0;
+        flex-wrap: wrap;
+    }
+
+    main[class^="content-"] h2,
+    main[class^="content-"] h3 {
+        overflow-wrap: anywhere;
+    }
+}
+
 /* System banners sit above the topbar and never push the shell out of view. */
 .system-banners {
     position: fixed;

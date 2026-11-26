@@ -241,6 +241,29 @@ fixes, and the old-client parity audit are consolidated here. Anything marked
       never built a client locally. `./scripts/pull_builds.sh` refreshes the
       cache; local artifacts still win until the next sync.
 
+## 4.1.0 UX parity round
+
+- [x] Android player uses a YouTube Music-style artwork carousel settled on the
+      playing queue entry; queue rows support long-press lift/drag reorder with
+      a live drop slot and swipe-left removal that follows the finger.
+- [x] Android track menus offer Play next and Add to queue; Faves and Likes are
+      surfaced as pinned playlists, with a Library Playlists tab.
+- [x] Android auto-download targets (Faves, Likes, playlists, artists, albums)
+      each carry a Wi-Fi / stable / any connection rule and run through one
+      throttled network callback.
+- [x] Downloads is split into Requests and Your downloads tabs on Android, iOS
+      and Windows; web downloads fill the same media cache used by browsing,
+      with played tracks cached when `offline_audio` is enabled.
+- [x] Web Settings uses soft grouped cards; mobile pages get conservative
+      truncation with full values preserved in context menus and detail views.
+- [x] Listening events (play/skip/complete/seek) post from web, Android, iOS and
+      Windows to `/api/metrics`; Faves stays metrics-ranked and admin-only
+      insights live in a new Admin Metrics tab.
+- [x] Windows `TypeError: 'McButton' object is not callable` fixed at its root:
+      `StatusStrip.update` shadowed `QWidget.update()` and is now
+      `update_button`; theme refreshes call `QWidget.update(widget)` directly.
+      The PyInstaller command is unchanged.
+
 ## Constraints to keep
 
 - Native Kotlin/Compose Android app; no WebView/Capacitor rewrite.

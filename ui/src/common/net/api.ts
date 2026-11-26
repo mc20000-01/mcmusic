@@ -534,6 +534,8 @@ export const API = {
 
     // ---------------------------------------------------------------- admin
     adminStats: () => get("admin/stats"),
+    adminMetrics: () => get("admin/metrics"),
+    adminHistory: (id: number, limit = 100) => get(`admin/history/${id}?limit=${limit}`),
     adminDevices: () => get("admin/devices"),
     adminEnrich: () => get("admin/enrich"),
     startEnrich: (force = false) => send("admin/enrich", "POST", { force }),

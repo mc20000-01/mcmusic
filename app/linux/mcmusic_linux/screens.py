@@ -447,11 +447,12 @@ class SearchScreen(Screen):
 class LibraryScreen(Screen):
     def __init__(self, window, tab: str = "songs", parent=None):
         super().__init__(window, parent)
-        self.tab = tab if tab in ("songs", "albums", "artists") else "songs"
+        self.tab = tab if tab in ("songs", "albums", "artists", "playlists") else "songs"
         self.tracks: list[Track] = []
         head = PageHead("Library", "Everything on the server", "")
         self.seg = Segmented(
-            [("songs", "Songs"), ("albums", "Albums"), ("artists", "Artists")], self.tab
+            [("songs", "Songs"), ("albums", "Albums"), ("artists", "Artists"),
+             ("playlists", "Playlists")], self.tab
         )
         self.seg.changed.connect(self._switch)
         head.add_action(self.seg)
@@ -483,8 +484,25 @@ class LibraryScreen(Screen):
             self.run(self.window.repo.tracks, self._render_songs)
         elif self.tab == "albums":
             self.run(self.window.repo.albums, self._render_albums)
-        else:
+        elif self.tab == "artists":
             self.run(self.window.repo.artists, self._render_artists)
+        else:
+            self.run(self.window.repo.playlists, self._render_playlists)
+
+    def _render_playlists(self, playlists: list[PlaylistRef]) -> None:
+        self._clear_content()
+        if not playlists:
+            self.clayout.addWidget(EmptyState(
+                "No playlists yet",
+                "Faves and Likes appear here automatically once you listen and like tracks.",
+                icon="list-music",
+            ))
+            return
+        grid = TileGrid()
+        grid.set_items(_playlist_items(playlists))
+        grid.opened.connect(lambda p: self.window.navigate(("playlist", p.id)))
+        grid.played.connect(lambda p: self.window.play_playlist(p.id))
+        self.clayout.addWidget(grid)
 
     def _render_songs(self, tracks: list[Track]) -> None:
         self._clear_content()
@@ -1839,11 +1857,29 @@ class DownloadsScreen(Screen):
         self.clear()
         from .player import cache_dir
         self._dir = cache_dir()
-        head = PageHead("Downloads", "Local audio cache", "")
+        head = PageHead("Downloads", "Server imports and local audio", "")
+        seg = Segmented([("requests", "Requests"), ("device", "Your downloads")],
+                        getattr(self, "tab", "device"))
+        seg.changed.connect(self._switch)
+        head.add_action(seg)
         refresh = McButton("Refresh", small=True, ghost=True, icon="refresh-cw")
         refresh.clicked.connect(self.load)
         head.add_action(refresh)
         self.add(head, 12)
+        self.tab = getattr(self, "tab", "device")
+        if self.tab == "requests":
+            panel = Panel("Requests")
+            open_requests = McButton("Open requests", small=True, ghost=True,
+                                     icon="arrow-up-right")
+            open_requests.clicked.connect(lambda: self.window.navigate(("requests",)))
+            panel.add_row(
+                "Server imports", "YouTube and direct links are approved on the server",
+                open_requests, last=True,
+            )
+            self.add(panel, 16)
+            self.add(Txt("Approved imports appear in the library; saved tracks show up under "
+                         "“Your downloads” on this device.", size=11, token="dim2", wrap=True))
+            return
 
         from datetime import datetime
         files = []
@@ -1904,6 +1940,10 @@ class DownloadsScreen(Screen):
         self.add(Txt("Downloads are the same stream cache the player uses. Turning off "
                      "“Stream cache” in Settings discards files after playback.",
                      size=11, token="dim2", wrap=True))
+
+    def _switch(self, tab: str) -> None:
+        self.tab = tab
+        self.load()
 
     def _play_cached(self, path) -> None:
         # Reuse the normal engine so MPRIS, activity and queue state stay in sync.

@@ -22,6 +22,7 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import dev.mcmusic.app.data.Account
 import dev.mcmusic.app.data.Api
+import dev.mcmusic.app.data.AutoDownload
 import dev.mcmusic.app.data.Downloads
 import dev.mcmusic.app.data.LinkEvents
 import dev.mcmusic.app.data.Prefs
@@ -42,6 +43,8 @@ class MainActivity : ComponentActivity() {
         Api.init(applicationContext)
         Downloads.init(applicationContext)
         Playback.init(applicationContext)
+        AutoDownload.register(applicationContext)
+        Thread { runCatching { kotlinx.coroutines.runBlocking { AutoDownload.runIfAllowed() } } }.start()
         handleOAuthIntent(intent)
 
         // The playback notification is how a stream keeps running off-screen.
