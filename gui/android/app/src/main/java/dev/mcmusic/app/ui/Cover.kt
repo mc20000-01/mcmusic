@@ -25,8 +25,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import dev.mcmusic.app.data.Api
 import dev.mcmusic.app.data.Prefs
+import dev.mcmusic.app.ui.design.BlobShapes
 import dev.mcmusic.app.ui.design.DynamicColour
 import dev.mcmusic.app.ui.design.LocalDesign
+import dev.mcmusic.app.ui.design.blobShape
 
 private val cache = LruCache<String, Bitmap>(64)
 
@@ -58,6 +60,9 @@ fun Cover(
 ) {
     val design = LocalDesign.current
     var bitmap by remember(url) { mutableStateOf(cache.get(url)) }
+    val placeholderShape = remember(url) {
+        blobShape(BlobShapes.ids[coverPlaceholder(url).mod(BlobShapes.ids.size)])
+    }
 
     LaunchedEffect(url) {
         if (bitmap == null && url.isNotBlank()) {
@@ -88,6 +93,7 @@ fun Cover(
             .border(1.dp, design.hairline, shape),
     ) {
         if (bitmap == null) {
+            Box(Modifier.fillMaxSize().clip(placeholderShape).background(design.accentSoft))
             BoxWithConstraints(Modifier.fillMaxSize(), Alignment.Center) {
                 LucideIcon(
                     coverPlaceholder(url),

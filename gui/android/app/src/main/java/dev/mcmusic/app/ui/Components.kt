@@ -2,7 +2,6 @@ package dev.mcmusic.app.ui
 
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
@@ -85,6 +84,7 @@ import dev.mcmusic.app.data.Prefs
 import dev.mcmusic.app.data.Track
 import dev.mcmusic.app.ui.design.DynamicColour
 import dev.mcmusic.app.ui.design.LocalDesign
+import dev.mcmusic.app.ui.design.blobShape
 import dev.mcmusic.app.ui.design.PlayfulMotion
 import dev.mcmusic.app.ui.design.mcSurface
 import dev.mcmusic.app.ui.design.playfulMotionEnabled
@@ -211,7 +211,7 @@ fun IconButton(
     }
 }
 
-/** Play/pause pill-to-squircle morph. The icon and haptics follow the same switch. */
+/** Play/pause pill-to-blob morph. The icon and haptics follow the same switch. */
 @Composable
 fun PlayPauseButton(
     playing: Boolean,
@@ -224,10 +224,11 @@ fun PlayPauseButton(
     val haptic = rememberPlayfulHaptic()
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    val corner by animateDpAsState(
-        if (playing) 16.dp else size / 2,
-        spring(dampingRatio = PlayfulMotion.DAMPING_RATIO, stiffness = PlayfulMotion.STIFFNESS),
-    )
+    val shape = when {
+        !motion -> RoundedCornerShape(16.dp)
+        playing -> blobShape("blob-2")
+        else -> RoundedCornerShape(size / 2)
+    }
     val scale by animateFloatAsState(
         if (pressed && motion) PlayfulMotion.PRESS_SCALE else 1f,
         spring(dampingRatio = PlayfulMotion.DAMPING_RATIO, stiffness = PlayfulMotion.STIFFNESS),
@@ -238,9 +239,9 @@ fun PlayPauseButton(
     )
     Box(
         modifier = modifier
-            .size(size)
-            .clip(RoundedCornerShape(if (motion) corner else 16.dp))
-            .background(design.accent)
+            .size(maxOf(size, design.touchTarget))
+            .clip(shape)
+            .background(design.accent, shape)
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .clickable(interactionSource = interaction, indication = null) {
                 haptic(PlayfulMotion.CLICK)
@@ -315,15 +316,19 @@ fun PlayfulSeek(
     modifier: Modifier = Modifier,
 ) {
     val value = fraction.coerceIn(0f, 1f)
+    val haptic = rememberPlayfulHaptic()
     Box(
         modifier
             .fillMaxWidth()
             .height(designTouchTarget())
             .pointerInput(value) {
-                detectTapGestures { offset -> onSeek((offset.x / size.width).coerceIn(0f, 1f)) }
+                detectTapGestures { offset ->
+                    haptic(PlayfulMotion.KEY)
+                    onSeek((offset.x / size.width).coerceIn(0f, 1f))
+                }
             }
             .pointerInput(value) {
-                detectDragGestures { change, _ ->
+                detectDragGestures(onDragEnd = { haptic(PlayfulMotion.KEY) }) { change, _ ->
                     onSeek((change.position.x / size.width).coerceIn(0f, 1f))
                 }
             },
