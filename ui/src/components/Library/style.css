@@ -1,7 +1,8 @@
 
 .library-img,
 .cover-art {
-    border-radius: var(--radius-xl);
+    /* Real artwork stays square with a 28px squircle corner, never a blob. */
+    border-radius: var(--radius-lg);
     transition: transform var(--transition-fast) var(--spring-ease);
 }
 
@@ -45,26 +46,33 @@
     background: var(--md-surface-container-high);
 }
 
-/* Flat tonal placeholder: the Lucide glyph is generated from lucide-static and
-   one of five shapes is chosen deterministically from the item's name. */
+/* Flat tonal placeholder: a generated canonical blob carries the fill and a
+   Lucide glyph carries the kind. Real artwork is never cropped into a blob. */
 .cover-placeholder {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--md-on-primary-container);
-    background: var(--md-primary-container);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
+    background: transparent;
+    border-radius: 0;
 }
 
-.cover-placeholder[data-shape="0"] { border-radius: 50%; }
-.cover-placeholder[data-shape="1"] { border-radius: var(--radius-xl); }
-.cover-placeholder[data-shape="2"] { border-radius: var(--radius-pill); }
-.cover-placeholder[data-shape="3"] { border-radius: 24% 48% 24% 48%; }
-.cover-placeholder[data-shape="4"] { border-radius: 28% 28% 20% 20%; }
+.cover-placeholder > svg:not(.cover-blob),
+.cover-placeholder > .cover-glyph {
+    position: relative;
+    z-index: 1;
+}
+
+.cover-placeholder .cover-blob {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+}
 
 .cover-placeholder.cover-empty {
     background: var(--md-surface-container-high);
+    border-radius: var(--radius-lg);
 }
 
 .cover-clickable {

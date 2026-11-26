@@ -5,14 +5,45 @@
     justify-content: flex-start;
 }
 
-/* Hero shelf: a flat tonal card, no gradient and no decorative shadow. */
+/* Two asymmetric hero cards: real shelves first, a second card that only
+   reports data that actually exists. Flat tonal fills, no elevation. */
+.home-hero-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    gap: 16px;
+    min-width: 0;
+}
+
 .home-hero {
+    position: relative;
     align-items: flex-start;
     gap: 12px;
     padding: 28px;
+    min-width: 0;
     border-radius: var(--radius-xl);
     background: var(--md-primary-container);
     color: var(--md-on-primary-container);
+    overflow: hidden;
+}
+
+.home-hero.hero-secondary {
+    background: var(--md-secondary-container);
+    color: var(--md-on-secondary-container);
+}
+
+.home-hero > .hero-blob {
+    position: absolute;
+    right: -12px;
+    bottom: -24px;
+    width: min(150px, 42%);
+    height: auto;
+    aspect-ratio: 1;
+    pointer-events: none;
+}
+
+.home-hero > *:not(.hero-blob) {
+    position: relative;
+    z-index: 1;
 }
 
 .home-hero .hero-badge {
@@ -27,9 +58,15 @@
     font-weight: var(--type-label-weight);
 }
 
+.home-hero.hero-secondary .hero-badge {
+    background: var(--md-primary-container);
+    color: var(--md-on-primary-container);
+}
+
 .home-hero .hero-title {
     margin: 0;
     max-width: 22ch;
+    overflow-wrap: anywhere;
 }
 
 .home-hero .dim,
@@ -61,10 +98,24 @@
     gap: 12px;
 }
 
+/* Peer shelves read as one floating segmented pill, not loose buttons. */
 .shelf-chips {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 4px;
+    width: fit-content;
+    max-width: 100%;
+    min-width: 0;
+    margin-inline: auto;
+    padding: 4px;
+    border: 1px solid var(--layer-rim);
+    border-radius: var(--radius-pill);
+    background: var(--md-surface-container-low);
+}
+
+.shelf-chips .shelf-chip {
+    min-height: var(--touch-target);
+    border-radius: var(--radius-pill);
 }
 
 .home-shelf {
@@ -188,6 +239,17 @@
     50% { opacity: 0.8; }
 }
 
+/* Compact tiers stack the asymmetric pair instead of squeezing two cards. */
+@container shell (width < 1100px) {
+    .home-hero-row {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .home-hero {
+        padding: 20px;
+    }
+}
+
 @container shell (width < 800px) {
     .album-grid,
     .skeleton-grid {
@@ -199,5 +261,22 @@
     .album-controls .album-sort {
         flex: 1;
         width: auto;
+    }
+
+    .home-hero > .hero-blob {
+        width: min(110px, 36%);
+        right: -8px;
+        bottom: -16px;
+    }
+}
+
+@container shell (width < 600px) {
+    .home-hero {
+        padding: 16px;
+        gap: 8px;
+    }
+
+    .home-hero .hero-actions {
+        gap: 8px;
     }
 }

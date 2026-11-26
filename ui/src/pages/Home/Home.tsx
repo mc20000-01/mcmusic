@@ -9,6 +9,7 @@ import {
     Button, Container, Content, Header2, Header3, Input, Loading, SelectBox, Text,
 } from "flufi-ui/components";
 import { ArrowDownUp, Disc3, ListFilter, Play, Sparkles } from "lucide-preact";
+import { BlobAccent } from "../../components/Playful/BlobAccent";
 import { EmptyState } from "../../components/EmptyState/EmptyState";
 import { SetCard } from "../../components/Library/Card";
 import { TrackList } from "../../components/TrackList/TrackList";
@@ -142,25 +143,76 @@ export function HomePage() {
         if (list.length) playQueue(list, 0);
     }
 
-    const [hero, ...otherShelves] = shelves;
+    const [hero, second, ...otherShelves] = shelves;
     const skeletonCount = loading && albums.length === 0 ? Math.min(total || PAGE, PAGE) : 0;
+    const secondaryAlbum = albums[0] ?? null;
 
     return (
         <Content class="home">
             <Container extra_gap>
-                {hero && (
-                    <Container class="home-hero">
-                        <div class="hero-badge"><Sparkles size={18} /> Your music</div>
-                        <Header2 class="hero-title">{hero.title}</Header2>
-                        <Text dim content="A real shelf from your listening history — press play whenever you're ready." />
-                        <div class="hero-actions">
-                            <Button variant="accent" class="hero-play" onClick={() => playShelf(hero)}>
-                                <Play size={18} /> Play {hero.title}
-                            </Button>
-                            <Text dim content={`${hero.tracks.length} tracks`} />
-                        </div>
+                <div class="home-hero-row">
+                    {hero ? (
+                        <Container class="home-hero hero-primary">
+                            <BlobAccent id="blob-3" class="hero-blob blob-tertiary" />
+                            <div class="hero-badge"><Sparkles size={18} /> Your music</div>
+                            <Header2 class="hero-title">{hero.title}</Header2>
+                            <Text dim content="A real shelf from your listening history — press play whenever you're ready." />
+                            <div class="hero-actions">
+                                <Button variant="accent" class="hero-play" onClick={() => playShelf(hero)}>
+                                    <Play size={18} /> Play {hero.title}
+                                </Button>
+                                <Text dim content={`${hero.tracks.length} tracks`} />
+                            </div>
+                        </Container>
+                    ) : (
+                        <Container class="home-hero hero-primary">
+                            <BlobAccent id="blob-3" class="hero-blob blob-tertiary" />
+                            <div class="hero-badge"><Sparkles size={18} /> Your library</div>
+                            <Header2 class="hero-title">Start with your music</Header2>
+                            <Text dim content="Add music and real shelves built from plays and likes appear here." />
+                            <div class="hero-actions">
+                                <a class="button variant-accent hero-play" href="/upload">Add music</a>
+                            </div>
+                        </Container>
+                    )}
+
+                    <Container class="home-hero hero-secondary">
+                        <BlobAccent id="blob-5" class="hero-blob blob-secondary" />
+                        {second ? (
+                            <>
+                                <div class="hero-badge"><Disc3 size={16} /> From your listening</div>
+                                <Header3 class="hero-title">{second.title}</Header3>
+                                <Text dim content="Built from plays and likes on this server." />
+                                <div class="hero-actions">
+                                    <Button variant="panel" class="hero-play" onClick={() => playShelf(second)}>
+                                        <Play size={16} /> Play
+                                    </Button>
+                                    <Text dim content={`${second.tracks.length} tracks`} />
+                                </div>
+                            </>
+                        ) : secondaryAlbum ? (
+                            <>
+                                <div class="hero-badge"><Disc3 size={16} /> From your library</div>
+                                <Header3 class="hero-title">{artistNames(secondaryAlbum) || secondaryAlbum.name.value}</Header3>
+                                <Text dim content={`${secondaryAlbum.tracks.value.length} tracks in this album.`} />
+                                <div class="hero-actions">
+                                    <Button variant="panel" class="hero-play" onClick={() => void playAlbum(secondaryAlbum)}>
+                                        <Play size={16} /> Play album
+                                    </Button>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div class="hero-badge"><Disc3 size={16} /> Your library</div>
+                                <Header3 class="hero-title">Albums live here</Header3>
+                                <Text dim content="Nothing is invented while your library is empty." />
+                                <div class="hero-actions">
+                                    <a class="button variant-panel hero-play" href="/playlists">Open library</a>
+                                </div>
+                            </>
+                        )}
                     </Container>
-                )}
+                </div>
 
                 {otherShelves.length > 0 && (
                     <Container class="home-shelves">

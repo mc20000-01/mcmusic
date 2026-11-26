@@ -50,17 +50,30 @@ body {
     }
 }
 
-/* The two chrome bars are the last-resort scroll owners: at tiny widths or
-   200% text a control can still be reached instead of being silently cut. */
-#topbar,
-#player-bar {
+/* The top bar is the last-resort scroll owner at tiny widths; the player's
+   scroll fallback lives on its inner track so the detached queue/More sheets
+   can escape the capsule without being clipped. */
+#topbar {
     overflow-x: auto;
     scrollbar-width: none;
     overscroll-behavior-x: contain;
 }
 
-#topbar::-webkit-scrollbar,
-#player-bar::-webkit-scrollbar {
+#topbar::-webkit-scrollbar {
+    display: none;
+}
+
+#player-bar {
+    overflow: visible;
+}
+
+#player-bar .player {
+    overflow-x: auto;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+}
+
+#player-bar .player::-webkit-scrollbar {
     display: none;
 }
 
@@ -68,6 +81,8 @@ body {
    its own; the v3 shell expects the gutter here. The bottom padding leaves
    room for the pinned player bar. */
 main[class^="content-"] {
+    /* Measured height of the detached capsule plus its bottom inset. */
+    --player-h: 148px;
     flex: 1;
     min-width: 0;
     max-width: 100%;
@@ -158,6 +173,68 @@ main[class^="content-"] .button {
     width: fit-content;
 }
 
+/* Shared segmented pill for the player's Lyrics | Up next peer sheets and the
+   now-playing shortcut row. Active state uses tonal contrast and stroke only. */
+.sheet-tabs {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    max-width: 100%;
+    min-width: 0;
+    padding: 3px;
+    border: 1px solid var(--layer-rim);
+    border-radius: var(--radius-pill);
+    background: var(--md-surface-container-low);
+}
+
+.sheet-tab,
+.sheet-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: var(--touch-target);
+    padding: 0 12px;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: var(--type-label-size);
+    text-decoration: none;
+    cursor: pointer;
+    transition: background var(--transition-fast), transform var(--transition-fast) var(--spring-ease);
+}
+
+.sheet-tab:hover,
+.sheet-action:hover {
+    background: var(--flat-hover);
+}
+
+.sheet-tab:active,
+.sheet-action:active {
+    transform: scale(var(--press-scale));
+}
+
+.sheet-tab[aria-pressed="true"],
+.sheet-action[aria-pressed="true"] {
+    background: var(--md-secondary-container);
+    color: var(--md-on-secondary-container);
+    font-weight: 600;
+}
+
+.sheet-actions {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: auto;
+    padding: 8px 10px;
+    border-top: 1px solid var(--layer-rim);
+    background: var(--md-surface-container-high);
+}
+
 /* Library cards keep the v3 tile size instead of growing with the pane; the
    grid overrides the width so columns share the row evenly. */
 .library-card {
@@ -177,12 +254,12 @@ main[class^="content-"] .button {
 @container shell (width >= 800px) and (width < 1100px) {
     main[class^="content-"] {
         --page-gutter: 20px;
-        --player-h: 108px;
+        --player-h: 188px;
         gap: 16px;
     }
 
     #player-bar {
-        --player-h: 108px;
+        --player-h: 188px;
     }
     .library-card {
         width: 140px;
@@ -192,7 +269,7 @@ main[class^="content-"] .button {
 @container shell (width >= 600px) and (width < 800px) {
     main[class^="content-"] {
         --page-gutter: 16px;
-        --player-h: 108px;
+        --player-h: 188px;
         gap: 14px;
     }
     .library-card {
@@ -202,14 +279,14 @@ main[class^="content-"] .button {
 
 @container shell (width < 800px) {
     #player-bar {
-        --player-h: 108px;
+        --player-h: 188px;
     }
 }
 
 @container shell (width < 600px) {
     main[class^="content-"] {
         --page-gutter: 12px;
-        --player-h: 108px;
+        --player-h: 188px;
         padding-bottom: calc(var(--player-h) + 18px);
         gap: 12px;
     }

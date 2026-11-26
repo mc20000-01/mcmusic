@@ -67,7 +67,7 @@
     height: 40px;
     color: var(--md-on-primary-container);
     background: var(--md-primary-container);
-    border-radius: 14px;
+    border-radius: var(--blob-5-radius);
     transition: transform var(--transition-fast) var(--spring-ease);
 }
 

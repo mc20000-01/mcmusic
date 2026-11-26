@@ -236,6 +236,7 @@ export function PlayerBar() {
                 open={showLyrics}
                 onOpen={() => setShowLyrics(true)}
                 onClose={() => setShowLyrics(false)}
+                onQueue={() => { setShowLyrics(false); queueOpen.value = true; }}
             />
             <FooterContainer other={{ id: "player-bar" }}>
                 <Container horizontal centered_y class="player">
@@ -347,8 +348,8 @@ export function PlayerBar() {
                         >
                             <div class="seek-fill" style={{ width: `${playedPct}%` }}>
                                 {wavePlaying && (
-                                    <svg class="seek-wave" viewBox="0 0 24 12" preserveAspectRatio="none" aria-hidden="true">
-                                        <path d="M0 6 Q6 1 12 6 T24 6" />
+                                    <svg class="seek-wave" viewBox="0 0 120 12" preserveAspectRatio="none" aria-hidden="true">
+                                        <path d="M0 6 Q3 3 6 6 T12 6 T18 6 T24 6 T30 6 T36 6 T42 6 T48 6 T54 6 T60 6 T66 6 T72 6 T78 6 T84 6 T90 6 T96 6 T102 6 T108 6 T114 6 T120 6" />
                                     </svg>
                                 )}
                             </div>
@@ -481,8 +482,20 @@ export function PlayerBar() {
                 {showQueue.value && (
                     <Container class="queue-drawer">
                         <Container horizontal centered_y class="queue-head">
-                            <Text class="queue-title" content="Up next" />
-                            <Text dim content={` · ${queueTracks.length} track${queueTracks.length == 1 ? "" : "s"}`} />
+                            <div class="sheet-tabs" role="group" aria-label="Player panel">
+                                <button
+                                    type="button"
+                                    class="sheet-tab"
+                                    aria-pressed={false}
+                                    onClick={() => { queueOpen.value = false; setShowLyrics(true); }}
+                                >
+                                    <MicVocal size={16} /> Lyrics
+                                </button>
+                                <button type="button" class="sheet-tab" aria-pressed={true}>
+                                    <ListMusic size={16} /> Up next
+                                </button>
+                            </div>
+                            <Text dim content={`${queueTracks.length} track${queueTracks.length == 1 ? "" : "s"}`} />
                             <IconButton title="Close queue" onClick={() => { queueOpen.value = false; }}>
                                 <X size={14} />
                             </IconButton>

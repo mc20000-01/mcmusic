@@ -4,7 +4,9 @@
     position: fixed;
     right: 0;
     top: var(--topbar-h);
-    bottom: max(var(--player-h), 78px);
+    /* The detached player capsule is 147px tall at full width and 187px in
+       compact tiers; the sheet must sit above it, never over its controls. */
+    bottom: 148px;
     z-index: 45;
     width: min(460px, calc(100vw - 24px));
     max-height: none;
@@ -205,12 +207,18 @@
     align-items: center;
 }
 
+@container shell (width < 1100px) {
+    .lyrics-panel {
+        bottom: 188px;
+    }
+}
+
 @container shell (width < 800px) {
     .lyrics-panel {
         right: 0;
         left: 0;
         top: var(--topbar-h);
-        bottom: var(--player-h);
+        bottom: 188px;
         width: auto;
         border-radius: var(--radius-xl) var(--radius-xl) 0 0;
     }

@@ -12,8 +12,10 @@ import {
     AArrowUp,
     AudioLines,
     AudioWaveform,
+    ListMusic,
     LocateFixed,
     MicVocal,
+    MonitorSmartphone,
     Sparkles,
     X,
 } from "lucide-preact";
@@ -85,8 +87,9 @@ export function LyricsPanel(props: {
     open: boolean;
     onOpen: () => void;
     onClose: () => void;
+    onQueue: () => void;
 }) {
-    const { trackId, open, onOpen, onClose } = props;
+    const { trackId, open, onOpen, onClose, onQueue } = props;
     const [lines, setLines] = useState<LrcLine[]>([]);
     const [synced, setSynced] = useState(false);
     const [source, setSource] = useState("");
@@ -236,6 +239,14 @@ export function LyricsPanel(props: {
                     <X size={15} />
                 </TextIconButton>
                 <Header3 class="title">Lyrics</Header3>
+                <div class="sheet-tabs" role="group" aria-label="Player panel">
+                    <button type="button" class="sheet-tab" aria-pressed={true}>
+                        <MicVocal size={16} /> Lyrics
+                    </button>
+                    <button type="button" class="sheet-tab" aria-pressed={false} onClick={onQueue}>
+                        <ListMusic size={16} /> Up next
+                    </button>
+                </div>
                 <Container horizontal class="controls">
                     <div class="visualizer-modes" role="group" aria-label="Lyric visualizer mode">
                         {VISUALIZER_MODES.map((mode) => {
@@ -372,6 +383,17 @@ export function LyricsPanel(props: {
                     )}
                 </div>
             )}
+            <div class="sheet-actions" role="group" aria-label="Now playing shortcuts">
+                <button type="button" class="sheet-action" aria-pressed={true}>
+                    <MicVocal size={16} /> Lyrics
+                </button>
+                <a class="sheet-action" href="/devices" onClick={onClose}>
+                    <MonitorSmartphone size={16} /> Devices
+                </a>
+                <button type="button" class="sheet-action" onClick={onQueue}>
+                    <ListMusic size={16} /> Queue
+                </button>
+            </div>
         </Container>
     );
 }
