@@ -179,6 +179,27 @@ jobs:
         # build.sh re-signs after every Info.plist edit and verifies locally;
         # this independent check stops a stale signature from being published.
         run: codesign --verify --deep --strict --verbose=2 app/macos/dist/mcmusic.app
+      - name: Verify and smoke-test the packaged macOS downloads
+        # Verify the bytes users actually download, not just the build folder.
+        # The zip and DMG can pick up metadata that invalidates a signature,
+        # and a valid signature alone does not prove the bundled app launches.
+        run: |
+          set -euo pipefail
+          tmp=$(mktemp -d)
+          trap 'hdiutil detach "$tmp/mount" -force >/dev/null 2>&1 || true; rm -rf "$tmp"' EXIT
+          zip=$(ls artifacts/mcmusic-macos-*.app.zip)
+          ditto -x -k "$zip" "$tmp"
+          codesign --verify --deep --strict --verbose=2 "$tmp/mcmusic.app"
+          codesign -d --verbose=4 "$tmp/mcmusic.app" 2>&1 | \
+            grep -E 'Identifier=|Format=|CodeDirectory|Hash=|Signature=' || true
+          # Same headless smoke test as Windows: builds the real Qt window and
+          # refreshes its theme, without sign-in, network or audio devices.
+          "$tmp/mcmusic.app/Contents/MacOS/mcmusic" --selftest
+          dmg=$(ls artifacts/mcmusic-*.dmg)
+          mkdir -p "$tmp/mount"
+          hdiutil attach "$dmg" -mountpoint "$tmp/mount" -nobrowse -readonly >/dev/null
+          codesign --verify --deep --strict --verbose=2 "$tmp/mount/mcmusic.app"
+          hdiutil detach "$tmp/mount" -force >/dev/null
       - uses: actions/upload-artifact@v4
         with:
           name: mcmusic-macos-release
