@@ -47,7 +47,10 @@ import {
     toggleMute,
     position,
 } from "../../common/player";
-import { volume } from "../../common/prefs";
+import { API } from "../../common/net/api";
+import { playfulMotion, prefersReducedMotion, volume } from "../../common/prefs";
+import { useCoverColour } from "../../common/dynamic-colour";
+import { CoverArt } from "../Library/CoverArt";
 import { LyricsPanel } from "../Lyrics/LyricsPanel";
 
 import "./style.css";
@@ -58,6 +61,8 @@ function setLinkHref(uuid: string): string {
 
 export function PlayerBar() {
     const track = nowPlaying.value;
+    const coverSrc = track ? API.getTrackCoverUrl(String(currentId.value ?? track.id)) : "";
+    useCoverColour(coverSrc);
     const [showLyrics, setShowLyrics] = useState(() => {
         const v = localStorage.getItem("mcmusic:lyricsOpen");
         return v === "true";
@@ -179,6 +184,7 @@ export function PlayerBar() {
 
     const playedPct = duration.value > 0 ? (position.value / duration.value) * 100 : 0;
     const isMutedEffective = muted || volume.value <= 0;
+    const wavePlaying = isPlaying.value && playfulMotion.value && !prefersReducedMotion();
 
     function seekAt(clientX: number): number | null {
         const rect = seekRef.current?.getBoundingClientRect();
@@ -233,11 +239,12 @@ export function PlayerBar() {
                 <Container horizontal centered_y class="player">
                     {/* Cover art — 56px, opens the album. */}
                     <div class="art-wrap">
-                        <img
+                        <CoverArt
                             class="art"
-                            src={`/api/tracks/${currentId.value ?? track.id}/cover`}
+                            src={coverSrc}
+                            name={track.title}
+                            kind="track"
                             alt=""
-                            draggable={false}
                             onClick={() => { if (setUuid) window.location.href = setLinkHref(setUuid); }}
                         />
                     </div>
@@ -253,7 +260,7 @@ export function PlayerBar() {
                         <IconButton
                             title={isPlaying.value ? "Pause" : "Play"}
                             onClick={togglePlay}
-                            class="play-pause"
+                            class={isPlaying.value ? "play-pause playing" : "play-pause"}
                         >
                             {isPlaying.value ? <Pause size={19} /> : <Play size={19} />}
                         </IconButton>
@@ -336,7 +343,13 @@ export function PlayerBar() {
                             aria-valuemax={duration.value}
                             tabIndex={-1}
                         >
-                            <div class="seek-fill" style={{ width: `${playedPct}%` }} />
+                            <div class="seek-fill" style={{ width: `${playedPct}%` }}>
+                                {wavePlaying && (
+                                    <svg class="seek-wave" viewBox="0 0 24 12" preserveAspectRatio="none" aria-hidden="true">
+                                        <path d="M0 6 Q6 1 12 6 T24 6" />
+                                    </svg>
+                                )}
+                            </div>
                             {seekHover != null && !seekDragging && duration.value > 0 && (
                                 <div class="seek-preview" style={{ left: `${(seekHover / duration.value) * 100}%` }}>
                                     {formatTime(seekHover)}
@@ -390,7 +403,7 @@ export function PlayerBar() {
                             <Heart size={16} fill={currentLiked.value ? "currentColor" : "none"} />
                         </IconButton>
                         <IconButton
-                            title={showQueue.value ? "Hide queue" : "Queue"}
+                            title={showQueue.value ? "Hide up next" : "Up next"}
                             variant={showQueue.value ? "accent-subtle" : "always-transparent"}
                             onClick={() => { queueOpen.value = !queueOpen.value; }}
                         >
@@ -409,7 +422,7 @@ export function PlayerBar() {
                 {showQueue.value && (
                     <Container class="queue-drawer">
                         <Container horizontal centered_y class="queue-head">
-                            <Text class="queue-title" content="Queue" />
+                            <Text class="queue-title" content="Up next" />
                             <Text dim content={` · ${queueTracks.length} track${queueTracks.length == 1 ? "" : "s"}`} />
                             <IconButton title="Close queue" onClick={() => { queueOpen.value = false; }}>
                                 <X size={14} />

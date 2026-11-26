@@ -23,7 +23,7 @@
 }
 
 .mobile .search-bar {
-    min-height: 40px;
+    min-height: var(--touch-target);
 }
 
 .search-popout > div {

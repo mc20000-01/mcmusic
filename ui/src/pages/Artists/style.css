@@ -1,3 +1,10 @@
 .artists .library-card {
     text-align: center;
+    padding: 12px;
+    border-radius: var(--radius);
+    background: var(--md-surface-container-low);
+}
+
+.artists .artist-pfp {
+    border-radius: 50%;
 }

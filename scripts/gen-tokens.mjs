@@ -190,7 +190,14 @@ function cssVars(variant) {
     ["--spring-damping", String(tokens.motion.spring.damping)],
     ["--press-scale", String(tokens.motion.pressScale)],
     ["--morph-ms", `${tokens.motion.morphMs}ms`],
+    ["--progress-wave-hz", String(tokens.motion.progressWaveHz)],
+    ["--progress-wave-px", `${tokens.motion.progressWavePx}px`],
   ];
+  for (const [name, style] of Object.entries(tokens.type)) {
+    lines.push(["--type-" + name + "-size", `${style.size}px`]);
+    lines.push(["--type-" + name + "-weight", String(style.weight)]);
+    lines.push(["--type-" + name + "-line", `${style.line}px`]);
+  }
   for (const role of ROLES) lines.push([`--md-${kebab(role)}`, r[role]]);
   return lines.map(([key, value]) => `    ${key}: ${value};`).join("\n");
 }

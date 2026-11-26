@@ -5,6 +5,74 @@
     justify-content: flex-start;
 }
 
+/* Hero shelf: a flat tonal card, no gradient and no decorative shadow. */
+.home-hero {
+    align-items: flex-start;
+    gap: 12px;
+    padding: 28px;
+    border-radius: var(--radius-xl);
+    background: var(--md-primary-container);
+    color: var(--md-on-primary-container);
+}
+
+.home-hero .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: var(--radius-pill);
+    background: var(--md-secondary-container);
+    color: var(--md-on-secondary-container);
+    font-size: var(--type-label-size);
+    font-weight: var(--type-label-weight);
+}
+
+.home-hero .hero-title {
+    margin: 0;
+    max-width: 22ch;
+}
+
+.home-hero .dim,
+.home-hero .hero-actions .dim {
+    color: var(--md-on-primary-container);
+    opacity: 0.82;
+}
+
+.home-hero .hero-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.home-hero .hero-play {
+    background: var(--accent);
+    color: var(--text-on-light);
+    border: 0;
+}
+
+.home-shelves {
+    gap: 12px;
+}
+
+.home-shelves .shelves-head {
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.shelf-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.home-shelf {
+    padding: 16px;
+    border-radius: var(--radius);
+    background: var(--md-surface-container-low);
+}
+
 .home-shelf .shelf-head {
     gap: 10px;
     margin-bottom: 6px;

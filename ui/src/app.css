@@ -1,4 +1,10 @@
 
+:root {
+    /* Medium spring: quick lift, small overshoot, no decorative shadows. */
+    --spring-ease: cubic-bezier(0.2, 0.9, 0.2, 1.2);
+    --topbar-h: 64px;
+}
+
 html, body, #app {
     height: 100dvh;
     overflow: hidden;
@@ -29,12 +35,27 @@ main[class^="content-"] {
     flex: 1;
     min-width: 0;
     overflow-y: auto;
-    padding: 24px 30px calc(var(--player-h) + 24px);
+    padding: 24px 28px calc(var(--player-h) + 24px);
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 20px;
 
     background: var(--back);
+}
+
+/* Material 3 type scale, sourced from design/tokens.json. */
+main[class^="content-"] h2 {
+    font-family: 'Lexend', sans-serif;
+    font-size: var(--type-headline-size);
+    line-height: var(--type-headline-line);
+    font-weight: var(--type-headline-weight);
+}
+
+main[class^="content-"] h3 {
+    font-family: 'Lexend', sans-serif;
+    font-size: var(--type-title-size);
+    line-height: var(--type-title-line);
+    font-weight: var(--type-title-weight);
 }
 
 /* ── Soft Material 3 layer polish ─────────────────────────────────────────
@@ -43,12 +64,18 @@ main[class^="content-"] {
    ink, accent wash and rim. */
 :where(button, a).button {
     border-radius: var(--radius-pill);
+    min-height: var(--touch-target);
     transition: background var(--transition-fast),
-                transform var(--transition-fast), color var(--transition-fast);
+                transform var(--transition-fast) var(--spring-ease),
+                color var(--transition-fast);
 }
 
 :where(button, a).button:not(.track):not(.drawer-link):not(.queue-row):not(:disabled):hover {
-    transform: translateY(-1px);
+    transform: translateY(-2px);
+}
+
+:where(button, a).button:not(:disabled):active {
+    transform: scale(var(--press-scale));
 }
 
 :where(button, a).button.variant-accent {
@@ -116,25 +143,40 @@ main[class^="content-"] .button {
 
 .logo {
     font-family: 'Lexend';
-    font-size: 1.5em;
-    font-weight: 600;
+    font-size: var(--type-title-size);
+    line-height: var(--type-title-line);
+    font-weight: var(--type-title-weight);
     text-decoration: none;
 }
 
-/* Visible keyboard focus everywhere, in the same violet accent. */
+/* Visible keyboard focus everywhere, in the active tonal accent. */
 :where(a, button, input, textarea, select, [tabindex]):focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
-    border-radius: var(--radius);
+    border-radius: var(--radius-lg);
 }
 
 /* Icon-only controls stay comfortably tappable on phones. */
 @media (max-width: 800px) {
     #topbar .button,
     #left-sidebar .button {
-        min-width: 40px;
-        min-height: 40px;
+        min-width: var(--touch-target);
+        min-height: var(--touch-target);
     }
+}
+
+/* Playful motion is opt-out and always yields to the platform setting. */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+html[data-playful="false"] :where(button, a).button:hover {
+    transform: none;
 }
 
 /* Shared helpers for the few places where flufi-ui has no equivalent. */

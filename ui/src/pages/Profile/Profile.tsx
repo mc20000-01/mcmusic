@@ -4,11 +4,12 @@
 import { useEffect, useState } from "preact/hooks";
 import type { RoutePropsForPath } from "preact-iso";
 import {
-    Container, Content, Header2, Header3, Image, LinkButton, Loading, Text,
+    Container, Content, Header2, Header3, LinkButton, Loading, Text,
 } from "flufi-ui/components";
 import { Headphones, UserRound } from "lucide-preact";
 import { API, fallbackCover } from "../../common/net/api";
 import type { PublicListening, PublicNow } from "../../common/net/types";
+import { CoverArt } from "../../components/Library/CoverArt";
 import { UserPfp } from "../../components/User/Pfp";
 
 import "./style.css";
@@ -92,8 +93,10 @@ function ListenerCard(props: { user: PublicListening["users"][number] }) {
             class="listener-card"
             href={`/u/${encodeURIComponent(u.username)}`}
         >
-            <Image
+            <CoverArt
                 src={u.cover_url || fallbackCover(u.username, "artist")}
+                name={u.username}
+                kind="artist"
                 size={120}
             />
             <Text content={u.username} />
@@ -134,8 +137,10 @@ export function ProfilePage(props: RoutePropsForPath<"/u/:username">) {
                     {() => data ? (
                         data.listening && data.track ? (
                             <Container horizontal wrap class="profile-now">
-                                <Image
+                                <CoverArt
                                     src={API.getTrackCoverUrl(String((data.track as any).id ?? (data.track as any).uuid ?? ""))}
+                                    name={String((data.track as any).title ?? username)}
+                                    kind="track"
                                     size={140}
                                 />
                                 <Container vertical>

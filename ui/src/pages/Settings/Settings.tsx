@@ -7,7 +7,7 @@ import {
 import {
     BookOpen, Check, CircleCheck, CircleDashed, Download, ExternalLink, KeyRound,
     Link2, LogOut, Mail, RefreshCw, Save, Send, Settings as SettingsGlyph,
-    Smartphone, Unlink, WifiOff,
+    Smartphone, Sparkles, Unlink, WifiOff,
 } from "lucide-preact";
 import { API, userFromJson } from "../../common/net/api";
 import { SELFHOST_GUIDE } from "../../common/links";
@@ -17,9 +17,9 @@ import { activityError } from "../../common/player";
 import { flushOutbox, pendingWrites } from "../../common/net/api";
 import { PasswordInput } from "../../components/PasswordInput/PasswordInput";
 import {
-    applyPrefs, loadPrefs, setAccentPreference, setAutoplayPreference,
+    applyPrefs, loadPrefs, playfulMotion, setAccentPreference, setAutoplayPreference,
     setIconFilledPreference, setIconStrokePreference, setPalettePreference,
-    type Settings as Prefs,
+    setPlayfulMotionPreference, type Settings as Prefs,
 } from "../../common/prefs";
 import {
     DEFAULT_ICON_STROKE, ICON_STROKE_CHOICES, PALETTE_FAMILIES, resolvePalette,
@@ -340,6 +340,19 @@ export function SettingsPage() {
                                     <Check size={15} class="palette-card-check" />
                                 )}
                             </Button>
+                            <Button
+                                class="icon-toggle"
+                                variant={playfulMotion.value ? "accent-subtle" : "panel"}
+                                title="Stored on this device; reduced-motion settings still win"
+                                onClick={() => setPlayfulMotionPreference(!playfulMotion.value)}
+                            >
+                                <Sparkles size={16} />
+                                <Text content="Playful motion" />
+                                {playfulMotion.value && (
+                                    <Check size={15} class="palette-card-check" />
+                                )}
+                            </Button>
+                            <Text dim content="Springs, shape morphs and the wavy progress bar follow this switch; your device's reduced-motion setting always wins." />
                         </Container>
 
                         <Seperator />
