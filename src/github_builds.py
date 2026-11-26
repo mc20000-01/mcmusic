@@ -3,8 +3,9 @@
 A self-hosted server does not have to compile every client. When a local
 artifact is missing, this module downloads the exact bytes from the public
 `latest` release into apps/ so /api/builds, /apps/... and /downloads keep
-working. Local builds still win until the next sync; GitHub is the fallback
-and the source of truth for a fresh install.
+working. Immutable `v<version>` releases are for history only; this fallback
+never reads them. Local builds still win until the next sync; GitHub is the
+fallback and the source of truth for a fresh install.
 """
 from __future__ import annotations
 

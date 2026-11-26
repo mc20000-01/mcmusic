@@ -195,6 +195,18 @@ Set the server URL in desktop Settings. The Qt client also exposes MPRIS and
 media keys on Linux. macOS and Windows launchers live in `app/macos/` and
 `app/windows/`.
 
+macOS builds are ad-hoc signed, so no paid Apple Developer account is needed.
+If Gatekeeper says the app is damaged or from an unidentified developer:
+
+```bash
+xattr -cr /Applications/mcmusic.app
+```
+
+Then right-click the app and choose **Open**. The same builds are attached to
+the rolling `latest` GitHub Release; a new desktop version also gets an
+immutable `v<version>` release, while `latest` remains the only release GitHub
+marks as Latest.
+
 ## 6. Optional integrations
 
 All are optional and disabled when blank:
