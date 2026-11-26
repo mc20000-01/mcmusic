@@ -559,6 +559,12 @@
   "spacing": {
     "unit": 4
   },
+  "breakpoints": {
+    "phone": 600,
+    "tablet": 800,
+    "compact": 1100,
+    "shortViewport": 500
+  },
   "motion": {
     "spring": {
       "stiffness": "medium",

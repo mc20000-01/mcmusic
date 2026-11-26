@@ -3,7 +3,7 @@
 import type { ComponentChildren } from "preact";
 import { Home, LogOut, Menu, Music2, Plus } from "lucide-preact";
 import { Container, HeaderContainer, IconButton, IconLinkButton, If, Text } from "flufi-ui/components";
-import { MOBILE } from "flufi-ui/common";
+import { mobileChrome } from "../../common/responsive";
 import { SearchBar } from "../SearchBar/SearchBar";
 import { currentUser, logout } from "../../common/auth";
 import { toggleMobileSidebar } from "../LeftSidebar/LeftSidebar";
@@ -18,12 +18,12 @@ export function Topbar() {
                     <span class="brand-mark"><Music2 size={18} /></span>
                     <span class="logo text">mcmusic</span>
                 </IconLink>
-                <If cond={MOBILE.value}>
+                <If cond={mobileChrome.value}>
                     <IconButton title="Open menu" onClick={toggleMobileSidebar}>
                         <Menu size={20} />
                     </IconButton>
                 </If>
-                <If cond={!MOBILE.value}>
+                <If cond={!mobileChrome.value}>
                     <IconLink href="/" label="Home">
                         <Home size={20} />
                     </IconLink>
@@ -34,6 +34,9 @@ export function Topbar() {
                 </IconLink>
                 {currentUser.value && (
                     <span class="user-pill" title={currentUser.value.username}>
+                        <span class="user-avatar" aria-hidden="true">
+                            {currentUser.value.username.slice(0, 1).toUpperCase()}
+                        </span>
                         <Text class="user" content={currentUser.value.username} />
                     </span>
                 )}

@@ -10,6 +10,7 @@ import { Download, RefreshCw, WifiOff } from "lucide-preact";
 
 import { HomePage } from "./pages/Home/Home";
 import { NotFoundPage } from "./pages/NotFound/NotFound";
+import { NotAllowedPage } from "./pages/NotAllowed/NotAllowed";
 import { AuthPage } from "./pages/Auth/Auth";
 import { ResetPage } from "./pages/Auth/Reset";
 import { Topbar } from "./components/Topbar/Topbar";
@@ -24,7 +25,7 @@ import { useEffect } from "preact/hooks";
 import { allowed } from "./common/state";
 import { authCheckDone, peekAuth } from "./common/auth";
 import { loadPrefs } from "./common/prefs";
-import { addClass, MOBILE } from "flufi-ui/common";
+import { mobileChrome, tier } from "./common/responsive";
 import { ArtistPage } from "./pages/Artist/Artist";
 import { ArtistsPage } from "./pages/Artists/Artists";
 import { SetPage } from "./pages/Set/Set";
@@ -128,9 +129,8 @@ export function Main() {
     return (
         <Container
             key="app"
-            class={addClass(
-                MOBILE.value && "mobile"
-            )}
+            other={{ "data-tier": tier.value }}
+            class={`tier-${tier.value}${mobileChrome.value ? " mobile" : ""}`}
         >
             <SystemBanners />
             {showTopbar && (
@@ -160,6 +160,7 @@ export function Main() {
                     <Route path="/settings" component={SettingsPage} />
                     <Route path="/devices" component={DevicesPage} />
                     <Route path="/admin" component={AdminPage} />
+                    <Route path="/not-allowed" component={NotAllowedPage} />
 
                     <Route default component={NotFoundPage} />
                 </Router>

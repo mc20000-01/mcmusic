@@ -361,3 +361,32 @@ jobs:
           name: mcmusic-ios-simulator
           path: build/ios/Build/Products/Release-iphonesimulator/McMusic.app
           if-no-files-found: error
+
+  responsive-checks:
+    name: Responsive UI checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: Install UI dependencies
+        run: npm --prefix ui ci --no-audit --no-fund
+      - name: Install Playwright Chromium
+        # Run from ui/ so npx resolves the @playwright/test binary from ui/node_modules.
+        working-directory: ui
+        run: npx playwright install --with-deps chromium
+      - name: Build the v3 client (ui/ -> web/ui/)
+        run: ./scripts/build_ui.sh
+      - name: Run responsive Playwright tests
+        run: npm --prefix ui run test:e2e
+      - name: Upload Playwright results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: ui/test-results/**
+          if-no-files-found: warn

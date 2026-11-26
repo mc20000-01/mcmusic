@@ -30,7 +30,7 @@
     overflow-wrap: anywhere;
 }
 
-@media (max-width: 800px) {
+@container shell (width < 800px) {
     .settings-card {
         padding: 13px 14px;
     }

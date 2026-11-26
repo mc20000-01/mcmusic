@@ -103,7 +103,7 @@ function Overview() {
         <Loading loaded={data != null}>
             {() => (
                 <Container extra_gap>
-                    <Table>
+                    <div class="table-wrap"><Table>
                         <TableBody>
                             {[
                                 ["Users", data.users], ["Admins", data.admins], ["Tracks", data.tracks],
@@ -116,7 +116,7 @@ function Overview() {
                                 </TableRow>
                             ))}
                         </TableBody>
-                    </Table>
+                    </Table></div>
                     <Header3>Requests by status</Header3>
                     <Text dim content={Object.entries(data.requests ?? {}).map(([k, v]) => `${k}: ${v}`).join(", ") || "none"} />
                     <Header3>Disk</Header3>
@@ -181,7 +181,7 @@ function Metrics() {
             {error && <Text class="error" content={error} />}
             {!data ? <Text dim content="Loading metrics…" /> : (
                 <>
-                    <Table>
+                    <div class="table-wrap"><Table>
                         <TableBody>
                             {[
                                 ["Events", data.events],
@@ -194,9 +194,9 @@ function Metrics() {
                                 </TableRow>
                             ))}
                         </TableBody>
-                    </Table>
+                    </Table></div>
                     <Header3>Top tracks</Header3>
-                    <Table>
+                    <div class="table-wrap"><Table>
                         <TableBody>
                             {(data.top_tracks ?? []).map((t: any) => (
                                 <TableRow key={t.track_id}>
@@ -206,9 +206,9 @@ function Metrics() {
                                 </TableRow>
                             ))}
                         </TableBody>
-                    </Table>
+                    </Table></div>
                     <Header3>Listeners</Header3>
-                    <Table>
+                    <div class="table-wrap"><Table>
                         <TableBody>
                             {(data.listeners ?? []).map((u: any) => (
                                 <TableRow key={u.user_id}>
@@ -222,11 +222,11 @@ function Metrics() {
                                 </TableRow>
                             ))}
                         </TableBody>
-                    </Table>
+                    </Table></div>
                     {history && (
                         <>
                             <Header3>{history.user?.username ?? "History"}</Header3>
-                            <Table>
+                            <div class="table-wrap"><Table>
                                 <TableBody>
                                     {(history.events ?? []).map((e: any, i: number) => (
                                         <TableRow key={`${e.ts}-${i}`}>
@@ -236,7 +236,7 @@ function Metrics() {
                                         </TableRow>
                                     ))}
                                 </TableBody>
-                            </Table>
+                            </Table></div>
                         </>
                     )}
                 </>
