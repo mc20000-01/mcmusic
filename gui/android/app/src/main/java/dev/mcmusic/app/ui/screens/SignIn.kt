@@ -81,7 +81,7 @@ fun AuthSplash() {
             }
             Text("mcmusic", color = design.fg, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
             LinearProgressIndicator(
-                modifier = Modifier.width(120.dp).height(3.dp).clip(RoundedCornerShape(2.dp)),
+                modifier = Modifier.width(120.dp).height(3.dp).clip(RoundedCornerShape(4.dp)),
                 color = design.accentText,
                 trackColor = design.hairline,
             )
@@ -115,7 +115,7 @@ fun SignInScreen() {
 
     val appear = remember { Animatable(if (Prefs.motion) 0f else 1f) }
     LaunchedEffect(Unit) {
-        if (Prefs.motion) appear.animateTo(1f, tween(320, easing = FastOutSlowInEasing))
+        if (Prefs.playfulMotion) appear.animateTo(1f, tween(320, easing = FastOutSlowInEasing))
     }
 
     fun submit() {

@@ -37,10 +37,15 @@ struct CoverTile: View {
     let cover: URL?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            CoverView(url: cover, size: 140, radius: 12)
-            Text(title).font(.subheadline.weight(.medium)).lineLimit(1)
-            Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+        VStack(alignment: .leading, spacing: M3Shape.sm) {
+            CoverView(url: cover, seed: title, size: 140, radius: M3Shape.coverLarge)
+            Text(title)
+                .font(M3Type.label)
+                .lineLimit(1)
+            Text(subtitle)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
         }
         .frame(width: 140)
     }

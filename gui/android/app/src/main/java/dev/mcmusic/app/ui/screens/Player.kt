@@ -26,8 +26,6 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
@@ -63,11 +61,15 @@ import dev.mcmusic.app.ui.Loading
 import dev.mcmusic.app.ui.Lucide
 import dev.mcmusic.app.ui.LucideIcon
 import dev.mcmusic.app.ui.Muted
+import dev.mcmusic.app.ui.PlayPauseButton
+import dev.mcmusic.app.ui.PlayfulSeek
 import dev.mcmusic.app.ui.ScreenBack
 import dev.mcmusic.app.ui.SectionLabel
 import dev.mcmusic.app.ui.SwitchRow
+import dev.mcmusic.app.ui.design.DynamicColour
 import dev.mcmusic.app.ui.design.LocalDesign
 import dev.mcmusic.app.ui.design.mcSurface
+import dev.mcmusic.app.ui.design.playfulMotionEnabled
 import dev.mcmusic.app.ui.formatMillis
 import dev.mcmusic.app.ui.formatDuration
 import dev.mcmusic.app.ui.trackCoverUrl
@@ -86,6 +88,7 @@ import kotlin.math.abs
 fun PlayerScreen(onBack: () -> Unit, onVideo: (String?, Long) -> Unit = { _, _ -> }) {
     val design = LocalDesign.current
     val state = Playback.state
+    val motion = playfulMotionEnabled()
     var scrub by remember { mutableStateOf<Float?>(null) }
     var lyricsOpen by remember { mutableStateOf(false) }
     // YouTube Music-style artwork carousel: one page per queue entry. The
@@ -156,6 +159,9 @@ fun PlayerScreen(onBack: () -> Unit, onVideo: (String?, Long) -> Unit = { _, _ -
         }
     }
 
+    // A new playing track drops the old seed before its artwork is sampled.
+    LaunchedEffect(state.track?.id) { DynamicColour.clearCover() }
+
     val track = state.track
     if (track == null) {
         LazyColumn(contentPadding = PaddingValues(design.screenPadding)) {
@@ -196,10 +202,11 @@ fun PlayerScreen(onBack: () -> Unit, onVideo: (String?, Long) -> Unit = { _, _ -
                         .fillMaxWidth()
                         .heightIn(min = 288.dp)
                         .graphicsLayer {
-                            val scale = 1f - 0.07f * distance
+                            val weighted = if (motion) distance else 0f
+                            val scale = 1f - 0.07f * weighted
                             scaleX = scale
                             scaleY = scale
-                            alpha = 1f - 0.22f * distance
+                            alpha = 1f - 0.22f * weighted
                         }
                         .clickable {
                             if (page != state.index && pageTrack != null) Playback.playIndex(page)
@@ -208,16 +215,17 @@ fun PlayerScreen(onBack: () -> Unit, onVideo: (String?, Long) -> Unit = { _, _ -
                 ) {
                     Box(
                         Modifier
-                            .size(264.dp)
-                            .clip(RoundedCornerShape(34.dp))
+                            .size(268.dp)
+                            .clip(RoundedCornerShape(design.heroRadius))
                             .background(design.accentSoft),
                         Alignment.Center,
                     ) {
                         Cover(
                             url = pageTrack?.let { trackCoverUrl(it.id) } ?: "",
-                            shape = RoundedCornerShape(26.dp),
+                            shape = RoundedCornerShape(design.coverRadius),
                             modifier = Modifier.size(244.dp),
                             fallback = design.accentWash,
+                            dynamic = page == state.index,
                         )
                     }
                 }
@@ -275,19 +283,11 @@ fun PlayerScreen(onBack: () -> Unit, onVideo: (String?, Long) -> Unit = { _, _ -
             item { NowLyric(track.id) { lyricsOpen = true } }
         }
         item {
-            Slider(
-                value = fraction,
-                onValueChange = { scrub = it },
-                onValueChangeFinished = {
-                    scrub?.let { Playback.seekFraction(it) }
-                    scrub = null
-                },
-                colors = SliderDefaults.colors(
-                    thumbColor = design.accentText,
-                    activeTrackColor = design.accentText,
-                    inactiveTrackColor = design.hairline,
-                ),
-            )
+            PlayfulSeek(fraction, state.playing, onSeek = { value ->
+                scrub = value
+                Playback.seekFraction(value)
+                scrub = null
+            })
         }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -305,16 +305,7 @@ fun PlayerScreen(onBack: () -> Unit, onVideo: (String?, Long) -> Unit = { _, _ -
                     Playback.toggleShuffle()
                 }
                 IconButton(Lucide.SkipBack, size = 26.dp) { Playback.previous() }
-                Box(
-                    Modifier.size(58.dp).clip(CircleShape).background(design.accent).clickable { Playback.toggle() },
-                    Alignment.Center,
-                ) {
-                    dev.mcmusic.app.ui.LucideIcon(
-                        if (state.playing) Lucide.Pause else Lucide.Play,
-                        design.onAccent,
-                        size = 22.dp,
-                    )
-                }
+                PlayPauseButton(state.playing, size = 58.dp) { Playback.toggle() }
                 IconButton(Lucide.SkipForward, size = 26.dp) { Playback.next() }
                 IconButton(Lucide.Repeat, size = 20.dp, tint = if (state.repeat) design.accentText else design.dim) {
                     Playback.cycleRepeat()
@@ -371,7 +362,7 @@ fun PlayerScreen(onBack: () -> Unit, onVideo: (String?, Long) -> Unit = { _, _ -
                                 .clip(RoundedCornerShape(50))
                                 .background(if (selected) design.accent else design.accentWash)
                                 .clickable { Playback.setSleep(minutes) }
-                                .padding(horizontal = 14.dp, vertical = 7.dp),
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
                         ) {
                             Text(
                                 if (minutes == 0) "Off" else "${minutes}m",
@@ -430,6 +421,7 @@ private fun QueueRow(
     drag: QueueDragState,
 ) {
     val design = LocalDesign.current
+    val motion = playfulMotionEnabled()
     val lifted = drag.index == index
     val current = index == state.index
     val dismissState = rememberSwipeToDismissBoxState(
@@ -447,7 +439,7 @@ private fun QueueRow(
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(7.dp))
+                    .clip(RoundedCornerShape(design.cardRadius))
                     .background(design.palette.error.copy(alpha = 0.16f))
                     .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -462,12 +454,11 @@ private fun QueueRow(
                 .fillMaxWidth()
                 .graphicsLayer {
                     translationY = if (lifted) drag.offset else 0f
-                    val scale = if (lifted) 1.02f else 1f
+                    val scale = if (lifted && motion) 1.02f else 1f
                     scaleX = scale
                     scaleY = scale
-                    shadowElevation = if (lifted) 12f else 0f
                 }
-                .clip(RoundedCornerShape(7.dp))
+                .clip(RoundedCornerShape(design.cardRadius))
                 .background(if (lifted || current) design.accentSoft else design.palette.bg)
                 .pointerInput(index) {
                     detectDragGesturesAfterLongPress(
@@ -567,6 +558,7 @@ private fun parseLyrics(text: String): List<LyricLine> {
 @Composable
 private fun LyricsPanel(trackId: Int) {
     val design = LocalDesign.current
+    val motion = playfulMotionEnabled()
     var lyrics by remember(trackId) { mutableStateOf<Lyrics?>(null) }
     var error by remember(trackId) { mutableStateOf<String?>(null) }
     var loading by remember(trackId) { mutableStateOf(true) }
@@ -593,7 +585,8 @@ private fun LyricsPanel(trackId: Int) {
         if (time <= positionSeconds) activeIndex = index else break
     }
     LaunchedEffect(activeIndex) {
-        if (activeIndex >= 0) listState.animateScrollToItem(activeIndex)
+        if (activeIndex < 0) return@LaunchedEffect
+        if (motion) listState.animateScrollToItem(activeIndex) else listState.scrollToItem(activeIndex)
     }
 
     val source = lyrics?.source.orEmpty()
@@ -605,7 +598,7 @@ private fun LyricsPanel(trackId: Int) {
     val kind = (if (lines.any { it.time >= 0 }) "Synced" else "Plain") + via
 
     Column(
-        Modifier.fillMaxWidth().mcSurface(RoundedCornerShape(12.dp)).padding(12.dp),
+        Modifier.fillMaxWidth().mcSurface(RoundedCornerShape(design.cardRadius)).padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -667,7 +660,7 @@ private fun NowLyric(trackId: Int, onOpen: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(design.cardRadius))
             .background(design.accentSoft)
             .clickable(onClick = onOpen)
             .padding(horizontal = 12.dp, vertical = 8.dp),

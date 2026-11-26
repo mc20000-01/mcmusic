@@ -3,8 +3,7 @@ package dev.mcmusic.app.ui
 import androidx.activity.compose.BackHandler
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -41,7 +40,10 @@ import dev.mcmusic.app.data.Account
 import dev.mcmusic.app.data.Prefs
 import dev.mcmusic.app.playback.Playback
 import dev.mcmusic.app.ui.design.LocalDesign
+import dev.mcmusic.app.ui.design.PlayfulMotion
 import dev.mcmusic.app.ui.design.mcSurface
+import dev.mcmusic.app.ui.design.playfulMotionEnabled
+import dev.mcmusic.app.ui.design.rememberPlayfulHaptic
 import dev.mcmusic.app.ui.screens.AdminScreen
 import dev.mcmusic.app.ui.screens.DownloadsScreen
 import dev.mcmusic.app.ui.screens.HomeScreen
@@ -130,7 +132,8 @@ private fun MiniPlayer(onOpen: () -> Unit) {
     val fraction = if (state.duration > 0) {
         (state.position.toFloat() / state.duration).coerceIn(0f, 1f)
     } else 0f
-    val shape = RoundedCornerShape(18.dp)
+    val shape = RoundedCornerShape(design.cardRadius)
+    val haptic = rememberPlayfulHaptic()
     Column(
         Modifier
             .fillMaxWidth()
@@ -140,12 +143,15 @@ private fun MiniPlayer(onOpen: () -> Unit) {
         Row(
             Modifier
                 .fillMaxWidth()
-                .clickable { onOpen() }
+                .clickable {
+                    haptic(PlayfulMotion.CLICK)
+                    onOpen()
+                }
                 .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(11.dp),
         ) {
-            TrackCover(track, 42.dp, 12.dp)
+            TrackCover(track, 48.dp, 20.dp, dynamic = true)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     track.title,
@@ -164,33 +170,23 @@ private fun MiniPlayer(onOpen: () -> Unit) {
                 )
             }
             IconButton(Lucide.SkipForward, size = 18.dp) { Playback.next() }
-            Box(
-                Modifier.size(38.dp).clip(CircleShape).background(design.accent).clickable { Playback.toggle() },
-                Alignment.Center,
-            ) {
-                LucideIcon(
-                    if (state.playing) Lucide.Pause else Lucide.Play,
-                    design.onAccent,
-                    size = 15.dp,
-                )
-            }
+            PlayPauseButton(state.playing, size = 44.dp) { Playback.toggle() }
         }
-        Box(Modifier.fillMaxWidth().height(2.dp).background(design.hairline)) {
-            Box(Modifier.fillMaxWidth(fraction).height(2.dp).background(design.accent))
-        }
+        PlayfulProgress(fraction, state.playing, Modifier.fillMaxWidth())
     }
 }
 
-/** Glassy tab dock, grouped into one floating pill. */
+/** Flat tab dock, grouped into one pill. */
 @Composable
 private fun BottomBar(tab: Tab, onTab: (Tab) -> Unit) {
     val design = LocalDesign.current
+    val haptic = rememberPlayfulHaptic()
     Row(
         Modifier
             .fillMaxWidth()
             .navigationBarsPadding()
             .padding(horizontal = 12.dp, vertical = 8.dp)
-            .mcSurface(RoundedCornerShape(26.dp))
+            .mcSurface(RoundedCornerShape(design.cardRadius))
             .padding(horizontal = 6.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -199,10 +195,13 @@ private fun BottomBar(tab: Tab, onTab: (Tab) -> Unit) {
             Column(
                 Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(20.dp))
+                    .clip(RoundedCornerShape(design.cardRadius))
                     .background(if (selected) design.accentSoft else Color.Transparent)
-                    .clickable { onTab(entry) }
-                    .padding(vertical = 8.dp),
+                    .clickable {
+                        haptic(PlayfulMotion.KEY)
+                        onTab(entry)
+                    }
+                    .padding(vertical = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
@@ -236,10 +235,20 @@ private fun TabContent(
     onVideo: (String?, Long) -> Unit,
     onVideoClosed: (Long?) -> Unit,
 ) {
-    val motion = Prefs.motion
-    val appear = remember(tab) { Animatable(if (motion) 0f else 1f) }
-    LaunchedEffect(tab) {
-        if (motion) appear.animateTo(1f, tween(220, easing = FastOutSlowInEasing))
+    val motion = playfulMotionEnabled()
+    val appear = remember(tab, motion) { Animatable(if (motion) 0f else 1f) }
+    LaunchedEffect(tab, motion) {
+        if (motion) {
+            appear.animateTo(
+                1f,
+                spring(
+                    dampingRatio = PlayfulMotion.DAMPING_RATIO,
+                    stiffness = PlayfulMotion.STIFFNESS,
+                ),
+            )
+        } else {
+            appear.snapTo(1f)
+        }
     }
     Box(
         Modifier

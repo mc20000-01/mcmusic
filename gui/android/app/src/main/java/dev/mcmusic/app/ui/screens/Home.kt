@@ -84,7 +84,7 @@ fun HomeScreen(onOpenSearch: () -> Unit, onOpenPlayer: () -> Unit) {
         if (me != null) {
             Api.home().fold(
                 onSuccess = { feed = it },
-                onFailure = { failures += "Your mix: ${it.message ?: "unavailable"}" },
+                onFailure = { failures += "Home feed: ${it.message ?: "unavailable"}" },
             )
             Api.tracks(limit = 60).fold(
                 onSuccess = { recent = it },
@@ -111,9 +111,13 @@ fun HomeScreen(onOpenSearch: () -> Unit, onOpenPlayer: () -> Unit) {
     ) {
         item {
             ScreenTitle(
-                if (me != null) "Made for ${me.username}" else "mcmusic",
-                subtitle = if (me != null) "Your mix, the live room and what just landed."
-                else "Sign in below for your mix, playlists and downloads.",
+                if (me != null) "Hi, ${me.username}" else "mcmusic",
+                subtitle = when {
+                    feed?.sections?.isNotEmpty() == true ->
+                        "A shelf built from your listening, the live room and what just landed."
+                    me != null -> "Your library, the live room and what just landed."
+                    else -> "Sign in for playlists, downloads and a feed built from your listening."
+                },
             )
         }
 
@@ -215,7 +219,7 @@ private fun ListenerCard(listener: Listener) {
     Row(
         Modifier
             .width(210.dp)
-            .mcSurface(RoundedCornerShape(8.dp))
+            .mcSurface(RoundedCornerShape(design.cardRadius))
             .clickable(enabled = listener.profileUrl.isNotBlank()) {
                 Api.externalUrl(listener.profileUrl)?.let { runCatching { uriHandler.openUri(it) } }
             }
@@ -260,13 +264,13 @@ private fun ListenerCard(listener: Listener) {
 private fun TrackCard(track: Track, onPlay: () -> Unit) {
     val design = LocalDesign.current
     Column(
-        Modifier.width(132.dp).clip(RoundedCornerShape(8.dp)).clickable { onPlay() },
+        Modifier.width(132.dp).clip(RoundedCornerShape(design.cardRadius)).clickable { onPlay() },
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Box {
             Cover(
                 url = dev.mcmusic.app.ui.trackCoverUrl(track.id),
-                shape = RoundedCornerShape(6.dp),
+                shape = RoundedCornerShape(20.dp),
                 modifier = Modifier.size(132.dp),
                 fallback = design.accentSoft,
             )

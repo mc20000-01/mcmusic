@@ -9,7 +9,7 @@
 import { useEffect, useRef } from "preact/hooks";
 import { isPlaying, position } from "../../common/player";
 import {
-    currentAccentOverride, currentPaletteValue, DEFAULT_ACCENT_RGB, DEFAULT_BACK_RGB,
+    currentAccentOverride, currentPaletteValue, DEFAULT_ACCENT_RGB,
     rgbTriplet, subscribePalette,
 } from "../../common/theme";
 
@@ -60,7 +60,7 @@ function paint(
     t: number,
     flash: number,
     accentRgb: string,
-    bgRgb: string,
+    glowColor: string,
 ) {
     ctx.clearRect(0, 0, w, h);
     const mid = h / 2;
@@ -104,20 +104,18 @@ function paint(
         return;
     }
 
+    ctx.fillStyle = glowColor;
     for (let i = 0; i < GLOWS; i++) {
         const v = band((i * 7) % BANDS, t + i * 1.23 + flash * 0.7);
         const x = ((i + 0.5) / GLOWS) * w;
         const y = mid + Math.sin(t * 1.3 + i * 2.1) * h * 0.12;
         const r = Math.max(4, (h * 0.22 + v * h * 0.3) * lift);
-        const gradient = ctx.createRadialGradient(x, y, 0, x, y, r);
-        gradient.addColorStop(0, `rgba(${accentRgb}, ${alpha((0.42 + v * 0.24) * lift)})`);
-        gradient.addColorStop(0.45, `rgba(${accentRgb}, ${alpha(0.16 + flash * 0.14)})`);
-        gradient.addColorStop(1, `rgba(${bgRgb}, 0)`); // transparent palette background
-        ctx.fillStyle = gradient;
+        ctx.globalAlpha = clamp((0.26 + v * 0.22) * lift, 0, 1);
         ctx.beginPath();
         ctx.arc(x, y, r, 0, Math.PI * 2);
         ctx.fill();
     }
+    ctx.globalAlpha = 1;
 }
 
 export function LyricVisualizer(props: {
@@ -143,12 +141,13 @@ export function LyricVisualizer(props: {
         let base = position.value;
         let baseAt = performance.now();
         let accentRgb = DEFAULT_ACCENT_RGB;
-        let bgRgb = DEFAULT_BACK_RGB;
+        let glowColor = `rgb(${accentRgb})`;
 
         function refreshColors() {
             const p = currentPaletteValue();
             accentRgb = rgbTriplet(currentAccentOverride() || p.accent, DEFAULT_ACCENT_RGB);
-            bgRgb = rgbTriplet(p.bg, DEFAULT_BACK_RGB);
+            const token = getComputedStyle(canvas!).getPropertyValue("--md-primary").trim();
+            glowColor = token || `rgb(${accentRgb})`;
         }
         refreshColors();
         const onColorChange = () => { refreshColors(); schedule(); };
@@ -165,7 +164,7 @@ export function LyricVisualizer(props: {
         }
 
         function render(flash: number) {
-            paint(ctx!, width, height, modeRef.current, time(), flash, accentRgb, bgRgb);
+            paint(ctx!, width, height, modeRef.current, time(), flash, accentRgb, glowColor);
         }
 
         function frame() {

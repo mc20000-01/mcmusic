@@ -2,6 +2,7 @@ import SwiftUI
 
 struct HomeView: View {
     @EnvironmentObject private var app: AppState
+    @Environment(\.mcTokens) private var tokens
     @State private var home: JSON?
     @State private var loading = true
 
@@ -9,29 +10,31 @@ struct HomeView: View {
         NavigationStack {
             Group {
                 if loading {
-                    ProgressView("Loading your library…").frame(maxWidth: .infinity)
+                    ProgressView("Loading your library…")
+                        .foregroundStyle(tokens.dim)
+                        .frame(maxWidth: .infinity)
                 } else if let home {
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 24) {
-                            ForEach(Array((home["sections"]?.array ?? []).enumerated()), id: \.offset) { _, section in
+                        VStack(alignment: .leading, spacing: M3Shape.xl) {
+                            ForEach(Array((home["sections"]?.array ?? []).enumerated()), id: \.offset) { index, section in
                                 let title = section["title"]?.string ?? "Music"
                                 let songs = section["tracks"]?.array ?? []
-                                Shelf(title) {
+                                Shelf(title, hero: index == 0) {
                                     ScrollView(.horizontal) {
-                                        HStack(spacing: 12) {
+                                        HStack(spacing: M3Shape.md) {
                                             ForEach(Array(songs.enumerated()), id: \.offset) { _, song in
                                                 NavigationLink(value: Detail.album(song.albumName)) {
                                                     CoverTile(title: song.title,
                                                               subtitle: song.artistName,
                                                               cover: app.client.coverURL(song.coverID))
                                                 }
-                                                .buttonStyle(.plain)
+                                                .buttonStyle(PlayfulButtonStyle())
                                             }
                                         }
-                                        .padding(.horizontal, 16)
+                                        .padding(.horizontal, M3Shape.sm)
                                     }
                                 }
-                                .padding(.horizontal, 16)
+                                .padding(.horizontal, M3Shape.lg)
 
                                 if !songs.isEmpty {
                                     VStack(spacing: 0) {
@@ -39,7 +42,7 @@ struct HomeView: View {
                                             trackRow(song, in: songs)
                                         }
                                     }
-                                    .padding(.horizontal, 16)
+                                    .padding(.horizontal, M3Shape.lg)
                                 }
                             }
 
@@ -47,23 +50,23 @@ struct HomeView: View {
                             if !albums.isEmpty {
                                 Shelf("Albums") {
                                     ScrollView(.horizontal) {
-                                        HStack(spacing: 12) {
+                                        HStack(spacing: M3Shape.md) {
                                             ForEach(Array(albums.enumerated()), id: \.offset) { _, album in
                                                 NavigationLink(value: Detail.album(album["album"]?.string ?? "")) {
                                                     CoverTile(title: album["album"]?.string ?? "Album",
                                                               subtitle: album["artist"]?.string ?? "",
                                                               cover: app.client.coverURL(album["cover_id"]))
                                                 }
-                                                .buttonStyle(.plain)
+                                                .buttonStyle(PlayfulButtonStyle())
                                             }
                                         }
-                                        .padding(.horizontal, 16)
+                                        .padding(.horizontal, M3Shape.sm)
                                     }
                                 }
-                                .padding(.horizontal, 16)
+                                .padding(.horizontal, M3Shape.lg)
                             }
                         }
-                        .padding(.top, 8)
+                        .padding(.top, M3Shape.sm)
                     }
                 } else {
                     StateView(text: "Could not load home", icon: "wifi-off") {

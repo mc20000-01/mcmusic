@@ -28,6 +28,7 @@ import dev.mcmusic.app.data.LinkEvents
 import dev.mcmusic.app.data.Prefs
 import dev.mcmusic.app.ui.McShell
 import dev.mcmusic.app.ui.design.DesignLanguage
+import dev.mcmusic.app.ui.design.DynamicColour
 import dev.mcmusic.app.ui.design.McTheme
 import dev.mcmusic.app.ui.design.Palettes
 import dev.mcmusic.app.playback.Playback
@@ -37,6 +38,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Prefs.init(applicationContext)
+        DynamicColour.refreshWallpaper(applicationContext)
         // Restore the last verified identity before the first composition, so a
         // background/service blip never flashes the sign-in gate on cold start.
         Account.restoreCached()
@@ -59,7 +61,7 @@ class MainActivity : ComponentActivity() {
         // cheapest moment to bring them up to date.
         Thread { runCatching { Widgets.refresh(applicationContext) } }.start()
 
-        val dark = Palettes.resolve(Prefs.palette, isSystemDark()).dark
+        val dark = DynamicColour.resolve(Prefs.palette, isSystemDark()).dark
         enableEdgeToEdge(
             statusBarStyle = if (dark) SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
             else SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
@@ -69,7 +71,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             McTheme(paletteId = Prefs.palette, language = DesignLanguage.from(Prefs.language)) {
-                val darkPalette = Palettes.resolve(Prefs.palette, isSystemDark()).dark
+                val darkPalette = DynamicColour.resolve(Prefs.palette, isSystemDark()).dark
                 val view = LocalView.current
                 DisposableEffect(darkPalette) {
                     val window = (view.context as? ComponentActivity)?.window
@@ -90,6 +92,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        DynamicColour.refreshWallpaper(applicationContext)
         // Revalidate in the background without dropping the cached identity.
         // Account.refresh() keeps the saved Me on transient failures and only
         // clears the session on a real 401.

@@ -1,7 +1,15 @@
 .likes-page .likes-head {
-    gap: 10px;
+    gap: 12px;
+    padding: 16px 20px;
+    border-radius: var(--radius);
+    background: var(--md-secondary-container);
+    color: var(--md-on-secondary-container);
 }
 
 .likes-page .likes-head > :last-child {
     margin-left: auto;
+}
+
+.likes-page .likes-head svg {
+    color: var(--md-on-secondary-container);
 }

@@ -68,7 +68,7 @@ struct LibraryView: View {
                                   subtitle: row["artist"]?.string ?? "",
                                   cover: app.client.coverURL(row["cover_id"]))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(PlayfulButtonStyle())
                 }
             }
             .padding()
@@ -80,13 +80,16 @@ struct LibraryView: View {
             ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                 NavigationLink(value: Detail.artist(row["artist"]?.string ?? "")) {
                     HStack {
-                        CoverView(url: app.client.coverURL(row["cover_id"]), size: 44)
+                        CoverView(url: app.client.coverURL(row["cover_id"]),
+                                  seed: row["artist"]?.string ?? "Artist",
+                                  size: 44)
                         VStack(alignment: .leading) {
                             Text(row["artist"]?.string ?? "Artist")
                             Text("\(row.itemCount) songs · \(row["albums"]?.int ?? 0) albums")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }
+                    .frame(minHeight: M3Shape.touch)
                 }
             }
         }
@@ -98,13 +101,16 @@ struct LibraryView: View {
             ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                 NavigationLink(value: Detail.playlist(row["id"]?.int ?? 0)) {
                     HStack {
-                        CoverView(url: app.client.coverURL(row["cover_id"]), size: 44)
+                        CoverView(url: app.client.coverURL(row["cover_id"]),
+                                  seed: row["name"]?.string ?? "Playlist",
+                                  size: 44)
                         VStack(alignment: .leading) {
                             Text(row["name"]?.string ?? "Playlist")
                             Text("\(row["count"]?.int ?? 0) songs")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }
+                    .frame(minHeight: M3Shape.touch)
                 }
             }
         }

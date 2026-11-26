@@ -5,7 +5,6 @@ import type {
     SearchItem, Set as SetEntity, Track, User,
 } from "./types";
 import * as idb from "../idb";
-import { currentPaletteValue } from "../theme";
 
 const BASE = "/api";
 
@@ -173,11 +172,9 @@ export function coverUrl(id?: number | null): string {
     return id ? `${BASE}/tracks/${id}/cover` : "";
 }
 
+/** Missing artwork is rendered by `CoverArt` as a flat tonal Lucide tile. */
 export function fallbackCover(name: string, kind: "track" | "artist" | "album" = "album"): string {
-    const initial = (name || "?").trim().charAt(0).toUpperCase() || "?";
-    const palette = currentPaletteValue();
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="${palette.bg2}"/><text x="32" y="43" font-size="28" text-anchor="middle" fill="${palette.fg}" font-family="sans-serif">${initial}</text><title>${kind}</title></svg>`;
-    return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+    return `placeholder:${kind}:${encodeURIComponent((name || "?").trim() || "?")}`;
 }
 
 // ---------------------------------------------------------------- json -> model

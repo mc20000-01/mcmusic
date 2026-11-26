@@ -6,7 +6,7 @@
  * with a slide animation, text-size control and per-track open/closed state.
  */
 import { useEffect, useRef, useState, useCallback } from "preact/hooks";
-import { Container, Header3, Text, TextIconButton } from "flufi-ui/components";
+import { Button, Container, Header3, Text, TextIconButton } from "flufi-ui/components";
 import {
     AArrowDown,
     AArrowUp,
@@ -99,6 +99,7 @@ export function LyricsPanel(props: {
     const [manualScroll, setManualScroll] = useState(false);
     const [activeIndex, setActiveIndex] = useState(-1);
     const [visualizerMode, setVisualizerMode] = useState<VisualizerMode>(readVisualizerMode);
+    const [singMode, setSingMode] = useState(false);
 
     const containerRef = useRef<HTMLDivElement>(null);
     const scrollTimeoutRef = useRef<number>(0);
@@ -118,6 +119,11 @@ export function LyricsPanel(props: {
     useEffect(() => {
         saveVisualizerMode(visualizerMode);
     }, [visualizerMode]);
+
+    // Sing Mode is a display mode only, and only real LRC timestamps earn it.
+    useEffect(() => {
+        if (!synced) setSingMode(false);
+    }, [synced]);
 
     const changeSize = useCallback((delta: number) => {
         setSize((s) => {
@@ -253,6 +259,16 @@ export function LyricsPanel(props: {
                     {source && (
                         <Text dim class="source" content={sourceLabel(source, synced)} />
                     )}
+                    {synced && (
+                        <Button
+                            class="sing-toggle"
+                            variant={singMode ? "accent-subtle" : "panel"}
+                            title="Larger karaoke-style lines. This does not record your voice."
+                            onClick={() => setSingMode(v => !v)}
+                        >
+                            <MicVocal size={14} /> {singMode ? "Reading" : "Sing along"}
+                        </Button>
+                    )}
                     <TextIconButton
                         variant="always-transparent"
                         title="Smaller text"
@@ -325,14 +341,17 @@ export function LyricsPanel(props: {
                 <LyricVisualizer mode={visualizerMode} activeIndex={activeIndex} />
             )}
             {showLyrics && (
-                <div class="lyrics-text" style={{ fontSize: `${sizeRef.current}rem` }}>
+                <div
+                    class={`lyrics-text${singMode && synced ? " sing-along" : ""}`}
+                    style={{ fontSize: `${sizeRef.current}rem` }}
+                >
                     {lines.map((line, i) => {
                         const active = i === activeIndex;
                         return (
                             <div
                                 key={i}
                                 data-line={i}
-                                class={`lyrics-line${active ? " lyrics-line-active" : ""}`}
+                                class={`lyrics-line${active ? " lyrics-line-active" : ""}${synced ? "" : " lyrics-line-static"}`}
                                 onClick={() => {
                                     if (line.time >= 0) {
                                         setManualScroll(false);

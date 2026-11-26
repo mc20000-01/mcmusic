@@ -1,10 +1,24 @@
 package dev.mcmusic.app.ui
 
 import androidx.annotation.DrawableRes
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -46,7 +60,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.text.font.FontWeight
@@ -64,10 +83,16 @@ import dev.mcmusic.app.data.LibraryState
 import dev.mcmusic.app.data.Playlist
 import dev.mcmusic.app.data.Prefs
 import dev.mcmusic.app.data.Track
+import dev.mcmusic.app.ui.design.DynamicColour
 import dev.mcmusic.app.ui.design.LocalDesign
+import dev.mcmusic.app.ui.design.PlayfulMotion
 import dev.mcmusic.app.ui.design.mcSurface
+import dev.mcmusic.app.ui.design.playfulMotionEnabled
+import dev.mcmusic.app.ui.design.rememberPlayfulHaptic
 import kotlinx.coroutines.launch
 import android.widget.Toast
+import kotlin.math.PI
+import kotlin.math.sin
 
 /* ── text ──────────────────────────────────────────────────────────────── */
 
@@ -113,12 +138,16 @@ fun Muted(text: String, modifier: Modifier = Modifier, size: Int = 13) {
 @Composable
 fun PrimaryButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) {
     val design = LocalDesign.current
+    val haptic = rememberPlayfulHaptic()
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(design.tileRadius))
+            .clip(RoundedCornerShape(50))
             .background(if (enabled) design.accent else design.accent.copy(alpha = 0.35f))
-            .clickable(enabled = enabled) { onClick() }
-            .padding(horizontal = 18.dp, vertical = 12.dp),
+            .clickable(enabled = enabled) {
+                haptic(PlayfulMotion.CLICK)
+                onClick()
+            }
+            .padding(horizontal = 20.dp, vertical = 14.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(text, color = design.onAccent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
@@ -128,17 +157,21 @@ fun PrimaryButton(text: String, modifier: Modifier = Modifier, enabled: Boolean 
 @Composable
 fun GhostButton(text: String, modifier: Modifier = Modifier, danger: Boolean = false, onClick: () -> Unit) {
     val design = LocalDesign.current
+    val haptic = rememberPlayfulHaptic()
     val tint = if (danger) design.palette.error else design.fg
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(design.tileRadius))
+            .clip(RoundedCornerShape(50))
             .border(
                 1.dp,
                 if (danger) design.palette.error.copy(alpha = 0.5f) else design.hairline,
-                RoundedCornerShape(design.tileRadius),
+                RoundedCornerShape(50),
             )
-            .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 11.dp),
+            .clickable {
+                haptic(PlayfulMotion.KEY)
+                onClick()
+            }
+            .padding(horizontal = 18.dp, vertical = 13.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(text, color = tint, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
@@ -154,13 +187,155 @@ fun IconButton(
     onClick: () -> Unit,
 ) {
     val design = LocalDesign.current
+    val motion = playfulMotionEnabled()
+    val haptic = rememberPlayfulHaptic()
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        if (pressed && motion) PlayfulMotion.PRESS_SCALE else 1f,
+        spring(dampingRatio = PlayfulMotion.DAMPING_RATIO, stiffness = PlayfulMotion.STIFFNESS),
+    )
     Box(
-        modifier = modifier.size(44.dp).clip(CircleShape).clickable { onClick() },
+        modifier = modifier
+            .size(design.touchTarget)
+            .clip(CircleShape)
+            .background(if (pressed && motion) design.accentWash else Color.Transparent)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .clickable(interactionSource = interaction, indication = null) {
+                haptic(PlayfulMotion.KEY)
+                onClick()
+            },
         contentAlignment = Alignment.Center,
     ) {
         LucideIcon(icon, tint ?: design.dim, size = size)
     }
 }
+
+/** Play/pause pill-to-squircle morph. The icon and haptics follow the same switch. */
+@Composable
+fun PlayPauseButton(
+    playing: Boolean,
+    modifier: Modifier = Modifier,
+    size: Dp = 58.dp,
+    onClick: () -> Unit,
+) {
+    val design = LocalDesign.current
+    val motion = playfulMotionEnabled()
+    val haptic = rememberPlayfulHaptic()
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val corner by animateDpAsState(
+        if (playing) 16.dp else size / 2,
+        spring(dampingRatio = PlayfulMotion.DAMPING_RATIO, stiffness = PlayfulMotion.STIFFNESS),
+    )
+    val scale by animateFloatAsState(
+        if (pressed && motion) PlayfulMotion.PRESS_SCALE else 1f,
+        spring(dampingRatio = PlayfulMotion.DAMPING_RATIO, stiffness = PlayfulMotion.STIFFNESS),
+    )
+    val rotation by animateFloatAsState(
+        if (playing) 90f else 0f,
+        spring(dampingRatio = PlayfulMotion.DAMPING_RATIO, stiffness = PlayfulMotion.STIFFNESS),
+    )
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(RoundedCornerShape(if (motion) corner else 16.dp))
+            .background(design.accent)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .clickable(interactionSource = interaction, indication = null) {
+                haptic(PlayfulMotion.CLICK)
+                onClick()
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(Modifier.graphicsLayer { rotationZ = if (motion) rotation else 0f }) {
+            LucideIcon(
+                if (playing) Lucide.Pause else Lucide.Play,
+                design.onAccent,
+                size = size * 0.36f,
+            )
+        }
+    }
+}
+
+/**
+ * Flat progress line. While playing, a small wave rides the filled portion;
+ * paused state is one flat bar. Reduced motion and the local switch flatten it.
+ */
+@Composable
+fun PlayfulProgress(
+    fraction: Float,
+    playing: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val design = LocalDesign.current
+    val motion = playfulMotionEnabled()
+    val transition = rememberInfiniteTransition()
+    val phase by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1818, easing = androidx.compose.animation.core.LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+    )
+    val filled = fraction.coerceIn(0f, 1f)
+    Canvas(
+        modifier
+            .height(6.dp)
+            .clip(RoundedCornerShape(50))
+            .background(design.hairline),
+    ) {
+        val width = size.width * filled
+        if (width <= 0f) return@Canvas
+        val mid = size.height / 2f
+        if (!playing || !motion) {
+            drawLine(design.accent, Offset(0f, mid), Offset(width, mid), strokeWidth = 2.dp.toPx())
+            return@Canvas
+        }
+        val path = Path()
+        val steps = (width / (4.dp.toPx())).toInt().coerceAtLeast(2)
+        val amplitude = minOf(size.height * 0.28f, 2.dp.toPx())
+        for (index in 0..steps) {
+            val x = width * index / steps
+            val envelope = sin(PI * index / steps).toFloat().coerceAtLeast(0f)
+            val y = mid + sin(index * 0.36f + phase * 2f * PI.toFloat()) * amplitude * envelope
+            if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        }
+        drawPath(path, design.accent, style = Stroke(width = 2.dp.toPx()))
+    }
+}
+
+/** Touch-friendly seek target carrying the flat progress line. */
+@Composable
+fun PlayfulSeek(
+    fraction: Float,
+    playing: Boolean,
+    onSeek: (Float) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val value = fraction.coerceIn(0f, 1f)
+    Box(
+        modifier
+            .fillMaxWidth()
+            .height(designTouchTarget())
+            .pointerInput(value) {
+                detectTapGestures { offset -> onSeek((offset.x / size.width).coerceIn(0f, 1f)) }
+            }
+            .pointerInput(value) {
+                detectDragGestures { change, _ ->
+                    onSeek((change.position.x / size.width).coerceIn(0f, 1f))
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        PlayfulProgress(value, playing, Modifier.fillMaxWidth())
+    }
+}
+
+/** Kept as a function so the shared touch target stays in one place. */
+@Composable
+private fun designTouchTarget(): Dp = LocalDesign.current.touchTarget
 
 /* ── text field ────────────────────────────────────────────────────────── */
 
@@ -253,9 +428,9 @@ fun ErrorLine(message: String, modifier: Modifier = Modifier) {
     val design = LocalDesign.current
     Text(
         message,
-        modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+        modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(design.cardRadius))
             .background(design.palette.error.copy(alpha = 0.10f))
-            .border(1.dp, design.palette.error.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
+            .border(1.dp, design.palette.error.copy(alpha = 0.35f), RoundedCornerShape(design.cardRadius))
             .padding(horizontal = 12.dp, vertical = 9.dp),
         color = design.palette.error,
         fontSize = 12.sp,
@@ -308,9 +483,17 @@ fun ScreenBack(onBack: () -> Unit) {
 
 /** Square cover that falls back to a neutral tile when a track has no art. */
 @Composable
-fun TrackCover(track: Track, size: Dp = 44.dp, radius: Dp = 6.dp) {
+fun TrackCover(
+    track: Track,
+    size: Dp = 48.dp,
+    radius: Dp = 20.dp,
+    dynamic: Boolean = false,
+) {
     val design = LocalDesign.current
+    val url = trackCoverUrl(track.id)
     if (!Prefs.showCovers) {
+        // A list tile only hides its own art; the player owns the live seed.
+        if (dynamic) DynamicColour.clearCover(url)
         Box(
             Modifier.size(size).clip(RoundedCornerShape(radius)).background(design.accentSoft),
             Alignment.Center,
@@ -320,10 +503,11 @@ fun TrackCover(track: Track, size: Dp = 44.dp, radius: Dp = 6.dp) {
         return
     }
     Cover(
-        url = trackCoverUrl(track.id),
+        url = url,
         shape = RoundedCornerShape(radius),
         modifier = Modifier.size(size),
         fallback = design.accentSoft,
+        dynamic = dynamic,
     )
 }
 
@@ -448,7 +632,7 @@ fun TrackRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            TrackCover(track, 46.dp, 12.dp)
+            TrackCover(track, 48.dp, 20.dp)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     track.title,
@@ -628,7 +812,7 @@ fun TrackActionsMenu(
     if (picker) {
         Dialog(onDismissRequest = { picker = false }) {
             Column(
-                Modifier.fillMaxWidth().mcSurface(RoundedCornerShape(12.dp)).padding(16.dp),
+                Modifier.fillMaxWidth().mcSurface(RoundedCornerShape(design.cardRadius)).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text("Add to playlist", color = LocalDesign.current.fg, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
@@ -638,7 +822,7 @@ fun TrackActionsMenu(
                 } else {
                     playlists.forEach { playlist ->
                         Row(
-                            Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(design.cardRadius))
                                 .clickable(enabled = !busy) {
                                     busy = true
                                     scope.launch {
@@ -762,7 +946,7 @@ fun SettingRow(
     ) {
         if (icon != null) {
             Box(
-                Modifier.size(28.dp).clip(RoundedCornerShape(7.dp))
+                Modifier.size(28.dp).clip(RoundedCornerShape(8.dp))
                     .background(if (danger) design.palette.error.copy(alpha = 0.12f) else design.accentSoft),
                 Alignment.Center,
             ) {

@@ -6,6 +6,8 @@ struct SettingsView: View {
     @AppStorage("accent") private var accent = ""
     @AppStorage("iconStroke") private var iconStroke = 1.0
     @AppStorage("iconFilled") private var iconFilled = false
+    // Local device preference only; the server settings schema has no such key.
+    @AppStorage("playfulMotion") private var playfulMotion = true
 
     @State private var server = UserDefaults.standard.string(forKey: "server_url") ?? "http://127.0.0.1:8000"
     @State private var density = "comfy"
@@ -80,12 +82,8 @@ struct SettingsView: View {
                     Picker("Density", selection: $density) {
                         ForEach(["compact", "comfy", "roomy"], id: \.self) { Text($0).tag($0) }
                     }
-                    Picker("Material", selection: $material) {
-                        ForEach(["plane", "glass", "liquid"], id: \.self) { Text($0).tag($0) }
-                    }
-                    Picker("Glass effect", selection: $realGlass) {
-                        ForEach(["auto", "on", "off"], id: \.self) { Text($0).tag($0) }
-                    }
+                    // Server-synced appearance values are read and written back
+                    // unchanged, but no translucent effect is exposed in the UI.
                     Picker("Icon width", selection: $iconStroke) {
                         ForEach(Lucide.strokeChoices, id: \.self) { value in
                             Text("\(value.formatted())x").tag(value)
@@ -94,6 +92,10 @@ struct SettingsView: View {
                     Toggle("Filled icons", isOn: $iconFilled)
                     Toggle("Cover art", isOn: $covers)
                     Toggle("Show room link", isOn: $showRoomURL)
+                    Toggle("Playful motion", isOn: $playfulMotion)
+                    Text("Springs, shape morphs and the wavy progress follow this switch. Reduce Motion always wins.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
 
                 Section("Playback") {
@@ -147,7 +149,7 @@ struct SettingsView: View {
 
                 Section {
                     Button("Save settings") { Task { await save() } }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(PlayfulProminentButtonStyle())
                 }
             }
             .navigationTitle("Settings")

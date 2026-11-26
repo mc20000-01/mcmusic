@@ -128,7 +128,7 @@ private fun PlaylistIndex(onOpenPlaylist: (Int) -> Unit) {
             }
             else -> items(playlists!!, key = { it.id }) { playlist ->
                 Row(
-                    Modifier.fillMaxWidth().mcSurface(RoundedCornerShape(8.dp))
+                    Modifier.fillMaxWidth().mcSurface(RoundedCornerShape(design.cardRadius))
                         .clickable { onOpenPlaylist(playlist.id) }
                         .padding(10.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -136,7 +136,7 @@ private fun PlaylistIndex(onOpenPlaylist: (Int) -> Unit) {
                 ) {
                     Cover(
                         url = albumCoverUrl(playlist.coverId),
-                        shape = RoundedCornerShape(6.dp),
+                        shape = RoundedCornerShape(20.dp),
                         modifier = Modifier.size(42.dp),
                         fallback = design.accentSoft,
                     )

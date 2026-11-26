@@ -16,13 +16,10 @@ struct ListeningView: View {
                     List(listeners, id: \.id) { listener in
                         NavigationLink(value: Detail.profile(listener["username"]?.string ?? "")) {
                             HStack(spacing: 12) {
-                                AsyncImage(url: URL(string: listener["cover_url"]?.string ?? "")) { image in
-                                    image.resizable().scaledToFill()
-                                } placeholder: {
-                                    RoundedRectangle(cornerRadius: 10).fill(tokens.surface2)
-                                }
-                                .frame(width: 44, height: 44)
-                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                                CoverView(url: URL(string: listener["cover_url"]?.string ?? ""),
+                                          seed: listener["username"]?.string ?? "Listener",
+                                          size: 44,
+                                          radius: M3Shape.coverSmall)
 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(listener["username"]?.string ?? "Listener")
@@ -42,6 +39,7 @@ struct ListeningView: View {
                                     LucideIcon(name: "audio-lines", size: 18, color: tokens.accent)
                                 }
                             }
+                            .frame(minHeight: M3Shape.touch)
                         }
                         .buttonStyle(.plain)
                     }

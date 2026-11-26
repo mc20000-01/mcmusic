@@ -4,15 +4,13 @@ import {
     Case,
     Container,
     DotSeperator,
-    Image,
     LinkButton,
     Switch,
     Text,
     type LinkButtonProps
 } from "flufi-ui/components";
-import { API } from "../../common/net/api";
 import type { SearchItem } from "../../common/net/types";
-import { ArtistPfp, SetCover } from "../Library/Image";
+import { ArtistPfp, SetCover, TrackCover } from "../Library/Image";
 
 export function SearchItemElem(props: { item: SearchItem, close?: () => void }) {
     const buttonProps: Omit<LinkButtonProps, "href"> = {
@@ -61,10 +59,7 @@ export function SearchItemElem(props: { item: SearchItem, close?: () => void }) 
 
                     return (
                         <LinkButton {...buttonProps} href={href} onClick={props.close}>
-                            <Image
-                                src={API.getTrackCoverUrl(item.uuid)}
-                                size={40}
-                            />
+                            <TrackCover {...item} size={40} />
                             <Container vertical centered_y>
                                 <Text content={item.track.name} />
                                 <Container horizontal class="dim" centered_y>

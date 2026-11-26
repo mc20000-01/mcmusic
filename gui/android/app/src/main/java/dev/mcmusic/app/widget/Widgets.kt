@@ -9,10 +9,8 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
-import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.RectF
-import android.graphics.Shader
 import android.view.View
 import android.widget.RemoteViews
 import androidx.compose.ui.graphics.toArgb
@@ -276,9 +274,8 @@ object Widgets {
         val rect = RectF(0f, 0f, w.toFloat(), h.toFloat())
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
-        paint.shader = LinearGradient(0f, 0f, 0f, h.toFloat(), palette.bg.toArgb(), palette.bg2.toArgb(), Shader.TileMode.CLAMP)
+        paint.color = palette.bg.toArgb()
         canvas.drawRoundRect(rect, radius, radius, paint)
-        paint.shader = null
 
         paint.color = palette.accent.copy(alpha = 0.16f).toArgb()
         canvas.drawCircle(w * 0.08f, 0f, h * 1.4f, paint)

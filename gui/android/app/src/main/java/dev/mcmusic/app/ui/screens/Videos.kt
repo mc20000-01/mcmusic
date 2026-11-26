@@ -117,7 +117,7 @@ fun VideosScreen(
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(design.cardRadius))
                     .mcSurface()
                     .clickable { onPlay(video.ytId, 0L) }
                     .padding(10.dp),
@@ -126,7 +126,7 @@ fun VideosScreen(
             ) {
                 Cover(
                     url = video.trackId?.let { trackCoverUrl(it) }.orEmpty(),
-                    shape = RoundedCornerShape(9.dp),
+                    shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.size(58.dp),
                     fallback = design.accentSoft,
                 )
@@ -283,7 +283,7 @@ private fun VideoPlaybackScreen(
             Modifier
                 .fillMaxWidth()
                 .aspectRatio(16f / 9f)
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(design.cardRadius))
                 .background(design.palette.bg2),
         ) {
             AndroidView(

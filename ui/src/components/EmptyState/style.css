@@ -9,12 +9,9 @@
     padding: 24px;
     text-align: center;
     color: var(--text-dim);
-    background:
-        radial-gradient(360px 180px at 50% 0%, var(--accent-faint), transparent 72%),
-        var(--surface-lift);
+    background: var(--accent-faint);
     border: 1px solid var(--layer-rim);
     border-radius: var(--radius-lg);
-    box-shadow: var(--elevation-1), inset 0 1px 0 var(--layer-highlight);
 }
 
 .empty-state-icon {
@@ -27,7 +24,7 @@
     background: var(--accent-soft);
     border: 1px solid var(--layer-rim);
     border-radius: 16px;
-    box-shadow: inset 0 1px 0 var(--layer-highlight);
+    border-color: var(--accent);
 }
 
 .empty-state-title {
