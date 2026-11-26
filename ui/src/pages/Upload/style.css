@@ -24,7 +24,7 @@
     text-transform: lowercase;
 }
 
-@media (max-width: 600px) {
+@container shell (width < 600px) {
     .upload-request .req-url {
         white-space: normal;
         overflow-wrap: anywhere;

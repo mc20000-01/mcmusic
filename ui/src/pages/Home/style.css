@@ -116,10 +116,11 @@
    shrink below their content size inside grid cells. */
 .album-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(clamp(150px, 12vw, 210px), 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(clamp(140px, 12vw, 210px), 1fr));
     gap: 16px;
     width: 100%;
-    overflow-x: hidden;
+    min-width: 0;
+    overflow-x: visible;
 }
 
 .album-grid .library-card {
@@ -134,10 +135,11 @@
 /* Skeleton cards shown while the first page of albums loads. */
 .skeleton-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(clamp(150px, 12vw, 210px), 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(clamp(140px, 12vw, 210px), 1fr));
     gap: 16px;
     width: 100%;
-    overflow-x: hidden;
+    min-width: 0;
+    overflow-x: visible;
 }
 
 .skeleton-card {
@@ -186,7 +188,7 @@
     50% { opacity: 0.8; }
 }
 
-@media (max-width: 800px) {
+@container shell (width < 800px) {
     .album-grid,
     .skeleton-grid {
         grid-template-columns: repeat(auto-fill, minmax(122px, 1fr));

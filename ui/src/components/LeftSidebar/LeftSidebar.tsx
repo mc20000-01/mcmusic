@@ -9,7 +9,8 @@ import "./style.css";
 import {
     Branch, Container, Else, IconButton, MiniHeader, TextLinkButton, Then,
 } from "flufi-ui/components";
-import { addClass, MOBILE } from "flufi-ui/common";
+import { addClass } from "flufi-ui/common";
+import { mobileChrome, tier } from "../../common/responsive";
 import {
     Download, Headphones, Heart, Home, ListMusic, MonitorSmartphone,
     PanelLeftClose, PanelLeftOpen, Search, Settings, ShieldCheck, Upload,
@@ -34,9 +35,14 @@ function closeMobileSidebar() {
 
 export function LeftSidebar() {
     const loc = useLocation();
-    const open = MOBILE.value ? leftSidebarMobileOpen.value : leftSidebarOpen.value;
+    const open = mobileChrome.value ? leftSidebarMobileOpen.value : leftSidebarOpen.value;
 
     useEffect(() => { closeMobileSidebar(); }, [loc.path]);
+
+    // Compact windows use the rail always; a full open sidebar would clip.
+    useEffect(() => {
+        if (tier.value === "compact") leftSidebarOpen.value = false;
+    }, [tier.value]);
 
     return (
         <>
@@ -44,10 +50,10 @@ export function LeftSidebar() {
                 other={{ id: "left-sidebar" }}
                 class={addClass(
                     open && "open",
-                    MOBILE.value ? "mobile" : "desktop"
+                    mobileChrome.value ? "mobile" : "desktop"
                 )}
             >
-                <Branch cond={MOBILE.value}>
+                <Branch cond={mobileChrome.value}>
                     <Then>
                         <MobileContent />
                     </Then>
@@ -56,7 +62,7 @@ export function LeftSidebar() {
                     </Else>
                 </Branch>
             </Container>
-            {MOBILE.value && leftSidebarMobileOpen.value && (
+            {mobileChrome.value && leftSidebarMobileOpen.value && (
                 <div class="mobile-sidebar-scrim" aria-hidden="true" onClick={closeMobileSidebar} />
             )}
         </>

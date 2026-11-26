@@ -94,13 +94,13 @@
         gap: 0;
     }
 
-    /* The wordmark stays visible on phones; the icon is redundant there. */
+    /* Phones keep only the compact mark; the page title carries the name. */
     #topbar .brand-mark {
-        display: none;
+        display: inline-flex;
     }
 
     #topbar .brand-link .logo {
-        font-size: var(--type-title-size);
+        display: none;
     }
 
     #topbar .search-bar {
@@ -115,5 +115,100 @@
         min-width: var(--touch-target);
         min-height: var(--touch-target);
         padding: 0 6px;
+    }
+}
+
+#topbar > .middle > * {
+    min-width: 0;
+}
+
+#topbar .button,
+#topbar .search-bar .button {
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+}
+
+#topbar .user-avatar {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-pill);
+    background: var(--md-primary-container);
+    color: var(--md-on-primary-container);
+    font-weight: 700;
+}
+
+/* Compact: keep every control at full touch size, drop only the user label. */
+@container shell (width >= 800px) and (width < 1100px) {
+    #topbar {
+        padding-inline: 12px;
+    }
+
+    #topbar .brand-link {
+        flex: 0 0 auto;
+        padding-right: 0;
+    }
+
+    #topbar .brand-link .logo {
+        display: none;
+    }
+
+    #topbar .search-bar {
+        width: auto;
+        min-width: 0;
+        flex: 1 1 0;
+        margin-inline: 8px;
+    }
+
+    #topbar .user-pill {
+        min-width: var(--touch-target);
+        padding: 0 8px;
+        justify-content: center;
+    }
+
+    #topbar .user {
+        display: none;
+    }
+
+    #topbar .user-avatar {
+        display: inline-flex;
+    }
+
+    #topbar .icon-tip .button,
+    #topbar > .middle > .button {
+        min-width: var(--touch-target);
+        min-height: var(--touch-target);
+    }
+}
+
+/* Tablet/phone chrome: avatar only, never a full user pill. */
+@container shell (width < 800px) {
+    .mobile #topbar .user-pill {
+        display: none;
+    }
+
+    .mobile #topbar .search-bar {
+        min-width: 0;
+    }
+}
+
+/* Phone chrome keeps only brand, menu and search in the bar; account and
+   upload actions live in the drawer so nothing is silently clipped. */
+@container shell (width < 600px) {
+    #topbar .icon-tip[title="Add music"],
+    #topbar .icon-tip[title="Log out"],
+    #topbar .user-pill {
+        display: none;
+    }
+
+    #topbar .brand-link {
+        gap: 0;
+        padding-right: 0;
+    }
+
+    #topbar .search-bar {
+        margin-inline: 0;
     }
 }

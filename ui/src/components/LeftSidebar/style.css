@@ -126,6 +126,34 @@
     border: 0;
 }
 
+@container shell (width >= 800px) and (width < 1100px) {
+    #left-sidebar,
+    #left-sidebar.desktop:not(.open) {
+        width: 72px;
+        flex: 0 0 72px;
+    }
+
+    /* Auto-collapse to the rail; opening it here would clip the labels. */
+    #left-sidebar {
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    #left-sidebar::-webkit-scrollbar {
+        display: none;
+    }
+
+    #left-sidebar > div.desktop > .openclose,
+    #left-sidebar > div.desktop > .opened {
+        display: none;
+    }
+
+    #left-sidebar > div.desktop > .closed {
+        opacity: 1;
+        z-index: 1;
+    }
+}
+
 .mobile-sidebar-scrim {
     position: absolute;
     inset: 0;

@@ -74,6 +74,11 @@ yarn-error.log*
 pnpm-debug.log*
 .pnpm-store/
 
+# Playwright artifacts (regenerated locally and in CI; never committed)
+ui/playwright-report/
+ui/test-results/
+ui/blob-report/
+
 # --- Android toolchain, local paths, build output ---------------------------
 .toolchain/
 app/android/.gradle/

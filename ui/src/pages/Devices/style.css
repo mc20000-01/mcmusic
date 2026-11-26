@@ -98,7 +98,7 @@
     font-size: var(--font-size-small);
 }
 
-@media (max-width: 600px) {
+@container shell (width < 600px) {
     .content-devices .device-name,
     .content-devices .device-meta {
         white-space: normal;

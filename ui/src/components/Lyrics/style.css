@@ -205,7 +205,7 @@
     align-items: center;
 }
 
-@media (max-width: 800px) {
+@container shell (width < 800px) {
     .lyrics-panel {
         right: 0;
         left: 0;

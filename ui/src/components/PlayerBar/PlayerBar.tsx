@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { Container, FooterContainer, IconButton, Text } from "flufi-ui/components";
 import {
+    Ellipsis,
     Heart,
     ListMusic,
     MicVocal,
@@ -73,6 +74,7 @@ export function PlayerBar() {
     const [seekDragging, setSeekDragging] = useState(false);
     const [volumeHover, setVolumeHover] = useState<number | null>(null);
     const [volumeDragging, setVolumeDragging] = useState(false);
+    const [moreOpen, setMoreOpen] = useState(false);
     const seekRef = useRef<HTMLDivElement>(null);
     const volRef = useRef<HTMLDivElement>(null);
 
@@ -411,13 +413,70 @@ export function PlayerBar() {
                         </IconButton>
                         <IconButton
                             title={showLyrics ? "Hide lyrics" : "Lyrics"}
+                            class="control-lyrics"
                             variant={showLyrics ? "accent-subtle" : "always-transparent"}
                             onClick={() => setShowLyrics(!showLyrics)}
                         >
                             <MicVocal size={16} />
                         </IconButton>
+                        <IconButton
+                            title="More player controls"
+                            class="control-more"
+                            variant={moreOpen ? "accent-subtle" : "always-transparent"}
+                            onClick={() => setMoreOpen(!moreOpen)}
+                        >
+                            <Ellipsis size={18} />
+                        </IconButton>
                     </Container>
                 </Container>
+
+                {moreOpen && (
+                    <div class="player-more-menu" role="dialog" aria-label="More player controls">
+                        <div class="more-head">
+                            <Text content="More controls" />
+                            <IconButton title="Close more controls" onClick={() => setMoreOpen(false)}>
+                                <X size={16} />
+                            </IconButton>
+                        </div>
+                        <div class="more-volume">
+                            <Volume2 size={18} />
+                            <input
+                                type="range"
+                                min={0}
+                                max={100}
+                                value={Math.round(Math.max(0, volume.value) * 100)}
+                                aria-label="Volume"
+                                onInput={(e) => setVolume(Number((e.target as HTMLInputElement).value) / 100)}
+                            />
+                        </div>
+                        <div class="more-actions">
+                            <IconButton
+                                title={shuffleEnabled.value ? "Shuffle on" : "Shuffle off"}
+                                variant={shuffleEnabled.value ? "accent-subtle" : "always-transparent"}
+                                onClick={() => setShuffle(!shuffleEnabled.value)}
+                            >
+                                <Shuffle size={18} />
+                            </IconButton>
+                            <IconButton
+                                title={repeatMode.value === "one" ? "Repeat one" : repeatMode.value === "all" ? "Repeat all" : "Repeat off"}
+                                variant={repeatMode.value !== "off" ? "accent-subtle" : "always-transparent"}
+                                onClick={() => cycleRepeat()}
+                            >
+                                <Repeat size={18} />
+                            </IconButton>
+                            <IconButton
+                                title={showLyrics ? "Hide lyrics" : "Lyrics"}
+                                variant={showLyrics ? "accent-subtle" : "always-transparent"}
+                                onClick={() => { setShowLyrics(!showLyrics); setMoreOpen(false); }}
+                            >
+                                <MicVocal size={18} />
+                            </IconButton>
+                            <a class="button variant-panel" href="/devices" onClick={() => setMoreOpen(false)}>
+                                Devices
+                            </a>
+                        </div>
+                    </div>
+                )}
 
                 {showQueue.value && (
                     <Container class="queue-drawer">
