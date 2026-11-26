@@ -40,6 +40,9 @@ jobs:
       - name: Wait for CI on this SHA
         env:
           GH_TOKEN: ${{ github.token }}
+          # No checkout in this job, so gh cannot infer the repository from a
+          # .git directory. Pass it explicitly.
+          GH_REPO: ${{ github.repository }}
           SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
