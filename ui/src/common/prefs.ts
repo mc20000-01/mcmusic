@@ -2,7 +2,8 @@ import { signal } from "@preact/signals";
 import { API } from "./net/api";
 import {
     applyIconStyle, applyPalette, DEFAULT_ACCENT, DEFAULT_ICON_FILLED,
-    DEFAULT_ICON_STROKE, DEFAULT_PALETTE, normalizeIconStroke, type IconStroke,
+    DEFAULT_ICON_STROKE, DEFAULT_PALETTE, DESIGN_MOTION, normalizeIconStroke,
+    type IconStroke,
 } from "./theme";
 
 // Server-stored preferences. The v3 client honours the ones that change what
@@ -59,6 +60,34 @@ export const autoplay = signal(localAutoplay());
 export function setAutoplayPreference(on: boolean) {
     autoplay.value = on;
     try { localStorage.setItem("mcmusic:autoplay", on ? "true" : "false"); } catch { /* noop */ }
+}
+
+/** Playful motion is local to this device: the server's settings whitelist does
+ *  not carry it yet, so it never becomes a phantom server preference. */
+const PLAYFUL_KEY = `mcmusic:${DESIGN_MOTION.settingsKey}`;
+function localPlayfulMotion(): boolean {
+    try {
+        const value = localStorage.getItem(PLAYFUL_KEY);
+        return value == null ? DESIGN_MOTION.defaultEnabled : value === "true";
+    } catch {
+        return DESIGN_MOTION.defaultEnabled;
+    }
+}
+export const playfulMotion = signal(localPlayfulMotion());
+export function setPlayfulMotionPreference(on: boolean) {
+    playfulMotion.value = on;
+    try { localStorage.setItem(PLAYFUL_KEY, on ? "true" : "false"); } catch { /* noop */ }
+}
+function applyPlayfulMotion(on: boolean) {
+    if (typeof document === "undefined") return;
+    document.documentElement.dataset.playful = on ? "true" : "false";
+}
+playfulMotion.subscribe(applyPlayfulMotion);
+applyPlayfulMotion(playfulMotion.peek());
+
+export function prefersReducedMotion(): boolean {
+    return typeof window !== "undefined" && typeof window.matchMedia === "function"
+        && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 export type Settings = Record<string, any>;

@@ -848,10 +848,65 @@ export function paletteVars(p: Palette, accentOverride = ""): Record<string, str
         "--shape-xl": `${DESIGN_SHAPE.xl}px`,
         "--shape-xxl": `${DESIGN_SHAPE.xxl}px`,
         "--touch-target": `${DESIGN_SHAPE.touchTarget}px`,
+        "--progress-wave-hz": String(DESIGN_MOTION.progressWaveHz),
+        "--progress-wave-px": `${DESIGN_MOTION.progressWavePx}px`,
     };
+    for (const [name, style] of Object.entries(DESIGN_TYPE)) {
+        vars[`--type-${name}-size`] = `${style.size}px`;
+        vars[`--type-${name}-weight`] = String(style.weight);
+        vars[`--type-${name}-line`] = `${style.line}px`;
+    }
     for (const [cssName, role] of Object.entries(M3_CSS_VARS))
         vars[cssName] = String(t[role]);
     return vars;
+}
+
+/** Layer a cover-derived HCT seed over the active family without changing the
+ *  stored palette id or alias. The seed only supplies tonal role values. */
+function effectivePalette(p: Palette, accentOverride = "", seed = ""): Palette {
+    const roles = seed ? rolesFromSeed(seed, p.mode) : {};
+    return {
+        ...p,
+        ...roles,
+        bg: roles.background ?? p.bg,
+        bg2: roles.surfaceContainerLow ?? p.bg2,
+        surface: roles.surfaceContainerLow ?? p.surface,
+        surface2: roles.surfaceContainerHigh ?? p.surface2,
+        fg: roles.onSurface ?? p.fg,
+        dim: roles.onSurfaceVariant ?? p.dim,
+        dim2: roles.onSurfaceVariant ?? p.dim2,
+        line: roles.outlineVariant ?? p.line,
+        line2: roles.outline ?? p.line2,
+        accent: accentOverride.trim() || roles.primary || p.accent,
+        accentText: roles.onPrimary ?? p.accentText,
+        accentFg: roles.accentFg ?? p.accentFg,
+    };
+}
+
+function paletteVarsWithSeed(p: Palette, accentOverride = "", seed = ""): Record<string, string> {
+    return paletteVars(effectivePalette(p, accentOverride, seed), accentOverride);
+}
+
+/** Replace the active cover seed. An empty/invalid seed restores the family. */
+export function setCoverSeed(seed: string | null | undefined): void {
+    const value = /^#?[0-9a-f]{6}$/i.test(String(seed ?? "").trim())
+        ? String(seed).trim().replace(/^#/, "").toUpperCase()
+        : "";
+    if (value === coverSeed) return;
+    coverSeed = value;
+    if (typeof document !== "undefined") {
+        const root = document.documentElement;
+        for (const [name, css] of Object.entries(
+            paletteVarsWithSeed(currentPalette, currentAccent, coverSeed),
+        )) root.style.setProperty(name, css);
+        root.dataset.coverColour = value ? "true" : "false";
+    }
+    // Canvases (e.g. the lyric visualizer) read tokens through this subscription.
+    for (const listener of listeners) listener();
+}
+
+export function currentCoverSeed(): string {
+    return coverSeed;
 }
 
 /** Hex/rgb(a) -> "r, g, b" for canvas gradients; falls back for named colours. */
@@ -873,6 +928,7 @@ export function rgbTriplet(color: string, fallback: string): string {
 
 let currentPalette: Palette = resolvePalette(DEFAULT_PALETTE);
 let currentAccent = DEFAULT_ACCENT;
+let coverSeed = "";
 let watchedFamily = "";
 let mediaQuery: MediaQueryList | null = null;
 let mediaListener: (() => void) | null = null;
@@ -885,7 +941,7 @@ export function subscribePalette(listener: () => void): () => void {
 }
 
 export function currentPaletteValue(): Palette {
-    return currentPalette;
+    return effectivePalette(currentPalette, currentAccent, coverSeed);
 }
 
 export function currentAccentOverride(): string {
@@ -930,7 +986,7 @@ export function applyPalette(id: string | null | undefined = DEFAULT_PALETTE, ac
 
     if (typeof document !== "undefined") {
         const root = document.documentElement;
-        for (const [name, value] of Object.entries(paletteVars(palette, accent)))
+        for (const [name, value] of Object.entries(paletteVarsWithSeed(palette, accent, coverSeed)))
             root.style.setProperty(name, value);
         root.dataset.palette = palette.id;
         root.style.colorScheme = palette.mode;

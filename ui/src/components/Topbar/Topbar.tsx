@@ -33,7 +33,9 @@ export function Topbar() {
                     <Plus size={20} />
                 </IconLink>
                 {currentUser.value && (
-                    <Text class="user" content={currentUser.value.username} />
+                    <span class="user-pill" title={currentUser.value.username}>
+                        <Text class="user" content={currentUser.value.username} />
+                    </span>
                 )}
                 <IconButton
                     title="Log out"

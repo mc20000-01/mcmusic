@@ -27,6 +27,7 @@ object Lucide {
     @DrawableRes val ChevronLeft = R.drawable.ic_lucide_chevron_left
     @DrawableRes val ChevronRight = R.drawable.ic_lucide_chevron_right
     @DrawableRes val ChevronUp = R.drawable.ic_lucide_chevron_up
+    @DrawableRes val Circle = R.drawable.ic_lucide_circle
     @DrawableRes val CircleAlert = R.drawable.ic_lucide_circle_alert
     @DrawableRes val CircleCheck = R.drawable.ic_lucide_circle_check
     @DrawableRes val CircleHelp = R.drawable.ic_lucide_circle_help
@@ -34,6 +35,7 @@ object Lucide {
     @DrawableRes val Clock = R.drawable.ic_lucide_clock
     @DrawableRes val Coffee = R.drawable.ic_lucide_coffee
     @DrawableRes val Compass = R.drawable.ic_lucide_compass
+    @DrawableRes val Cookie = R.drawable.ic_lucide_cookie
     @DrawableRes val Disc3 = R.drawable.ic_lucide_disc_3
     @DrawableRes val Download = R.drawable.ic_lucide_download
     @DrawableRes val Dumbbell = R.drawable.ic_lucide_dumbbell
@@ -41,6 +43,7 @@ object Lucide {
     @DrawableRes val EyeOff = R.drawable.ic_lucide_eye_off
     @DrawableRes val Film = R.drawable.ic_lucide_film
     @DrawableRes val Flame = R.drawable.ic_lucide_flame
+    @DrawableRes val Flower = R.drawable.ic_lucide_flower
     @DrawableRes val FolderPlus = R.drawable.ic_lucide_folder_plus
     @DrawableRes val GripVertical = R.drawable.ic_lucide_grip_vertical
     @DrawableRes val HardDrive = R.drawable.ic_lucide_hard_drive
@@ -72,6 +75,7 @@ object Lucide {
     @DrawableRes val Palette = R.drawable.ic_lucide_palette
     @DrawableRes val Pause = R.drawable.ic_lucide_pause
     @DrawableRes val Pencil = R.drawable.ic_lucide_pencil
+    @DrawableRes val Pentagon = R.drawable.ic_lucide_pentagon
     @DrawableRes val PictureInPicture2 = R.drawable.ic_lucide_picture_in_picture_2
     @DrawableRes val Play = R.drawable.ic_lucide_play
     @DrawableRes val Plus = R.drawable.ic_lucide_plus
@@ -90,6 +94,7 @@ object Lucide {
     @DrawableRes val SkipForward = R.drawable.ic_lucide_skip_forward
     @DrawableRes val Smartphone = R.drawable.ic_lucide_smartphone
     @DrawableRes val Sparkles = R.drawable.ic_lucide_sparkles
+    @DrawableRes val Squircle = R.drawable.ic_lucide_squircle
     @DrawableRes val Star = R.drawable.ic_lucide_star
     @DrawableRes val Trash = R.drawable.ic_lucide_trash_2
     @DrawableRes val Trash2 = R.drawable.ic_lucide_trash_2

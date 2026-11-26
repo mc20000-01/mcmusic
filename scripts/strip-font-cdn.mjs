@@ -11,7 +11,9 @@ import path from "node:path";
 
 const ROOT = process.argv[2] || process.cwd();
 const allowedFontHosts = /(?:fonts\.googleapis\.com|fonts\.gstatic\.com)/i;
-const remoteImport = /@import\s+(?:url\()?\s*["']?https?:\/\/[^"')]+["']?\s*\)?\s*;/gi;
+// Vite minifies `@import "..."` to `@import"..."`; allow zero whitespace so a
+// bundled CDN import cannot slip through in either form.
+const remoteImport = /@import\s*(?:url\(\s*)?["']?https?:\/\/[^"')]+["']?\s*\)?\s*;/gi;
 
 function walk(dir) {
   if (!fs.existsSync(dir)) return [];
