@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# Collect every shippable client into ./builds at the repo root.
+# Collect every current shippable client into ./builds at the repo root.
 #
 #   ./scripts/collect_builds.sh
 #
 # Run by publish_apps.sh and by .github/workflows/release.yml, so the folder
-# holds the same bytes that /api/builds and the GitHub Release serve. Only the
-# current version of each artifact is replaced; one older APK is kept.
+# holds the same bytes that /api/builds and the GitHub Release serve. Older
+# copies may stay on disk for rollback, but SHA256SUMS lists only the current
+# artifacts: that file is attached to the immutable release and must not
+# describe files the release does not carry.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -61,10 +63,25 @@ fi
 
 (
   cd builds
-  files=$(find . -maxdepth 1 -type f ! -name SHA256SUMS ! -name README.md -printf '%P\n' | sort)
-  if [ -n "$files" ]; then
-    # shellcheck disable=SC2086
-    sha256sum $files > SHA256SUMS
-    echo "wrote builds/SHA256SUMS"
+  current_files=()
+  for name in \
+    "mcmusic-${android_version}.apk" \
+    "mcmusic-desktop_${desktop_version}_all.deb" \
+    "mcmusic-x86_64.AppImage" \
+    "mcmusic-linux-source.zip" \
+    "mcmusic-macos-${desktop_version}.app.zip" \
+    "mcmusic-${desktop_version}.dmg" \
+    "mcmusic-windows-${desktop_version}.zip" \
+    "mcmusic-ios-simulator-${desktop_version}.app.zip"; do
+    if [ -f "$name" ]; then
+      current_files+=("$name")
+    fi
+  done
+  if [ "${#current_files[@]}" -gt 0 ]; then
+    sha256sum "${current_files[@]}" > SHA256SUMS
+    echo "wrote builds/SHA256SUMS (${#current_files[@]} current artifacts)"
+  else
+    : > SHA256SUMS
+    echo "wrote empty builds/SHA256SUMS (no current artifacts)" >&2
   fi
 )

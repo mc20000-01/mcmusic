@@ -59,8 +59,13 @@ cp "$apk" "apps/android/mainbuild-${hash}.apk"
 
 # Keep the publish folder from turning into a museum: the ten newest
 # hash-named builds and the current + one previous version stay.
-ls -1t apps/android/mainbuild-*.apk 2>/dev/null | tail -n +11 | xargs -r rm -f
-ls -1t apps/android/mcmusic-*.apk 2>/dev/null | tail -n +3 | xargs -r rm -f
+newest() {
+  # Retention applies only to the published apps/ folder, never to builds/.
+  find apps/android -maxdepth 1 -type f -name "$1" -printf '%T@ %p\n' 2>/dev/null \
+    | sort -nr | tail -n "+$2" | cut -d' ' -f2- | xargs -r rm -f
+}
+newest 'mainbuild-*.apk' 11
+newest 'mcmusic-*.apk' 3
 
 printf 'published apps/android/mainbuild.apk  (%s, v%s, %s)\n' \
   "$(du -h apps/android/mainbuild.apk | cut -f1)" "$version" "$hash"

@@ -142,9 +142,18 @@ jobs:
             --ignore=tests/test_no_qt_shadowing.py \
             --ignore=tests/test_qt_selftest.py \
             --ignore=tests/test_updates.py
+      - name: Check version sources
+        run: ./scripts/check-versions.sh
+      - name: Test version consistency checker
+        run: ./tests/test_check_versions.sh
       - name: Test release publish script
         # Fake gh shim: no release is created and no tag is pushed here.
         run: ./tests/test_publish_release.sh
+      - name: Shellcheck shell scripts
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends shellcheck
+          shellcheck scripts/*.sh tests/*.sh
 
   qt-checks:
     name: Qt tests (offscreen)
