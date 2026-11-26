@@ -1,9 +1,10 @@
 """API route registration — playlists, likes, plays, recommendations, home, radio."""
 from flask import Blueprint, request, jsonify, session
-import math, random, time
+import random
+import time
 from collections import defaultdict
 
-from auth import _auth_uid, login_required
+from auth import login_required
 from database import _db, liked_ids, track_dict
 
 bp = Blueprint("personal_api", __name__)

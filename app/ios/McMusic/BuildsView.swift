@@ -3,15 +3,44 @@ import SwiftUI
 /// Server version/build metadata and the same download list the web exposes.
 struct BuildsView: View {
     @EnvironmentObject private var app: AppState
+    @Environment(\.mcTokens) private var tokens
     @State private var version: JSON?
     @State private var ping: JSON?
     @State private var builds: [JSON] = []
     @State private var emailKind = ""
     @State private var emailAddress = ""
     @State private var showingEmail = false
+    @State private var updateBuild: JSON?
+    @State private var updateURL: URL?
+    @State private var showingUpdate = false
+    @State private var promptedForUpdate = false
+
+    private var currentVersion: AppVersion { AppVersion.current }
 
     var body: some View {
         List {
+            Section("Update") {
+                if let build = updateBuild, let url = updateURL {
+                    HStack(alignment: .top, spacing: 10) {
+                        LucideIcon(name: "download", size: 20,
+                                   color: tokens.accent)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Version \(build["version"]?.string ?? "new") is available")
+                            Text("Installed: \(currentVersion.description)")
+                                .font(.caption).foregroundStyle(.secondary)
+                            Link("Open download page", destination: url)
+                            Text("iOS cannot replace an app from a downloaded build. Open the page in Safari and use the build channel you distribute.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                    Button("Dismiss") { updateBuild = nil }
+                        .font(.caption)
+                } else {
+                    StateView(text: "Up to date (\(currentVersion.description))",
+                              icon: "check")
+                }
+            }
+
             Section("Server") {
                 LabeledContent("Build", value: version?["build"]?.string ?? "—")
                 LabeledContent("Client", value: version?["shell"]?.string ?? "—")
@@ -34,8 +63,7 @@ struct BuildsView: View {
                         }
                         Text(build["note"]?.string ?? build["hint"]?.string ?? "")
                             .font(.caption).foregroundStyle(.secondary)
-                        if let path = build["url"]?.string,
-                           let url = URL(string: path.hasPrefix("/") ? app.client.baseURL + path : path) {
+                        if let url = downloadURL(for: build) {
                             Link(build["available"]?.bool == true ? "Download" : "Unavailable",
                                  destination: url)
                                 .disabled(build["available"]?.bool != true)
@@ -70,6 +98,31 @@ struct BuildsView: View {
                 }
             }
         }
+        .sheet(isPresented: $showingUpdate) {
+            NavigationStack {
+                VStack(spacing: 16) {
+                    LucideIcon(name: "download", size: 44, color: tokens.accent)
+                    Text("Update available").font(.title3.weight(.semibold))
+                    Text("Version \(updateBuild?["version"]?.string ?? "new") is published. Installed: \(currentVersion.description).")
+                        .multilineTextAlignment(.center)
+                    Text("iOS cannot replace an installed app from a downloaded build. Open the public page in Safari for the build channel you distribute.")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                    if let url = updateURL {
+                        Link("Open download page", destination: url)
+                            .buttonStyle(.borderedProminent)
+                    }
+                    Button("Later") { showingUpdate = false }
+                }
+                .padding(24)
+                .navigationTitle("Update")
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { showingUpdate = false }
+                    }
+                }
+            }
+        }
     }
 
     private func load() async {
@@ -77,7 +130,36 @@ struct BuildsView: View {
             version = try await app.client.version()
             ping = try? await app.client.ping()
             builds = try await app.client.builds()["builds"]?.array ?? []
+            checkForUpdate(builds)
         } catch { app.show(error) }
+    }
+
+    private func downloadURL(for build: JSON) -> URL? {
+        guard let path = build["url"]?.string else { return nil }
+        return URL(string: path.hasPrefix("/") ? app.client.baseURL + path : path)
+    }
+
+    private func checkForUpdate(_ rows: [JSON]) {
+        let installed = AppVersion.current
+        let found = rows.first { row in
+            guard row["kind"]?.string == "ios",
+                  row["available"]?.bool == true else { return false }
+            let published = AppVersion(row["version"]?.string)
+            return published.isValid && published > installed
+        }
+        guard let found else {
+            updateBuild = nil
+            updateURL = nil
+            promptedForUpdate = false
+            return
+        }
+        updateBuild = found
+        updateURL = downloadURL(for: found)
+            ?? URL(string: "https://mcmusic.sdisk.us/downloads")
+        if !promptedForUpdate {
+            promptedForUpdate = true
+            showingUpdate = true
+        }
     }
 
     private func send() async {

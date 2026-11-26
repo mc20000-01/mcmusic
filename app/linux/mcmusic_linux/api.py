@@ -39,7 +39,7 @@ from .models import (
     Track,
 )
 from .paths import audio_cache_dir, settings_file
-from .version import USER_AGENT, VERSION
+from .version import USER_AGENT
 
 DEFAULT_SERVER = "http://127.0.0.1:8000"
 
@@ -447,7 +447,7 @@ class SessionStore:
             return existing
         import hashlib
         seed = f"{platform.node()}-{os.path.expanduser('~')}-{platform.machine()}"
-        value = hashlib.sha1(seed.encode("utf-8")).hexdigest()[:32]
+        value = hashlib.sha1(seed.encode("utf-8"), usedforsecurity=False).hexdigest()[:32]
         self._s.setValue("device_hash", value)
         return value
 

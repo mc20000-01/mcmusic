@@ -2,7 +2,7 @@
 from flask import Blueprint, request, jsonify
 import time
 
-from auth import _auth_uid, is_bot_request, admin_required
+from auth import _auth_uid, is_bot_request
 from database import _db, find_repeat_request, video_in_library
 from config import BOT_TOKEN
 import music_channels as mc

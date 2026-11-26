@@ -17,9 +17,7 @@ Env: DISCORD_BOT_TOKEN, DISCORD_GUILD_ID (optional fast sync),
 
 Runs as a separate process (started automatically by mcmusic.py).
 """
-import asyncio
 import os
-import sys
 
 import aiohttp
 import discord

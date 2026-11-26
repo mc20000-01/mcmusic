@@ -5,8 +5,6 @@ from PySide6.QtCore import QRectF, Qt, QUrl, Signal
 from PySide6.QtGui import QDesktopServices, QPainter
 from PySide6.QtWidgets import (
     QHBoxLayout,
-    QLabel,
-    QLineEdit,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
@@ -14,7 +12,7 @@ from PySide6.QtWidgets import (
 
 from . import theme
 from .api import ApiError
-from .icons import draw_icon, draw_mark
+from .icons import draw_mark
 from .models import Me
 from .widgets import (
     Glyph,
@@ -48,7 +46,7 @@ class LoginPage(QWidget):
 
     def __init__(self, window, parent=None):
         super().__init__(parent)
-        self.window = window
+        self.shell = window
         self._mode = "in"
         self._busy = False
 
@@ -138,14 +136,14 @@ class LoginPage(QWidget):
         self.rotur.clicked.connect(self._rotur_sign_in)
         form.addWidget(self.rotur)
 
-        self.password.edit.returnPressed.connect(self._submit)
-        self.username.edit.returnPressed.connect(lambda: self.password.edit.setFocus())
-        self.invite.edit.returnPressed.connect(self._submit)
-        self.email.edit.returnPressed.connect(self._submit)
-        self.reset_token.edit.returnPressed.connect(
-            lambda: self.new_password.edit.setFocus()
+        self.password.line_edit.returnPressed.connect(self._submit)
+        self.username.line_edit.returnPressed.connect(lambda: self.password.line_edit.setFocus())
+        self.invite.line_edit.returnPressed.connect(self._submit)
+        self.email.line_edit.returnPressed.connect(self._submit)
+        self.reset_token.line_edit.returnPressed.connect(
+            lambda: self.new_password.line_edit.setFocus()
         )
-        self.new_password.edit.returnPressed.connect(self._submit)
+        self.new_password.line_edit.returnPressed.connect(self._submit)
         self.reset_token.set_text(window.store.reset_token)
         self._set_mode("in")
         self._apply_style()
@@ -198,7 +196,7 @@ class LoginPage(QWidget):
 
     def _apply_server(self) -> bool:
         try:
-            self.window.api.set_base(self.server.text().strip())
+            self.shell.api.set_base(self.server.text().strip())
             return True
         except Exception:
             self._show_error("That server address is not valid")
@@ -227,8 +225,8 @@ class LoginPage(QWidget):
 
         def job() -> Me:
             if signup:
-                return self.window.repo.register(username, password, invite)
-            return self.window.repo.login(username, password)
+                return self.shell.repo.register(username, password, invite)
+            return self.shell.repo.login(username, password)
 
         def ok(me: Me) -> None:
             self._set_busy(False)
@@ -238,10 +236,10 @@ class LoginPage(QWidget):
             self._set_busy(False)
             self._show_error(str(exc) or "Sign in failed")
 
-        self.window.run(job, ok, fail)
+        self.shell.run(job, ok, fail)
 
     def _submit_reset(self) -> None:
-        token = self.reset_token.text().strip() or self.window.store.reset_token
+        token = self.reset_token.text().strip() or self.shell.store.reset_token
         email = self.email.text().strip()
         password = self.new_password.text()
         self._show_error("")
@@ -254,34 +252,34 @@ class LoginPage(QWidget):
             self._set_busy(True)
 
             def request_code() -> dict:
-                return self.window.repo.request_reset(email)
+                return self.shell.repo.request_reset(email)
 
             def sent(data: dict) -> None:
                 self._set_busy(False)
                 message = ""
                 if isinstance(data, dict):
                     message = str(data.get("message") or "")
-                self.window.toast(message or "If that email has an account, a code is on its way.")
+                self.shell.toast(message or "If that email has an account, a code is on its way.")
 
             def failed(exc: Exception) -> None:
                 self._set_busy(False)
                 self._show_error(str(exc) or "Could not request a reset code")
 
-            self.window.run(request_code, sent, failed)
+            self.shell.run(request_code, sent, failed)
             return
 
         if len(password) < 6:
             self._show_error("New password must be 6+ characters")
             return
-        self.window.store.reset_token = token
+        self.shell.store.reset_token = token
         self._set_busy(True)
 
         def confirm() -> None:
-            self.window.repo.check_reset(token)
-            self.window.repo.confirm_reset(token, password)
+            self.shell.repo.check_reset(token)
+            self.shell.repo.confirm_reset(token, password)
 
         def done(_) -> None:
-            self.window.store.reset_token = ""
+            self.shell.store.reset_token = ""
             self.reset_token.set_text("")
             self.new_password.set_text("")
             self.username.set_text(email)
@@ -289,20 +287,20 @@ class LoginPage(QWidget):
             self._set_busy(False)
             self.seg.set_selected("in")
             self._set_mode("in")
-            self.window.toast("Password updated — sign in with the new one")
+            self.shell.toast("Password updated — sign in with the new one")
 
         def failed(exc: Exception) -> None:
             self._set_busy(False)
             self._show_error(str(exc) or "That reset code could not be used")
 
-        self.window.run(confirm, done, failed)
+        self.shell.run(confirm, done, failed)
 
     def _rotur_sign_in(self) -> None:
         self._show_error("")
         if not self._apply_server():
             return
-        QDesktopServices.openUrl(QUrl(self.window.repo.rotur_authorize_url(
-            self.window.store.device_hash
+        QDesktopServices.openUrl(QUrl(self.shell.repo.rotur_authorize_url(
+            self.shell.store.device_hash
         )))
         token = prompt(
             self, "RoturLink sign-in", "Access token",
@@ -312,15 +310,15 @@ class LoginPage(QWidget):
         if not token:
             return
         token = token.strip()
-        self.window.store.pending_token = token
+        self.shell.store.pending_token = token
         self._set_busy(True)
 
         def job() -> Me:
-            self.window.repo.verify_token(token)
-            return self.window.repo.adopt_token(token)
+            self.shell.repo.verify_token(token)
+            return self.shell.repo.adopt_token(token)
 
         def ok(me: Me) -> None:
-            self.window.store.pending_token = ""
+            self.shell.store.pending_token = ""
             self._set_busy(False)
             self.succeeded.emit(me)
 
@@ -332,7 +330,7 @@ class LoginPage(QWidget):
                 if offline else (str(exc) or "That token could not be verified")
             )
 
-        self.window.run(job, ok, failed)
+        self.shell.run(job, ok, failed)
 
 
 class _BrandMark(QWidget):

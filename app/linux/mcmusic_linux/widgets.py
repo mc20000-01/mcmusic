@@ -8,7 +8,7 @@ from __future__ import annotations
 import inspect
 from typing import Callable, Optional, Sequence
 
-from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, QSize, Qt, QTimer, Signal
+from PySide6.QtCore import QPointF, QRect, QRectF, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -28,7 +28,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QPushButton,
     QScrollArea,
     QSizePolicy,
     QVBoxLayout,
@@ -994,15 +993,15 @@ class Shelf(QWidget):
         head.addLayout(self._actions)
         layout.addLayout(head)
 
-        self.scroll = HScroll()
+        self.scroll_area = HScroll()
         self.inner = QWidget()
         self.inner.setStyleSheet("background: transparent;")
         self.row = QHBoxLayout(self.inner)
         self.row.setContentsMargins(0, 0, 0, 4)
         self.row.setSpacing(12)
-        self.scroll.setWidget(self.inner)
-        self.scroll.setFixedHeight(tile_width + 58 + 16)
-        layout.addWidget(self.scroll)
+        self.scroll_area.setWidget(self.inner)
+        self.scroll_area.setFixedHeight(tile_width + 58 + 16)
+        layout.addWidget(self.scroll_area)
 
     def add_action(self, widget: QWidget) -> None:
         self._actions.addWidget(widget)
@@ -1050,15 +1049,15 @@ class PageHead(QWidget):
             self.meta_label = Txt(meta.upper(), size=9, family="mono", token="dim2", spacing=1.2)
             row.addWidget(self.meta_label, 0, Qt.AlignmentFlag.AlignBottom)
         row.addStretch(1)
-        self.actions = QHBoxLayout()
-        self.actions.setSpacing(8)
-        row.addLayout(self.actions)
+        self.action_row = QHBoxLayout()
+        self.action_row.setSpacing(8)
+        row.addLayout(self.action_row)
         layout.addLayout(row)
         layout.addSpacing(10)
         layout.addWidget(Rule())
 
     def add_action(self, widget: QWidget) -> None:
-        self.actions.addWidget(widget)
+        self.action_row.addWidget(widget)
 
 
 class Hero(QWidget):
@@ -1090,17 +1089,17 @@ class Hero(QWidget):
         self.sub_label = Txt("  ·  ".join([s for s in subs if s]), size=11, family="mono",
                              token="dim", spacing=0.4, wrap=True)
         info.addWidget(self.sub_label)
-        self.actions = QHBoxLayout()
-        self.actions.setContentsMargins(0, 6, 0, 0)
-        self.actions.setSpacing(8)
-        info.addLayout(self.actions)
+        self.action_row = QHBoxLayout()
+        self.action_row.setContentsMargins(0, 6, 0, 0)
+        self.action_row.setSpacing(8)
+        info.addLayout(self.action_row)
         row.addLayout(info, 1)
         outer.addLayout(row)
         outer.addSpacing(16)
         outer.addWidget(Rule())
 
     def add_action(self, widget: QWidget) -> None:
-        self.actions.addWidget(widget)
+        self.action_row.addWidget(widget)
 
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
@@ -1219,8 +1218,8 @@ class StatCard(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 10, 12, 10)
         layout.setSpacing(2)
-        self.value = Txt(value, size=18, family="mono", token="fg", weight=QFont.Weight.DemiBold)
-        layout.addWidget(self.value)
+        self.value_label = Txt(value, size=18, family="mono", token="fg", weight=QFont.Weight.DemiBold)
+        layout.addWidget(self.value_label)
         layout.addWidget(Txt(label.upper(), size=9, family="mono", token="dim2", spacing=1.1))
         self.setMinimumWidth(112)
 
@@ -1547,47 +1546,47 @@ class SearchField(QWidget):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(10, 0, 4, 0)
         layout.setSpacing(7)
-        self.icon = Glyph("search", 15, "dim2")
-        layout.addWidget(self.icon)
-        self.edit = QLineEdit()
-        self.edit.setPlaceholderText(placeholder)
-        self.edit.setFrame(False)
-        self.edit.setStyleSheet(
+        self.icon_glyph = Glyph("search", 15, "dim2")
+        layout.addWidget(self.icon_glyph)
+        self.line_edit = QLineEdit()
+        self.line_edit.setPlaceholderText(placeholder)
+        self.line_edit.setFrame(False)
+        self.line_edit.setStyleSheet(
             "QLineEdit{background:transparent;border:none;padding:0;color:inherit;}"
             "QLineEdit:focus{border:none;}"
         )
-        self.edit.setClearButtonEnabled(False)
-        self.edit.textChanged.connect(self._changed)
-        self.edit.returnPressed.connect(lambda: self.submitted.emit(self.edit.text()))
-        self.edit.installEventFilter(self)
-        layout.addWidget(self.edit, 1)
-        self.clear = IconButton("x", size=26, icon_size=14, tooltip="Clear search")
-        self.clear.clicked.connect(self._clear)
-        self.clear.setVisible(False)
-        layout.addWidget(self.clear)
+        self.line_edit.setClearButtonEnabled(False)
+        self.line_edit.textChanged.connect(self._changed)
+        self.line_edit.returnPressed.connect(lambda: self.submitted.emit(self.line_edit.text()))
+        self.line_edit.installEventFilter(self)
+        layout.addWidget(self.line_edit, 1)
+        self.clear_button = IconButton("x", size=26, icon_size=14, tooltip="Clear search")
+        self.clear_button.clicked.connect(self._clear)
+        self.clear_button.setVisible(False)
+        layout.addWidget(self.clear_button)
         self._focused = False
 
     def text(self) -> str:
-        return self.edit.text()
+        return self.line_edit.text()
 
     def set_text(self, text: str) -> None:
-        if self.edit.text() != text:
-            self.edit.setText(text)
+        if self.line_edit.text() != text:
+            self.line_edit.setText(text)
 
     def focus(self) -> None:
-        self.edit.setFocus()
-        self.edit.selectAll()
+        self.line_edit.setFocus()
+        self.line_edit.selectAll()
 
     def _clear(self) -> None:
-        self.edit.clear()
+        self.line_edit.clear()
         self.focus()
 
     def _changed(self, text: str) -> None:
-        self.clear.setVisible(bool(text))
+        self.clear_button.setVisible(bool(text))
         self.text_changed.emit(text)
 
     def eventFilter(self, obj, event) -> bool:
-        if obj is self.edit:
+        if obj is self.line_edit:
             if event.type() == event.Type.FocusIn:
                 self._focused = True
                 self.update()
@@ -1624,20 +1623,20 @@ class LabeledField(QWidget):
         row_layout.setSpacing(7)
         if leading:
             row_layout.addWidget(Glyph(leading, 15, "dim2"))
-        self.edit = QLineEdit()
-        self.edit.setPlaceholderText(placeholder)
-        self.edit.setFrame(False)
-        self.edit.setStyleSheet("QLineEdit{background:transparent;border:none;padding:0;}")
+        self.line_edit = QLineEdit()
+        self.line_edit.setPlaceholderText(placeholder)
+        self.line_edit.setFrame(False)
+        self.line_edit.setStyleSheet("QLineEdit{background:transparent;border:none;padding:0;}")
         if password:
-            self.edit.setEchoMode(QLineEdit.EchoMode.Password)
-        row_layout.addWidget(self.edit, 1)
+            self.line_edit.setEchoMode(QLineEdit.EchoMode.Password)
+        row_layout.addWidget(self.line_edit, 1)
         layout.addWidget(row)
 
     def text(self) -> str:
-        return self.edit.text()
+        return self.line_edit.text()
 
     def set_text(self, text: str) -> None:
-        self.edit.setText(text)
+        self.line_edit.setText(text)
 
 
 class FieldFrame(QWidget):
@@ -1739,8 +1738,8 @@ def prompt(parent, title: str, label: str, *, placeholder: str = "", initial: st
         sheet.accept()
 
     _dialog_buttons(sheet.body, sheet, confirm, danger=False, on_confirm=accept)
-    field.edit.returnPressed.connect(accept)
-    field.edit.setFocus()
+    field.line_edit.returnPressed.connect(accept)
+    field.line_edit.setFocus()
     sheet.exec()
     return result["value"] or None
 

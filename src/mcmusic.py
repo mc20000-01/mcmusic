@@ -23,15 +23,15 @@ import sys
 import threading
 import time
 
-from flask import Flask, g, session, request, jsonify, Response, send_file, redirect
+from flask import Flask, g, request, jsonify, Response, send_file, redirect
 from markupsafe import escape
 
 from config import (
     PROJECT_DIR,
     SESSION_COOKIE_NAME, SESSION_COOKIE_SAMESITE, SESSION_COOKIE_HTTPONLY,
-    PERMANENT_SESSION_LIFETIME, COOKIE_SECURE, ROTUR_APP, ROTUR_SCOPE,
-    DISCORD_BOT_TOKEN, DISCORD_GUILD_ID, DISCORD_ADMIN_TOKEN, HERE,
-    INVITE_CODE, SHELL_VERSION, DATA_DIR, PUBLIC_URL,
+    PERMANENT_SESSION_LIFETIME, COOKIE_SECURE, DISCORD_BOT_TOKEN, DISCORD_GUILD_ID,
+    DISCORD_ADMIN_TOKEN, HERE, SHELL_VERSION, DATA_DIR,
+    PUBLIC_URL,
 )
 from database import init_db, _db, ensure_schema
 from library_scan import scan_library, yt_worker

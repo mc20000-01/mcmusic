@@ -1,14 +1,14 @@
 """The native window: rail, masthead, content stack, deck and overlays."""
 from __future__ import annotations
 
-import platform
 import time
 from dataclasses import replace
+from pathlib import Path
 from typing import Any, Callable, Optional, Sequence
 
 from shiboken6 import isValid
 from PySide6.QtCore import (
-    QPoint, QPointF, QRectF, QSize, Qt, QTimer, QUrl, QMimeData, Signal,
+    QPoint, QPointF, QRectF, QSize, Qt, QTimer, QUrl, QMimeData,
 )
 from PySide6.QtGui import (
     QColor,
@@ -47,7 +47,7 @@ from .icons import draw_icon
 from .lyric_visualizer import LyricVisualizer
 from .login import LoginPage, SplashPage
 from .models import (
-    Me, PlaylistRef, Settings, Track, fmt_bytes, fmt_count, fmt_time,
+    BuildInfo, Me, PlaylistRef, Settings, Track, fmt_count, fmt_time,
 )
 from .player import PlayerEngine
 from .screens import (
@@ -66,6 +66,7 @@ from .screens import (
     SettingsScreen,
     Screen,
 )
+from . import updates
 from .version import VERSION
 from .widgets import (
     Artwork,
@@ -78,11 +79,9 @@ from .widgets import (
     SearchField,
     SeekBar,
     Sheet,
-    Spinner,
     Txt,
     VolumeControl,
     confirm,
-    message,
     prompt,
 )
 
@@ -211,7 +210,7 @@ class PlayButton(QAbstractButton):
 class Rail(QWidget):
     def __init__(self, window: "McWindow"):
         super().__init__()
-        self.window = window
+        self.shell = window
         self._nav: dict[str, NavButton] = {}
         self._pl_buttons: list[PlaylistNavButton] = []
         self._online = OnlineDot(5)
@@ -312,7 +311,7 @@ class Rail(QWidget):
 
     def _nav_button(self, key: str, label: str, icon: str) -> NavButton:
         button = NavButton(label, icon)
-        button.clicked.connect(lambda _=False, k=key: self.window.navigate((k,)))
+        button.clicked.connect(lambda _=False, k=key: self.shell.navigate((k,)))
         self._nav[key] = button
         return button
 
@@ -363,7 +362,7 @@ class Rail(QWidget):
             button = PlaylistNavButton(playlist.name)
             button.set_active(playlist.id == active_id)
             button.clicked.connect(
-                lambda _=False, pid=playlist.id: self.window.navigate(("playlist", pid))
+                lambda _=False, pid=playlist.id: self.shell.navigate(("playlist", pid))
             )
             self.pl_layout.addWidget(button)
             self._pl_buttons.append((button, playlist.id))
@@ -474,10 +473,10 @@ class Deck(QWidget):
         progress = QHBoxLayout()
         progress.setContentsMargins(0, 0, 0, 0)
         progress.setSpacing(9)
-        self.pos = Txt("0:00", size=10, family="mono", token="dim", spacing=0.3,
+        self.pos_label = Txt("0:00", size=10, family="mono", token="dim", spacing=0.3,
                        align=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        self.pos.setFixedWidth(36)
-        progress.addWidget(self.pos)
+        self.pos_label.setFixedWidth(36)
+        progress.addWidget(self.pos_label)
         self.seek = SeekBar()
         self.seek.seeked.connect(window.player.seek_fraction)
         progress.addWidget(self.seek, 1)
@@ -524,7 +523,7 @@ class QueueRow(QWidget):
                  *, current: bool = False, removable: bool = True,
                  reorder: bool = False, parent=None):
         super().__init__(parent)
-        self.window = window
+        self.shell = window
         self.track = track
         self.index = index
         self.current = current
@@ -572,8 +571,8 @@ class QueueRow(QWidget):
 
     def _shift(self, delta: int) -> None:
         target = self.index + delta
-        if self.window.player.move(self.index, target):
-            self.window.drawer.focus_index(target)
+        if self.shell.player.move(self.index, target):
+            self.shell.drawer.focus_index(target)
 
     @staticmethod
     def _mime_index(event) -> Optional[int]:
@@ -590,7 +589,7 @@ class QueueRow(QWidget):
 
     def _can_drop(self, event) -> bool:
         source = self._mime_index(event)
-        player = self.window.player
+        player = self.shell.player
         return (source is not None and self._reorder
                 and source > player.index and self.index > player.index
                 and source != self.index)
@@ -623,7 +622,7 @@ class QueueRow(QWidget):
         self._drag_start = None
         self._dragging = False
         if not dragged and event.button() == Qt.MouseButton.LeftButton:
-            self.window.player.jump(self.index)
+            self.shell.player.jump(self.index)
         super().mouseReleaseEvent(event)
 
     def keyPressEvent(self, event) -> None:
@@ -637,10 +636,10 @@ class QueueRow(QWidget):
             self._shift(1)
             event.accept()
         elif event.key() in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace):
-            self.window.player.remove_at(self.index)
+            self.shell.player.remove_at(self.index)
             event.accept()
         elif event.key() == Qt.Key.Key_Return:
-            self.window.player.jump(self.index)
+            self.shell.player.jump(self.index)
             event.accept()
         else:
             super().keyPressEvent(event)
@@ -671,8 +670,8 @@ class QueueRow(QWidget):
             event.ignore()
             return
         target = self.index
-        if self.window.player.move(source, target):
-            self.window.drawer.focus_index(target)
+        if self.shell.player.move(source, target):
+            self.shell.drawer.focus_index(target)
             event.acceptProposedAction()
         else:
             event.ignore()
@@ -704,7 +703,7 @@ class QueueRow(QWidget):
 class Scrim(QWidget):
     def __init__(self, window: "McWindow"):
         super().__init__(window.shell)
-        self.window = window
+        self.shell = window
         self.setCursor(Qt.CursorShape.ArrowCursor)
         self.hide()
 
@@ -712,14 +711,14 @@ class Scrim(QWidget):
         QPainter(self).fillRect(self.rect(), QColor(0, 0, 0, 135))
 
     def mouseReleaseEvent(self, event) -> None:
-        self.window.close_overlays()
+        self.shell.close_overlays()
         super().mouseReleaseEvent(event)
 
 
 class QueueDrawer(QWidget):
     def __init__(self, window: "McWindow"):
         super().__init__(window.shell)
-        self.window = window
+        self.shell = window
         self.setFixedWidth(390)
         self.hide()
         outer = QVBoxLayout(self)
@@ -735,20 +734,20 @@ class QueueDrawer(QWidget):
         head_line.addWidget(close)
         outer.addWidget(head)
         outer.addWidget(Rule())
-        self.scroll = QScrollArea()
-        self.scroll.setWidgetResizable(True)
-        self.scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.scroll.setStyleSheet("background: transparent; border: none;")
-        self.scroll.viewport().setAutoFillBackground(False)
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setStyleSheet("background: transparent; border: none;")
+        self.scroll_area.viewport().setAutoFillBackground(False)
         self.inner = QWidget()
         self.inner.setStyleSheet("background: transparent;")
         self.body = QVBoxLayout(self.inner)
         self.body.setContentsMargins(12, 10, 12, 24)
         self.body.setSpacing(2)
         self._rows: dict[int, QueueRow] = {}
-        self.scroll.setWidget(self.inner)
-        outer.addWidget(self.scroll, 1)
+        self.scroll_area.setWidget(self.inner)
+        outer.addWidget(self.scroll_area, 1)
 
     def focus_index(self, index: int) -> None:
         row = self._rows.get(index)
@@ -763,7 +762,7 @@ class QueueDrawer(QWidget):
             if widget is not None:
                 widget.setParent(None)
                 widget.deleteLater()
-        player = self.window.player
+        player = self.shell.player
         current = player.current
         if current is None:
             self.body.addWidget(Txt("Queue is empty", size=13, token="dim"))
@@ -772,7 +771,7 @@ class QueueDrawer(QWidget):
         label = Txt("NOW PLAYING", size=9, family="mono", token="dim2", spacing=1.6)
         label.setContentsMargins(6, 8, 6, 4)
         self.body.addWidget(label)
-        current_row = QueueRow(self.window, current, player.index, current=True,
+        current_row = QueueRow(self.shell, current, player.index, current=True,
                                removable=False)
         self._rows[player.index] = current_row
         self.body.addWidget(current_row)
@@ -789,7 +788,7 @@ class QueueDrawer(QWidget):
             head_line.addWidget(clear)
         self.body.addWidget(head)
         for index, track in upcoming[:80]:
-            row = QueueRow(self.window, track, index, reorder=True)
+            row = QueueRow(self.shell, track, index, reorder=True)
             self._rows[index] = row
             self.body.addWidget(row)
         if not upcoming:
@@ -853,7 +852,7 @@ class PickRow(QAbstractButton):
 class NowPlayingOverlay(QWidget):
     def __init__(self, window: "McWindow"):
         super().__init__(window.shell)
-        self.window = window
+        self.shell = window
         self._up_next_key: tuple = ()
         self.hide()
 
@@ -906,9 +905,9 @@ class NowPlayingOverlay(QWidget):
         seek_line = QHBoxLayout(seek_wrap)
         seek_line.setContentsMargins(0, 0, 0, 0)
         seek_line.setSpacing(9)
-        self.pos = Txt("0:00", size=10, family="mono", token="dim", spacing=0.3)
-        self.pos.setFixedWidth(38)
-        seek_line.addWidget(self.pos)
+        self.pos_label = Txt("0:00", size=10, family="mono", token="dim", spacing=0.3)
+        self.pos_label.setFixedWidth(38)
+        seek_line.addWidget(self.pos_label)
         self.seek = SeekBar()
         self.seek.seeked.connect(window.player.seek_fraction)
         seek_line.addWidget(self.seek, 1)
@@ -983,13 +982,13 @@ class NowPlayingOverlay(QWidget):
         outer.addWidget(scroll)
 
     def _more(self) -> None:
-        track = self.window.player.current
+        track = self.shell.player.current
         if track is not None:
-            self.window.open_track_menu(track, self.window.player.index,
+            self.shell.open_track_menu(track, self.shell.player.index,
                                         self.mapToGlobal(QPoint(self.width() - 44, 48)))
 
     def refresh(self) -> None:
-        player = self.window.player
+        player = self.shell.player
         track = player.current
         if track is None:
             self.title.setText("Nothing playing right now")
@@ -1013,10 +1012,10 @@ class NowPlayingOverlay(QWidget):
         name = "repeat-1" if player.repeat == "one" else "repeat"
         self.repeat.set_icon(name)
         self.repeat.set_active(player.repeat != "off")
-        self.pos.setText(fmt_time(player.position))
+        self.pos_label.setText(fmt_time(player.position))
         self.dur.setText(fmt_time(player.duration))
         self.seek.set_values(player.position, player.duration)
-        timer = self.window.store.sleep_timer
+        timer = self.shell.store.sleep_timer
         try:
             left = max(0, int((float(timer.get("ends_at", 0)) - time.time()) / 60))
         except (TypeError, ValueError):
@@ -1034,7 +1033,7 @@ class NowPlayingOverlay(QWidget):
                     widget.deleteLater()
             upcoming = [(i, t) for i, t in enumerate(player.queue) if i > player.index][:8]
             for index, queued in upcoming:
-                self.up_next.addWidget(QueueRow(self.window, queued, index))
+                self.up_next.addWidget(QueueRow(self.shell, queued, index))
             if not upcoming:
                 self.up_next.addWidget(Txt("Nothing queued", size=11, token="dim2"))
 
@@ -1056,7 +1055,7 @@ class StatusStrip(QWidget):
 
     def __init__(self, window: "McWindow"):
         super().__init__()
-        self.window = window
+        self.shell = window
         self._online = True
         self._pending = 0
         self._notice = ""
@@ -1064,8 +1063,8 @@ class StatusStrip(QWidget):
         line = QHBoxLayout(self)
         line.setContentsMargins(30, 0, 26, 0)
         line.setSpacing(8)
-        self.icon = Glyph("check", 13, "ok")
-        line.addWidget(self.icon)
+        self.icon_glyph = Glyph("check", 13, "ok")
+        line.addWidget(self.icon_glyph)
         self.label = Txt("", size=10, family="mono", token="dim", spacing=0.4)
         line.addWidget(self.label, 1)
         self.sync = McButton("Sync now", small=True, ghost=True, icon="refresh-cw")
@@ -1084,16 +1083,16 @@ class StatusStrip(QWidget):
         self._notice = notice or ""
         if not online:
             text = "OFFLINE — using saved session"
-            self.icon.set_icon("wifi-off")
+            self.icon_glyph.set_icon("wifi-off")
         elif self._pending:
             text = f"{self._pending} pending change" + ("s" if self._pending != 1 else "") + " — will sync"
-            self.icon.set_icon("refresh-cw")
+            self.icon_glyph.set_icon("refresh-cw")
         elif self._notice:
             text = self._notice
-            self.icon.set_icon("arrow-up-right")
+            self.icon_glyph.set_icon("arrow-up-right")
         else:
             text = ""
-            self.icon.set_icon("check")
+            self.icon_glyph.set_icon("check")
         self.label.setText(text)
         self.setVisible(bool(text))
         self.setFixedHeight(24 if text else 0)
@@ -1111,14 +1110,14 @@ class StatusStrip(QWidget):
 class ShellPage(QWidget):
     def __init__(self, window: "McWindow"):
         super().__init__()
-        self.window = window
+        self.shell = window
 
     def paintEvent(self, _event) -> None:
         QPainter(self).fillRect(self.rect(), theme.pal().q("bg"))
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
-        self.window.position_overlays()
+        self.shell.position_overlays()
 
 
 class McWindow(QMainWindow):
@@ -1141,6 +1140,7 @@ class McWindow(QMainWindow):
         self._activity_sig = ""
         self._activity_at = 0.0
         self._last_remote_command = 0
+        self._update: Optional[BuildInfo] = None
         self._update_kind = ""
         self._update_url = ""
         self._notice = ""
@@ -1333,7 +1333,7 @@ class McWindow(QMainWindow):
         self.login_page.succeeded.connect(self.after_login)
         self.stack.addWidget(self.login_page)
         self.stack.setCurrentWidget(self.login_page)
-        self.login_page.username.edit.setFocus()
+        self.login_page.username.line_edit.setFocus()
 
     def after_login(self, me: Me) -> None:
         self.me = me
@@ -1425,13 +1425,45 @@ class McWindow(QMainWindow):
         )
 
     def open_update(self) -> None:
-        if not self._update_url:
+        """Status-strip handler: download and hand off the platform installer."""
+        if self._update is None:
+            if not self._update_url:
+                return
+            QDesktopServices.openUrl(QUrl(self._update_url))
             return
+        label = self._update.label or "Update"
         if not confirm(self, "Update available",
-                       "Open the download page for this update in your browser?",
-                       confirm_label="Open"):
+                       f"Download {label} {self._update.version} and open it?",
+                       confirm_label="Download"):
             return
-        QDesktopServices.openUrl(QUrl(self._update_url))
+        self.install_update(self._update, ask=False)
+
+    def install_update(self, build: Optional[BuildInfo], *, ask: bool = True) -> None:
+        """Cache one published build, verify it, then open it with the OS shell."""
+        if build is None or not build.available or not build.url:
+            self.toast("No update is available for this platform")
+            return
+        if ask and not confirm(
+            self, "Install update",
+            f"Download {build.label} {build.version} and open it?",
+            confirm_label="Download",
+        ):
+            return
+
+        def job() -> Path:
+            return updates.download(build, self.api.base_url)
+
+        def ok(path: Path) -> None:
+            if updates.open_installer(path):
+                self.toast(f"Update saved to {path}")
+            else:
+                self.toast(f"Update saved to {path} — open it to install")
+
+        def fail(exc: Exception) -> None:
+            self.toast(f"Update download failed: {exc}")
+
+        self.toast(f"Downloading {build.label} {build.version}…")
+        self.run(job, ok, fail)
 
     def sign_out(self) -> None:
         def job() -> None:
@@ -1815,7 +1847,7 @@ class McWindow(QMainWindow):
         self.deck.repeat.set_active(player.repeat != "off")
         self.deck.volume.set_level(player.volume, player.muted)
         self.deck.seek.set_values(player.position, player.duration)
-        self.deck.pos.setText(fmt_time(player.position))
+        self.deck.pos_label.setText(fmt_time(player.position))
         self.deck.dur.setText(fmt_time(player.duration))
 
     def _refresh_progress(self) -> None:
@@ -1823,11 +1855,11 @@ class McWindow(QMainWindow):
             return
         player = self.player
         self.deck.seek.set_values(player.position, player.duration)
-        self.deck.pos.setText(fmt_time(player.position))
+        self.deck.pos_label.setText(fmt_time(player.position))
         self.deck.dur.setText(fmt_time(player.duration))
         self.deck.play.set_playing(player.playing)
         if self.overlay.isVisible():
-            self.overlay.pos.setText(fmt_time(player.position))
+            self.overlay.pos_label.setText(fmt_time(player.position))
             self.overlay.dur.setText(fmt_time(player.duration))
             self.overlay.seek.set_values(player.position, player.duration)
             self.overlay.play.set_playing(player.playing)
@@ -2224,30 +2256,29 @@ class McWindow(QMainWindow):
 
         self.run(job, ok, fail)
 
-    def _check_updates(self) -> None:
+    def _check_updates(self, done: Optional[Callable[[Optional[BuildInfo]], None]] = None
+                       ) -> None:
         def job() -> tuple[list, dict]:
             return self.repo.builds(), self.repo.version()
 
         def ok(result: tuple[list, dict]) -> None:
             builds, _version = result
-            kinds = {
-                "Darwin": ("macos-dmg", "macos"),
-                "Windows": ("windows-zip", "windows"),
-            }.get(platform.system(), ("linux-appimage", "linux-deb"))
-            for build in builds:
-                if getattr(build, "kind", "") in kinds and getattr(build, "available", False):
-                    if getattr(build, "version", "") and build.version != VERSION:
-                        self._update_kind = build.kind
-                        self._update_url = self.repo.build_url(build.url)
-                        self._set_online(not self._offline, pending=self.api.pending_writes(),
-                                         notice=f"Update available · {build.label}")
-                        return
-            self._update_kind = ""
-            self._update_url = ""
+            found = updates.find_update(builds, VERSION)
+            self._update = found
+            self._update_kind = found.kind if found else ""
+            self._update_url = self.repo.build_url(found.url) if found else ""
+            notice = f"Update available · {found.label} {found.version}" if found else ""
             self._set_online(not self._offline, pending=self.api.pending_writes(),
-                             notice="")
+                             notice=notice)
+            if done:
+                done(found)
 
-        self.run(job, ok, lambda _exc: None)
+        def fail(exc: Exception) -> None:
+            if done:
+                done(None)
+            self.toast(f"Update check failed: {exc}")
+
+        self.run(job, ok, fail)
 
     def _publish_activity(self) -> None:
         settings = self.settings

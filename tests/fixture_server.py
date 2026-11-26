@@ -18,10 +18,17 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+from mutagen.id3 import ID3, TALB, TDRC, TIT2, TPE1, TRCK
+
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 SEED_PATH = "seeded.mp3"
 INVITE = "test-invite"
+
+# Ten silent MPEG-1 Layer III frames (128 kbps, 44.1 kHz). Mutagen needs a real
+# audio stream before it will expose ID3 tags; a zero-byte file has no tags to
+# read, so a scan would replace the seeded title with the filename stem.
+_MP3_FRAME = b"\xff\xfb\x90\x64" + b"\x00" * 413
 
 
 def free_port() -> int:
@@ -126,15 +133,22 @@ class ThrowawayServer:
 
 # --------------------------------------------------------------------------- script mode
 def seed() -> None:
-    """Insert a library row for a real (empty) file on disk.
+    """Insert a library row backed by a real, ID3-tagged file on disk.
 
-    The row's mtime matches the file, so a rescan leaves it untouched and the
-    seeded metadata survives; deleting the file is what makes a rescan drop it,
-    which is the scan assertion both suites make.
+    The row's mtime and metadata match the file, so a rescan keeps "Seeded
+    Song" instead of falling back to the filename; deleting the file is what
+    makes a rescan drop it, which is the scan assertion both suites make.
     """
     full = os.path.join(MUSIC_DIR, SEED_PATH)
-    with open(full, "wb"):
-        pass
+    with open(full, "wb") as fh:
+        fh.write(_MP3_FRAME * 10)
+    tags = ID3()
+    tags.add(TIT2(encoding=3, text=["Seeded Song"]))
+    tags.add(TPE1(encoding=3, text=["Test Artist"]))
+    tags.add(TALB(encoding=3, text=["Test Album"]))
+    tags.add(TDRC(encoding=3, text=["2026"]))
+    tags.add(TRCK(encoding=3, text=["1"]))
+    tags.save(full)
     with mcmusic.app.app_context():
         c = _db()
         c.execute(

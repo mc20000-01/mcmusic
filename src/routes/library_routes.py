@@ -1,10 +1,12 @@
 """API route registration — library, playback, and track endpoints."""
 from flask import Blueprint, request, jsonify, send_file, Response, session
-import json, os, re, time
+import json
+import os
+import re
 
-from auth import _auth_uid, login_required, admin_required
+from auth import login_required, admin_required
 from database import _db, liked_ids, track_dict
-from config import MUSIC_DIR, AUDIO_EXTS
+from config import MUSIC_DIR
 import mutagen
 from mutagen.id3 import ID3
 from mutagen.mp4 import MP4, MP4Cover

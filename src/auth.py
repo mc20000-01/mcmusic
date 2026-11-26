@@ -14,11 +14,10 @@ import secrets
 import time
 
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask import session, request, g, jsonify
+from flask import session, request, jsonify
 
 from config import (
-    SESSION_COOKIE_NAME, SESSION_COOKIE_SAMESITE, SESSION_COOKIE_HTTPONLY,
-    PERMANENT_SESSION_LIFETIME, BOT_TOKEN, BOT_USER,
+    BOT_TOKEN, BOT_USER,
 )
 from database import _db
 

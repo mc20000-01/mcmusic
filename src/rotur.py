@@ -21,7 +21,6 @@ import os
 import secrets
 import threading
 import time
-from typing import Optional
 
 import app_links
 import rotur_activity
@@ -31,7 +30,7 @@ from music_activity.state import PlayerState, Track
 
 import requests
 from flask import (
-    session, redirect, request, jsonify, current_app, has_app_context, Response, url_for,
+    session, redirect, request, jsonify, current_app, has_app_context,
 )
 
 from config import (

@@ -36,7 +36,11 @@ android {
             signingConfig = if (projectKey.exists()) signingConfigs.getByName("mcmusic") else null
         }
         release {
-            isMinifyEnabled = false
+            // Keep rules in proguard-rules.pro cover the manifest/AppWidget
+            // entry points, Media3 and Compose reflection. CI builds this
+            // configuration on every release, so it is validated there.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = if (projectKey.exists()) signingConfigs.getByName("mcmusic") else null
         }

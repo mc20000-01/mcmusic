@@ -11,12 +11,33 @@ import java.net.CookiePolicy
 import java.net.CookieStore
 import java.net.HttpCookie
 import java.net.HttpURLConnection
+import java.net.InetAddress
 import java.net.URI
 import java.net.URL
 
 /** Public guide linked from Settings and the sign-in screen. */
 const val SELFHOST_GUIDE_URL =
     "https://github.com/mc20000-01/mcmusic/blob/main/docs/selfhost.md"
+
+/**
+ * Android cannot express private IP ranges in network_security_config.xml, so
+ * the OS permits cleartext and every mcmusic connection passes through here.
+ * Loopback, link-local and site-local addresses cover localhost, 10.0.2.2 and
+ * the 10/8, 172.16/12, 192.168/16 self-hosted LAN ranges.
+ */
+object CleartextPolicy {
+    fun requireAllowed(url: String) {
+        val uri = URI(url)
+        if (!uri.scheme.equals("http", ignoreCase = true)) return
+        val host = uri.host ?: throw SecurityException("HTTP URL without a host: $url")
+        val address = InetAddress.getByName(host)
+        val allowed = address.isLoopbackAddress || address.isLinkLocalAddress ||
+            address.isSiteLocalAddress || host.equals("localhost", ignoreCase = true)
+        if (!allowed) {
+            throw SecurityException("Cleartext HTTP is only allowed on private networks: $url")
+        }
+    }
+}
 
 data class Track(
     val id: Int,
@@ -734,7 +755,9 @@ object Api {
     }
 
     /** Where ExoPlayer reads audio; the token travels with the request. */
-    fun streamUrl(id: Int): String = server + "/api/tracks/$id/stream"
+    fun streamUrl(id: Int): String = (server + "/api/tracks/$id/stream").also {
+        CleartextPolicy.requireAllowed(it)
+    }
 
     /** Headers every authenticated media/image request needs. */
     fun authHeaders(): Map<String, String> =
@@ -748,6 +771,7 @@ object Api {
 
     suspend fun cover(url: String): ByteArray? = withContext(Dispatchers.IO) {
         if (url.isBlank()) return@withContext null
+        CleartextPolicy.requireAllowed(url)
         runCatching {
             val conn = URL(url).openConnection() as HttpURLConnection
             conn.connectTimeout = 8000
@@ -871,7 +895,9 @@ object Api {
     private fun post(path: String, body: String): String = request(path, "POST", body)
 
     private fun request(path: String, method: String, body: String?): String {
-        val conn = (URL(server + path).openConnection() as HttpURLConnection).apply {
+        val url = server + path
+        CleartextPolicy.requireAllowed(url)
+        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = method
             connectTimeout = 10_000
             readTimeout = 15_000

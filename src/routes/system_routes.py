@@ -4,8 +4,15 @@ from flask import (
 )
 from html import escape
 from urllib.parse import quote
-import os, secrets, threading, time, shlex, subprocess, shutil, math, logging, re
-from collections import defaultdict
+import os
+import secrets
+import threading
+import time
+import shlex
+import subprocess
+import shutil
+import logging
+import re
 
 import sys as _sys
 import os as _os
@@ -26,8 +33,8 @@ START_TIME = time.time()
 
 # --------------------------------------------------------------------------- config refs
 from config import (
-    MUSIC_DIR, DL_SCRIPT, DL_ARGS, STAGING_DIR, AUTO_APPROVE, LOG_DIR, API_RATE_LIMIT,
-    PUBLIC_URL, AUDIO_EXTS,
+    MUSIC_DIR, DL_SCRIPT, DL_ARGS, STAGING_DIR, AUTO_APPROVE, LOG_DIR, PUBLIC_URL,
+    AUDIO_EXTS,
 )
 
 @bp.get("/health")
@@ -1040,7 +1047,6 @@ def request_url_problem(url):
     if not valid_yt(url):
         return "need an https YouTube link, or a direct https .mp3 / audio / .zip link"
     from urllib.parse import parse_qs, urlparse
-    from song_meta import video_id
     try:
         parts = urlparse(url)
     except ValueError:

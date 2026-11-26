@@ -11,7 +11,7 @@ import time
 from urllib.parse import quote
 
 from config import (
-    INVITE_CODE, ROTUR_CALLBACK_PATH, ROTUR_APP, BOT_TOKEN, RESET_TTL, PUBLIC_URL,
+    INVITE_CODE, ROTUR_CALLBACK_PATH, RESET_TTL, PUBLIC_URL,
 )
 from auth import (
     _auth_uid, login_required, is_bot_request, me_dict,

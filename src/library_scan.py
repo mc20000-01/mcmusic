@@ -1,11 +1,8 @@
 """Library scan + YouTube enrichment background workers (extracted from monolith)."""
 import json, os, re, sys, time, threading, queue, random
 import mutagen
-from mutagen.id3 import ID3
-from mutagen.mp4 import MP4, MP4Cover
-from mutagen.flac import FLAC
 
-from config import MUSIC_DIR, AUDIO_EXTS, YT_ENRICH, YT_HOSTS, DEDUPE_AFTER_SCAN
+from config import MUSIC_DIR, AUDIO_EXTS, YT_ENRICH, DEDUPE_AFTER_SCAN
 from database import _db
 from artists import index_track
 import song_meta

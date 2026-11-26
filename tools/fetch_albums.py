@@ -25,7 +25,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from fix_music_db import AUDIO_EXTS, DATA_DIR, MUSIC_DIR, set_album_tag  # noqa: E402
+from fix_music_db import DATA_DIR, MUSIC_DIR, set_album_tag  # noqa: E402
 
 DB_PATH = os.path.join(DATA_DIR, "mcmusic.db")
 DONE_PATH = os.path.join(DATA_DIR, ".album_fetch_done.json")

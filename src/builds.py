@@ -8,7 +8,6 @@ attachment always matches what the download button serves.
 import hashlib
 import os
 import re
-import time
 from datetime import datetime, timezone
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -26,6 +25,18 @@ BUILDS = {
         "maintype": "application",
         "subtype": "vnd.android.package-archive",
         "note": "Android 14 and newer.",
+    },
+    "ios": {
+        "label": "iOS (Simulator)",
+        "name": "mcmusic for iOS",
+        "dir": os.path.join(APPS, "ios"),
+        "pattern": ".app.zip",
+        "latest": "mainbuild.zip",
+        "hint": "Unsigned SwiftUI Simulator build. iOS cannot install it from the app; open this page in Safari for the current build.",
+        "ext": "zip",
+        "maintype": "application",
+        "subtype": "zip",
+        "note": "Requires Xcode and iOS Simulator; not installable on a physical iPhone.",
     },
     "linux-appimage": {
         "label": "Linux (AppImage)",
@@ -171,6 +182,24 @@ def _named(spec, path):
     return os.path.basename(path)
 
 
+def _version_from_filename(name):
+    """Extract a dotted client version from any published artifact name.
+
+    Names vary by platform (``mcmusic-desktop_4.1.0_all.deb``,
+    ``mcmusic-ios-simulator-4.1.0.app.zip``), so a single suffix regex used to
+    return the whole middle of the name. Updaters need the real version.
+    """
+    base = os.path.basename(name)
+    if base == "mcmusic-x86_64.AppImage":
+        # The stable AppImage name carries no release number. Claiming
+        # "x86_64" as a version made updaters treat it as newer than 4.1.0.
+        return None
+    matches = re.findall(
+        r"(?<![0-9])(\d+(?:\.\d+){1,3}(?:[-+][0-9A-Za-z.]+)?)(?![0-9])", base
+    )
+    return matches[0] if matches else None
+
+
 def describe(kind):
     spec = BUILDS.get(kind)
     if not spec:
@@ -193,7 +222,6 @@ def describe(kind):
         file = remote["name"]
         folder = os.path.basename(spec["dir"])
         digest = (remote.get("digest") or "")[:16] or "latest"
-        match = re.search(r"mcmusic-([^/]+)\.[A-Za-z0-9]+$", file)
         return {
             "kind": kind,
             "label": spec["label"],
@@ -202,7 +230,7 @@ def describe(kind):
             "note": spec["note"],
             "available": True,
             "file": file,
-            "version": match.group(1) if match else None,
+            "version": _version_from_filename(file),
             "url": f"/apps/{folder}/{file}?v={digest}",
             "bytes": remote["size"],
             "built": github_builds.built_stamp(remote),
@@ -214,7 +242,6 @@ def describe(kind):
     if not os.path.isfile(served):
         served = path
     digest = _digest(served)
-    match = re.search(r"mcmusic-([^/]+)\.[A-Za-z0-9]+$", file)
     return {
         "kind": kind,
         "label": spec["label"],
@@ -223,7 +250,7 @@ def describe(kind):
         "note": spec["note"],
         "available": True,
         "file": file,
-        "version": match.group(1) if match else None,
+        "version": _version_from_filename(file),
         "url": f"/apps/{os.path.basename(spec['dir'])}/{os.path.basename(served)}?v={digest}",
         "bytes": os.path.getsize(path),
         "built": _stamp(path),

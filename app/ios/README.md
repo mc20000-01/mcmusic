@@ -53,8 +53,11 @@ bundle contains no web engine or HTML assets.
 
 Set the server URL on the sign-in screen (for example
 `https://mcmusic.example.com`). Plain `http://` is allowed for self-hosted LAN
-servers; the Xcode project sets `NSAllowsArbitraryLoads` so a local server works
-without a certificate. The session cookie is stored by `HTTPCookieStorage` and
+servers; the Xcode project sets `NSAllowsLocalNetworking` so a local server works
+without a certificate while public traffic still requires HTTPS. Builds are
+checked against `/api/builds` on the Builds screen; iOS cannot swap the running
+app from a downloaded file, so the updater opens the public download page. The
+session cookie is stored by `HTTPCookieStorage` and
 survives app restarts.
 
 Audio uses `AVPlayer` with the same stream URLs and session cookie as the

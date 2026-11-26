@@ -1140,7 +1140,6 @@ def download_one(job, out_dir, split_artist, quality, ffmpeg_threads, archive_pa
             duration = time.time() - job_start
             nbytes = job.get("_bytes", 0)
             stats.record(duration, True, nbytes)
-            eta = stats.eta_str()
             msg = (f"[done] {job['playlist_title']} #{job['index']:02d} "
                    f"in {format_duration(duration)} ({stats.progress_line()})")
             log(msg, quiet_ok=True)
@@ -1574,6 +1573,7 @@ def main():
         args.retry_failed, repair, fix_minor, full_scan, default_cookies(args.cookies),
         fast_client, scan_workers, args.relist, args.cache_minutes,
         lyrics=not args.no_lyrics, dedupe=not args.no_dedupe,
+        staging_dir=staging_dir,
     )
     log(f"\nDone. Files are in: {os.path.abspath(out_dir)}")
     if total and done == 0:

@@ -13,8 +13,9 @@ maintenance.
 - Linux server with Python 3.11+ and Node 20.19+ / 22.12+ (for Vite 7).
 - A music directory the server user can read.
 - A writable data directory for SQLite, sessions and caches.
-- A public HTTPS address (strongly recommended — Android 14 blocks cleartext
-  traffic by default).
+- A public HTTPS address. Android 14+ blocks cleartext traffic except for the
+  localhost/emulator-host destinations allowlisted in the app; iOS ATS allows
+  local-network HTTP only.
 - Optional: JDK 17 + Android SDK if you want to build the signed APK locally.
   CI already does this for you.
 
@@ -124,6 +125,12 @@ Keep port 8000 firewalled from the public internet.
 Open `PUBLIC_URL`. The web client uses an HttpOnly cookie session and needs no
 per-device setup.
 
+Browser CORS is off by default. The server grants no usable cross-origin access
+unless `CORS_ORIGIN` is set in `mcmusic.env` to one exact trusted origin (for
+example `CORS_ORIGIN=https://music.example.com`). The same-origin web app and
+the native clients need no value: Android, iOS and desktop HTTP stacks do not
+enforce CORS. Only set it when a web frontend is served from a different origin.
+
 ### Android
 
 1. Open the app and, if needed, set **Server URL** on the sign-in screen to
@@ -131,6 +138,13 @@ per-device setup.
 2. Sign in with your email/username and password, or use Continue with Rotur.
 3. In-app updates come from `/api/builds`; they install the same signed APK as
    the website's `/get` download.
+
+Plain HTTP is permitted only for `localhost`, `127.0.0.1` and the emulator host
+`10.0.2.2`; all other server URLs must be HTTPS. Android's network security
+config cannot express the RFC1918 ranges `10.0.0.0/8`, `172.16.0.0/12` or
+`192.168.0.0/16` as CIDR rules, so a LAN server reached by IP needs HTTPS. If
+you build your own APK, you can add a DNS name for that server to
+`gui/android/app/src/main/res/xml/network_security_config.xml` instead.
 
 To build locally instead of using CI:
 
@@ -163,6 +177,12 @@ To refresh immediately after a release:
 
 Open `PUBLIC_URL/downloads` for a public, no-sign-in build list. Local builds
 always win until the next sync, so publishing from your own CI still works.
+
+Verify a downloaded APK against the `SHA256SUMS` file in `apps/` (also attached
+to the GitHub release) before installing. Check that its signing certificate
+fingerprint (`keytool -printcert -jarfile mcmusic.apk`) matches the fingerprint
+published on the releases page: the signing key is intentionally public, so the
+checksum and fingerprint are what identify an official build.
 
 ### Desktop
 

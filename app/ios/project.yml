@@ -35,8 +35,9 @@ targets:
         UILaunchScreen: {}
         UIBackgroundModes:
           - audio
+        # Default ATS applies everywhere; only local-network HTTP is allowed.
         NSAppTransportSecurity:
-          NSAllowsArbitraryLoads: true
+          NSAllowsLocalNetworking: true
         ITSAppUsesNonExemptEncryption: false
         UIRequiredDeviceCapabilities:
           - arm64
