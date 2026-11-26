@@ -77,6 +77,7 @@ object Lucide {
     @DrawableRes val Pencil = R.drawable.ic_lucide_pencil
     @DrawableRes val Pentagon = R.drawable.ic_lucide_pentagon
     @DrawableRes val PictureInPicture2 = R.drawable.ic_lucide_picture_in_picture_2
+    @DrawableRes val Pin = R.drawable.ic_lucide_pin
     @DrawableRes val Play = R.drawable.ic_lucide_play
     @DrawableRes val Plus = R.drawable.ic_lucide_plus
     @DrawableRes val Radio = R.drawable.ic_lucide_radio
