@@ -48,8 +48,15 @@ jobs:
           node scripts/gen-lucide.mjs --check
       - name: Install test dependencies
         run: python -m pip install pytest
-      - name: Design gates (flatness, WCAG AA, generated freshness)
-        run: python -m pytest tests/test_no_gradients.py tests/test_contrast.py tests/test_generated_fresh.py -q
+      - name: Design gates (flatness, WCAG AA, generated freshness, blob/font contracts)
+        run: |
+          python -m pytest \
+            tests/test_no_gradients.py \
+            tests/test_contrast.py \
+            tests/test_generated_fresh.py \
+            tests/test_blobs.py \
+            tests/test_font_bundling.py \
+            -q
 
   ui-checks:
     name: Web UI build
@@ -162,6 +169,12 @@ jobs:
             algo/mdl.py
       - name: Install test dependencies
         run: pip install -r requirements.txt pytest
+      - name: Smoke test documented server commands
+        # Uses the same .venv path as the docs while reusing the system site
+        # packages installed above. Each command gets its own temp data dir.
+        run: |
+          python -m venv --system-site-packages .venv
+          ./tests/test_server_startup.sh
       - name: Run Python test suite
         # Qt-dependent suites live in qt-checks, which installs PySide6 and
         # sets QT_QPA_PLATFORM=offscreen. Running them here without Qt would
@@ -355,3 +368,32 @@ jobs:
           name: mcmusic-ios-simulator
           path: build/ios/Build/Products/Release-iphonesimulator/McMusic.app
           if-no-files-found: error
+
+  responsive-checks:
+    name: Responsive UI checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: Install UI dependencies
+        run: npm --prefix ui ci --no-audit --no-fund
+      - name: Install Playwright Chromium
+        # Run from ui/ so npx resolves the @playwright/test binary from ui/node_modules.
+        working-directory: ui
+        run: npx playwright install --with-deps chromium
+      - name: Build the v3 client (ui/ -> web/ui/)
+        run: ./scripts/build_ui.sh
+      - name: Run responsive Playwright tests
+        run: npm --prefix ui run test:e2e
+      - name: Upload Playwright results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: ui/test-results/**
+          if-no-files-found: warn

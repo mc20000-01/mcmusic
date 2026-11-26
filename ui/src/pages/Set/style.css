@@ -98,7 +98,7 @@
     padding: 24px 0;
 }
 
-@media (max-width: 600px) {
+@container shell (width < 600px) {
     .content-set .top {
         align-items: flex-start;
         gap: 16px;

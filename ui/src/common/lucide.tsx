@@ -125,6 +125,7 @@ export const Pause = styled("Pause");
 export const Pencil = styled("Pencil");
 export const Pentagon = styled("Pentagon");
 export const PictureInPicture2 = styled("PictureInPicture2");
+export const Pin = styled("Pin");
 export const Play = styled("Play");
 export const Plus = styled("Plus");
 export const Radio = styled("Radio");

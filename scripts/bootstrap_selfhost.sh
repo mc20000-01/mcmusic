@@ -49,6 +49,6 @@ echo "Building web client into web/ui/"
 echo
 echo "Done. Next:"
 echo "  1. Edit mcmusic.env"
-echo "  2. Smoke test: PYTHONPATH=.:src .venv/bin/gunicorn -w 1 --threads 8 -b 127.0.0.1:8000 mcmusic:app"
+echo "  2. Smoke test: ./scripts/run.sh"
 echo "  3. Install deploy/mcmusic.service.example as a systemd unit (see docs/selfhost.md)"
 echo "  4. Put HTTPS in front and open PUBLIC_URL/auth"

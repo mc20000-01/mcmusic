@@ -35,8 +35,23 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt        # Flask, gunicorn, mutagen, …
 cp mcmusic.env.example mcmusic.env               # then edit it
 ( cd ui && npm ci && npm run build )             # writes web/ui/, what `/` serves
-.venv/bin/python -m src.mcmusic                  # or: gunicorn mcmusic:app
+./scripts/run.sh                                  # launcher; works from any cwd
 ```
+
+`run.sh` sets `PYTHONPATH` and starts one gunicorn worker on
+`127.0.0.1:8000`, matching `deploy/mcmusic.service.example`. The raw
+equivalents, both from the repository root, are:
+
+```bash
+.venv/bin/python src/mcmusic.py                  # quick dev-server check
+PYTHONPATH=.:src .venv/bin/gunicorn -w 1 --threads 8 \
+  -b 127.0.0.1:8000 --timeout 600 mcmusic:app    # production form
+```
+
+Use one worker: it owns the download queue and listen-along rooms. Direct runs
+read environment variables from the shell, not from `mcmusic.env`; the systemd
+unit loads that file via `EnvironmentFile`. All three commands are smoke-tested
+in CI by `tests/test_server_startup.sh`.
 
 There is one web client. If `web/ui/` has not been built, `/` returns a short
 503 page telling you to run `./scripts/build_ui.sh` rather than an older app.
