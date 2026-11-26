@@ -8,7 +8,7 @@ from urllib.parse import parse_qs, urlparse
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
-from . import theme
+from . import design, motion, theme
 from .api import Api, Async, Repo, SessionStore
 from .art import ART
 from .models import Settings
@@ -61,8 +61,9 @@ def run_gui(argv: list[str] | None = None) -> int:
     store = SessionStore()
     if link_token:
         store.pending_token = link_token
+    motion.bind(store)
     theme.set_appearance(store.theme, store.accent)
-    app.setFont(theme.ui(13))
+    app.setFont(design.font("body"))
     app.setStyleSheet(theme.stylesheet())
     app.setPalette(theme.qpalette())
 

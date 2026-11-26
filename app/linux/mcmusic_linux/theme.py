@@ -365,45 +365,47 @@ def stylesheet(p: Palette | None = None) -> str:
     p = p or pal()
     return f"""
     QWidget {{
-        color: {p.fg};
-        selection-background-color: {p.accent};
-        selection-color: {p.accent_fg};
+        color: {p.on_surface};
+        selection-background-color: {p.primary};
+        selection-color: {p.on_primary};
+        font-size: 16px;
     }}
     QLineEdit {{
-        background: {_rgba(p.surface2, 64)};
-        border: 1px solid {_rgba(p.line2, 90)};
-        border-radius: 18px;
-        padding: 9px 14px;
-        color: {p.fg};
-        font-size: 13px;
+        background: {p.surface_container};
+        border: 1px solid {p.outline_variant};
+        border-radius: 999px;
+        min-height: 48px;
+        padding: 10px 20px;
+        color: {p.on_surface};
+        font-size: 16px;
     }}
     QLineEdit:focus {{
-        border-color: {_rgba(p.accent, 170)};
-        background: {_rgba(p.surface2, 82)};
+        border-color: {p.primary};
+        background: {p.surface_container_high};
     }}
     QLineEdit[echoMode="2"] {{ letter-spacing: 2px; }}
     QMenu {{
-        background: {p.bg2};
-        border: 1px solid {_rgba(p.line2, 90)};
-        border-radius: 16px;
+        background: {p.surface_container};
+        border: 1px solid {p.outline_variant};
+        border-radius: 28px;
         padding: 8px;
     }}
     QMenu::item {{
-        padding: 9px 30px 9px 14px;
-        border-radius: 12px;
-        color: {p.fg};
-        font-size: 13px;
+        padding: 12px 32px 12px 20px;
+        border-radius: 16px;
+        color: {p.on_surface};
+        font-size: 14px;
     }}
-    QMenu::item:selected {{ background: {_rgba(p.accent, 52)}; }}
-    QMenu::item:disabled {{ color: {p.dim2}; }}
-    QMenu::separator {{ height: 1px; background: {p.line}; margin: 4px 2px; }}
+    QMenu::item:selected {{ background: {p.primary_container}; color: {p.on_primary_container}; }}
+    QMenu::item:disabled {{ color: {p.on_surface_variant}; }}
+    QMenu::separator {{ height: 1px; background: {p.outline_variant}; margin: 4px 8px; }}
     QScrollBar:vertical {{
-        background: transparent; width: 10px; margin: 2px 1px 2px 1px;
+        background: transparent; width: 12px; margin: 2px 2px 2px 2px;
     }}
     QScrollBar::handle:vertical {{
-        background: {p.line2}; border-radius: 4px; min-height: 30px;
+        background: {p.outline_variant}; border-radius: 999px; min-height: 36px;
     }}
-    QScrollBar::handle:vertical:hover {{ background: {p.dim2}; }}
+    QScrollBar::handle:vertical:hover {{ background: {p.primary}; }}
     QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
         height: 0; background: none; border: none;
     }}
@@ -411,10 +413,10 @@ def stylesheet(p: Palette | None = None) -> str:
         background: none;
     }}
     QScrollBar:horizontal {{
-        background: transparent; height: 10px; margin: 1px 2px;
+        background: transparent; height: 12px; margin: 2px;
     }}
     QScrollBar::handle:horizontal {{
-        background: {p.line2}; border-radius: 4px; min-width: 30px;
+        background: {p.outline_variant}; border-radius: 999px; min-width: 36px;
     }}
     QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
         width: 0; background: none; border: none;
@@ -423,21 +425,26 @@ def stylesheet(p: Palette | None = None) -> str:
         background: none;
     }}
     QToolTip {{
-        background: {p.ink}; color: {p.fg};
-        border: 1px solid {_rgba(p.accent, 90)};
-        border-radius: 10px; padding: 5px 9px;
-        font-size: 11px;
+        background: {p.inverse_surface}; color: {p.inverse_on_surface};
+        border: 1px solid {p.outline_variant};
+        border-radius: 12px; padding: 8px 12px;
+        font-size: 14px;
     }}
-    QDialog {{ background: {p.bg2}; }}
-    QMessageBox {{ background: {p.bg2}; }}
-    QMessageBox QLabel {{ color: {p.fg}; }}
-    QMessageBox QPushButton {{
-        background: {_rgba(p.surface2, 76)};
-        border: 1px solid {_rgba(p.line2, 90)};
-        border-radius: 18px; padding: 8px 18px; color: {p.fg};
+    QDialog {{ background: {p.background}; }}
+    QMessageBox {{ background: {p.background}; }}
+    QMessageBox QLabel {{ color: {p.on_background}; }}
+    QPushButton {{
+        background: {p.surface_container_high};
+        border: 1px solid {p.outline_variant};
+        border-radius: 999px;
+        min-height: 48px;
+        padding: 12px 24px;
+        color: {p.on_surface};
+        font-size: 14px;
     }}
-    QMessageBox QPushButton:hover {{ background: {_rgba(p.accent, 46)}; }}
-    QColorDialog {{ background: {p.bg2}; }}
+    QPushButton:hover {{ background: {p.primary_container}; color: {p.on_primary_container}; }}
+    QMessageBox QPushButton:hover {{ background: {p.primary_container}; }}
+    QColorDialog {{ background: {p.surface_container}; }}
     QAbstractScrollArea {{ border: none; }}
     """
 
@@ -447,22 +454,22 @@ def qpalette(p: Palette | None = None) -> QPalette:
     p = p or pal()
     out = QPalette()
     roles = {
-        QPalette.ColorRole.Window: p.bg2,
-        QPalette.ColorRole.WindowText: p.fg,
-        QPalette.ColorRole.Base: p.bg,
-        QPalette.ColorRole.AlternateBase: p.surface,
-        QPalette.ColorRole.Text: p.fg,
-        QPalette.ColorRole.Button: p.bg2,
-        QPalette.ColorRole.ButtonText: p.fg,
-        QPalette.ColorRole.Highlight: p.accent,
-        QPalette.ColorRole.HighlightedText: p.accent_fg,
-        QPalette.ColorRole.ToolTipBase: p.ink,
-        QPalette.ColorRole.ToolTipText: p.fg,
-        QPalette.ColorRole.PlaceholderText: p.dim2,
-        QPalette.ColorRole.Link: p.accent,
-        QPalette.ColorRole.Mid: p.line,
-        QPalette.ColorRole.Dark: p.line2,
-        QPalette.ColorRole.Light: p.surface2,
+        QPalette.ColorRole.Window: p.background,
+        QPalette.ColorRole.WindowText: p.on_surface,
+        QPalette.ColorRole.Base: p.background,
+        QPalette.ColorRole.AlternateBase: p.surface_container_low,
+        QPalette.ColorRole.Text: p.on_surface,
+        QPalette.ColorRole.Button: p.surface_container,
+        QPalette.ColorRole.ButtonText: p.on_surface,
+        QPalette.ColorRole.Highlight: p.primary,
+        QPalette.ColorRole.HighlightedText: p.on_primary,
+        QPalette.ColorRole.ToolTipBase: p.inverse_surface,
+        QPalette.ColorRole.ToolTipText: p.inverse_on_surface,
+        QPalette.ColorRole.PlaceholderText: p.on_surface_variant,
+        QPalette.ColorRole.Link: p.primary,
+        QPalette.ColorRole.Mid: p.outline_variant,
+        QPalette.ColorRole.Dark: p.outline,
+        QPalette.ColorRole.Light: p.surface_container_high,
     }
     for role, color in roles.items():
         out.setColor(role, QColor(color))
@@ -476,4 +483,4 @@ def theme_preview(name: str) -> tuple[str, str]:
         with_mode(name, mode),
         dark=system_dark() if mode == "auto" else mode == "dark",
     )
-    return p.surface, p.accent
+    return p.surface_container, p.primary

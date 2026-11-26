@@ -29,7 +29,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from . import theme
+from . import design, motion, theme
 from .models import (
     BuildInfo,
     DeviceRow,
@@ -73,13 +73,13 @@ from .widgets import (
 from .version import VERSION
 
 STATUS_TOKEN = {
-    "done": "ok",
-    "failed": "err",
-    "rejected": "err",
-    "cancelled": "err",
-    "running": "accent",
-    "approved": "accent",
-    "pending": "warn",
+    "done": "primary",
+    "failed": "error",
+    "rejected": "error",
+    "cancelled": "error",
+    "running": "primary",
+    "approved": "primary",
+    "pending": "on_surface_variant",
 }
 
 
@@ -169,7 +169,7 @@ class Screen(QScrollArea):
         line.setSpacing(10)
         line.addStretch(1)
         line.addWidget(Spinner(18))
-        line.addWidget(Txt(text, size=13, token="dim2"))
+        line.addWidget(Txt(text, size=16, token="on_surface_variant"))
         line.addStretch(1)
         self._loading_row = row
         self.add(row)
@@ -205,10 +205,10 @@ def section_head(title: str, meta: str = "", actions: Sequence[QWidget] = ()) ->
     line = QHBoxLayout(widget)
     line.setContentsMargins(0, 0, 0, 12)
     line.setSpacing(10)
-    line.addWidget(Txt(title, size=18, family="display", token="fg"), 0,
+    line.addWidget(Txt(title, size=22, family="display", token="on_surface"), 0,
                    Qt.AlignmentFlag.AlignBottom)
     if meta:
-        line.addWidget(Txt(meta.upper(), size=9, family="mono", token="dim2", spacing=1.2),
+        line.addWidget(Txt(meta.upper(), size=14, family="mono", token="on_surface_variant", spacing=1.2),
                        0, Qt.AlignmentFlag.AlignBottom)
     line.addStretch(1)
     for action in actions:
@@ -383,7 +383,7 @@ class SearchScreen(Screen):
         line.setContentsMargins(0, 30, 0, 30)
         line.setSpacing(10)
         line.addWidget(Spinner(18))
-        line.addWidget(Txt(f'Searching for “{query}”…', size=13, token="dim2"))
+        line.addWidget(Txt(f'Searching for “{query}”…', size=16, token="on_surface_variant"))
         line.addStretch(1)
         self.rlayout.addWidget(row)
 
@@ -775,16 +775,17 @@ class RequestLine(QWidget):
         text = QVBoxLayout()
         text.setContentsMargins(0, 0, 0, 0)
         text.setSpacing(2)
-        url = Txt(row.url, size=11, family="mono", token="fg", wrap=True)
+        url = Txt(row.url, size=14, family="mono", token="on_surface", wrap=True)
         url.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         text.addWidget(url)
         when = time.strftime("%d %b %H:%M", time.localtime(row.created)) if row.created else ""
         who = f"@{row.username}" if row.username else "you"
-        text.addWidget(Txt(f"#{row.id} · {who} · {when}", size=10, family="mono",
-                           token="dim2"))
+        text.addWidget(Txt(f"#{row.id} · {who} · {when}", size=14, family="mono",
+                           token="on_surface_variant"))
         line.addLayout(text, 1)
         line.addWidget(StatusChip(row.status or "queued",
-                                  STATUS_TOKEN.get(row.status, "dim")), 0,
+                                  STATUS_TOKEN.get(row.status,
+                                                   "on_surface_variant")), 0,
                        Qt.AlignmentFlag.AlignVCenter)
         if is_admin and row.status in ("pending", "failed"):
             approve = McButton("Approve", small=True, solid=True)
@@ -797,25 +798,25 @@ class RequestLine(QWidget):
             line.addWidget(Spinner(14))
         if is_admin:
             if row.status in ("pending", "running"):
-                cancel = IconButton("x", size=26, icon_size=12, tooltip="Cancel request")
+                cancel = IconButton("x", size=26, icon_size=14, tooltip="Cancel request")
                 cancel.clicked.connect(lambda: on_action(row.id, "cancel"))
                 line.addWidget(cancel)
             if row.status in ("failed", "rejected", "cancelled"):
-                retry = IconButton("refresh-cw", size=26, icon_size=12,
+                retry = IconButton("refresh-cw", size=26, icon_size=14,
                                    tooltip="Retry request")
                 retry.clicked.connect(lambda: on_action(row.id, "retry"))
                 line.addWidget(retry)
-            delete = IconButton("trash-2", size=26, icon_size=12, tooltip="Delete request")
+            delete = IconButton("trash-2", size=26, icon_size=14, tooltip="Delete request")
             delete.clicked.connect(lambda: on_action(row.id, "delete"))
             line.addWidget(delete)
-        log = IconButton("info", size=26, icon_size=13, tooltip="View log")
+        log = IconButton("info", size=26, icon_size=16, tooltip="View log")
         log.clicked.connect(lambda: on_log(row))
         line.addWidget(log)
 
     def paintEvent(self, _event) -> None:
         if not self._last:
             p = QPainter(self)
-            p.fillRect(16, self.height() - 1, self.width() - 16, 1, theme.pal().q("line"))
+            p.fillRect(16, self.height() - 1, self.width() - 16, 1, theme.pal().q("outline_variant"))
 
 
 class RequestsScreen(Screen):
@@ -931,7 +932,7 @@ class ThemeCard(QAbstractButton):
         self.name = name
         self.label = label
         self._selected = selected
-        self.setFixedSize(84, 64)
+        self.setFixedSize(96, 72)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
     def set_selected(self, selected: bool) -> None:
@@ -944,18 +945,20 @@ class ThemeCard(QAbstractButton):
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         surface, accent = theme.theme_preview(self.name)
         rect = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
-        p.setPen(QPen(theme.pal().q("accent") if self._selected else
-                      theme.pal().q("line2"), 1))
-        p.setBrush(theme.pal().q("bg"))
-        p.drawRoundedRect(rect, 10, 10)
+        pal = theme.pal()
+        p.setPen(QPen(pal.q("primary") if self._selected else
+                      pal.q("outline_variant"), 2 if self._selected else 1))
+        p.setBrush(pal.q("surface_container_lowest"))
+        p.drawRoundedRect(rect, 16, 16)
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(QColor(surface))
-        p.drawRoundedRect(QRectF(rect.x() + 1, rect.y() + 1, rect.width() - 2, 38), 10, 10)
+        p.drawRoundedRect(QRectF(rect.x() + 2, rect.y() + 2,
+                                 rect.width() - 4, 42), 14, 14)
         p.setBrush(QColor(accent))
-        p.drawRoundedRect(QRectF(rect.x() + 9, rect.y() + 29, 16, 4), 2, 2)
-        p.setFont(theme.mono(9, spacing=0.5))
-        p.setPen(QPen(theme.pal().q("dim")))
-        p.drawText(QRectF(rect.x(), rect.y() + 40, rect.width(), rect.height() - 42),
+        p.drawRoundedRect(QRectF(rect.x() + 12, rect.y() + 32, 20, 6), 3, 3)
+        p.setFont(design.font("label", size=12))
+        p.setPen(QPen(pal.q("on_surface_variant")))
+        p.drawText(QRectF(rect.x(), rect.y() + 44, rect.width(), rect.height() - 46),
                    int(Qt.AlignmentFlag.AlignCenter), self.label.upper())
 
 
@@ -964,7 +967,7 @@ class Swatch(QAbstractButton):
         super().__init__(parent)
         self.color = color
         self._selected = selected
-        self.setFixedSize(24, 24)
+        self.setFixedSize(48, 48)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setToolTip(color)
 
@@ -976,13 +979,13 @@ class Swatch(QAbstractButton):
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        p.setPen(QPen(theme.pal().q("line2"), 1))
+        p.setPen(QPen(theme.pal().q("outline_variant"), 1))
         p.setBrush(QColor(self.color))
-        p.drawEllipse(QRectF(2, 2, 20, 20))
+        p.drawEllipse(QRectF(10, 10, 28, 28))
         if self._selected:
-            p.setPen(QPen(theme.pal().q("fg"), 2))
+            p.setPen(QPen(theme.pal().q("primary"), 3))
             p.setBrush(Qt.BrushStyle.NoBrush)
-            p.drawEllipse(QRectF(0.5, 0.5, 22, 22))
+            p.drawEllipse(QRectF(5, 5, 38, 38))
 
 
 class SettingsScreen(Screen):
@@ -995,6 +998,8 @@ class SettingsScreen(Screen):
         self._material: Optional[Segmented] = None
         self._stroke: Optional[Segmented] = None
         self._filled: Optional[Switch] = None
+        self._motion: Optional[Switch] = None
+        self._covers: Optional[Switch] = None
         self._rotur_layout: Optional[QHBoxLayout] = None
         self._rotur_row = None
         self._discord_layout: Optional[QHBoxLayout] = None
@@ -1075,9 +1080,13 @@ class SettingsScreen(Screen):
         self._material.changed.connect(lambda value: self._set(material=value))
         panel.add_row("Surface", "Background treatment shared with the web player",
                       self._material)
-        covers = Switch(settings.covers)
-        covers.toggled.connect(lambda value: self._set(covers=value))
-        panel.add_row("Cover art", "Show embedded artwork", covers, last=True)
+        self._motion = Switch(motion.local_enabled(self.shell.store))
+        self._motion.toggled.connect(self._set_motion)
+        panel.add_row("Playful motion", "Springs and bounces; Reduce Motion wins",
+                      self._motion)
+        self._covers = Switch(settings.covers)
+        self._covers.toggled.connect(lambda value: self._set(covers=value))
+        panel.add_row("Cover art", "Show embedded artwork", self._covers, last=True)
         self.add(panel, 16)
 
         # playback -------------------------------------------------------
@@ -1113,14 +1122,14 @@ class SettingsScreen(Screen):
         # account --------------------------------------------------------
         panel = Panel("Account")
         panel.add_row("Username", "Signed in to this server",
-                      Txt(user.username if user else "", size=13, token="dim"))
+                      Txt(user.username if user else "", size=16, token="on_surface_variant"))
 
         server_row = QWidget()
         sline = QHBoxLayout(server_row)
         sline.setContentsMargins(0, 0, 0, 0)
         sline.setSpacing(8)
-        sline.addWidget(Txt(self.shell.api.base_url, size=11, family="mono",
-                            token="dim", wrap=True))
+        sline.addWidget(Txt(self.shell.api.base_url, size=14, family="mono",
+                            token="on_surface_variant", wrap=True))
         change = McButton("Change", small=True, ghost=True)
         change.clicked.connect(self._change_server)
         sline.addWidget(change)
@@ -1174,9 +1183,9 @@ class SettingsScreen(Screen):
         # server metadata / builds ---------------------------------------
         panel = Panel("Updates & builds")
         panel.add_row("Client version", VERSION,
-                      Txt("Running now", size=11, token="dim2"))
+                      Txt("Running now", size=14, token="on_surface_variant"))
         self._server_version_row = panel.add_row(
-            "Server version", "Checking…", Txt("", size=11, family="mono", token="dim")
+            "Server version", "Checking…", Txt("", size=14, family="mono", token="on_surface_variant")
         )
         update_actions = QWidget()
         update_line = QHBoxLayout(update_actions)
@@ -1211,12 +1220,12 @@ class SettingsScreen(Screen):
 
         # offline state / cache ------------------------------------------
         panel = Panel("Offline & cache")
-        self._pending_label = Txt("0 pending changes", size=11, token="dim")
+        self._pending_label = Txt("0 pending changes", size=14, token="on_surface_variant")
         sync = McButton("Sync now", small=True, ghost=True, icon="refresh-cw")
         sync.clicked.connect(self.shell.sync_outbox)
         self._pending_row = panel.add_row("Offline writes",
                                          "Queued until the server is reachable", sync)
-        self._cache_label = Txt("", size=11, token="dim")
+        self._cache_label = Txt("", size=14, token="on_surface_variant")
         panel.add_row("Cache", "Saved replies and streamed audio", self._cache_label)
         downloads = McButton("Manage", small=True, ghost=True,
                              icon="arrow-up-right")
@@ -1228,7 +1237,7 @@ class SettingsScreen(Screen):
         about = Txt(
             f"mcmusic desktop {VERSION} · native Qt 6 client. Same server API, "
             "palette and icons as the web player and Android app.",
-            size=11, token="dim2", wrap=True,
+            size=14, token="on_surface_variant", wrap=True,
         )
         self.add(about)
 
@@ -1245,6 +1254,10 @@ class SettingsScreen(Screen):
     # helpers ------------------------------------------------------------
     def _set(self, **changes) -> None:
         self.shell.apply_settings(replace(self.shell.settings, **changes))
+
+    def _set_motion(self, enabled: bool) -> None:
+        self.shell.store.playful_motion = bool(enabled)
+        motion.reset_platform_cache()
 
     def _pick_theme(self, name: str) -> None:
         family = theme.family_of(name)
@@ -1283,7 +1296,7 @@ class SettingsScreen(Screen):
         new = LabeledField("New password", "at least 6 characters", password=True)
         sheet.body.addWidget(old)
         sheet.body.addWidget(new)
-        error = Txt("", size=11, token="err", wrap=True)
+        error = Txt("", size=14, token="error", wrap=True)
         error.setVisible(False)
         sheet.body.addWidget(error)
 
@@ -1476,8 +1489,8 @@ class SettingsScreen(Screen):
                 widget.deleteLater()
         shown = [b for b in builds if b.available][:12]
         if not shown:
-            layout.addWidget(Txt("No builds are published yet.", size=11,
-                                 token="dim2", wrap=True))
+            layout.addWidget(Txt("No builds are published yet.", size=14,
+                                 token="on_surface_variant", wrap=True))
             return
         panel = Panel("Available builds")
         for index, build in enumerate(shown):
@@ -1537,6 +1550,10 @@ class SettingsScreen(Screen):
             self._stroke.set_selected(f"{settings.iconStroke:g}")
         if self._filled is not None:
             self._filled.setChecked(settings.iconFilled)
+        if self._motion is not None:
+            self._motion.setChecked(motion.local_enabled(self.shell.store))
+        if self._covers is not None:
+            self._covers.setChecked(settings.covers)
         if self._room_row is not None:
             self._room_row.setVisible(bool(settings.show_room_url and self._room_url()))
         self.refresh_sync_state()
@@ -1671,7 +1688,7 @@ class AdminScreen(Screen):
             button = McButton("Revoke" if user.is_admin else "Make admin",
                               small=True, ghost=True, danger=user.is_admin)
             button.clicked.connect(lambda _=False, u=user: self._toggle_admin(u))
-            delete = IconButton("trash-2", size=26, icon_size=13,
+            delete = IconButton("trash-2", size=26, icon_size=16,
                                 tooltip="Delete user")
             delete.clicked.connect(lambda _=False, u=user: self._delete_user(u))
             line.addWidget(button)
@@ -1693,9 +1710,9 @@ class AdminScreen(Screen):
         line.setSpacing(16)
         text = QVBoxLayout()
         text.setContentsMargins(0, 0, 0, 0)
-        text.addWidget(Txt(title, size=13, token="fg"))
+        text.addWidget(Txt(title, size=16, token="on_surface"))
         if subtitle:
-            text.addWidget(Txt(subtitle, size=11, token="dim2", wrap=True))
+            text.addWidget(Txt(subtitle, size=14, token="on_surface_variant", wrap=True))
         line.addLayout(text, 1)
         if trailing is not None:
             line.addWidget(trailing, 0, Qt.AlignmentFlag.AlignVCenter)
@@ -1745,7 +1762,7 @@ class AdminScreen(Screen):
             copy = McButton("Copy", small=True, ghost=True)
             copy.clicked.connect(lambda _=False, c=code: QGuiApplication.clipboard().setText(
                 str(c.get("code", ""))))
-            revoke = IconButton("x", size=26, icon_size=12, tooltip="Revoke code")
+            revoke = IconButton("x", size=26, icon_size=14, tooltip="Revoke code")
             revoke.setEnabled(not code.get("expired") and not code.get("exhausted"))
             revoke.clicked.connect(lambda _=False, c=code: self.run(
                 lambda: self.shell.repo.admin_invite_revoke(int(c.get("id") or 0)),
@@ -1845,7 +1862,7 @@ class AdminScreen(Screen):
         line.setSpacing(8)
         line.addWidget(Txt(
             f"YouTube metadata: {status.get('linked', 0)}/{status.get('total', 0)} linked · "
-            f"{status.get('fetched', 0)} fetched", size=11, token="dim", wrap=True), 1)
+            f"{status.get('fetched', 0)} fetched", size=14, token="on_surface_variant", wrap=True), 1)
         start = McButton("Refresh stats", small=True, ghost=True)
         start.clicked.connect(lambda: self.run(self.shell.repo.admin_enrich_start,
                                                lambda _: self.load()))
@@ -1870,7 +1887,7 @@ class AdminScreen(Screen):
         line.setContentsMargins(16, 4, 16, 12)
         line.addWidget(Txt("Lyrics: " + ", ".join(
             f"{k}={v}" for k, v in list(status.items())[:4]
-        ) or "no status", size=11, token="dim2", wrap=True))
+        ) or "no status", size=14, token="on_surface_variant", wrap=True))
         self._jobs_line.addWidget(row)
 
 
@@ -1909,7 +1926,7 @@ class DownloadsScreen(Screen):
             )
             self.add(panel, 16)
             self.add(Txt("Approved imports appear in the library; saved tracks show up under "
-                         "“Your downloads” on this device.", size=11, token="dim2", wrap=True))
+                         "“Your downloads” on this device.", size=14, token="on_surface_variant", wrap=True))
             return
 
         from datetime import datetime
@@ -1927,9 +1944,9 @@ class DownloadsScreen(Screen):
 
         panel = Panel("Storage")
         panel.add_row("Audio files", f"{len(files)} files · {fmt_bytes(total)}",
-                      Txt("on this device", size=11, token="dim2"))
+                      Txt("on this device", size=14, token="on_surface_variant"))
         panel.add_row("API responses", f"{responses} cached replies",
-                      Txt("offline reads", size=11, token="dim2"))
+                      Txt("offline reads", size=14, token="on_surface_variant"))
         actions = QWidget()
         line = QHBoxLayout(actions)
         line.setContentsMargins(0, 0, 0, 0)
@@ -1957,11 +1974,11 @@ class DownloadsScreen(Screen):
             row_line = QHBoxLayout(trailing)
             row_line.setContentsMargins(0, 0, 0, 0)
             row_line.setSpacing(6)
-            row_line.addWidget(Txt(fmt_bytes(st.st_size), size=11, family="mono", token="dim"))
+            row_line.addWidget(Txt(fmt_bytes(st.st_size), size=14, family="mono", token="on_surface_variant"))
             play = McButton("Play", small=True, ghost=True, icon="play")
             play.clicked.connect(lambda _=False, p=path: self._play_cached(p))
             row_line.addWidget(play)
-            remove = IconButton("trash-2", size=26, icon_size=13, tooltip="Remove file")
+            remove = IconButton("trash-2", size=26, icon_size=16, tooltip="Remove file")
             remove.clicked.connect(lambda _=False, p=path: self._remove(p))
             row_line.addWidget(remove)
             when = datetime.fromtimestamp(st.st_mtime).strftime("%d %b %Y")
@@ -1970,7 +1987,7 @@ class DownloadsScreen(Screen):
         self.add(panel, 16)
         self.add(Txt("Downloads are the same stream cache the player uses. Turning off "
                      "“Stream cache” in Settings discards files after playback.",
-                     size=11, token="dim2", wrap=True))
+                     size=14, token="on_surface_variant", wrap=True))
 
     def _switch(self, tab: str) -> None:
         self.tab = tab
@@ -2060,7 +2077,7 @@ class DevicesScreen(Screen):
             rename = McButton("Rename", small=True, ghost=True)
             rename.clicked.connect(lambda _=False, d=device: self._rename(d))
             line.addWidget(rename)
-            forget = IconButton("trash-2", size=26, icon_size=13, tooltip="Forget device")
+            forget = IconButton("trash-2", size=26, icon_size=16, tooltip="Forget device")
             forget.clicked.connect(lambda _=False, d=device: self._forget(d))
             line.addWidget(forget)
             subtitle = (device.track_title or "No track") + (
@@ -2123,9 +2140,9 @@ class DevicesScreen(Screen):
 
     def _pair(self) -> None:
         sheet = Sheet(self, "Pair a device")
-        code_label = Txt("Asking the server for a code…", size=13, token="dim", wrap=True)
+        code_label = Txt("Asking the server for a code…", size=16, token="on_surface_variant", wrap=True)
         sheet.body.addWidget(code_label)
-        hint = Txt("", size=11, token="dim2", wrap=True)
+        hint = Txt("", size=14, token="on_surface_variant", wrap=True)
         sheet.body.addWidget(hint)
 
         def ok(data: dict) -> None:
@@ -2212,12 +2229,12 @@ class ListeningScreen(Screen):
         self.add(panel, 16)
         if base:
             self.add(Txt("Public profiles: " + base + "/u/username",
-                         size=11, family="mono", token="dim2", wrap=True))
+                         size=14, family="mono", token="on_surface_variant", wrap=True))
         self.reset_scroll()
 
     def _profile(self, username: str) -> None:
         sheet = Sheet(self, "Profile")
-        label = Txt("Loading " + username + "…", size=13, token="dim", wrap=True)
+        label = Txt("Loading " + username + "…", size=16, token="on_surface_variant", wrap=True)
         sheet.body.addWidget(label)
         open_web = McButton("Open profile", small=True, ghost=True, icon="arrow-up-right")
         open_web.setEnabled(False)
