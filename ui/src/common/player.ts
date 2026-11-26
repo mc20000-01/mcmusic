@@ -1,7 +1,8 @@
 import { effect, signal } from "@preact/signals";
 import { API } from "./net/api";
 import { peekAuth } from "./auth";
-import { autoplay, discordActivity, roturActivity, setAutoplayPreference, volume } from "./prefs";
+import { autoplay, discordActivity, offlineAudio, roturActivity, setAutoplayPreference, volume } from "./prefs";
+import { cacheForBrowse } from "./downloads";
 
 // One <audio> for the whole app, driven by signals so any track row and the
 // player bar stay in sync.
@@ -223,7 +224,8 @@ audio.addEventListener("pause", () => {
     saveSnapshot(true);
     emitPlaybackChange();
 });
-audio.addEventListener("ended", () => { void handleEnded(); });
+audio.addEventListener("ended", () => { postMetric("complete"); void handleEnded(); });
+audio.addEventListener("seeked", () => { postMetric("seek"); });
 audio.addEventListener("error", () => {
     isPlaying.value = false;
     playError.value = "Couldn't play this track.";
@@ -261,6 +263,24 @@ document.addEventListener("visibilitychange", () => {
 // Count a replay in a new listening session, but not every double-click.
 const lastPlayReport = new Map<string, number>();
 
+/** Always-on listening metrics: admin insight and the Faves ranking. */
+function postMetric(event: "play" | "skip" | "complete" | "seek") {
+    const id = currentId.value;
+    if (!id || !Number.isFinite(Number(id))) return;
+    const body = JSON.stringify({
+        events: [{
+            track_id: Number(id), event,
+            position: audio.currentTime || 0,
+            duration: audio.duration || 0,
+            client: "web",
+        }],
+    });
+    void fetch("/api/metrics", {
+        method: "POST", credentials: "same-origin",
+        headers: { "content-type": "application/json" }, body,
+    }).catch(() => { /* metrics never interrupt playback */ });
+}
+
 export function playTrack(id: string, meta?: Omit<NowPlaying, "id"> & { setUuid?: string; artistUuid?: string }) {
     if (currentId.value !== id) {
         currentId.value = id;
@@ -285,8 +305,10 @@ export function playTrack(id: string, meta?: Omit<NowPlaying, "id"> & { setUuid?
             method: "POST",
             credentials: "same-origin",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ track_id: Number(id) }),
+            body: JSON.stringify({ track_id: Number(id), completed: false, client: "web" }),
         }).catch(() => { /* play counts are best effort */ });
+        postMetric("play");
+        if (offlineAudio.value) void cacheForBrowse(id).catch(() => { /* best effort */ });
     }
     saveSnapshot(true);
 }
@@ -340,6 +362,7 @@ export function playQueueIndex(index: number) {
 export function playNext(opts?: { allowWrap?: boolean }) {
     const q = queue.value;
     if (q.length === 0) return;
+    if (audio.currentTime >= 3 && !audio.ended) postMetric("skip");
     if (shuffleEnabled.value && !modelShuffle.value && q.length > 1) {
         let nextIdx = queueIndex.value;
         while (nextIdx === queueIndex.value) {
@@ -360,6 +383,7 @@ export function playNext(opts?: { allowWrap?: boolean }) {
 export function playPrev() {
     const q = queue.value;
     if (q.length === 0) return;
+    if (audio.currentTime >= 3 && !audio.ended) postMetric("skip");
     if (audio.currentTime > 3) {
         seekTo(0);
         return;

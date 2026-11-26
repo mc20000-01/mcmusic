@@ -264,7 +264,7 @@ export function SettingsPage() {
                             </span>
                         )}
 
-                        <Container>
+                        <Container class="settings-card">
                             <Header3>Account</Header3>
                             <Text content={currentUser.value?.username ?? "—"} />
                             <Text dim content={currentUser.value?.is_admin ? "Administrator" : "Listener"} />
@@ -275,7 +275,7 @@ export function SettingsPage() {
 
                         <Seperator />
 
-                        <Container>
+                        <Container class="settings-card">
                             <Header3>Appearance</Header3>
                             <Text dim content="Palettes follow your device's light or dark setting. Pick a colour family, then save preferences." />
                             <WrapList min_size={150}>
@@ -344,7 +344,7 @@ export function SettingsPage() {
 
                         <Seperator />
 
-                        <Container class="selfhost-panel">
+                        <Container class="settings-card selfhost-panel">
                             <Header3>Server &amp; self-hosting</Header3>
                             <Text dim content="This server's details and the guide to running your own." />
                             <div class="server-facts">
@@ -369,7 +369,7 @@ export function SettingsPage() {
 
                         <Seperator />
 
-                        <Container>
+                        <Container class="settings-card">
                             <Header3>Email</Header3>
                             <Text dim content="Password reset links and app downloads are sent here." />
                             <FormalInput label="Email address">
@@ -386,7 +386,7 @@ export function SettingsPage() {
 
                         <Seperator />
 
-                        <Container>
+                        <Container class="settings-card">
                             <Header3>Rotur status</Header3>
                             <Container horizontal centered_y class="status-line" other={{ role: "status" }}>
                                 {roturLinked && rotur?.session_valid
@@ -413,7 +413,7 @@ export function SettingsPage() {
 
                         <Seperator />
 
-                        <Container>
+                        <Container class="settings-card">
                             <Header3>Discord</Header3>
                             <Container horizontal centered_y class="status-line" other={{ role: "status" }}>
                                 {discordLinked && discord?.session_valid
@@ -442,7 +442,7 @@ export function SettingsPage() {
 
                         <Seperator />
 
-                        <Container>
+                        <Container class="settings-card">
                             <Header3>Change password</Header3>
                             <FormalInput label="Current password">
                                 <PasswordInput value={oldPw} />
@@ -461,7 +461,7 @@ export function SettingsPage() {
 
                         <Seperator />
 
-                        <Container>
+                        <Container class="settings-card">
                             <Header3>Offline sync</Header3>
                             <Text dim content={`${pending} change${pending === 1 ? "" : "s"} waiting to sync.`} />
                             <Container horizontal centered_y wrap class="status-actions">
@@ -475,7 +475,7 @@ export function SettingsPage() {
 
                         <Seperator />
 
-                        <Container>
+                        <Container class="settings-card">
                             <Header3>Get the app</Header3>
                             {builds.length === 0
                                 ? <Text dim content="No builds are published yet." />
@@ -515,7 +515,7 @@ export function SettingsPage() {
 
                         <Seperator />
 
-                        <Container>
+                        <Container class="settings-card">
                             <Header3>Playback</Header3>
                             <Container horizontal centered_y>
                                 <Text content={`Volume ${Math.round(Number(settings!.volume ?? 0.8) * 100)}%`} />
@@ -553,7 +553,7 @@ export function SettingsPage() {
                         </Container>
 
                         {settings!.room_url && (
-                            <Container>
+                            <Container class="settings-card">
                                 <Header3>Listen along</Header3>
                                 <Text selectable content={String(settings!.room_url)} />
                             </Container>
