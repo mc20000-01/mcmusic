@@ -26,6 +26,7 @@ struct RootView: View {
             }
         }
         .mcmusicPalette()
+        .mcmusicMotion()
         .alert("mcmusic", isPresented: $app.showingMessage) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -58,7 +59,7 @@ struct MainTabs: View {
             HomeView().tabItem { tabLabel("Home", icon: "home") }
             SearchView().tabItem { tabLabel("Search", icon: "search") }
             LibraryView().tabItem { tabLabel("Library", icon: "library") }
-            ListeningView().tabItem { tabLabel("Listening", icon: "radio") }
+            ListeningView().tabItem { tabLabel("Listening", icon: "headphones") }
             DownloadsView().tabItem { tabLabel("Downloads", icon: "download") }
             PlaylistsView().tabItem { tabLabel("Playlists", icon: "list-music") }
             RequestsView().tabItem { tabLabel("Requests", icon: "inbox") }
@@ -81,27 +82,48 @@ struct MainTabs: View {
     }
 
     private var miniPlayer: some View {
-        HStack(spacing: 10) {
-            CoverView(url: app.client.coverURL(app.player.current?.coverID), size: 40)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(app.player.currentTitle).font(.subheadline.weight(.medium)).lineLimit(1)
-                Text(app.player.currentArtist).font(.caption).foregroundStyle(tokens.dim).lineLimit(1)
+        VStack(spacing: M3Shape.sm) {
+            HStack(spacing: M3Shape.md) {
+                Button { showingNowPlaying = true } label: {
+                    HStack(spacing: M3Shape.md) {
+                        CoverView(url: app.client.coverURL(app.player.current?.coverID),
+                                  seed: app.player.currentTitle,
+                                  size: 44,
+                                  radius: M3Shape.coverSmall)
+                        VStack(alignment: .leading, spacing: M3Shape.xs) {
+                            Text(app.player.currentTitle)
+                                .font(M3Type.label)
+                                .lineLimit(1)
+                            Text(app.player.currentArtist)
+                                .font(.caption)
+                                .foregroundStyle(tokens.dim)
+                                .lineLimit(1)
+                        }
+                    }
+                    .frame(minHeight: M3Shape.touch)
+                }
+                .buttonStyle(PlayfulButtonStyle(haptic: false))
+                .accessibilityLabel("Open now playing")
+
+                Spacer(minLength: 0)
+                PlayPauseButton(playing: app.player.isPlaying, size: 48) {
+                    app.player.toggle()
+                }
+                PlayfulIconButton(icon: "skip-forward", size: 20,
+                                  tint: tokens.fg, label: "Next track") {
+                    app.player.next()
+                }
             }
-            Spacer()
-            Button { app.player.toggle() } label: {
-                LucideIcon(name: app.player.isPlaying ? "pause" : "play", size: 20, color: tokens.accent)
-            }
-            Button { app.player.next() } label: {
-                LucideIcon(name: "skip-forward", size: 20, color: tokens.fg)
-            }
-            Button { showingNowPlaying = true } label: {
-                LucideIcon(name: "chevron-up", size: 18, color: tokens.dim)
-            }
+
+            PlayfulProgress(fraction: app.player.duration > 0
+                            ? app.player.progress / app.player.duration : 0,
+                            playing: app.player.isPlaying)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(tokens.surface)
-        .overlay(Rectangle().frame(height: 1).foregroundStyle(tokens.line), alignment: .top)
-        .onTapGesture { showingNowPlaying = true }
+        .padding(.horizontal, M3Shape.lg)
+        .padding(.vertical, M3Shape.md)
+        .background(
+            RoundedRectangle(cornerRadius: M3Shape.card, style: .continuous)
+                .fill(tokens.surfaceContainerLow)
+        )
     }
 }
