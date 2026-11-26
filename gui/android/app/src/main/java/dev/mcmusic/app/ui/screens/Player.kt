@@ -127,7 +127,7 @@ fun PlayerScreen(onBack: () -> Unit, onVideo: (String?, Long) -> Unit = { _, _ -
         dragOffset += dy
         val index = heldRow
         val center = if (index >= 0) rowCenter(index) else null
-        dropSlot = center?.let { nearestQueueIndex(it + dragOffset) }
+        dropSlot = center?.let { listState.nearestQueueIndex(it + dragOffset) }
             ?.coerceIn(0, state.queue.lastIndex.coerceAtLeast(0)) ?: index
     }
 
