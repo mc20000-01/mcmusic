@@ -45,6 +45,7 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import dev.mcmusic.app.data.Api
 import dev.mcmusic.app.data.VideoInfo
 import dev.mcmusic.app.playback.Playback
+import dev.mcmusic.app.playback.checkedFactory
 import dev.mcmusic.app.ui.Cover
 import dev.mcmusic.app.ui.EmptyState
 import dev.mcmusic.app.ui.ErrorLine
@@ -210,9 +211,9 @@ private fun VideoPlaybackScreen(
     }
 
     val player = remember(url) {
-        val source = DefaultHttpDataSource.Factory()
+        val source = checkedFactory(DefaultHttpDataSource.Factory()
             .setUserAgent("mcmusic-android")
-            .setDefaultRequestProperties(Api.authHeaders())
+            .setDefaultRequestProperties(Api.authHeaders()))
         ExoPlayer.Builder(context)
             .setMediaSourceFactory(DefaultMediaSourceFactory(source))
             .build()

@@ -116,7 +116,7 @@ object Widgets {
             BitmapFactory.decodeFile(file.absolutePath, opts)?.let { return it }
         }
         return runCatching {
-            runBlocking { Api.cover("${Api.server}/api/tracks/${track.id}/cover") }?.let { bytes ->
+            runBlocking { Api.cover(Api.url("/api/tracks/${track.id}/cover")) }?.let { bytes ->
                 BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
             }
         }.getOrNull()

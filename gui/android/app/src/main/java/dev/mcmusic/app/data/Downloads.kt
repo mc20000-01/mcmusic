@@ -9,8 +9,6 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
-import java.net.HttpURLConnection
-import java.net.URL
 
 data class Download(
     val id: Int,
@@ -85,12 +83,10 @@ object Downloads {
         active = active + track.id
         try {
             val tmp = File(d, "${track.id}.part")
-            val conn = (URL(Api.streamUrl(track.id)).openConnection() as HttpURLConnection).apply {
-                connectTimeout = 15_000
-                readTimeout = 60_000
-                setRequestProperty("Accept", "audio/*")
-                Api.authHeaders().forEach { (name, value) -> setRequestProperty(name, value) }
-            }
+            val conn = CheckedHttp.open(
+                Api.streamUrl(track.id), connectTimeout = 15_000, readTimeout = 60_000,
+                headers = mapOf("Accept" to "audio/*") + Api.authHeaders(),
+            )
             try {
                 if (conn.responseCode !in 200..299) {
                     throw ApiException(conn.responseCode, "server said ${conn.responseCode}")

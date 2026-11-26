@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import time
 from dataclasses import replace
-from pathlib import Path
 from typing import Any, Callable, Optional, Sequence
 
 from shiboken6 import isValid
@@ -81,7 +80,6 @@ from .widgets import (
     Sheet,
     Txt,
     VolumeControl,
-    confirm,
     prompt,
 )
 
@@ -1071,7 +1069,8 @@ class StatusStrip(QWidget):
         self.sync.clicked.connect(window.sync_outbox)
         self.sync.setVisible(False)
         line.addWidget(self.sync)
-        self.update_button = McButton("Download", small=True, ghost=True, icon="download")
+        self.update_button = McButton("Open page", small=True, ghost=True, icon="download")
+        self.update_button.setToolTip("Open the public download page in your browser")
         self.update_button.clicked.connect(window.open_update)
         self.update_button.setVisible(False)
         line.addWidget(self.update_button)
@@ -1141,7 +1140,6 @@ class McWindow(QMainWindow):
         self._activity_at = 0.0
         self._last_remote_command = 0
         self._update: Optional[BuildInfo] = None
-        self._update_kind = ""
         self._update_url = ""
         self._notice = ""
         self._radio_busy = False
@@ -1425,45 +1423,11 @@ class McWindow(QMainWindow):
         )
 
     def open_update(self) -> None:
-        """Status-strip handler: download and hand off the platform installer."""
-        if self._update is None:
-            if not self._update_url:
-                return
-            QDesktopServices.openUrl(QUrl(self._update_url))
-            return
-        label = self._update.label or "Update"
-        if not confirm(self, "Update available",
-                       f"Download {label} {self._update.version} and open it?",
-                       confirm_label="Download"):
-            return
-        self.install_update(self._update, ask=False)
-
-    def install_update(self, build: Optional[BuildInfo], *, ask: bool = True) -> None:
-        """Cache one published build, verify it, then open it with the OS shell."""
-        if build is None or not build.available or not build.url:
+        """Open the public download page; never fetch or launch a build here."""
+        if not self._update_url:
             self.toast("No update is available for this platform")
             return
-        if ask and not confirm(
-            self, "Install update",
-            f"Download {build.label} {build.version} and open it?",
-            confirm_label="Download",
-        ):
-            return
-
-        def job() -> Path:
-            return updates.download(build, self.api.base_url)
-
-        def ok(path: Path) -> None:
-            if updates.open_installer(path):
-                self.toast(f"Update saved to {path}")
-            else:
-                self.toast(f"Update saved to {path} — open it to install")
-
-        def fail(exc: Exception) -> None:
-            self.toast(f"Update download failed: {exc}")
-
-        self.toast(f"Downloading {build.label} {build.version}…")
-        self.run(job, ok, fail)
+        QDesktopServices.openUrl(QUrl(self._update_url))
 
     def sign_out(self) -> None:
         def job() -> None:
@@ -2258,15 +2222,13 @@ class McWindow(QMainWindow):
 
     def _check_updates(self, done: Optional[Callable[[Optional[BuildInfo]], None]] = None
                        ) -> None:
-        def job() -> tuple[list, dict]:
-            return self.repo.builds(), self.repo.version()
+        def job() -> list:
+            return self.repo.builds()
 
-        def ok(result: tuple[list, dict]) -> None:
-            builds, _version = result
+        def ok(builds: list) -> None:
             found = updates.find_update(builds, VERSION)
             self._update = found
-            self._update_kind = found.kind if found else ""
-            self._update_url = self.repo.build_url(found.url) if found else ""
+            self._update_url = updates.download_page(self.api.base_url) if found else ""
             notice = f"Update available · {found.label} {found.version}" if found else ""
             self._set_online(not self._offline, pending=self.api.pending_writes(),
                              notice=notice)

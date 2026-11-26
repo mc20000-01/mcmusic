@@ -11,33 +11,12 @@ import java.net.CookiePolicy
 import java.net.CookieStore
 import java.net.HttpCookie
 import java.net.HttpURLConnection
-import java.net.InetAddress
 import java.net.URI
 import java.net.URL
 
 /** Public guide linked from Settings and the sign-in screen. */
 const val SELFHOST_GUIDE_URL =
     "https://github.com/mc20000-01/mcmusic/blob/main/docs/selfhost.md"
-
-/**
- * Android cannot express private IP ranges in network_security_config.xml, so
- * the OS permits cleartext and every mcmusic connection passes through here.
- * Loopback, link-local and site-local addresses cover localhost, 10.0.2.2 and
- * the 10/8, 172.16/12, 192.168/16 self-hosted LAN ranges.
- */
-object CleartextPolicy {
-    fun requireAllowed(url: String) {
-        val uri = URI(url)
-        if (!uri.scheme.equals("http", ignoreCase = true)) return
-        val host = uri.host ?: throw SecurityException("HTTP URL without a host: $url")
-        val address = InetAddress.getByName(host)
-        val allowed = address.isLoopbackAddress || address.isLinkLocalAddress ||
-            address.isSiteLocalAddress || host.equals("localhost", ignoreCase = true)
-        if (!allowed) {
-            throw SecurityException("Cleartext HTTP is only allowed on private networks: $url")
-        }
-    }
-}
 
 data class Track(
     val id: Int,
@@ -194,6 +173,15 @@ object Api {
 
     val server: String get() = Prefs.server
 
+    /** Resolve a server path and apply the cleartext policy in one place. */
+    fun url(path: String): String = CleartextPolicy.check(server + path)
+
+    /** Check an absolute URL supplied by the server (covers, profile links). */
+    fun checkedUrl(url: String): String = CleartextPolicy.check(url)
+
+    /** Rejected links are skipped rather than crashing a tap on user data. */
+    fun externalUrl(url: String): String? = runCatching { checkedUrl(url) }.getOrNull()
+
     /** Stable identity used for both device pairing and playback heartbeats. */
     val deviceHash: String
         get() = "android-" + android.provider.Settings.Secure.getString(
@@ -310,7 +298,7 @@ object Api {
     }
 
     fun linkAuthorizeUrl(provider: String, ticket: String): String =
-        "$server/api/auth/$provider/authorize?link=${enc(ticket)}"
+        url("/api/auth/$provider/authorize?link=${enc(ticket)}")
 
     suspend fun unlink(provider: String): Result<Unit> = call {
         request("/api/auth/$provider/unlink", "POST", null)
@@ -332,7 +320,7 @@ object Api {
         videoOf(JSONObject(get("/api/videos/${enc(ytId)}$suffix")))
     }
 
-    fun videoUrl(ytId: String): String = "$server/video-cache/${enc(ytId)}.mp4"
+    fun videoUrl(ytId: String): String = url("/video-cache/${enc(ytId)}.mp4")
 
     /** Personalised feed: made-for-you sections plus recently added albums. */
     suspend fun home(): Result<HomeFeed> = call {
@@ -755,9 +743,7 @@ object Api {
     }
 
     /** Where ExoPlayer reads audio; the token travels with the request. */
-    fun streamUrl(id: Int): String = (server + "/api/tracks/$id/stream").also {
-        CleartextPolicy.requireAllowed(it)
-    }
+    fun streamUrl(id: Int): String = url("/api/tracks/$id/stream")
 
     /** Headers every authenticated media/image request needs. */
     fun authHeaders(): Map<String, String> =
@@ -771,9 +757,12 @@ object Api {
 
     suspend fun cover(url: String): ByteArray? = withContext(Dispatchers.IO) {
         if (url.isBlank()) return@withContext null
-        CleartextPolicy.requireAllowed(url)
+        val target = checkedUrl(url)
         runCatching {
-            val conn = URL(url).openConnection() as HttpURLConnection
+            val conn = URL(target).openConnection() as HttpURLConnection
+            // No automatic redirect: the URL was policy-checked, and the OS now
+            // permits cleartext globally. A redirect must fail, not bypass it.
+            conn.instanceFollowRedirects = false
             conn.connectTimeout = 8000
             conn.readTimeout = 12000
             conn.setRequestProperty("Accept", "image/*")
@@ -895,10 +884,11 @@ object Api {
     private fun post(path: String, body: String): String = request(path, "POST", body)
 
     private fun request(path: String, method: String, body: String?): String {
-        val url = server + path
-        CleartextPolicy.requireAllowed(url)
-        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+        val target = url(path)
+        val conn = (URL(target).openConnection() as HttpURLConnection).apply {
             requestMethod = method
+            // See cover(): never follow a redirect that was not policy-checked.
+            instanceFollowRedirects = false
             connectTimeout = 10_000
             readTimeout = 15_000
             setRequestProperty("Accept", "application/json")

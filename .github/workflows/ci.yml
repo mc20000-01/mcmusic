@@ -58,6 +58,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Compile and package the debug APK
         run: (cd gui/android && ./gradlew :app:assembleDebug --no-daemon --stacktrace)
+      - name: Run Android JVM unit tests
+        # CleartextPolicy is pure JVM code (no emulator); these tests prove the
+        # private-range parsing without DNS or sockets.
+        run: (cd gui/android && ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace)
       - name: Build and verify the signed release APK
         run: |
           set -euo pipefail

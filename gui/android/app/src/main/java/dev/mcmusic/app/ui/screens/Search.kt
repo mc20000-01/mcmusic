@@ -147,7 +147,7 @@ fun SearchScreen(onPlaylist: (Int) -> Unit, onOpenPlayer: () -> Unit) {
                 Row(
                     Modifier.fillMaxWidth().mcSurface(RoundedCornerShape(8.dp))
                         .clickable(enabled = person.profileUrl.isNotBlank()) {
-                            runCatching { uriHandler.openUri(person.profileUrl) }
+                            Api.externalUrl(person.profileUrl)?.let { runCatching { uriHandler.openUri(it) } }
                         }
                         .padding(10.dp),
                     verticalAlignment = Alignment.CenterVertically,

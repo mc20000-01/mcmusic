@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
     <!-- Android <domain> rules cannot express CIDR ranges, so a declarative
-         network-security config cannot allow 10.0.0.0/8, 172.16.0.0/12 and
-         192.168.0.0/16 while denying public HTTP. The OS therefore permits
-         cleartext here, and CleartextPolicy in Api.kt rejects every http://
-         URL whose host is not loopback/link-local/site-local before any
-         connection is opened. HTTPS remains the default everywhere else. -->
+         network-security config cannot allow 10/8, 172.16/12, 192.168/16,
+         100.64/10 (Tailscale) and fc00::/7 while denying public HTTP. The OS
+         therefore permits cleartext here and every mcmusic connection goes
+         through CleartextPolicy.kt: it accepts only private IP literals,
+         localhost and *.local, resolves no DNS, and is re-applied at connect
+         time for ExoPlayer, downloads and HTTP redirects. HTTPS is unchanged. -->
     <base-config cleartextTrafficPermitted="true" />
 </network-security-config>

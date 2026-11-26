@@ -217,7 +217,7 @@ private fun ListenerCard(listener: Listener) {
             .width(210.dp)
             .mcSurface(RoundedCornerShape(8.dp))
             .clickable(enabled = listener.profileUrl.isNotBlank()) {
-                runCatching { uriHandler.openUri(listener.profileUrl) }
+                Api.externalUrl(listener.profileUrl)?.let { runCatching { uriHandler.openUri(it) } }
             }
             .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -286,4 +286,4 @@ private fun TrackCard(track: Track, onPlay: () -> Unit) {
     }
 }
 
-fun albumCoverUrl(coverId: Int?): String = coverId?.let { "${Api.server}/api/tracks/$it/cover" } ?: ""
+fun albumCoverUrl(coverId: Int?): String = coverId?.let { Api.url("/api/tracks/$it/cover") } ?: ""
