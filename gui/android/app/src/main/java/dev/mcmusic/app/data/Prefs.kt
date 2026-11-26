@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import dev.mcmusic.app.BuildConfig
+import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.math.abs
 
@@ -39,6 +40,14 @@ internal fun String?.toIconStroke(): IconStroke {
  * the design language repaints immediately, and SharedPreferences so both
  * survive a restart. Home screen widgets read the same values.
  */
+/** One automatic-download target, with its own connection rule. */
+data class DownloadSource(
+    val kind: String, // playlist | likes | artist | album
+    val ref: String,
+    val name: String,
+    val network: String = "wifi", // wifi | stable | any
+)
+
 object Prefs {
     private const val FILE = "mcmusic"
     private var sp: android.content.SharedPreferences? = null
@@ -79,6 +88,18 @@ object Prefs {
     var wifiOnly by mutableStateOf(false)
         private set
 
+    /** Keep the metrics-ranked Faves playlist on this device. */
+    var autoFaves by mutableStateOf(false)
+        private set
+
+    /** Connection rule used by Faves: wifi, stable or any. */
+    var autoFavesNetwork by mutableStateOf("wifi")
+        private set
+
+    /** User-managed playlists/artists/albums to keep offline. */
+    var downloadSources by mutableStateOf<List<DownloadSource>>(emptyList())
+        private set
+
     /** Tab changes and other small transitions animate. */
     var motion by mutableStateOf(true)
         private set
@@ -117,6 +138,9 @@ object Prefs {
         widgetUser = p.getString("widget_user", null)?.takeIf { it.isNotBlank() }
         sleepEndsAt = p.getLong("sleep_ends_at", 0L)
         wifiOnly = p.getBoolean("wifi_only", false)
+        autoFaves = p.getBoolean("auto_faves", false)
+        autoFavesNetwork = normalizeNetwork(p.getString("auto_faves_network", "wifi"))
+        downloadSources = readSources(p.getString("download_sources", null))
         motion = p.getBoolean("motion", true)
         autoplay = p.getBoolean("autoplay", true)
         roturActivity = p.getBoolean("rotur_activity", true)
@@ -157,6 +181,56 @@ object Prefs {
     fun saveWifiOnly(enabled: Boolean) {
         wifiOnly = enabled
         sp?.edit()?.putBoolean("wifi_only", enabled)?.apply()
+    }
+
+    private fun normalizeNetwork(value: String?): String = when (value) {
+        "stable", "any" -> value
+        else -> "wifi"
+    }
+
+    private fun readSources(raw: String?): List<DownloadSource> = runCatching {
+        val arr = JSONArray(raw ?: "[]")
+        buildList {
+            for (i in 0 until arr.length()) {
+                val o = arr.optJSONObject(i) ?: continue
+                val kind = o.optString("kind")
+                val ref = o.optString("ref")
+                if (kind.isBlank() || ref.isBlank()) continue
+                add(
+                    DownloadSource(
+                        kind = kind,
+                        ref = ref,
+                        name = o.optString("name").ifBlank { ref },
+                        network = normalizeNetwork(o.optString("network")),
+                    ),
+                )
+            }
+        }
+    }.getOrDefault(emptyList())
+
+    fun saveAutoFaves(enabled: Boolean) {
+        autoFaves = enabled
+        sp?.edit()?.putBoolean("auto_faves", enabled)?.apply()
+    }
+
+    fun saveAutoFavesNetwork(network: String) {
+        autoFavesNetwork = normalizeNetwork(network)
+        sp?.edit()?.putString("auto_faves_network", autoFavesNetwork)?.apply()
+    }
+
+    fun saveDownloadSources(sources: List<DownloadSource>) {
+        downloadSources = sources
+        val arr = JSONArray()
+        sources.forEach { source ->
+            arr.put(
+                JSONObject()
+                    .put("kind", source.kind)
+                    .put("ref", source.ref)
+                    .put("name", source.name)
+                    .put("network", normalizeNetwork(source.network)),
+            )
+        }
+        sp?.edit()?.putString("download_sources", arr.toString())?.apply()
     }
 
     fun saveMotion(enabled: Boolean) {

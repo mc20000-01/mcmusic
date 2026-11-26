@@ -7,6 +7,7 @@ struct LibraryView: View {
     @State private var albums: [JSON] = []
     @State private var artists: [JSON] = []
     @State private var liked: [JSON] = []
+    @State private var playlists: [JSON] = []
     @State private var loading = true
 
     var body: some View {
@@ -16,7 +17,8 @@ struct LibraryView: View {
                     Text("Songs").tag(0)
                     Text("Albums").tag(1)
                     Text("Artists").tag(2)
-                    Text("Liked").tag(3)
+                    Text("Playlists").tag(3)
+                    Text("Liked").tag(4)
                 }
                 .pickerStyle(.segmented)
                 .padding()
@@ -28,6 +30,7 @@ struct LibraryView: View {
                     case 0: trackList(tracks)
                     case 1: albumGrid(albums)
                     case 2: artistList(artists)
+                    case 3: playlistList(playlists)
                     default: trackList(liked)
                     }
                 }
@@ -90,6 +93,27 @@ struct LibraryView: View {
         .listStyle(.plain)
     }
 
+    private func playlistList(_ rows: [JSON]) -> some View {
+        List {
+            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                NavigationLink(value: Detail.playlist(row["id"]?.int ?? 0)) {
+                    HStack {
+                        CoverView(url: app.client.coverURL(row["cover_id"]), size: 44)
+                        VStack(alignment: .leading) {
+                            Text(row["name"]?.string ?? "Playlist")
+                            Text("\(row["count"]?.int ?? 0) songs")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+        }
+        .listStyle(.plain)
+        .overlay {
+            if rows.isEmpty { StateView(text: "No playlists yet", icon: "list-music") }
+        }
+    }
+
     private func load() async {
         loading = true
         defer { loading = false }
@@ -98,6 +122,7 @@ struct LibraryView: View {
             albums = try await app.client.albums()
             artists = try await app.client.artists()
             liked = try await app.client.likes()
+            playlists = try await app.client.playlists()
         } catch { app.show(error) }
     }
 }

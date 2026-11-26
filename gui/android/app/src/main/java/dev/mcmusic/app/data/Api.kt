@@ -436,8 +436,26 @@ object Api {
         request(
             "/api/plays",
             "POST",
-            JSONObject().put("track_id", trackId).put("completed", completed).toString(),
+            JSONObject().put("track_id", trackId).put("completed", completed)
+                .put("client", "android").toString(),
         )
+        Unit
+    }
+
+    /** Always-on listening events: skips, completions and seeks. */
+    suspend fun recordMetric(
+        trackId: Int,
+        event: String,
+        positionMs: Long = 0L,
+        durationMs: Long = 0L,
+    ): Result<Unit> = call {
+        val payload = JSONObject()
+            .put("track_id", trackId)
+            .put("event", event)
+            .put("position", positionMs / 1000.0)
+            .put("duration", durationMs / 1000.0)
+            .put("client", "android")
+        request("/api/metrics", "POST", JSONObject().put("events", JSONArray().put(payload)).toString())
         Unit
     }
 

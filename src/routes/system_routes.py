@@ -1609,6 +1609,63 @@ def admin_stats():
     )
 
 
+@bp.get("/api/admin/metrics")
+@admin_required
+def admin_metrics():
+    """Aggregate always-on listening metrics for the admin insight page."""
+    c = _db()
+    by_event = {r["event"]: r["n"] for r in c.execute(
+        "select event, count(*) n from listening_events group by event")}
+    plays = by_event.get("play", 0)
+    completions = by_event.get("complete", 0)
+    days = [dict(r) for r in c.execute(
+        """select date(ts,'unixepoch') day,
+                  sum(case when event='play' then 1 else 0 end) plays,
+                  sum(case when event='complete' then 1 else 0 end) completions,
+                  sum(case when event='skip' then 1 else 0 end) skips
+           from listening_events where ts > ? group by day order by day""",
+        (time.time() - 14 * 86400,))]
+    top = [dict(r) for r in c.execute(
+        """select e.track_id, t.title, t.artist,
+                  sum(case when e.event='play' then 1 else 0 end) plays,
+                  sum(case when e.event='complete' then 1 else 0 end) completions,
+                  sum(case when e.event='skip' then 1 else 0 end) skips,
+                  count(*) events
+           from listening_events e join tracks t on t.id=e.track_id
+           group by e.track_id order by events desc, max(e.ts) desc limit 12""")]
+    listeners = [dict(r) for r in c.execute(
+        """select u.id user_id, u.username, count(*) events,
+                  sum(case when e.event='play' then 1 else 0 end) plays,
+                  sum(case when e.event='complete' then 1 else 0 end) completions,
+                  sum(case when e.event='skip' then 1 else 0 end) skips,
+                  max(e.ts) last_seen
+           from listening_events e join users u on u.id=e.user_id
+           group by u.id order by events desc limit 20""")]
+    return jsonify(
+        events=sum(by_event.values()), by_event=by_event, days=days,
+        top_tracks=top, listeners=listeners,
+        completion_rate=(completions / plays) if plays else 0.0,
+    )
+
+
+@bp.get("/api/admin/history/<int:uid>")
+@admin_required
+def admin_history(uid):
+    """Recent listening events for one account (admin-only)."""
+    c = _db()
+    u = c.execute("select id, username from users where id=?", (uid,)).fetchone()
+    if not u:
+        return jsonify(error="not found"), 404
+    limit = min(max(int(request.args.get("limit", 100)), 1), 500)
+    rows = c.execute(
+        """select e.ts, e.event, e.position, e.duration, e.client,
+                  e.track_id, t.title, t.artist
+           from listening_events e left join tracks t on t.id=e.track_id
+           where e.user_id=? order by e.id desc limit ?""", (uid, limit)
+    ).fetchall()
+    return jsonify(user=dict(u), events=[dict(r) for r in rows])
+
+
 @bp.get("/api/admin/algo")
 @admin_required
 def admin_algo():

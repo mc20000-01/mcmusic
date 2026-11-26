@@ -153,7 +153,23 @@ extension APIClient {
     }
 
     func reportPlay(_ trackID: Int, completed: Bool) async {
-        try? await post("plays", json: ["track_id": trackID, "completed": completed])
+        try? await post("plays", json: [
+            "track_id": trackID, "completed": completed, "client": "ios",
+        ])
+    }
+
+    /// Always-on listening metrics: admin insight and the Faves ranking.
+    func reportMetric(
+        _ trackID: Int, event: String, position: Double = 0, duration: Double = 0,
+    ) async {
+        guard ["play", "skip", "complete", "seek"].contains(event) else { return }
+        let payload: [String: Any] = [
+            "events": [[
+                "track_id": trackID, "event": event,
+                "position": position, "duration": duration, "client": "ios",
+            ]],
+        ]
+        try? await post("metrics", json: payload)
     }
 
     func setExplicit(_ trackID: Int, explicit: Bool) async throws {
