@@ -149,6 +149,9 @@ jobs:
       # segfault inside Qt's platform plugin. The opt-in stub replaces only the
       # audio backend, so all client logic still runs for real.
       MC_MUSIC_QT_AUDIO_STUB: "1"
+      # QSettings caches its native path on first use, so isolate the whole
+      # process before any Qt suite creates a QApplication.
+      XDG_CONFIG_HOME: ${{ runner.temp }}/mcmusic-config
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
