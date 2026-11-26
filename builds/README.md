@@ -13,8 +13,11 @@ by `scripts/publish_apps.sh` and by `.github/workflows/release.yml`).
 
 The current files are attached to the rolling **latest** GitHub Release on
 every push to `main`, and `https://<server>/get` redirects to the newest Android
-build. Older versioned APKs may remain here for rollback, but the release only
-advertises the current one.
+build. When the desktop `FALLBACK_VERSION` changes, that run also creates an
+immutable `v<version>` release with the same versioned artifacts. Version
+releases are never overwritten and are deliberately not marked GitHub Latest;
+`latest` is the only release the server's build fallback reads. Older versioned
+APKs may remain here for rollback, but neither release advertises them.
 
 ## Android signing
 

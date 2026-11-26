@@ -523,7 +523,7 @@ footer{{margin-top:30px;font-size:13px;color:var(--dim)}}
 <p>Official clients for your phone, tablet and computer. No sign-in needed.</p>
 <ul>{listing}</ul>
 <p><a href="/get">/get</a> always opens the newest signed Android APK.</p>
-<footer>Builds are pulled from the public <a href="https://github.com/mc20000-01/mcmusic/releases/tag/latest">GitHub Release</a> when this server has no local build. See the <a href="https://github.com/mc20000-01/mcmusic/blob/main/docs/selfhost.md">self-hosting guide</a>.</footer>
+<footer>Builds are pulled from the public <a href="https://github.com/mc20000-01/mcmusic/releases/latest">GitHub Release</a> when this server has no local build. See the <a href="https://github.com/mc20000-01/mcmusic/blob/main/docs/selfhost.md">self-hosting guide</a>.</footer>
 </main></body></html>"""
 
 
