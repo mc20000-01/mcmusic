@@ -225,28 +225,50 @@ def artist_names(raw_title="", artist="", creator="", uploader="", channel="", d
             if name and name.casefold() not in {n.casefold() for n in credited}:
                 credited.append(name)
 
-    # Explicit upload metadata is the source of truth. A title like
-    # "Trickle • Forget Me Not (MV) – Reverse: 1999" has a dash, but the text
-    # before it is a song title, not an artist -- trusting it produced broken
-    # artist names. The channel/uploader only loses to a real artist/creator
-    # tag, never to a title fragment.
-    for value in (artist, creator, uploader, channel):
-        add(value)
-    if not credited:
-        # No upload credits at all: fall back to the old title parsing.
-        title_credits = []
+    def add_dash_prefix():
         pos = _first_dash(raw)
         if pos > 0 and len(raw[:pos]) <= 80:
-            title_credits.append(raw[:pos])
-        for pattern in (CREDIT_BRACKET_RE, FEAT_RE):
-            for match in pattern.finditer(raw):
-                title_credits.append(match.group(1))
-        for value in title_credits:
+            add(raw[:pos])
+
+    # Credit precedence: explicit artist/creator tags first, then credits
+    # written into the title, then the posting account. A validated
+    # 【Name】/[Name] bracket or a feat. marker is an explicit title credit and
+    # beats uploader/channel -- those often name the uploader, not the singer.
+    # A bare dash split is only trusted when nothing else is credited: in
+    # "Trickle • Forget Me Not (MV) – Reverse: 1999" the prefix is the song
+    # title, not an artist.
+    for value in (artist, creator):
+        add(value)
+    tagged = list(credited)
+
+    credit_brackets = [
+        _squash(match.group(1)) for match in CREDIT_BRACKET_RE.finditer(raw)
+        if _is_credit_bracket(_squash(match.group(1)))
+    ]
+    feat_credits = [match.group(1) for match in FEAT_RE.finditer(raw)]
+
+    if tagged:
+        credited = tagged
+    elif credit_brackets:
+        # "Song 【Will Stetson】" is a credit; "Song 【Official MV】" is not.
+        for value in credit_brackets:
+            add(value)
+    elif feat_credits:
+        # An explicit feat. makes the dash prefix an artist credit too.
+        add_dash_prefix()
+    elif uploader or channel:
+        for value in (uploader, channel):
             add(value)
     else:
-        # Featured credits in the title/description are still worth keeping.
-        for match in FEAT_RE.finditer(raw):
-            add(match.group(1))
+        # No credits at all: fall back to the old title parsing, but never
+        # turn version/source brackets into artists.
+        add_dash_prefix()
+        for value in credit_brackets:
+            add(value)
+
+    # Featured credits stay explicit collaborations, even alongside a tag.
+    for value in feat_credits:
+        add(value)
     for line in CREDIT_LINE_RE.findall(str(description or "")):
         add(line)
     return credited[:8]

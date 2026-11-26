@@ -45,10 +45,56 @@ class SongMetaTests(unittest.TestCase):
         self.assertNotIn("Some Channel", meta["artist"])
 
         meta = song_meta.parse_song_meta(
+            "IRIS OUT (English Cover)「CHAINSAW MAN - Reze Arc OP」[Will Stetson]",
+            channel="Some Channel",
+        )
+        self.assertEqual(meta["artists"], ["Will Stetson"])
+        self.assertNotIn("Some Channel", meta["artist"])
+
+        meta = song_meta.parse_song_meta(
             "A feat. B - Song (Official Video)", uploader="Uploader Topic"
         )
         self.assertEqual(meta["title"], "Song")
         self.assertEqual(meta["artists"], ["A", "B"])
+
+    def test_credit_bracket_beats_channel_but_not_artist_or_creator_tag(self):
+        title = "IRIS OUT (English Cover)「CHAINSAW MAN - Reze Arc OP」【Will Stetson】"
+        meta = song_meta.parse_song_meta(title, channel="Some Channel")
+        self.assertEqual(meta["artists"], ["Will Stetson"])
+
+        meta = song_meta.parse_song_meta(
+            title, artist="Tagged Artist", uploader="Some Channel")
+        self.assertEqual(meta["artists"], ["Tagged Artist"])
+        self.assertNotIn("Will Stetson", meta["artists"])
+        self.assertNotIn("Some Channel", meta["artists"])
+
+        meta = song_meta.parse_song_meta(
+            "IRIS OUT (English Cover) [Will Stetson]",
+            creator="Tagged Creator", channel="Some Channel")
+        self.assertEqual(meta["artists"], ["Tagged Creator"])
+        self.assertNotIn("Will Stetson", meta["artists"])
+
+    def test_version_brackets_are_not_artist_credits(self):
+        for title, version in (("Song 【Official MV】", "Official MV"),
+                               ("Song [Remastered]", "Remastered")):
+            with self.subTest(title=title):
+                meta = song_meta.parse_song_meta(title, uploader="Some Channel")
+                self.assertEqual(meta["artists"], ["Some Channel"])
+                self.assertNotIn(version, meta["artists"])
+                self.assertEqual(song_meta.parse_song_meta(title)["artists"], [])
+
+    def test_dash_split_only_when_no_credits_exist(self):
+        meta = song_meta.parse_song_meta(
+            "Trickle • Forget Me Not (MV) – Reverse: 1999",
+            uploader="Some Channel",
+        )
+        self.assertEqual(meta["artists"], ["Some Channel"])
+        fallback = song_meta.parse_song_meta(
+            "Trickle • Forget Me Not (MV) – Reverse: 1999")["artists"]
+        self.assertEqual(len(fallback), 1)
+        self.assertIn("Trickle", fallback[0])
+        self.assertNotIn("Reverse: 1999", fallback)
+        self.assertEqual(song_meta.parse_song_meta("A - Song")["artists"], ["A"])
 
     def test_with_is_not_an_artist_credit(self):
         meta = song_meta.parse_song_meta(

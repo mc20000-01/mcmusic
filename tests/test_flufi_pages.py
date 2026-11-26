@@ -1,6 +1,5 @@
 """Standalone pages share the Flufi Music v3 shell and component classes."""
 import os
-import sqlite3
 import sys
 import unittest
 

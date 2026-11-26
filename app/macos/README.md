@@ -74,12 +74,18 @@ pip install -r requirements.txt
 
 ## Signing and Gatekeeper
 
-The build is unsigned. On first launch macOS may say the app is from an
-unidentified developer; right-click → **Open**, or clear the quarantine flag:
+Without `CODESIGN_ID`, `build.sh` ad-hoc signs the finished bundle so macOS
+reports "unidentified developer" rather than "damaged". On macOS 15 (Sequoia)
+right-click → **Open** no longer offers a bypass: use System Settings →
+Privacy & Security → **Open Anyway**, or clear the quarantine flag:
 
 ```bash
-xattr -dr com.apple.quarantine dist/mcmusic.app
+xattr -cr /Applications/mcmusic.app
 ```
+
+If the app is still inside the DMG, clear that first:
+`xattr -c ~/Downloads/mcmusic-4.1.0.dmg`. The signature is verified in CI
+after the version metadata is written, so a stale signature cannot ship.
 
 For distribution to other people, set `CODESIGN_ID` to a Developer ID
 certificate. When `APPLE_ID`, `APPLE_TEAM_ID` and `APPLE_APP_PASSWORD` are also

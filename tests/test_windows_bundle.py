@@ -26,6 +26,14 @@ class WindowsBundleTests(unittest.TestCase):
         self.assertIn("--collect-submodules mcmusic_linux", text)
         self.assertIn("--collect-data mcmusic_linux", text)
 
+    def test_build_script_smoke_tests_the_frozen_exe(self):
+        text = (ROOT / "app" / "windows" / "build.ps1").read_text("utf-8")
+        self.assertIn('if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed', text)
+        self.assertIn('$env:QT_QPA_PLATFORM = "offscreen"', text)
+        self.assertIn(r'& "dist\mcmusic\mcmusic.exe" --selftest', text)
+        self.assertIn("Failed to execute script", text)
+        self.assertIn("$SmokeCode -ne 0", text)
+
     def test_windows_locations_use_appdata(self):
         with patch.object(sys, "platform", "win32"), patch.dict(
             os.environ,

@@ -1,7 +1,6 @@
 """Database layer: schema, migrations, connection management, and core queries."""
 import json
 import sqlite3
-import threading
 import time
 from flask import g
 

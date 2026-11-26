@@ -74,7 +74,12 @@ API_BAN_MAX = float(os.environ.get("API_BAN_MAX", "600"))
 API_BAN_WINDOW = float(os.environ.get("API_BAN_WINDOW", "1800"))
 API_AUTH_LIMIT = int(os.environ.get("API_AUTH_LIMIT", "40"))
 API_AUTH_WINDOW = float(os.environ.get("API_AUTH_WINDOW", "300"))
-CORS_ORIGIN = os.environ.get("CORS_ORIGIN", "*")
+# No cross-origin access unless an operator opts in. Leave empty for the
+# same-origin web app and native clients (OkHttp/URLSession/Qt do not enforce
+# CORS); set to one trusted origin, e.g. https://music.example.com, when a
+# separate browser origin really needs the API. An empty value generates no
+# usable Allow-Origin grant, so browsers reject cross-origin reads.
+CORS_ORIGIN = os.environ.get("CORS_ORIGIN", "").strip()
 
 # ----------------------------------------------------------------------- paths
 DB_PATH = os.path.join(DATA_DIR, "mcmusic.db")

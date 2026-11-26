@@ -12,7 +12,7 @@ from html import escape
 from urllib.parse import urlencode
 
 import requests
-from flask import Response, redirect, request, session
+from flask import redirect, request, session
 
 import app_links
 from auth import _auth_uid, link_channel_user

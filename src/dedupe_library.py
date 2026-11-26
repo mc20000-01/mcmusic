@@ -24,7 +24,6 @@ track a device is currently on.
 import argparse
 import json
 import os
-import re
 import shutil
 import sqlite3
 import sys

@@ -21,3 +21,10 @@ Details: PKCS#12, alias `mcmusic`, store and key password `mcmusic` (see
 
 Do not regenerate or replace this file. A new key is a new app as far as
 Android is concerned.
+
+Because the key is public, an APK is trusted by its build checksum, not by who
+could sign it: from `apps/`, run `sha256sum -c SHA256SUMS` (the file is also
+attached to each GitHub release) and compare the APK's signing certificate
+fingerprint (`keytool -printcert -jarfile mcmusic.apk`) with the fingerprint
+published on the releases page. Publish that fingerprint with every release so
+users can make the comparison.

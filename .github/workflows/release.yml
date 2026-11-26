@@ -8,6 +8,9 @@ name: Release builds
 # The desktop and iOS builds need their own runners: PyInstaller cannot
 # cross-build a .app/.exe and Xcode only runs on macOS. Those jobs upload
 # their output and the publish job merges everything into one release.
+#
+# Every build is gated on ci-gate: it waits for the CI workflow run on this
+# exact commit. A missing, failed or cancelled CI run blocks the release.
 
 on:
   push:
@@ -22,8 +25,54 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  ci-gate:
+    name: Require passing CI for this commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      # CI now runs on main pushes too, so every pushed SHA has a run to check.
+      # Manual dispatch is gated the same way: it needs a CI run on the HEAD of
+      # the dispatched ref. Poll with gh instead of a workflow_run trigger so
+      # the push-triggered release behaviour is unchanged.
+      - name: Wait for CI on this SHA
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          deadline=$(( $(date +%s) + 1200 ))
+          while :; do
+            row=$(gh run list --workflow ci.yml --commit "$SHA" --limit 1 \
+              --json databaseId,status,conclusion,url | jq -r '.[0] // empty')
+            if [ -n "$row" ]; then
+              status=$(jq -r '.status' <<<"$row")
+              conclusion=$(jq -r '.conclusion // ""' <<<"$row")
+              url=$(jq -r '.url' <<<"$row")
+              if [ "$status" = "completed" ]; then
+                if [ "$conclusion" = "success" ]; then
+                  echo "CI passed for $SHA: $url"
+                  exit 0
+                fi
+                echo "CI for $SHA concluded '$conclusion': $url" >&2
+                exit 1
+              fi
+              echo "CI run for $SHA is $status; waiting..."
+            else
+              echo "No CI run for $SHA yet; waiting..."
+            fi
+            if [ "$(date +%s)" -ge "$deadline" ]; then
+              echo "Timed out waiting for CI on $SHA" >&2
+              exit 1
+            fi
+            sleep 30
+          done
+
   build-core:
     name: Build web, Android and Linux
+    needs: [ci-gate]
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -97,6 +146,7 @@ jobs:
 
   build-macos:
     name: Build macOS Qt app
+    needs: [ci-gate]
     runs-on: macos-latest
     timeout-minutes: 30
     steps:
@@ -122,6 +172,10 @@ jobs:
             echo "macOS bundle contains a web engine or HTML assets" >&2
             exit 1
           fi
+      - name: Verify code signature
+        # build.sh re-signs after every Info.plist edit and verifies locally;
+        # this independent check stops a stale signature from being published.
+        run: codesign --verify --deep --strict --verbose=2 app/macos/dist/mcmusic.app
       - uses: actions/upload-artifact@v4
         with:
           name: mcmusic-macos-release
@@ -130,6 +184,7 @@ jobs:
 
   build-windows:
     name: Build Windows Qt app
+    needs: [ci-gate]
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -163,6 +218,7 @@ jobs:
 
   build-ios:
     name: Build iOS SwiftUI app
+    needs: [ci-gate]
     runs-on: macos-latest
     timeout-minutes: 30
     steps:
@@ -276,7 +332,7 @@ jobs:
             echo "### Notes"
             [ -n "$desktop" ] && echo "- Desktop package version: \`${desktop}\`."
             echo "- Android: \`${current_apk}\` (v${android_version})."
-            echo "- macOS: native Qt \`.app\` (zip) and \`.dmg\`."
+            echo "- macOS: native Qt \`.app\` (zip) and \`.dmg\`. Ad-hoc signed without a Developer ID; if macOS blocks it: \`xattr -cr /Applications/mcmusic.app\`."
             echo "- Windows: native Qt portable \`.exe\` (zip)."
             echo "- iOS: unsigned SwiftUI **Simulator** build \`.app.zip\` — needs Xcode/iOS Simulator, cannot be installed on a physical iPhone."
             echo "- Linux deb: \`sudo apt install ./file.deb\`. AppImage: \`chmod +x\` then run."
@@ -339,7 +395,8 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           # builds/ holds freshly rebuilt binaries, so rebasing a racing push
           # conflicts on them. Re-apply this run's files on top of origin/main
-          # instead, and retry if someone pushes in between.
+          # instead, and retry if someone pushes in between. No CI-skip marker:
+          # GITHUB_TOKEN pushes do not trigger workflows anyway.
           for attempt in 1 2 3; do
             git fetch origin main
             git reset --mixed FETCH_HEAD
@@ -348,7 +405,7 @@ jobs:
               echo "builds/ is already current"
               exit 0
             fi
-            git commit -m "Update published builds [skip ci]"
+            git commit -m "Update published builds"
             if git push origin HEAD:main; then
               exit 0
             fi

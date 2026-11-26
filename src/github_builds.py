@@ -38,6 +38,7 @@ _sync_started = False
 # Asset name -> directory inside apps/ and the stable alias every API points at.
 ASSETS: dict[str, tuple[str, str]] = {
     "android": ("android", "mainbuild.apk"),
+    "ios": ("ios", "mainbuild.zip"),
     "linux-appimage": ("linux", "mcmusic-x86_64.AppImage"),
     "linux-deb": ("linux", "mainbuild.deb"),
     "macos": ("macos", "mainbuild.zip"),
@@ -48,6 +49,7 @@ ASSETS: dict[str, tuple[str, str]] = {
 }
 
 _APK = re.compile(r"^mcmusic-\d[\w.-]*\.apk$", re.I)
+_IOS_ZIP = re.compile(r"^mcmusic-ios-simulator-.+\.app\.zip$", re.I)
 _APPIMAGE = re.compile(r"^mcmusic-x86_64\.AppImage$", re.I)
 _DEB = re.compile(r"^mcmusic-desktop_.+_all\.deb$", re.I)
 _MACOS_ZIP = re.compile(r"^mcmusic-macos-.+\.zip$", re.I)
@@ -97,6 +99,8 @@ def assets(force: bool = False) -> list[dict]:
 def kind_for(name: str) -> str | None:
     if _APK.match(name):
         return "android"
+    if _IOS_ZIP.match(name):
+        return "ios"
     if _APPIMAGE.match(name):
         return "linux-appimage"
     if _DEB.match(name):
@@ -131,6 +135,8 @@ def match_path(rel: str) -> dict | None:
     kind = None
     if name in ("mainbuild.apk",) or _APK.match(name) or re.match(r"^mainbuild-[0-9a-f]{16}\.apk$", name):
         kind = "android"
+    elif _IOS_ZIP.match(name) or (name == "mainbuild.zip" and folder == "ios"):
+        kind = "ios"
     elif name.lower().endswith(".appimage"):
         kind = "linux-appimage"
     elif name.lower().endswith(".deb"):
@@ -151,8 +157,9 @@ def match_path(rel: str) -> dict | None:
     for asset in assets():
         if kind_for(asset["name"]) != kind:
             continue
-        if re.match(r"^mcmusic-\d[\w.-]*\.apk$", name) or _MACOS_ZIP.match(name) \
-                or _WINDOWS_ZIP.match(name) or _MACOS_DMG.match(name) or _DEB.match(name):
+        if re.match(r"^mcmusic-\d[\w.-]*\.apk$", name) or _IOS_ZIP.match(name) \
+                or _MACOS_ZIP.match(name) or _WINDOWS_ZIP.match(name) \
+                or _MACOS_DMG.match(name) or _DEB.match(name):
             if asset["name"] != name:
                 continue
         return asset

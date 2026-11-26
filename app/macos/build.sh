@@ -5,10 +5,13 @@
 #   MAKE_DMG=1 ./build.sh   -> dist/mcmusic.app + dist/mcmusic-<version>.dmg
 #
 # Everything is written under app/macos/{.venv-macos,build,dist}, none of which
-# is committed. Release checklist: codesign/notarize with APPLE_ID,
-# APPLE_TEAM_ID and APPLE_APP_PASSWORD when available, publish to apps/macos,
-# and verify MPNowPlayingInfoCenter metadata plus remote media keys in the
-# packaged .app (source checkouts do not exercise the PyInstaller bundle).
+# is committed.
+#
+# Signing: the bundle is ALWAYS signed after every edit to it. With CODESIGN_ID
+# it uses that Developer ID (and notarizes when APPLE_ID, APPLE_TEAM_ID and
+# APPLE_APP_PASSWORD are set). Without it, it re-signs ad-hoc so the signature
+# matches the final Info.plist. An unsigned or stale-signed app is reported by
+# macOS as "damaged and can't be opened".
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -21,6 +24,7 @@ PYTHON="${PYTHON:-python3}"
 ARCH="${ARCH:-}"
 MAKE_DMG="${MAKE_DMG:-0}"
 PUBLISH_APPS="${PUBLISH_APPS:-1}"
+APP="dist/mcmusic.app"
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
   echo "build.sh needs macOS: PyInstaller cannot cross-build a .app from Linux." >&2
@@ -28,7 +32,7 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
   exit 1
 fi
 
-for tool in sips iconutil codesign; do
+for tool in sips iconutil codesign ditto hdiutil; do
   if ! command -v "$tool" >/dev/null 2>&1; then
     echo "missing $tool — install the Xcode command-line tools: xcode-select --install" >&2
     exit 1
@@ -70,7 +74,7 @@ iconutil -c icns "$iconset" -o build/mcmusic.icns
 rm -rf "$iconset" build/icon-1024.png
 
 echo "==> PyInstaller"
-rm -rf build/mcmusic dist/mcmusic.app
+rm -rf build/mcmusic "$APP"
 arch_args=()
 if [ -n "$ARCH" ]; then arch_args=(--target-arch "$ARCH"); fi
 
@@ -88,40 +92,59 @@ python -m PyInstaller \
   launcher.py
 
 # Put a readable version in the bundle so About/Finder agree with the build.
+# This edits Info.plist, which INVALIDATES the signature PyInstaller applied,
+# so the bundle must be signed again below, after the last edit.
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" \
-  dist/mcmusic.app/Contents/Info.plist 2>/dev/null || true
+  "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION" \
-  dist/mcmusic.app/Contents/Info.plist 2>/dev/null || true
+  "$APP/Contents/Info.plist" 2>/dev/null \
+  || /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $VERSION" \
+       "$APP/Contents/Info.plist"
 
+echo "==> Signing"
 if [ -n "${CODESIGN_ID:-}" ]; then
-  echo "==> Signing as $CODESIGN_ID"
-  codesign --deep --force --options runtime \
-    --sign "$CODESIGN_ID" dist/mcmusic.app
-  if [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ] \
-          && [ -n "${APPLE_APP_PASSWORD:-}" ]; then
-    echo "==> Notarizing"
-    xcrun notarytool submit dist/mcmusic.app \
-      --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
-      --password "$APPLE_APP_PASSWORD" --wait
-    xcrun stapler staple dist/mcmusic.app
-  fi
+  echo "    Developer ID: $CODESIGN_ID"
+  codesign --deep --force --timestamp --options runtime \
+    --sign "$CODESIGN_ID" "$APP"
+else
+  echo "    ad-hoc (no CODESIGN_ID): users will still need Open Anyway on first launch"
+  codesign --deep --force --sign - "$APP"
+fi
+# Fail the build if the signature does not match the final bundle contents.
+codesign --verify --deep --strict --verbose=2 "$APP"
+
+if [ -n "${CODESIGN_ID:-}" ] && [ -n "${APPLE_ID:-}" ] \
+     && [ -n "${APPLE_TEAM_ID:-}" ] && [ -n "${APPLE_APP_PASSWORD:-}" ]; then
+  echo "==> Notarizing"
+  # notarytool takes a zip/dmg/pkg, not a bare .app folder.
+  ditto -c -k --keepParent "$APP" build/notarize.zip
+  xcrun notarytool submit build/notarize.zip \
+    --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
+    --password "$APPLE_APP_PASSWORD" --wait
+  xcrun stapler staple "$APP"
+  rm -f build/notarize.zip
+  spctl --assess --type execute --verbose=2 "$APP"
 fi
 
 if [ "$MAKE_DMG" = "1" ]; then
   echo "==> Disk image"
   rm -rf build/dmg && mkdir -p build/dmg
-  cp -R dist/mcmusic.app build/dmg/
+  # ditto keeps symlinks, permissions and extended attributes intact.
+  ditto "$APP" build/dmg/mcmusic.app
   ln -s /Applications build/dmg/Applications
   hdiutil create -volname "mcmusic" -srcfolder build/dmg \
     -ov -format UDZO "dist/mcmusic-$VERSION.dmg" >/dev/null
   rm -rf build/dmg
+  if [ -n "${CODESIGN_ID:-}" ]; then
+    codesign --force --timestamp --sign "$CODESIGN_ID" "dist/mcmusic-$VERSION.dmg"
+  fi
   echo "wrote dist/mcmusic-$VERSION.dmg"
 fi
 
 if [ "$PUBLISH_APPS" = "1" ]; then
   echo "==> Publishing to apps/macos (PUBLISH_APPS=0 to skip)"
   mkdir -p "$ROOT/apps/macos"
-  (cd dist && zip -qry "$ROOT/apps/macos/mcmusic-$VERSION-macos.zip" mcmusic.app)
+  ditto -c -k --keepParent "$APP" "$ROOT/apps/macos/mcmusic-$VERSION-macos.zip"
   cp "$ROOT/apps/macos/mcmusic-$VERSION-macos.zip" \
     "$ROOT/apps/macos/mainbuild.zip"
   if [ "$MAKE_DMG" = "1" ]; then
@@ -131,5 +154,5 @@ if [ "$PUBLISH_APPS" = "1" ]; then
 fi
 
 echo
-echo "Done: dist/mcmusic.app"
-echo "Unsigned builds may need: xattr -dr com.apple.quarantine dist/mcmusic.app"
+echo "Done: $APP"
+echo "Unsigned/ad-hoc builds: if macOS blocks it, run: xattr -cr /Applications/mcmusic.app"

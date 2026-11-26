@@ -117,7 +117,6 @@ class DiscordSink:
             state_text = " · ".join(parts)[:128]
             if len(state_text) < 2:
                 state_text = "Playing"
-            now = time.time()
             start = int(state.updated_at - state.position)
             end = int(start + t.duration) if t.duration > 0 else None
         else:

@@ -10,7 +10,6 @@ declare the MPRIS interface names. Instead the service is a
 from __future__ import annotations
 
 import importlib
-import time
 from typing import Any, Callable
 
 from PySide6.QtCore import QObject

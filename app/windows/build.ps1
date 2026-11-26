@@ -63,6 +63,7 @@ Remove-Item -Recurse -Force "build\mcmusic", "dist\mcmusic" -ErrorAction Silentl
     --collect-data mcmusic_linux `
     --hidden-import winsdk.windows.media `
     "launcher.py"
+if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed with exit code $LASTEXITCODE" }
 
 # Authenticode is optional: release machines with a certificate can wire it in
 # without forcing local development builds to install the Windows SDK.
@@ -81,6 +82,34 @@ pathlib.Path(r'$PWD\dist\mcmusic\version.json').write_text(
     json.dumps({'name': 'mcmusic', 'version': '$Version'}, indent=2)
 )
 "@
+
+# Smoke test the actual frozen exe before it is zipped or published. The
+# shared client's --selftest builds the main window offscreen, refreshes its
+# theme once and exits 0; it needs no display, server or audio device.
+Write-Host "==> Smoke test (offscreen --selftest)"
+$OldPlatform = $env:QT_QPA_PLATFORM
+$OldNativeErrorPref = $PSNativeCommandUseErrorActionPreference
+$env:QT_QPA_PLATFORM = "offscreen"
+# Qt may write warnings to stderr; keep them as output instead of PS errors.
+$PSNativeCommandUseErrorActionPreference = $false
+try {
+    $SmokeOutput = & "dist\mcmusic\mcmusic.exe" --selftest 2>&1 | Out-String
+    $SmokeCode = $LASTEXITCODE
+} finally {
+    if ($null -eq $OldPlatform) {
+        Remove-Item Env:QT_QPA_PLATFORM -ErrorAction SilentlyContinue
+    } else {
+        $env:QT_QPA_PLATFORM = $OldPlatform
+    }
+    $PSNativeCommandUseErrorActionPreference = $OldNativeErrorPref
+}
+if ($SmokeCode -ne 0) {
+    throw "mcmusic.exe --selftest exited with $SmokeCode`n$SmokeOutput"
+}
+if ($SmokeOutput -match [regex]::Escape("Failed to execute script")) {
+    throw "mcmusic.exe --selftest reported 'Failed to execute script'`n$SmokeOutput"
+}
+if ($SmokeOutput.Trim()) { Write-Host $SmokeOutput.Trim() }
 
 if ($Zip) {
     Write-Host "==> Zip"
