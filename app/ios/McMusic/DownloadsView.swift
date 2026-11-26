@@ -22,60 +22,61 @@ struct DownloadsView: View {
                 .padding()
 
                 List {
-                if tab == 1 {
-                    Section("Your downloads") {
-                        LabeledContent("Cached audio", value: byteCount(cacheBytes))
-                        Text("Saved tracks play offline and stay in sync with this device's queue.")
-                            .font(.caption).foregroundStyle(tokens.dim)
-                        Button("Clear audio cache", role: .destructive) { clearCache() }
-                    }
-                } else {
-                Section("Requests") {
-                    if rows.isEmpty {
-                        StateView(text: "No download requests", icon: "download")
+                    if tab == 1 {
+                        Section("Your downloads") {
+                            LabeledContent("Cached audio", value: byteCount(cacheBytes))
+                            Text("Saved tracks play offline and stay in sync with this device's queue.")
+                                .font(.caption).foregroundStyle(tokens.dim)
+                            Button("Clear audio cache", role: .destructive) { clearCache() }
+                        }
                     } else {
-                        ForEach(rows, id: \.id) { row in
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(row["url"]?.string ?? "")
-                                    .font(.subheadline)
-                                    .textSelection(.enabled)
-                                HStack {
-                                    Label {
-                                        Text(row["status"]?.string ?? "pending")
-                                    } icon: {
-                                        LucideIcon(name: "clock", size: 13, color: tokens.dim)
-                                    }
-                                    .font(.caption).foregroundStyle(tokens.dim)
-                                    if let user = row["username"]?.string {
-                                        Text("by \(user)").font(.caption).foregroundStyle(tokens.dim)
-                                    }
-                                }
-                                if let preview = row["log"]?.string, !preview.isEmpty {
-                                    Text(preview).font(.caption2).foregroundStyle(tokens.dim).lineLimit(2)
-                                }
-                                HStack(spacing: 8) {
-                                    if app.isAdmin {
-                                        if ["pending", "failed"].contains(row["status"]?.string ?? "") {
-                                            Button("Approve") { Task { await act(row, "approve") } }.buttonStyle(.borderedProminent)
-                                            Button("Reject", role: .destructive) { Task { await act(row, "reject") } }.buttonStyle(.bordered)
+                        Section("Requests") {
+                            if rows.isEmpty {
+                                StateView(text: "No download requests", icon: "download")
+                            } else {
+                                ForEach(rows, id: \.id) { row in
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Text(row["url"]?.string ?? "")
+                                            .font(.subheadline)
+                                            .textSelection(.enabled)
+                                        HStack {
+                                            Label {
+                                                Text(row["status"]?.string ?? "pending")
+                                            } icon: {
+                                                LucideIcon(name: "clock", size: 13, color: tokens.dim)
+                                            }
+                                            .font(.caption).foregroundStyle(tokens.dim)
+                                            if let user = row["username"]?.string {
+                                                Text("by \(user)").font(.caption).foregroundStyle(tokens.dim)
+                                            }
                                         }
-                                        if ["pending", "running", "approved"].contains(row["status"]?.string ?? "") {
-                                            Button("Cancel", role: .destructive) { Task { await adminAct(row.trackID, action: "cancel") } }.buttonStyle(.bordered)
+                                        if let preview = row["log"]?.string, !preview.isEmpty {
+                                            Text(preview).font(.caption2).foregroundStyle(tokens.dim).lineLimit(2)
                                         }
-                                        if ["failed", "rejected", "cancelled"].contains(row["status"]?.string ?? "") {
-                                            Button("Retry") { Task { await adminAct(row.trackID, action: "retry") } }.buttonStyle(.bordered)
+                                        HStack(spacing: 8) {
+                                            if app.isAdmin {
+                                                if ["pending", "failed"].contains(row["status"]?.string ?? "") {
+                                                    Button("Approve") { Task { await act(row, "approve") } }.buttonStyle(.borderedProminent)
+                                                    Button("Reject", role: .destructive) { Task { await act(row, "reject") } }.buttonStyle(.bordered)
+                                                }
+                                                if ["pending", "running", "approved"].contains(row["status"]?.string ?? "") {
+                                                    Button("Cancel", role: .destructive) { Task { await adminAct(row.trackID, action: "cancel") } }.buttonStyle(.bordered)
+                                                }
+                                                if ["failed", "rejected", "cancelled"].contains(row["status"]?.string ?? "") {
+                                                    Button("Retry") { Task { await adminAct(row.trackID, action: "retry") } }.buttonStyle(.bordered)
+                                                }
+                                                Button("Log") { Task { await openLog(row.trackID) } }.buttonStyle(.borderless)
+                                                Button("Delete", role: .destructive) { Task { await adminAct(row.trackID, action: "delete") } }.buttonStyle(.borderless)
+                                            } else if ["pending"].contains(row["status"]?.string ?? "") {
+                                                Button("Cancel request", role: .destructive) { Task { await act(row, "reject") } }.buttonStyle(.bordered)
+                                            }
                                         }
-                                        Button("Log") { Task { await openLog(row.trackID) } }.buttonStyle(.borderless)
-                                        Button("Delete", role: .destructive) { Task { await adminAct(row.trackID, action: "delete") } }.buttonStyle(.borderless)
-                                    } else if ["pending"].contains(row["status"]?.string ?? "") {
-                                        Button("Cancel request", role: .destructive) { Task { await act(row, "reject") } }.buttonStyle(.bordered)
                                     }
+                                    .padding(.vertical, 4)
                                 }
                             }
-                            .padding(.vertical, 4)
                         }
                     }
-                }
                 }
             }
             .navigationTitle("Downloads")
