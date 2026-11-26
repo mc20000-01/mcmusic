@@ -42,7 +42,9 @@ import { SELFHOST_GUIDE } from "./common/links";
 
 export function App() {
     return (
-        <LocationProvider>
+        // Leave /api/... anchors to the browser: OAuth authorize endpoints are
+        // server routes, not client routes, and intercepting them shows 404.
+        <LocationProvider scope={/^\/(?!api(?:\/|$))/}>
             <Main />
         </LocationProvider>
     )
