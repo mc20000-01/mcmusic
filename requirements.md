@@ -132,28 +132,30 @@ fixes, and the old-client parity audit are consolidated here. Anything marked
       2-unit stroke, 1.5x at 3 units, 2x at 4 units, and the `size/6` ceiling.
       Web, iOS, Qt and Android use the same formula; filled mode only touches
       rect/circle primitives where they exist.
-- [x] Commit `7ea4ece` was pushed to `main`, `native-v3-parity` and
-      `native-ios-desktop-ci` without `[skip ci]`. GitHub Actions run
-      `45545773860` completed all six jobs successfully, including the Windows
-      and macOS PyInstaller bundles and the iOS build.
-- [x] The soft, layered Material 3 + Lucide polish was pushed to all three
-      branches without `[skip ci]`; GitHub Actions run `45556919521` completed
-      all five jobs successfully and rebuilt the rolling release.
-- [x] The signed 4.0.1 APK is `dev.mcmusic.app`, `versionCode 53`,
-      `versionName 4.0.1`, `minSdk 34`, `targetSdk 34`, `compileSdk 36`, with
+- [x] Earlier commits `7ea4ece` and `d2439e4` were pushed to `main`,
+      `native-v3-parity` and `native-ios-desktop-ci` without `[skip ci]`; runs
+      `45545773860` and `45556919521` completed all jobs successfully.
+- [x] The 4.1.0 UX parity round was pushed to all three branches without
+      `[skip ci]`. CI run `45733658020` completed all seven jobs successfully
+      (Android, iOS simulator, macOS, Windows, web UI, web checks, Python), and
+      release run `45733674516` rebuilt the rolling `latest` assets.
+- [x] The signed 4.1.0 APK is `dev.mcmusic.app`, `versionCode 54`,
+      `versionName 4.1.0`, `minSdk 34`, `targetSdk 34`, `compileSdk 36`, with
       signer SHA-256
       `0b0fd0fa35ff712901d42cab215d5e3cb706daef57bffa7ebef61cacda1dc4ce`.
-      It installed over 4.0.0 on API 34.
-- [x] GitHub `latest`, live `/get`, `/api/builds`, and `builds/mcmusic-4.0.1.apk`
-      all serve
-      `sha256:190bca660cc3210fab3b7352c2087cc20fbba262b2be7004964a2167997da08e`
-      (29,347,731 bytes), with the expected signer SHA-256.
-- [x] The Windows zip is identical on GitHub, live `/apps/windows`, and
-      `builds/mcmusic-windows-4.0.1.zip` at
-      `sha256:7edcbf481a065af966473b1639a1ad8b97f68f896962d6adb09048432ec27c0a`.
-      The exe contains `mcmusic_linux.cli`, the shared client modules and
-      `winsdk`, does not bundle `PySide6.QtDBus`, and ships `version.json` at
-      4.0.1.
+      CI verifies the embedded version and the same signer used by 4.0.1,
+      so it installs over the previous release with the library intact.
+- [x] GitHub `latest`, live `/get`, `/api/builds`, and
+      `builds/mcmusic-4.1.0.apk` all serve
+      `sha256:3304792f3f24f3b717dff17d90beee90612befbb0ec845d5bb3b7029379cfd2d`
+      (29,429,651 bytes), with the expected signer SHA-256.
+- [x] The rebuilt Windows zip is identical on GitHub, live `/apps/windows`, and
+      `builds/mcmusic-windows-4.1.0.zip` at
+      `sha256:957179435a5dc9a3d281e422e28be40f324f9893a2395ac0c7a5e5d4f9a6e8f7`
+      (76,976,377 bytes). It contains the `StatusStrip.update_button` fix, the
+      shared metrics client code and `winsdk`, does not bundle
+      `PySide6.QtDBus`, and ships `version.json` at 4.1.0. The PyInstaller
+      command is unchanged; rebuild from the fixed source.
 - [ ] Packaged Windows GUI/SMTC smoke test on a real Windows machine.
 
 ## UI research
