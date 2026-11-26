@@ -14,26 +14,26 @@ import math
 
 from PySide6.QtCore import QPointF, QRectF, Qt, QTimer
 from PySide6.QtGui import (
-    QBrush, QColor, QFont, QFontMetrics, QPainter, QPainterPath, QPen,
+    QBrush, QColor, QFontMetrics, QPainter, QPainterPath, QPen,
 )
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
-from . import theme
+from . import design, motion, theme
 
 
 class LyricVisualizer(QWidget):
-    """Small Bars / Wave / Glow panel driven entirely by playback position."""
+    """Small Bars / Wave / Rings panel driven by playback position."""
 
-    MODES: tuple[str, ...] = ("Bars", "Wave", "Glow")
+    MODES: tuple[str, ...] = ("Bars", "Wave", "Rings")
 
     def __init__(self, player, parent=None):
         super().__init__(parent)
         self._player = player
         self._mode = 0
-        self.setFixedHeight(104)
+        self.setFixedHeight(120)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setToolTip("Visualizer: Bars — click to cycle (Bars / Wave / Glow)")
+        self.setToolTip("Visualizer: Bars — click to cycle (Bars / Wave / Rings)")
         self._timer = QTimer(self)
         self._timer.setInterval(33)
         self._timer.timeout.connect(self._on_timeout)
@@ -74,7 +74,8 @@ class LyricVisualizer(QWidget):
     # ── lifecycle ────────────────────────────────────────────────────────
     def showEvent(self, event) -> None:
         super().showEvent(event)
-        self._timer.start()
+        if motion.enabled():
+            self._timer.start()
 
     def hideEvent(self, event) -> None:
         self.stop()
@@ -94,25 +95,16 @@ class LyricVisualizer(QWidget):
     # ── painting ─────────────────────────────────────────────────────────
     def paintEvent(self, _event) -> None:
         palette = theme.pal()
-        accent = QColor(palette.accent)
-        line = QColor(palette.line2)
+        accent = QColor(palette.primary)
+        line = QColor(palette.outline_variant)
 
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         rect = QRectF(self.rect())
 
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QColor(palette.bg2))
-        p.drawRoundedRect(rect, 10, 10)
-        wash = QColor(accent)
-        wash.setAlpha(18)
-        p.setBrush(wash)
-        p.drawRoundedRect(rect.adjusted(1, 1, -1, -1), 10, 10)
-        edge = QColor(line)
-        edge.setAlpha(90)
-        p.setPen(QPen(edge, 1))
-        p.setBrush(QBrush(Qt.BrushStyle.NoBrush))
-        p.drawRoundedRect(rect.adjusted(0.5, 0.5, -0.5, -0.5), 10, 10)
+        p.setBrush(QColor(palette.surface_container_low))
+        p.drawRoundedRect(rect, design.Shape.card, design.Shape.card)
 
         t = self._position()
         if self._mode == 0:
@@ -120,8 +112,8 @@ class LyricVisualizer(QWidget):
         elif self._mode == 1:
             self._draw_wave(p, rect, t, accent)
         else:
-            self._draw_glow(p, rect, t, accent)
-        self._draw_chip(p, rect, palette, accent, line)
+            self._draw_rings(p, rect, t, accent)
+        self._draw_chip(p, rect, palette)
 
     @staticmethod
     def _inner(rect: QRectF) -> QRectF:
@@ -186,8 +178,8 @@ class LyricVisualizer(QWidget):
             p.setPen(QPen(color, width))
             p.drawPath(path)
 
-    def _draw_glow(self, p: QPainter, rect: QRectF, t: float,
-                   accent: QColor) -> None:
+    def _draw_rings(self, p: QPainter, rect: QRectF, t: float,
+                    accent: QColor) -> None:
         inner = self._inner(rect)
         if inner.isEmpty():
             return
@@ -206,23 +198,14 @@ class LyricVisualizer(QWidget):
         dot = 3.5 + 2.0 * pulse
         p.drawEllipse(center, dot, dot)
 
-    def _draw_chip(self, p: QPainter, rect: QRectF, palette,
-                   accent: QColor, line: QColor) -> None:
+    def _draw_chip(self, p: QPainter, rect: QRectF, palette) -> None:
         label = f"{self.mode.upper()} >"
-        font = QFont()
-        font.setFamily("monospace")
-        font.setPointSize(9)
-        font.setBold(True)
+        font = design.font("label", size=12)
         p.setFont(font)
-        width = QFontMetrics(font).horizontalAdvance(label) + 20
-        chip = QRectF(rect.right() - 12 - width, rect.top() + 8, width, 20)
-        back = QColor(accent)
-        back.setAlpha(34)
+        width = QFontMetrics(font).horizontalAdvance(label) + 24
+        chip = QRectF(rect.right() - 12 - width, rect.top() + 8, width, 28)
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(back)
-        p.drawRoundedRect(chip, 10, 10)
-        p.setPen(QPen(QColor(line)))
-        p.setBrush(QBrush(Qt.BrushStyle.NoBrush))
-        p.drawRoundedRect(chip, 10, 10)
-        p.setPen(QPen(QColor(palette.fg)))
+        p.setBrush(QColor(palette.primary_container))
+        p.drawRoundedRect(chip, chip.height() / 2, chip.height() / 2)
+        p.setPen(QPen(QColor(palette.on_primary_container)))
         p.drawText(chip, int(Qt.AlignmentFlag.AlignCenter), label)
