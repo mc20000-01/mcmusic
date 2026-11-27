@@ -8,8 +8,6 @@ failure report always quotes the original line verbatim.
 import re
 from pathlib import Path
 
-import pytest
-
 ROOT = Path(__file__).resolve().parents[1]
 
 # Directory globs plus one explicit file.  No exclusions.

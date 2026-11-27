@@ -4,20 +4,18 @@ Runs each generator's own ``--check`` mode.  The only skip is a genuinely
 missing Node executable (detected with ``shutil.which``); a stale artifact or a
 generator error is always a failure with the combined stdout/stderr reported.
 """
-import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
 
+from ui_deps import problem
+
 ROOT = Path(__file__).resolve().parents[1]
-NODE = shutil.which("node")
-if NODE is None:
-    pytest.skip(
-        "node executable not found via shutil.which('node'); "
-        "cannot run token generators",
-        allow_module_level=True,
-    )
+_skip = problem(need_modules=True)
+if _skip:
+    pytest.skip(_skip, allow_module_level=True)
+NODE = "node"
 
 SCRIPTS = ("scripts/gen-tokens.mjs", "scripts/gen-lucide.mjs")
 

@@ -3,10 +3,18 @@ import os
 import subprocess
 import unittest
 
+from ui_deps import problem
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 class WebIconStyleTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        reason = problem()
+        if reason:
+            raise unittest.SkipTest(reason)
+
     def test_theme_helpers_match_native_clients(self):
         result = subprocess.run(
             ["node", "--experimental-strip-types", "tests/icons.test.mjs"],

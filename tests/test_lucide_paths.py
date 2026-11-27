@@ -7,14 +7,21 @@ icons, so this test independently converts the source SVG and compares every
 emitted command. It also bounds every coordinate to the 24x24 icon viewport.
 """
 
-import json
 import re
 from pathlib import Path
 from xml.etree import ElementTree
 
+import pytest
+
+from ui_deps import problem
+
 ROOT = Path(__file__).resolve().parents[1]
 SVG_DIR = ROOT / "ui/node_modules/lucide-static/icons"
 DRAWABLE_DIR = ROOT / "gui/android/app/src/main/res/drawable"
+_skip = problem(need_modules=True, sentinel=SVG_DIR)
+if _skip:
+    pytest.skip(_skip, allow_module_level=True)
+
 ANDROID_NS = "{http://schemas.android.com/apk/res/android}"
 SOURCE_RE = re.compile(r"from lucide-static (\S+)\.svg")
 NUMBER_RE = re.compile(r"[a-zA-Z]|[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?")

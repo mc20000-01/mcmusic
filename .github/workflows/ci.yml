@@ -169,7 +169,7 @@ jobs:
             algo/encoding.py \
             algo/mdl.py
       - name: Install test dependencies
-        run: pip install -r requirements.txt pytest
+        run: pip install -r requirements.txt pytest pyflakes
       - name: Smoke test documented server commands
         # Uses the same .venv path as the docs while reusing the system site
         # packages installed above. Each command gets its own temp data dir.
@@ -206,6 +206,8 @@ jobs:
       - name: Test release publish script
         # Fake gh shim: no release is created and no tag is pushed here.
         run: ./tests/test_publish_release.sh
+      - name: Pyflakes Python sources and tests
+        run: python -m pyflakes src tests
       - name: Shellcheck shell scripts
         run: |
           sudo apt-get update
