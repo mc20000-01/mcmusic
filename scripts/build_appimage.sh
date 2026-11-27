@@ -31,11 +31,11 @@ find "$appdir/usr/lib/mcmusic_linux" -name '__pycache__' -type d -prune -exec rm
 
 cat > "$appdir/AppRun" <<'RUN'
 #!/bin/sh
-# Resolve the AppDir through the symlink AppImage mounts at $APPIMAGE.
+# Resolve the AppDir from AppRun's location in the mounted image.
 set -eu
 here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 export PYTHONPATH="$here/usr/lib${PYTHONPATH:+:$PYTHONPATH}"
-exec python3 -m mcmusic_linux.cli "$@"
+exec python3 -m mcmusic_linux "$@"
 RUN
 chmod 0755 "$appdir/AppRun"
 
@@ -46,6 +46,15 @@ sed -e 's|^Exec=.*|Exec=AppRun %U|' \
 cp app/linux/mcmusic_linux/assets/mcmusic.svg "$appdir/mcmusic.svg"
 cp "$appdir/mcmusic.desktop" "$appdir/usr/share/applications/mcmusic.desktop"
 cp "$appdir/mcmusic.svg" "$appdir/usr/share/icons/hicolor/scalable/apps/mcmusic.svg"
+
+# The launcher must use the package's __main__, not cli.py directly: cli.py
+# defines main() but has no __main__ guard, so invoking it as a module exits
+# silently. --help needs no Qt and proves the entry point really dispatches.
+help_output=$(PYTHONPATH="$appdir/usr/lib" python3 -m mcmusic_linux --help)
+[[ $help_output == *"usage: mcmusic-desktop"* ]] || {
+  echo "AppImage entry point did not print usage" >&2
+  exit 1
+}
 
 mkdir -p builds
 out="builds/mcmusic-x86_64.AppImage"
