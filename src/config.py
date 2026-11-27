@@ -129,7 +129,7 @@ PUBLIC_URL = os.environ.get("PUBLIC_URL", "").rstrip("/")
 
 # ---------------------------------------------------------------------- assets
 # Bump when the offline cache contract changes (audio/art caches are separate
-# from the shell cache so an update never discards downloaded media). Shell 14
-# is the 4.3.1 route/security fix; older cached shells are invalidated.
-SHELL_VERSION = os.environ.get("SHELL_VERSION", "14")
+# from the shell cache so an update never discards downloaded media). Shell 15
+# is the 4.3.2 pause-glyph fix; older cached shells are invalidated.
+SHELL_VERSION = os.environ.get("SHELL_VERSION", "15")
 MEDIA_CACHE = "mcmusic-media-v1"
