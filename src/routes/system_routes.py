@@ -24,6 +24,7 @@ from auth import (
     revoke_device_token,
 )
 from database import _db, track_dict, liked_ids, find_repeat_request, video_in_library
+from auth_throttle import throttled, json_field, session_account
 from library_scan import scan_library
 from flufi_pages import flufi_page
 import video_cache
@@ -1457,6 +1458,7 @@ def devices_sync():
 # --------------------------------------------------------------------------- device pairing
 @bp.post("/api/devices/code")
 @login_required
+@throttled("pair", account=session_account)
 def devices_code():
     """Mint a short code the user reads out to an old phone or handheld."""
     c = _db()
@@ -1475,6 +1477,7 @@ def devices_code():
 
 
 @bp.post("/api/devices/claim")
+@throttled("pair", code=lambda: json_field("code"))
 def devices_claim():
     """Unpaired device: trade the short code for a long-lived bearer token."""
     d = request.get_json(silent=True) or {}

@@ -50,9 +50,13 @@ class ThrowawayServer:
         self.base = ""
         self.proc = None
         self._log = None
+        self._started = False
 
     # lifecycle ---------------------------------------------------------
-    def start(self) -> "ThrowawayServer":
+    def start(self, extra_env: dict | None = None) -> "ThrowawayServer":
+        if self._started:
+            return self  # `with server.start():` must not boot a second process
+        self._started = True
         # The real downloader must never run: approving a request would spawn
         # yt-dlp. This stand-in fails immediately, so a request reaches
         # "failed" and the suite stays offline.
@@ -79,6 +83,7 @@ class ThrowawayServer:
             "PYTHONUNBUFFERED": "1",
             "PYTHONPATH": str(ROOT / "src"),
         })
+        env.update(extra_env or {})
         self._log = open(self.log_path, "w")
         self.proc = subprocess.Popen(
             [sys.executable, str(HERE / "fixture_server.py")],
@@ -112,6 +117,7 @@ class ThrowawayServer:
         raise RuntimeError(f"fixture server never answered ({last})\n{log}")
 
     def stop(self) -> None:
+        self._started = False
         if self.proc is not None and self.proc.poll() is None:
             self.proc.terminate()
             try:

@@ -24,6 +24,7 @@ import mailer
 import app_links
 import discord_link
 from database import _db
+from auth_throttle import throttled, json_field, session_account
 import rotur
 import discord_activity as discord_presence
 
@@ -31,6 +32,7 @@ bp = Blueprint("auth_api", __name__)
 
 
 @bp.post("/api/register")
+@throttled("register", account=lambda: json_field("username"))
 def register():
     """Create a local account (first account becomes admin; later ones need an invite)."""
     d = request.get_json(silent=True) or {}
@@ -92,13 +94,13 @@ def register():
 
 
 @bp.post("/api/login")
+@throttled("password", account=lambda: json_field("username", "email"))
 def login():
     """Password sign-in; sets the session cookie the web client uses."""
     d = request.get_json(silent=True) or {}
     identifier = d.get("username") or d.get("email") or ""
     u = authenticate_user(_db(), str(identifier), str(d.get("password", "")))
     if not u:
-        time.sleep(0.5)
         return jsonify(error="wrong email/username or password"), 401
     session.permanent = True
     session["uid"] = u["id"]
@@ -106,6 +108,7 @@ def login():
 
 
 @bp.post("/api/auth/app/login")
+@throttled("password", account=lambda: json_field("username", "email"))
 def app_login():
     """Native-client sign-in: verify the password, then hand back a device token.
 
@@ -121,7 +124,6 @@ def app_login():
     c = _db()
     u = authenticate_user(c, name, pw)
     if not u:
-        time.sleep(0.4)
         return jsonify(error="wrong email/username or password"), 401
     minted = create_device_code(c, u["id"])
     claim = claim_device_code(
@@ -138,6 +140,7 @@ def app_login():
 
 @bp.post("/api/auth/app/token")
 @login_required
+@throttled("token", account=session_account)
 def app_token():
     """Mint a device token for an existing web/Rotur session.
 

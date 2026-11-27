@@ -123,7 +123,10 @@ server {
 }
 ```
 
-Keep port 8000 firewalled from the public internet.
+Keep port 8000 firewalled from the public internet. Because the example proxy
+replaces `X-Forwarded-For`, set `TRUST_PROXY=1` in `mcmusic.env` so per-IP auth
+rate limits see the real client. Leave it unset for direct exposure; otherwise
+a client could send its own `X-Forwarded-For` and evade the limit.
 
 ## 5. Connect the clients
 

@@ -163,6 +163,14 @@ create table if not exists device_codes(
   claimed_at real
 );
 create index if not exists device_codes_user on device_codes(user_id);
+-- Sliding-window auth failure log. Timestamps are kept as rows so the window
+-- expires naturally and a successful sign-in can clear just the account/code.
+create table if not exists auth_failures(
+  scope text not null,
+  subject text not null,
+  ts real not null
+);
+create index if not exists auth_failures_lookup on auth_failures(scope, subject, ts);
 create table if not exists device_tokens(
   id integer primary key,
   user_id integer references users(id) on delete cascade,

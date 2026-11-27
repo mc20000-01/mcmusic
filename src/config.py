@@ -74,6 +74,15 @@ API_BAN_MAX = float(os.environ.get("API_BAN_MAX", "600"))
 API_BAN_WINDOW = float(os.environ.get("API_BAN_WINDOW", "1800"))
 API_AUTH_LIMIT = int(os.environ.get("API_AUTH_LIMIT", "40"))
 API_AUTH_WINDOW = float(os.environ.get("API_AUTH_WINDOW", "300"))
+# Login/register/pairing/token failures: a sliding window per account/code and
+# per client IP. Success clears the account/code counter, not the IP counter.
+AUTH_THROTTLE_LIMIT = int(os.environ.get("AUTH_THROTTLE_LIMIT", "10"))
+AUTH_THROTTLE_WINDOW = float(os.environ.get("AUTH_THROTTLE_WINDOW", "900"))
+# X-Forwarded-* headers are only meaningful behind a proxy we control. Without
+# this opt-in a client can spoof them and evade the per-IP throttle.
+TRUST_PROXY = os.environ.get("TRUST_PROXY", "").strip().lower() in (
+    "1", "true", "yes", "on",
+)
 # No cross-origin access unless an operator opts in. Leave empty for the
 # same-origin web app and native clients (OkHttp/URLSession/Qt do not enforce
 # CORS); set to one trusted origin, e.g. https://music.example.com, when a

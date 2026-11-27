@@ -31,14 +31,14 @@ from config import (
     SESSION_COOKIE_NAME, SESSION_COOKIE_SAMESITE, SESSION_COOKIE_HTTPONLY,
     PERMANENT_SESSION_LIFETIME, COOKIE_SECURE, DISCORD_BOT_TOKEN, DISCORD_GUILD_ID,
     DISCORD_ADMIN_TOKEN, HERE, SHELL_VERSION, DATA_DIR,
-    PUBLIC_URL,
+    PUBLIC_URL, TRUST_PROXY,
 )
 from database import init_db, _db, ensure_schema
 from library_scan import scan_library, yt_worker
 
-# Trust the reverse proxy (nginx/Caddy/cloudflared) so request.remote_addr and
-# request.scheme reflect the real client instead of 127.0.0.1. Set
-# X-Forwarded-For / X-Forwarded-Proto / X-Forwarded-Host at the proxy.
+# Only trust X-Forwarded-For / X-Forwarded-Proto / X-Forwarded-Host when an
+# operator opts in with TRUST_PROXY=1 and the proxy really overwrites those
+# headers. Otherwise a client can spoof them to evade the auth throttle.
 from werkzeug.middleware.proxy_fix import ProxyFix  # noqa: E402
 
 def _pick_dir(*candidates):
@@ -62,7 +62,8 @@ app = Flask(
     static_folder=WEB_DIR,
     static_url_path="/static",
 )
-app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+if TRUST_PROXY:
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 _kp = os.path.join(DATA_DIR, "secret.key")
 if not os.path.exists(_kp):
     with open(_kp, "w") as fh:
