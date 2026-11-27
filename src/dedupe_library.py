@@ -188,7 +188,9 @@ def fill_missing(conn, keep, dup):
         updates["duration"] = dup["duration"]
     if updates:
         sets = ", ".join(f"{k}=?" for k in updates)
-        conn.execute(f"update tracks set {sets} where id=?", (*updates.values(), keep["id"]))
+        # Column names come from the literal keys assembled above; every value
+        # is a bound parameter, so no request data reaches this SQL string.
+        conn.execute(f"update tracks set {sets} where id=?", (*updates.values(), keep["id"]))  # nosec B608
 
 
 def repoint(conn, keep, dup):

@@ -20,6 +20,7 @@ import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
+from urllib.parse import urlsplit
 
 from config import PROJECT_DIR
 
@@ -59,12 +60,28 @@ _WINDOWS_ZIP = re.compile(r"^mcmusic-windows-.+\.zip$", re.I)
 _SOURCE_ZIP = re.compile(r"^mcmusic-linux-source\.zip$", re.I)
 
 
+def _require_https(url: str) -> str:
+    """Refuse to fetch release metadata or assets over plaintext HTTP.
+
+    The GitHub API and asset URLs are built from constants in this module, but
+    an operator can point MCMUSIC_GITHUB_REPO at a host of their choosing.
+    Requiring HTTPS here keeps a bad value from leaking requests (and, for
+    assets, being written into apps/ as trusted bytes) over the network.
+    """
+    parts = urlsplit(str(url or ""))
+    if parts.scheme.lower() != "https" or not parts.netloc:
+        raise ValueError(f"refusing non-HTTPS release URL: {url!r}")
+    return url
+
+
 def _request(url: str, timeout: int = 20, accept: str = "application/json") -> bytes:
+    _require_https(url)
     req = urllib.request.Request(
         url,
         headers={"User-Agent": UA, "Accept": accept},
     )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    # _require_https() above guarantees an https URL with a host.
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
         return resp.read()
 
 
@@ -216,10 +233,12 @@ def download(asset: dict, force: bool = False) -> bool:
         temp = target + suffix
         temps = [temp]
         try:
+            url = _require_https(asset["url"])
             req = urllib.request.Request(
-                asset["url"], headers={"User-Agent": UA, "Accept": "application/octet-stream"}
+                url, headers={"User-Agent": UA, "Accept": "application/octet-stream"}
             )
-            with urllib.request.urlopen(req, timeout=180) as resp, open(temp, "wb") as fh:
+            # _require_https() above guarantees an https asset URL.
+            with urllib.request.urlopen(req, timeout=180) as resp, open(temp, "wb") as fh:  # nosec B310
                 shutil.copyfileobj(resp, fh, 1024 * 1024)
             digest = asset.get("digest") or ""
             if digest and _sha256(temp) != digest:

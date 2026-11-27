@@ -195,15 +195,17 @@ def albums():
     }.get(sort, "album collate nocase")
 
     db = _db()
+    # `where` contains only fixed literals selected above and `order` comes
+    # from the hardcoded allowlist; all caller data is bound as a parameter.
     rows = db.execute(
         "select album, artist, count(*) n, min(id) cover_id, max(id) added_id "
         f"from tracks {where} group by album having count(*) >= ? "
-        f"order by {order} limit ? offset ?",
+        f"order by {order} limit ? offset ?",  # nosec B608
         (*params, min_tracks, limit, offset),
     ).fetchall()
     total = db.execute(
         "select count(*) n from (select album from tracks "
-        f"{where} group by album having count(*) >= ?)",
+        f"{where} group by album having count(*) >= ?)",  # nosec B608
         (*params, min_tracks),
     ).fetchone()["n"]
     # Cheap ETag so clients/proxies can revalidate quickly.

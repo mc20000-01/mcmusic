@@ -1979,9 +1979,11 @@ def playback_pull():
         (uid, device, device),
     ).fetchall()
     if rows:
+        # Only the `?` placeholders are interpolated; the ids themselves are
+        # bound parameters, one per row just fetched from this database.
         c.execute(
             "update playback_commands set consumed=1 where id in (%s)"
-            % ",".join("?" * len(rows)), [r["id"] for r in rows]
+            % ",".join("?" * len(rows)), [r["id"] for r in rows]  # nosec B608
         )
         c.commit()
     cmds = []
@@ -2043,8 +2045,10 @@ def queue_snapshot():
     if not ids:
         return jsonify(queue=[], current=None)
     marks = ",".join("?" * len(ids))
+    # `marks` is nothing but one `?` per bound id; queue ids never enter SQL.
     rows = {r["id"]: r for r in c.execute(
-        "select id,title,artist,album,duration from tracks where id in (%s)" % marks, ids)}
+        "select id,title,artist,album,duration from tracks where id in (%s)" % marks,  # nosec B608
+        ids)}
     return jsonify(
         current=dict(rows[pb["track_id"]]) if pb.get("track_id") in rows else None,
         queue=[dict(rows[i]) for i in ids if i in rows],

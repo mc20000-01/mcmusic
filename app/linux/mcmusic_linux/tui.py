@@ -91,6 +91,24 @@ def cache_path() -> Path:
     return path
 
 
+def require_secure_server_url(url: str) -> str:
+    """Refuse to send credentials to a non-HTTPS server.
+
+    The client sends passwords, session cookies and bearer tokens to the
+    configured server. Only a loopback address may stay on plaintext HTTP: that
+    is the shipped local-development default and never leaves the machine.
+    Every remote server must use HTTPS.
+    """
+    parts = urllib.parse.urlsplit(str(url or ""))
+    scheme = parts.scheme.lower()
+    host = (parts.hostname or "").lower()
+    if scheme == "https" and parts.netloc:
+        return url
+    if scheme == "http" and host in ("127.0.0.1", "localhost", "::1", "ip6-localhost"):
+        return url
+    raise ValueError(f"refusing to send credentials over an insecure URL: {url!r}")
+
+
 def normalize(raw: str, fallback: str = DEFAULT_SERVER) -> str:
     value = (raw or "").strip()
     if not value:
@@ -218,7 +236,7 @@ class Client:
 
     def call(self, method: str, path: str, body: dict | None = None,
              params: dict | None = None, timeout: float = 25) -> Any:
-        url = f"{self.base}/api/{path.lstrip('/')}"
+        url = require_secure_server_url(f"{self.base}/api/{path.lstrip('/')}")
         if params:
             qs = urllib.parse.urlencode(
                 {k: v for k, v in params.items() if v not in (None, "")}
@@ -231,7 +249,8 @@ class Client:
             url, data=data, headers=self._headers(extra), method=method,
         )
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as res:
+            # require_secure_server_url() rejects non-HTTPS remote servers.
+            with urllib.request.urlopen(req, timeout=timeout) as res:  # nosec B310
                 raw = res.read()
                 self._absorb(res.headers.get_all("Set-Cookie"))
         except urllib.error.HTTPError as exc:
@@ -395,12 +414,13 @@ class Client:
 
     # audio ----------------------------------------------------------------
     def download_stream(self, track_id: int, folder: Path) -> Path:
-        url = f"{self.base}/api/tracks/{track_id}/stream"
+        url = require_secure_server_url(f"{self.base}/api/tracks/{track_id}/stream")
         req = urllib.request.Request(
             url, headers=self._headers({"Accept": "audio/*"}), method="GET",
         )
         try:
-            with urllib.request.urlopen(req, timeout=120) as res:
+            # require_secure_server_url() rejects non-HTTPS remote servers.
+            with urllib.request.urlopen(req, timeout=120) as res:  # nosec B310
                 self._absorb(res.headers.get_all("Set-Cookie"))
                 ctype = (res.headers.get("Content-Type") or "").split(";")[0].strip().lower()
                 ext = AUDIO_EXT.get(ctype, ".mp3")

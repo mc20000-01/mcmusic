@@ -169,12 +169,14 @@ def _refresh_faves(c, uid):
     """Rebuild Faves from weighted, always-on listening metrics."""
     pid = _faves_id(c, uid)
     weights = " ".join(f"when '{k}' then {v}" for k, v in EVENT_WEIGHTS.items())
+    # EVENT_WEIGHTS is a module-level constant of literal event names and
+    # integers; the only caller-supplied value (uid) stays bound as a parameter.
     top = c.execute(
         f"""select track_id,
                    sum(case event {weights} else 0 end) n,
                    max(ts) last_ts
             from listening_events where user_id=? group by track_id
-            having n >= 2 order by n desc, last_ts desc limit 40""", (uid,)
+            having n >= 2 order by n desc, last_ts desc limit 40""", (uid,)  # nosec B608
     ).fetchall()
     if not top:  # installs upgrading from a plays-only database
         top = c.execute(
