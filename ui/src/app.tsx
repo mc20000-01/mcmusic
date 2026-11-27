@@ -40,12 +40,13 @@ import {
 } from "./common/integrations";
 import { signal } from "@preact/signals";
 import { SELFHOST_GUIDE } from "./common/links";
+import { SPA_SCOPE } from "./common/routeScope";
 
 export function App() {
     return (
-        // Leave /api/... anchors to the browser: OAuth authorize endpoints are
-        // server routes, not client routes, and intercepting them shows 404.
-        <LocationProvider scope={/^\/(?!api(?:\/|$))/}>
+        // Leave server-owned paths (OAuth, /api, downloads, assets...) to the
+        // browser: intercepting them makes the SPA show a false 404.
+        <LocationProvider scope={SPA_SCOPE}>
             <Main />
         </LocationProvider>
     )

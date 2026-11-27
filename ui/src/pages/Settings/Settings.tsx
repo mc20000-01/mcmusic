@@ -439,12 +439,19 @@ export function SettingsPage() {
                             </Container>
                             <Text dim content={discordError ?? discordDetail} />
                             <Container horizontal centered_y wrap class="status-actions">
-                                <TextIconLinkButton
-                                    variant="accent"
-                                    href={discord?.configured ? API.discordAuthorizeUrl() : "#"}
-                                >
-                                    <Link2 size={16} /> {discordLinked ? "Reconnect Discord" : "Link Discord"}
-                                </TextIconLinkButton>
+                                {discord?.configured ? (
+                                    <TextIconLinkButton variant="accent" href={API.discordAuthorizeUrl()}>
+                                        <Link2 size={16} /> {discordLinked ? "Reconnect Discord" : "Link Discord"}
+                                    </TextIconLinkButton>
+                                ) : (
+                                    <TextIconButton
+                                        variant="accent"
+                                        disabled
+                                        title="Set DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET on the server to enable linking"
+                                    >
+                                        <Link2 size={16} /> Link Discord
+                                    </TextIconButton>
+                                )}
                                 {discordLinked && (
                                     <TextIconButton variant="danger-subtle" onClick={unlinkDiscord}>
                                         <Unlink size={16} /> Unlink
