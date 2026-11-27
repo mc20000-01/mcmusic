@@ -285,7 +285,6 @@ private struct MorphingPlayPauseButton: View {
                 .animation(motion ? Playful.morph : nil, value: playing)
                 LucideIcon(name: playing ? "pause" : "play",
                            size: size * 0.38, color: tokens.onPrimary)
-                    .rotationEffect(.degrees(playing && motion ? 90 : 0))
             }
         }
         .buttonStyle(PlayfulButtonStyle(haptic: false))

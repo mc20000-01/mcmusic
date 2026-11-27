@@ -46,6 +46,10 @@ test("play morphs the button into a blob and starts the progress wave", async ({
     const playingRadius = await play.evaluate(el => getComputedStyle(el).borderRadius);
     expect(playingRadius).not.toBe(pausedRadius);
     expect(playingRadius).toContain("%");
+
+    // The pause bars must stay vertical (||), not rotate into an equals sign.
+    const glyphTransform = await play.locator("svg").evaluate(el => getComputedStyle(el).transform);
+    expect(glyphTransform).toBe("none");
     await expect(signedInPage.locator("#player-bar .seek-wave path")).toBeVisible();
 
     // The wave is decorative: turning playful motion off removes it.

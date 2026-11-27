@@ -127,7 +127,7 @@ struct PlayfulIconButton: View {
 }
 
 /// Play/pause control with the 4.2.0 pill-to-squircle morph. Paused is a
-/// capsule, playing is a 16pt squircle, and the glyph turns a quarter turn.
+/// capsule, playing is a 16pt squircle, and the pause glyph stays upright (||).
 /// Reduced motion or the local switch keeps a fixed squircle.
 struct PlayPauseButton: View {
     let playing: Bool
@@ -151,7 +151,6 @@ struct PlayPauseButton: View {
                     .fill(tokens.primary)
                 LucideIcon(name: playing ? "pause" : "play",
                            size: size * 0.38, color: tokens.onPrimary)
-                    .rotationEffect(.degrees(playing && motion ? 90 : 0))
             }
         }
         .buttonStyle(PlayfulButtonStyle(haptic: false))

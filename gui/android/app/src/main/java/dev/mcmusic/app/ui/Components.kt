@@ -233,10 +233,6 @@ fun PlayPauseButton(
         if (pressed && motion) PlayfulMotion.PRESS_SCALE else 1f,
         spring(dampingRatio = PlayfulMotion.DAMPING_RATIO, stiffness = PlayfulMotion.STIFFNESS),
     )
-    val rotation by animateFloatAsState(
-        if (playing) 90f else 0f,
-        spring(dampingRatio = PlayfulMotion.DAMPING_RATIO, stiffness = PlayfulMotion.STIFFNESS),
-    )
     Box(
         modifier = modifier
             .size(maxOf(size, design.touchTarget))
@@ -249,13 +245,12 @@ fun PlayPauseButton(
             },
         contentAlignment = Alignment.Center,
     ) {
-        Box(Modifier.graphicsLayer { rotationZ = if (motion) rotation else 0f }) {
-            LucideIcon(
-                if (playing) Lucide.Pause else Lucide.Play,
-                design.onAccent,
-                size = size * 0.36f,
-            )
-        }
+        // The pause glyph stays upright (||); only the container morphs.
+        LucideIcon(
+            if (playing) Lucide.Pause else Lucide.Play,
+            design.onAccent,
+            size = size * 0.36f,
+        )
     }
 }
 
