@@ -204,7 +204,9 @@ def _download(vid: str, url: str) -> None:
             "--merge-output-format", "mp4",
             "-o", temp, target,
         ]
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=15 * 60)
+        # Fixed argv list; the video id is passed as data to yt-dlp, never as
+        # part of a shell command.
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=15 * 60)  # nosec B603
         if proc.returncode != 0 or not os.path.isfile(temp) or os.path.getsize(temp) == 0:
             _log.warning("video cache %s failed: %s", vid, (proc.stderr or proc.stdout or "")[-500:])
             return

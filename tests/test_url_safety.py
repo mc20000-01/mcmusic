@@ -18,9 +18,12 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "src" / "routes"))
 sys.path.insert(0, str(ROOT / "app" / "linux"))
 
 import github_builds  # noqa: E402
+import system_routes  # noqa: E402
+import yt_playlist_to_mp3  # noqa: E402
 from mcmusic_linux.tui import Client, require_secure_server_url  # noqa: E402
 
 
@@ -60,7 +63,7 @@ class GithubUrlTest(unittest.TestCase):
                     mock.patch.object(github_builds.urllib.request, "urlopen") as opened, \
                     self.assertLogs(github_builds._log, level="WARNING") as logged:
                 self.assertFalse(github_builds.download(asset))
-            self.assertIn("refusing non-HTTPS release URL", logged.output[0])
+            self.assertIn("refusing non-HTTPS URL", logged.output[0])
         opened.assert_not_called()
 
 
@@ -90,6 +93,23 @@ class TuiUrlTest(unittest.TestCase):
             with mock.patch("mcmusic_linux.tui.urllib.request.urlopen") as opened:
                 with self.assertRaises(ValueError):
                     client.download_stream(7, Path(tmp))
+        opened.assert_not_called()
+
+
+class OtherUrlopenTest(unittest.TestCase):
+    def test_direct_download_rejects_plaintext_before_urlopen(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch("urllib.request.urlopen") as opened:
+                with self.assertRaises(ValueError):
+                    system_routes._download_direct(
+                        "http://example.invalid/file", os.path.join(tmp, "x"), 1)
+        opened.assert_not_called()
+
+    def test_lyrics_lookup_rejects_plaintext_before_urlopen(self):
+        with mock.patch.object(yt_playlist_to_mp3, "LYRICS_API",
+                               "http://example.invalid/api"), \
+                mock.patch("urllib.request.urlopen") as opened:
+            self.assertEqual(yt_playlist_to_mp3.fetch_lyrics("Song", "Artist"), ("", 0))
         opened.assert_not_called()
 
 

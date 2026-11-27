@@ -135,6 +135,7 @@ except ImportError:
     sys.exit("yt-dlp is not installed. Run: pip install yt-dlp")
 
 from config import DB_PATH
+from url_safety import require_https
 import song_meta
 
 print_lock = threading.Lock()
@@ -441,9 +442,11 @@ def probe_full(path, attempts=2):
     last_err = None
     for attempt in range(1, attempts + 1):
         try:
+            # PATH lookup for ffprobe is intentional (distros ship it in
+            # different places); the file path stays a separate argv item.
             result = subprocess.run(
                 ["ffprobe", "-v", "quiet", "-print_format", "json",
-                 "-show_format", "-show_streams", path],
+                 "-show_format", "-show_streams", path],  # nosec B603, B607
                 capture_output=True, text=True, timeout=30,
             )
             if result.returncode != 0:
@@ -516,7 +519,9 @@ def classify_and_fix(path, cover_path, do_repair, do_fix_minor):
     last_err = None
     for attempt in range(1, 3):
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            # `cmd` is an argv list whose only variable entries are file paths
+            # and metadata values; no shell parses them.
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)  # nosec B603
             if result.returncode == 0 and os.path.exists(tmp_path):
                 os.replace(tmp_path, path)
                 if needs_meta and needs_cover:
@@ -830,9 +835,10 @@ def fetch_lyrics(title, artist, duration=None, timeout=10):
         except (TypeError, ValueError):
             pass
     try:
-        url = f"{LYRICS_API}/get?" + urllib.parse.urlencode(params)
+        url = require_https(f"{LYRICS_API}/get?" + urllib.parse.urlencode(params))
         req = urllib.request.Request(url, headers={"User-Agent": UA})
-        with urllib.request.urlopen(req, timeout=timeout) as r:
+        # require_https() rejects file:/ and plaintext URLs before this point.
+        with urllib.request.urlopen(req, timeout=timeout) as r:  # nosec B310
             data = json.loads(r.read().decode("utf-8", "replace"))
     except Exception:
         return "", 0
@@ -917,7 +923,8 @@ def set_album_tag(path, album):
     cmd = ["ffmpeg", "-y", "-v", "error", "-i", path, "-map", "0", "-c", "copy",
            "-metadata", f"album={album}", tmp_path]
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        # Fixed ffmpeg argv list; album text is a metadata value, not code.
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)  # nosec B603
         if result.returncode == 0 and os.path.exists(tmp_path) and os.path.getsize(tmp_path) > 0:
             os.replace(tmp_path, path)
             return True

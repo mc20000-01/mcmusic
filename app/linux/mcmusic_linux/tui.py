@@ -521,8 +521,10 @@ class Player:
                 "-volume", str(self.volume), str(path),
             ]
         try:
+            # `argv` is a fixed list with only the cached path and volume as
+            # data arguments; mpv/ffplay are launched without a shell.
             self.proc = subprocess.Popen(
-                argv, stdin=subprocess.DEVNULL,
+                argv, stdin=subprocess.DEVNULL,  # nosec B603
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             )
         except OSError:

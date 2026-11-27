@@ -423,7 +423,9 @@ BUILD = _build_id()
 
 @app.get("/api/version")
 def version():
-    resp = jsonify(build=BUILD, shell=SHELL_VERSION, started=START_TIME)
+    # `shell` is a response field holding the UI shell version, not a
+    # subprocess keyword; Bandit's B604 heuristic matches the argument name.
+    resp = jsonify(build=BUILD, shell=SHELL_VERSION, started=START_TIME)  # nosec B604
     resp.headers["Cache-Control"] = "no-store"
     return resp
 
@@ -716,7 +718,9 @@ def boot():
         logp = os.path.join(DATA_DIR, "discord_bot.log")
         if os.path.exists(bot_path) and not os.environ.get("MCMUSIC_NO_BOT"):
             print(f"[discord] starting bot from {bot_path}", flush=True)
-            _sp.Popen([sys.executable, bot_path], env=env,
+            # Fixed interpreter plus a path inside this package; argv list,
+            # never a shell string.
+            _sp.Popen([sys.executable, bot_path], env=env,  # nosec B603
                       stdout=open(logp, "ab"), stderr=open(logp, "ab"))
 
 

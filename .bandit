@@ -1,0 +1,20 @@
+# Bandit triage for this repository.
+#
+# The skipped checks are false positives for this codebase:
+#   B105/B106/B107 - Qt color-role names ("on_surface_variant", "outline_variant")
+#                    and empty defaults are parsed as credential literals.
+#   B110/B112      - deliberate best-effort fallbacks in media/UI code.
+#   B311           - playlist shuffle and UI jitter, never security tokens.
+#   B404           - importing subprocess is required by the downloader and
+#                    audio players; each call site is an annotated argv list.
+#
+# Every remaining finding is annotated at its source with `# nosec <id>` and a
+# comment explaining why the dynamic value can only be data, never code.
+skips:
+  - B105
+  - B106
+  - B107
+  - B110
+  - B112
+  - B311
+  - B404

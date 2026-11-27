@@ -1079,8 +1079,11 @@ def _log_line(logp, line):
 def _download_direct(url, dest, rid):
     """Stream a direct HTTPS link into staging, with a hard size limit."""
     from urllib.request import Request, urlopen
+    from url_safety import require_https
+    require_https(url)
     req = Request(url, headers={"User-Agent": f"mcmusic/{rid}"})
-    with urlopen(req, timeout=120) as res:
+    # require_https() rejects file:/ and plaintext URLs before this point.
+    with urlopen(req, timeout=120) as res:  # nosec B310
         length = int(res.headers.get("Content-Length") or 0)
         if length > MAX_DIRECT_BYTES:
             raise ValueError(f"file is too large ({length} bytes)")
@@ -1132,7 +1135,9 @@ def _run_download_command(rid, row, cmd, logp, conn):
     """Legacy yt-dlp path. Returns (ok, cancelled)."""
     ok, cancelled = False, False
     try:
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        # Legacy downloader builds an argv list; the Python interpreter and
+        # script path come from server config, not from request text.
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,  # nosec B603
                                 text=True, bufsize=1)
         with running_lock:
             running[rid] = {"pid": proc.pid, "started": time.time(), "proc": proc}
@@ -1344,7 +1349,8 @@ def devices_heartbeat():
         return jsonify(error="device_hash required"), 400
     name = str(d.get("name", "")).strip()[:64] or None
     ua = str(request.headers.get("User-Agent", ""))[:200]
-    ip = request.remote_addr or "0.0.0.0"
+    # Fallback metadata value only; this server never binds to this string.
+    ip = request.remote_addr or "0.0.0.0"  # nosec B104
     now = time.time()
     track_id = d.get("track_id")
     position = d.get("position")
@@ -1485,7 +1491,8 @@ def devices_claim():
         _db(),
         str(d.get("code", "")),
         name=str(d.get("name", "")),
-        ip=request.remote_addr or "0.0.0.0",
+        # Fallback metadata value only; this server never binds to it.
+        ip=request.remote_addr or "0.0.0.0",  # nosec B104
         ua=str(request.headers.get("User-Agent", ""))[:200],
         device_hash=str(d.get("device_hash", "")),
     )

@@ -20,7 +20,7 @@ import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
-from urllib.parse import urlsplit
+from url_safety import require_https as _require_https
 
 from config import PROJECT_DIR
 
@@ -58,20 +58,6 @@ _MACOS_ZIP = re.compile(r"^mcmusic-macos-.+\.zip$", re.I)
 _MACOS_DMG = re.compile(r"^mcmusic-.+\.dmg$", re.I)
 _WINDOWS_ZIP = re.compile(r"^mcmusic-windows-.+\.zip$", re.I)
 _SOURCE_ZIP = re.compile(r"^mcmusic-linux-source\.zip$", re.I)
-
-
-def _require_https(url: str) -> str:
-    """Refuse to fetch release metadata or assets over plaintext HTTP.
-
-    The GitHub API and asset URLs are built from constants in this module, but
-    an operator can point MCMUSIC_GITHUB_REPO at a host of their choosing.
-    Requiring HTTPS here keeps a bad value from leaking requests (and, for
-    assets, being written into apps/ as trusted bytes) over the network.
-    """
-    parts = urlsplit(str(url or ""))
-    if parts.scheme.lower() != "https" or not parts.netloc:
-        raise ValueError(f"refusing non-HTTPS release URL: {url!r}")
-    return url
 
 
 def _request(url: str, timeout: int = 20, accept: str = "application/json") -> bytes:

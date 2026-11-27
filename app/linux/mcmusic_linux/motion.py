@@ -84,8 +84,10 @@ def _qt_reduce() -> bool:
 
 def _command_reduce(command: list[str], off: str) -> bool:
     try:
+        # `command` is an argv list assembled from fixed platform commands;
+        # no shell is involved and no caller text becomes an argument name.
         result = subprocess.run(
-            command, capture_output=True, text=True, timeout=1, check=False,
+            command, capture_output=True, text=True, timeout=1, check=False,  # nosec B603
         )
     except (OSError, subprocess.SubprocessError):
         return False
