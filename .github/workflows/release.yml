@@ -355,6 +355,8 @@ jobs:
       - name: Refresh the tracked release manifest
         # builds/ itself is ignored; these text files record the published
         # asset names, sizes and digests without committing any binary.
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: python3 scripts/write_release_manifest.py
 
       - name: Build summary

@@ -1,7 +1,7 @@
 {
-  "version": "4.3.0",
+  "version": "4.3.1",
   "tag": "latest",
-  "release": "mcmusic latest (4.3.0)",
+  "release": "mcmusic latest (4.3.1)",
   "source": "https://api.github.com/repos/mc20000-01/mcmusic/releases/latest",
   "assets": [
     {
@@ -11,51 +11,51 @@
       "url": "https://github.com/mc20000-01/mcmusic/releases/download/latest/README.md"
     },
     {
-      "name": "mcmusic-4.3.0.apk",
+      "name": "mcmusic-4.3.1.apk",
       "size": 7715436,
-      "sha256": "4da1727c19ac37f572bfd6397ac7bd663d8dc66130d4a68fd4b5b62d96a03d3d",
-      "url": "https://github.com/mc20000-01/mcmusic/releases/download/latest/mcmusic-4.3.0.apk"
+      "sha256": "a952849ae6e91e7aa7d9004e4cee39037b4dbd9e47761d819560147e44c6752e",
+      "url": "https://github.com/mc20000-01/mcmusic/releases/download/latest/mcmusic-4.3.1.apk"
     },
     {
-      "name": "mcmusic-4.3.0.dmg",
-      "size": 57882288,
-      "sha256": "724405f267a9046dda6acee9073721681c2db4d22780f3a35799d2f637529037",
-      "url": "https://github.com/mc20000-01/mcmusic/releases/download/latest/mcmusic-4.3.0.dmg"
+      "name": "mcmusic-4.3.1.dmg",
+      "size": 57882832,
+      "sha256": "685c2276d707348c75afecac320bd03fc61e51b99101f00930e30c53b9aa138d",
+      "url": "https://github.com/mc20000-01/mcmusic/releases/download/latest/mcmusic-4.3.1.dmg"
     },
     {
-      "name": "mcmusic-desktop_4.3.0_all.deb",
-      "size": 101064,
-      "sha256": "535e481ab59db6d01432a9fc4c3cd68156f0c9c62f87d87b3d638092ba33b617",
-      "url": "https://github.com/mc20000-01/mcmusic/releases/download/latest/mcmusic-desktop_4.3.0_all.deb"
+      "name": "mcmusic-desktop_4.3.1_all.deb",
+      "size": 101494,
+      "sha256": "87041e0400d99a1ce7409bc97cf2c390bfdef72606e9c5a8d4f0eaa8e10cef7d",
+      "url": "https://github.com/mc20000-01/mcmusic/releases/download/latest/mcmusic-desktop_4.3.1_all.deb"
     },
     {
-      "name": "mcmusic-ios-simulator-4.3.0.app.zip",
-      "size": 2413097,
-      "sha256": "5088fc2b5a9602d35b15c0fdad9c28f3b3e54652671080e60c0c4d5d5f78791a",
-      "url": "https://github.com/mc20000-01/mcmusic/releases/download/latest/mcmusic-ios-simulator-4.3.0.app.zip"
+      "name": "mcmusic-ios-simulator-4.3.1.app.zip",
+      "size": 2413102,
+      "sha256": "6556f8b253aca9bb379c50c0ef1218915d1f757ba99e6591dd7e57bf13738825",
+      "url": "https://github.com/mc20000-01/mcmusic/releases/download/latest/mcmusic-ios-simulator-4.3.1.app.zip"
     },
     {
       "name": "mcmusic-linux-source.zip",
-      "size": 138732,
-      "sha256": "98e19c132c1fdad86659b99414519b670074ddfc6e4eaf7d47452577a59b1e4e",
+      "size": 139437,
+      "sha256": "f98e6292798aca3603562a5a5e01c30f326993947f43b1daab1b6c6ff521518e",
       "url": "https://github.com/mc20000-01/mcmusic/releases/download/latest/mcmusic-linux-source.zip"
     },
     {
-      "name": "mcmusic-macos-4.3.0.app.zip",
-      "size": 51459673,
-      "sha256": "0e024932c682d578cd5adc7b9f9a7f80ee68480376f363c669418d552b0bf68c",
-      "url": "https://github.com/mc20000-01/mcmusic/releases/download/latest/mcmusic-macos-4.3.0.app.zip"
+      "name": "mcmusic-macos-4.3.1.app.zip",
+      "size": 51460505,
+      "sha256": "b23a57fc2aba5c2b7d05c2743a07b425108ff4ff078f5cfa14442d4ab357d149",
+      "url": "https://github.com/mc20000-01/mcmusic/releases/download/latest/mcmusic-macos-4.3.1.app.zip"
     },
     {
-      "name": "mcmusic-windows-4.3.0.zip",
-      "size": 77009676,
-      "sha256": "a0df1ad4621f4e402a873c3e020f4eeba04f44350753f8c1409a553527cc3ea8",
-      "url": "https://github.com/mc20000-01/mcmusic/releases/download/latest/mcmusic-windows-4.3.0.zip"
+      "name": "mcmusic-windows-4.3.1.zip",
+      "size": 77010737,
+      "sha256": "4dd2bc2f51aa7257a3a3af9d24fbeb0a72560bf84645eb7d06659ba21ec4992c",
+      "url": "https://github.com/mc20000-01/mcmusic/releases/download/latest/mcmusic-windows-4.3.1.zip"
     },
     {
       "name": "mcmusic-x86_64.AppImage",
-      "size": 1239544,
-      "sha256": "5d8da53ca735493a0d286c4eaf34263afe6ae69135c8996a6467035a6fea4b91",
+      "size": 315368,
+      "sha256": "5320581cd629718ed6613e4ed98c1f148ebc53bddf73c883473c4533cbb8350a",
       "url": "https://github.com/mc20000-01/mcmusic/releases/download/latest/mcmusic-x86_64.AppImage"
     }
   ]
