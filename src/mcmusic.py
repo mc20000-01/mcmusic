@@ -22,6 +22,7 @@ import secrets
 import sys
 import threading
 import time
+from urllib.parse import urlsplit
 
 from flask import Flask, g, request, jsonify, Response, send_file, redirect
 from markupsafe import escape
@@ -140,6 +141,54 @@ AUTH_GUARD = RateGuard(API_AUTH_LIMIT, API_AUTH_WINDOW, 300, 3600, 3600)
 def _auth_uid():
     from auth import _auth_uid as _au
     return _au()
+
+
+def _origin_of(value):
+    """Normalise a URL to its scheme://host[:port] origin, or ''."""
+    try:
+        parts = urlsplit(str(value or "").strip())
+        if parts.scheme and parts.netloc:
+            return f"{parts.scheme.lower()}://{parts.netloc.lower()}"
+    except ValueError:
+        pass
+    return ""
+
+
+def _csrf_denied():
+    return jsonify(error="cross-site request rejected"), 403
+
+
+@app.before_request
+def _csrf_guard():
+    """Reject cross-site writes that carry the victim's session cookie.
+
+    Native clients sign with a bearer token (or the bot credential) and are
+    exempt: they are not drove by a browser origin. Plain requests without a
+    session cookie are not cookie-authenticated and stay compatible with CLI
+    callers. Browsers that send no Origin/Sec-Fetch-Site (e.g. same-origin GET)
+    are allowed; a present but foreign Origin, or an explicit cross-site fetch,
+    is rejected before any state changes.
+    """
+    if request.method in ("GET", "HEAD", "OPTIONS"):
+        return None
+    supplied = request.headers.get("Authorization", "")
+    if supplied.startswith("Bearer ") or request.headers.get("X-MCMUSIC-BOT"):
+        return None
+    if not request.cookies.get(SESSION_COOKIE_NAME):
+        return None
+    if (request.headers.get("Sec-Fetch-Site") or "").strip().lower() == "cross-site":
+        return _csrf_denied()
+    origin = _origin_of(request.headers.get("Origin"))
+    if origin:
+        allowed = {
+            _origin_of(PUBLIC_URL),
+            _origin_of(request.host_url),
+            _origin_of(CORS_ORIGIN),
+        }
+        allowed.discard("")
+        if origin not in allowed:
+            return _csrf_denied()
+    return None
 
 
 @app.before_request

@@ -140,6 +140,10 @@ unless `CORS_ORIGIN` is set in `mcmusic.env` to one exact trusted origin (for
 example `CORS_ORIGIN=https://music.example.com`). The same-origin web app and
 the native clients need no value: Android, iOS and desktop HTTP stacks do not
 enforce CORS. Only set it when a web frontend is served from a different origin.
+State-changing requests that carry the session cookie are also origin-checked
+before they run: a cross-site `Sec-Fetch-Site` or an `Origin` other than
+`PUBLIC_URL`, the request's own origin, or the configured `CORS_ORIGIN` gets
+HTTP 403. Bearer-token (native/bot) requests are exempt.
 
 ### Android
 
