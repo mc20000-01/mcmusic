@@ -137,6 +137,19 @@ jobs:
       - name: Build Linux deb
         run: ./scripts/build_deb.sh
 
+      - name: Build Linux AppImage
+        run: |
+          set -euo pipefail
+          tool="$RUNNER_TEMP/appimagetool.AppImage"
+          curl -fsSL -o "$tool" \
+            https://github.com/AppImage/AppImageKit/releases/download/12/appimagetool-x86_64.AppImage
+          echo 'd918b4df547b388ef253f3c9e7f6529ca81a885395c31f619d9aaf7030499a13  '"$tool" \
+            | sha256sum --check --strict
+          chmod 0755 "$tool"
+          # Extract so the build does not depend on FUSE being mounted.
+          (cd "$RUNNER_TEMP" && ./appimagetool.AppImage --appimage-extract >/dev/null)
+          APPIMAGETOOL="$RUNNER_TEMP/squashfs-root/AppRun" ./scripts/build_appimage.sh
+
       - name: Publish web assets
         run: ./scripts/publish_apps.sh
 

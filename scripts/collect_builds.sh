@@ -56,9 +56,9 @@ if [ -f apps/linux/mainbuild.zip ]; then
   echo "collected builds/mcmusic-linux-source.zip"
 fi
 
-# A desktop AppImage is built on the maintainer's machine; keep the newest
-# copy that is already present rather than pretending CI can produce one.
-if [ -f mcmusic-x86_64.AppImage ]; then
+# CI builds a fresh AppImage directly into builds/ (build_appimage.sh). Only
+# use a locally built copy at the repository root when CI did not make one.
+if [ ! -f builds/mcmusic-x86_64.AppImage ] && [ -f mcmusic-x86_64.AppImage ]; then
   cp mcmusic-x86_64.AppImage builds/mcmusic-x86_64.AppImage
   echo "collected builds/mcmusic-x86_64.AppImage"
 fi

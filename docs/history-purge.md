@@ -1,15 +1,17 @@
-# Purging build binaries from git history (not performed)
+# Purging build binaries from git history
 
-`builds/` binaries are no longer tracked at HEAD (commit `276dfeb`), but the old
-bytes are still reachable from older commits. As of that commit the repository
-has about **3.0 GiB** of loose objects, roughly **3.17 GiB** of historical
-blobs under `builds/`/`apps/`, and **82** `Update published builds` bot commits.
-Only a history rewrite reclaims that space. **No rewrite has been run**, no
-history has been rewritten, and nothing has been force-pushed.
+The purge was performed on 2026-11-27 after explicit approval. All rewritten
+branches and tags were force-pushed. No binary under `builds/`, `apps/`,
+`web/apps/` or `releases/` is reachable from any ref any more, while the three
+small text records under `builds/` are preserved. The local repository went
+from about **3.0 GiB** of loose objects to a single **~2.8 MiB** pack. A mirror
+backup of the original public history remains at `~/mcmusic-history-backup.git`.
 
-This document is the runbook for a *future, separately approved* maintenance
-window. It must be coordinated: rewriting public history changes every commit
-SHA and every tag, including `v4.3.0` and the rolling `latest` tag.
+Before the rewrite, `builds/` binaries were still reachable from older commits
+even though they were no longer tracked at HEAD. The notes below are the
+runbook that was executed and are retained for audit and repeatability.
+Rewriting public history changed every commit SHA and every tag, including
+`v4.3.0` and the rolling `latest` tag.
 
 ## Before you start
 
@@ -125,6 +127,12 @@ git remote set-url origin git@github.com:mc20000-01/mcmusic.git
 git push --force --all origin
 git push --force --tags origin
 ```
+
+Executed on 2026-11-27: after the mirror backup and release-asset checks, the
+callback above was run in the daily checkout with `git filter-repo --force`,
+then `main`, `fixes-4.3.x`, `fixes-4.2.x`, `design-4.3.0` and all tags were
+force-pushed. `origin/HEAD` was reset to `main`. The 4.3.1 release workflow
+refreshed the rolling `latest` release afterwards.
 
 GitHub Releases are **not** rewritten by this: their assets and asset digests
 stay where they are, but the release `target_commitish` values point at the old
