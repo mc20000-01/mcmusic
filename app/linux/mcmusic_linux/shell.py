@@ -1469,7 +1469,15 @@ class McWindow(QMainWindow):
             self.repo.logout()
             self.repo.app_logout()
 
-        self.run(job, lambda _: None, lambda _exc: None)
+        def done(_value) -> None:
+            # The logout responses are absorbed by Api._absorb_cookies() while
+            # the job runs. Clear again afterwards so a late Set-Cookie cannot
+            # leave the signed-out client holding a stale session.
+            self.store.clear_session()
+            self.api.cookies.clear()
+            self.store.save_cookies({})
+
+        self.run(job, done, lambda _exc: done(None))
         self.me = None
         self._offline = False
         self.store.clear_session()
