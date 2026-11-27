@@ -189,10 +189,20 @@ jobs:
             --ignore=tests/test_no_qt_shadowing.py \
             --ignore=tests/test_qt_selftest.py \
             --ignore=tests/test_updates.py
+      - name: Build the current Debian package
+        # A clean checkout no longer carries a committed .deb; build it so the
+        # version gate still verifies a real package, not only the manifest.
+        run: ./scripts/build_deb.sh
       - name: Check version sources
         run: ./scripts/check-versions.sh
       - name: Test version consistency checker
         run: ./tests/test_check_versions.sh
+      - name: Check tracked repository size
+        # Release binaries live on GitHub Releases and in the ignored apps/
+        # cache. Fail the build if one is tracked or the tree grows again.
+        run: |
+          ./scripts/check-repo-size.sh
+          ./tests/test_repo_size.sh
       - name: Test release publish script
         # Fake gh shim: no release is created and no tag is pushed here.
         run: ./tests/test_publish_release.sh

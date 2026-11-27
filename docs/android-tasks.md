@@ -5,6 +5,11 @@ checklist stays in `requirements.md`; this file tracks the Android/web link
 import work, the web-to-Android parity items, track gestures/removal, and their
 release verification.
 
+> Historical note: references to binaries in `builds/` describe the old
+> committed snapshot. Builds are no longer tracked in git; GitHub Releases and
+> the server's ignored `apps/` cache are authoritative. Old snapshots were
+> preserved in non-latest releases for rollback.
+
 ## Direct music links (web + APK)
 
 - [x] **Server:** `POST /api/requests` accepts YouTube links and direct https

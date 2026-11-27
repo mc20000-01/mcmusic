@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Publish the rolling "latest" release and one immutable v<version> snapshot.
 #
-#   ./scripts/publish-release.sh            # publish from builds/
+#   ./scripts/publish-release.sh            # publish from ignored builds/ staging
 #   DRY_RUN=1 ./scripts/publish-release.sh  # print every gh/git command only
 #
 # version.py is the source of truth; scripts/check-versions.sh verifies every

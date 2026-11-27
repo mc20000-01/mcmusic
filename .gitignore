@@ -126,16 +126,13 @@ web/apps/
 *.msi
 *.zip
 
-# --- repo-root build snapshots ----------------------------------------------
-# scripts/collect_builds.sh refreshes the current copy of each artifact here;
-# older versioned APKs can remain for rollback.
-!builds/
-!builds/*.apk
-!builds/*.deb
-!builds/*.AppImage
-!builds/*.zip
-!builds/SHA256SUMS
-!builds/README.md
+# --- release staging (never commit binaries) --------------------------------
+# scripts/collect_builds.sh stages current artifacts here for GitHub Releases.
+# Only the small text manifest/checksums and this README belong in git.
+/builds/*
+!/builds/README.md
+!/builds/SHA256SUMS
+!/builds/release-manifest.json
 
 # --- internal notes and host-specific deploy units --------------------------
 agent-*.md

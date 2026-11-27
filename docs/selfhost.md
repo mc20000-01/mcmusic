@@ -185,11 +185,15 @@ To refresh immediately after a release:
 Open `PUBLIC_URL/downloads` for a public, no-sign-in build list. Local builds
 always win until the next sync, so publishing from your own CI still works.
 
-Verify a downloaded APK against the `SHA256SUMS` file in `apps/` (also attached
-to the GitHub release) before installing. Check that its signing certificate
-fingerprint (`keytool -printcert -jarfile mcmusic.apk`) matches the fingerprint
-published on the releases page: the signing key is intentionally public, so the
-checksum and fingerprint are what identify an official build.
+Verify a downloaded APK against the `SHA256SUMS` asset from the same GitHub
+`latest` release before installing: download `SHA256SUMS` beside the assets and
+run `sha256sum -c SHA256SUMS`. The repository also tracks
+`builds/release-manifest.json`, a text record of the published asset names,
+sizes and SHA-256 digests; no binaries are stored in git. Check that the APK's
+signing certificate fingerprint (`keytool -printcert -jarfile mcmusic.apk`)
+matches the fingerprint published on the releases page: the signing key is
+intentionally public, so the checksum and fingerprint are what identify an
+official build.
 
 ### Desktop
 

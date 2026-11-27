@@ -1,12 +1,12 @@
 name: Release builds
 
 # Every push to main produces the same artifacts the server hands out and
-# refreshes the rolling "latest" GitHub Release plus the repo-root builds/
-# snapshot. A new version also gets one immutable v<version> release; older
-# versions are never backfilled or overwritten. Version releases are created as
-# drafts, uploaded, checksum-verified, then published; failures clean up the
-# draft and its tag. Pushes made by this workflow use GITHUB_TOKEN, which does
-# not trigger another run, so there is no build loop.
+# refreshes the rolling "latest" GitHub Release. The repo-root builds/ folder
+# is only an ignored, ephemeral staging area: no binaries are committed. A new
+# version also gets one immutable v<version> release. Version releases are
+# created as drafts, uploaded, checksum-verified, then published; failures
+# clean up the draft and its tag. Historical builds are preserved in their own
+# non-latest releases and never change the rolling release.
 #
 # The desktop and iOS builds need their own runners: PyInstaller cannot
 # cross-build a .app/.exe and Xcode only runs on macOS. Those jobs upload
@@ -339,6 +339,11 @@ jobs:
           fi
           echo "GitHub Latest verified: latest"
 
+      - name: Refresh the tracked release manifest
+        # builds/ itself is ignored; these text files record the published
+        # asset names, sizes and digests without committing any binary.
+        run: python3 scripts/write_release_manifest.py
+
       - name: Build summary
         if: always()
         run: |
@@ -360,29 +365,27 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Refresh builds folder in the repo
+      - name: Commit the release manifest
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # builds/ holds freshly rebuilt binaries, so rebasing a racing push
-          # conflicts on them. Re-apply this run's files on top of origin/main
-          # instead, and retry if someone pushes in between. No CI-skip marker:
-          # GITHUB_TOKEN pushes do not trigger workflows anyway.
+          # Only the small text records are tracked; binaries stay on GitHub.
+          # GITHUB_TOKEN pushes do not retrigger workflows, so no CI skip marker.
           for attempt in 1 2 3; do
             git fetch origin main
             git reset --mixed FETCH_HEAD
-            git add -A builds
+            git add -- builds/README.md builds/SHA256SUMS builds/release-manifest.json
             if git diff --cached --quiet; then
-              echo "builds/ is already current"
+              echo "release manifest is already current"
               exit 0
             fi
-            git commit -m "Update published builds"
+            git commit -m "Update release manifest (no binaries)"
             if git push origin HEAD:main; then
               exit 0
             fi
             echo "push raced with another commit; retrying (attempt $attempt)" >&2
             sleep 5
           done
-          echo "could not update builds/ after 3 attempts" >&2
+          echo "could not update the release manifest after 3 attempts" >&2
           exit 1

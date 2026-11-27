@@ -4,6 +4,11 @@ Working checklist for the current round. Earlier redesign requests, the newest
 fixes, and the old-client parity audit are consolidated here. Anything marked
 **Need input** is blocked on information from you; everything else is actionable.
 
+> Historical note: checks referring to a committed `builds/` snapshot or a bot
+> commit describe the old release flow. Binaries now live on GitHub Releases
+> and in the ignored `apps/` cache; git tracks only `builds/README.md`,
+> `builds/SHA256SUMS` and `builds/release-manifest.json`.
+
 ## Done
 
 - [x] Archive the pre-`ui/` repo as an untracked, gitignored `old/` folder.

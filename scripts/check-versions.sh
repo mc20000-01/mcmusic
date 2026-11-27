@@ -9,7 +9,7 @@
 # they currently do not, so they are reported as skipped rather than invented.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="${REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 VERSION_FILE="${VERSION_FILE:-$ROOT/app/linux/mcmusic_linux/version.py}"
 ANDROID_FILE="${ANDROID_FILE:-$ROOT/gui/android/app/build.gradle.kts}"
 IOS_FILE="${IOS_FILE:-$ROOT/app/ios/project.yml}"
@@ -78,16 +78,29 @@ if [[ -z $deb_file ]]; then
     fi
   done
 fi
-[[ -n $deb_file && -f $deb_file ]] || \
-  die "could not find a .deb to verify (set DEB_FILE to a .deb or DEBIAN/control)"
 
-if command -v dpkg-deb >/dev/null 2>&1 && [[ $(basename "$deb_file") != control ]]; then
-  deb="$(dpkg-deb -f "$deb_file" Version)"
+if [[ -n $deb_file && -f $deb_file ]]; then
+  if command -v dpkg-deb >/dev/null 2>&1 && [[ $(basename "$deb_file") != control ]]; then
+    deb="$(dpkg-deb -f "$deb_file" Version)"
+  else
+    # A plain DEBIAN/control fixture is useful in hermetic tests.
+    deb="$(sed -n 's/^Version:[[:space:]]*//p' "$deb_file" | head -1 || true)"
+  fi
+  [[ -n $deb ]] || die "could not read Version from $deb_file"
+  check "deb control" "$deb"
 else
-  # A plain DEBIAN/control fixture is useful in hermetic tests.
-  deb="$(sed -n 's/^Version:[[:space:]]*//p' "$deb_file" | head -1 || true)"
+  # A clean checkout has no built package. The tracked release manifest is a
+  # small text record of the last published artifact set, so it can prove the
+  # version without committing a binary. CI still builds a real .deb first and
+  # therefore takes the branch above.
+  manifest="${MANIFEST_FILE:-$BUILD_DIR/release-manifest.json}"
+  [[ -f $manifest ]] || \
+    die "could not find a .deb or release manifest to verify (set DEB_FILE or MANIFEST_FILE)"
+  manifest_version="$(python3 -c \
+    'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["version"])' \
+    "$manifest" 2>/dev/null || true)"
+  [[ -n $manifest_version ]] || die "could not read version from $manifest"
+  check "release manifest" "$manifest_version"
 fi
-[[ -n $deb ]] || die "could not read Version from $deb_file"
-check "deb control" "$deb"
 
 printf 'all version sources agree: %s\n' "$version"

@@ -178,6 +178,8 @@ export PATH="$JAVA_HOME/bin:$PATH"
 
 `https://<your-server>/get` still redirects to the newest published Android
 build, and `/api/builds` is the list the website and the email form read.
+`builds/` is an ignored staging area; GitHub Releases and the server's `apps/`
+cache are the artifact store, and only a small text manifest is tracked.
 
 ## Embeds
 

@@ -1,23 +1,39 @@
 # builds
 
-The newest client artifacts, collected by `scripts/collect_builds.sh` (also run
-by `scripts/publish_apps.sh` and by `.github/workflows/release.yml`).
+`builds/` is an **ignored, local staging directory** for release artifacts. CI
+builds the current clients here, uploads them to the GitHub `latest` release,
+and then leaves them on disk. The repository tracks only the small text files
+in this directory:
 
 | File | What it is |
 | --- | --- |
-| `mcmusic-<version>.apk` | Android client (release build), signed with `keystore/mcmusic.p12`, installs over the previous copy |
-| `mcmusic-desktop_<version>_all.deb` | Debian/Ubuntu desktop client |
-| `mcmusic-x86_64.AppImage` | Portable Linux desktop client (when present) |
-| `mcmusic-linux-source.zip` | Desktop client sources, ready to run |
-| `SHA256SUMS` | Checksums for the current files above only; the immutable release must not describe files it does not carry |
+| `release-manifest.json` | Current release version, asset names, sizes and SHA-256 digests |
+| `SHA256SUMS` | SHA-256 lines for the current binary assets, generated from GitHub's asset digests |
+| `README.md` | This file |
 
-The current files are attached to the rolling **latest** GitHub Release on
-every push to `main`, and `https://<server>/get` redirects to the newest Android
-build. When the desktop `FALLBACK_VERSION` changes, that run also creates an
-immutable `v<version>` release with the same versioned artifacts. Version
-releases are never overwritten and are deliberately not marked GitHub Latest;
-`latest` is the only release the server's build fallback reads. Older versioned
-APKs may remain here for rollback, but neither release advertises them.
+The binaries themselves are **not in git**. They live on GitHub Releases and
+are cached in the server's ignored `apps/` directory:
+
+| Artifact | Kind |
+| --- | --- |
+| `mcmusic-<version>.apk` | Signed Android client |
+| `mcmusic-desktop_<version>_all.deb` | Debian/Ubuntu desktop client |
+| `mcmusic-x86_64.AppImage` | Portable Linux desktop client |
+| `mcmusic-linux-source.zip` | Desktop sources, ready to run |
+| `mcmusic-macos-<version>.app.zip` / `mcmusic-<version>.dmg` | macOS client |
+| `mcmusic-windows-<version>.zip` | Windows client |
+| `mcmusic-ios-simulator-<version>.app.zip` | iOS Simulator build |
+
+`https://<server>/get` redirects to the newest signed Android build, and
+`/downloads` lists the builds that are currently available. Both read the
+server's `apps/` cache first; when it is empty, `src/github_builds.py` pulls
+the exact bytes from the public `latest` GitHub Release and verifies them
+against GitHub's SHA-256 digest. If the server cannot write or reach GitHub,
+`/apps/...` redirects straight to the release asset.
+
+Older version releases, including backfilled historical snapshots, are for
+rollback only. They are deliberately **not** the GitHub `latest` release and
+are never read by `/api/builds`, `/get` or the server's build cache.
 
 ## Android signing
 
@@ -35,9 +51,11 @@ export PATH="$JAVA_HOME/bin:$PATH"
 ./scripts/build_deb.sh
 (cd gui/android && ./gradlew :app:assembleRelease --no-daemon)
 ./scripts/publish_apps.sh
+./scripts/publish-release.sh
 ```
 
 `publish_apps.sh` refuses a stale or differently signed APK, copies it to the
 stable `apps/android/` names used by `/get` and `/api/builds`, then calls
-`collect_builds.sh` to refresh `builds/` and `SHA256SUMS`. Do not copy an APK
-straight into `builds/`; `apps/` is where the server reads from.
+`collect_builds.sh` to refresh the local staging folder. Run
+`./scripts/write_release_manifest.py` after publishing to refresh the two
+tracked text files from the public release.

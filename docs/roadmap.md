@@ -15,6 +15,7 @@ against the repo, not against intentions.
 | Android now playing | `app/android/.../ui/NowPlaying.kt` | ✅ centred type, soft accent halo behind the art |
 | New-user palette is Violet | web defaults, `src/mcmusic.py`, Android `Settings` | ✅ five swappable families, no brass default |
 | Installed on the phone | `apps/android/mainbuild.apk` via adb | ✅ device `79SOE6VGSGSODU4P` (SN509C, Android 14) |
+| Binaries in git | none | ✅ GitHub Releases + ignored `apps/` cache; only text manifest tracked |
 | Cookieless device sign-in | `src/auth.py`, `src/routes/system_routes.py` | ✅ short code → `mcd_…` bearer token, revocable |
 | Pairing UI | `web/js/views.js` (Settings → Devices) | ✅ get code, list paired devices, revoke |
 | 3DS homebrew scaffold | `app/3ds/` | ✅ pair, list, download to SD; audio decoder next |

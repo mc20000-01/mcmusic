@@ -2,6 +2,11 @@
 
 Branch: `design-4.3.0`, based on the CI-green Qt phase (`0bdbc06`). This phase aligns every version carrier, builds the real Linux package and prepares publication. No design/UI source changes beyond version metadata.
 
+> Historical note: the committed `.deb` described below was required by the
+> old version gate. Release binaries are no longer tracked; CI builds a real
+> `.deb` immediately before `check-versions.sh`, and the tracked text manifest
+> covers clean local checkouts.
+
 ## What changed
 
 - Desktop source of truth `app/linux/mcmusic_linux/version.py` now reports 4.3.0. The Qt and TUI User-Agents derive from that constant, so they follow automatically.

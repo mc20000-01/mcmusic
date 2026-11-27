@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
-# Collect every current shippable client into ./builds at the repo root.
+# Stage every current shippable client in the ignored ./builds folder.
 #
 #   ./scripts/collect_builds.sh
 #
 # Run by publish_apps.sh and by .github/workflows/release.yml, so the folder
-# holds the same bytes that /api/builds and the GitHub Release serve. Older
-# copies may stay on disk for rollback, but SHA256SUMS lists only the current
-# artifacts: that file is attached to the immutable release and must not
-# describe files the release does not carry.
+# holds the same bytes that /api/builds and the GitHub Release serve. The
+# staging folder is local only: no binary is tracked in git. Older copies may
+# stay on disk for rollback, but SHA256SUMS lists only the current artifacts:
+# that file is attached to the immutable release and must not describe files
+# the release does not carry. After a publish, run write_release_manifest.py
+# to regenerate the tracked text files from GitHub's asset digests.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

@@ -1,0 +1,62 @@
+{
+  "version": "4.3.0",
+  "tag": "latest",
+  "release": "mcmusic latest (4.3.0)",
+  "source": "https://api.github.com/repos/mc20000-01/mcmusic/releases/latest",
+  "assets": [
+    {
+      "name": "README.md",
+      "size": 1790,
+      "sha256": "13ef1c5e8af7d21fd24a0d0155f760cdea5daf21da492a7a71495f5099d45b23",
+      "url": "https://github.com/mc20000-01/mcmusic/releases/download/latest/README.md"
+    },
+    {
+      "name": "mcmusic-4.3.0.apk",
+      "size": 7715436,
+      "sha256": "4da1727c19ac37f572bfd6397ac7bd663d8dc66130d4a68fd4b5b62d96a03d3d",
+      "url": "https://github.com/mc20000-01/mcmusic/releases/download/latest/mcmusic-4.3.0.apk"
+    },
+    {
+      "name": "mcmusic-4.3.0.dmg",
+      "size": 57882288,
+      "sha256": "724405f267a9046dda6acee9073721681c2db4d22780f3a35799d2f637529037",
+      "url": "https://github.com/mc20000-01/mcmusic/releases/download/latest/mcmusic-4.3.0.dmg"
+    },
+    {
+      "name": "mcmusic-desktop_4.3.0_all.deb",
+      "size": 101064,
+      "sha256": "535e481ab59db6d01432a9fc4c3cd68156f0c9c62f87d87b3d638092ba33b617",
+      "url": "https://github.com/mc20000-01/mcmusic/releases/download/latest/mcmusic-desktop_4.3.0_all.deb"
+    },
+    {
+      "name": "mcmusic-ios-simulator-4.3.0.app.zip",
+      "size": 2413097,
+      "sha256": "5088fc2b5a9602d35b15c0fdad9c28f3b3e54652671080e60c0c4d5d5f78791a",
+      "url": "https://github.com/mc20000-01/mcmusic/releases/download/latest/mcmusic-ios-simulator-4.3.0.app.zip"
+    },
+    {
+      "name": "mcmusic-linux-source.zip",
+      "size": 138732,
+      "sha256": "98e19c132c1fdad86659b99414519b670074ddfc6e4eaf7d47452577a59b1e4e",
+      "url": "https://github.com/mc20000-01/mcmusic/releases/download/latest/mcmusic-linux-source.zip"
+    },
+    {
+      "name": "mcmusic-macos-4.3.0.app.zip",
+      "size": 51459673,
+      "sha256": "0e024932c682d578cd5adc7b9f9a7f80ee68480376f363c669418d552b0bf68c",
+      "url": "https://github.com/mc20000-01/mcmusic/releases/download/latest/mcmusic-macos-4.3.0.app.zip"
+    },
+    {
+      "name": "mcmusic-windows-4.3.0.zip",
+      "size": 77009676,
+      "sha256": "a0df1ad4621f4e402a873c3e020f4eeba04f44350753f8c1409a553527cc3ea8",
+      "url": "https://github.com/mc20000-01/mcmusic/releases/download/latest/mcmusic-windows-4.3.0.zip"
+    },
+    {
+      "name": "mcmusic-x86_64.AppImage",
+      "size": 1239544,
+      "sha256": "5d8da53ca735493a0d286c4eaf34263afe6ae69135c8996a6467035a6fea4b91",
+      "url": "https://github.com/mc20000-01/mcmusic/releases/download/latest/mcmusic-x86_64.AppImage"
+    }
+  ]
+}

@@ -28,7 +28,8 @@ JAVA_HOME=$PWD/.toolchain/jdk ANDROID_HOME=$PWD/.toolchain/sdk \
 
 The signed APK lands in `gui/android/app/build/outputs/apk/release/`. Run
 `./scripts/publish_apps.sh` from the repo root to copy it into `apps/android/`
-(what `/get` and `/api/builds` serve) and snapshot it into `builds/`.
+(what `/get` and `/api/builds` serve) and stage it in the ignored `builds/`
+folder; publication itself goes to GitHub Releases, not to git.
 
 Playback is a real Media3 session (`playback/`): the service owns an ExoPlayer,
 the app holds a controller, and every stream request reads the current auth

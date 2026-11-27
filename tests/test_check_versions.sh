@@ -35,6 +35,7 @@ setup_case() {
 run_case() {
   local dir=$1
   shift
+  REPO_ROOT="$dir" \
   VERSION_FILE="$dir/app/linux/mcmusic_linux/version.py" \
   ANDROID_FILE="$dir/gui/android/app/build.gradle.kts" \
   IOS_FILE="$dir/app/ios/project.yml" \
@@ -43,6 +44,19 @@ run_case() {
   ROOT_PACKAGE="$dir/package.json" \
   DEB_FILE="$dir/control" \
   "$@" "$SCRIPT" > "$dir/out.txt" 2>&1
+}
+
+run_case_manifest() {
+  local dir=$1
+  REPO_ROOT="$dir" \
+  VERSION_FILE="$dir/app/linux/mcmusic_linux/version.py" \
+  ANDROID_FILE="$dir/gui/android/app/build.gradle.kts" \
+  IOS_FILE="$dir/app/ios/project.yml" \
+  UI_PACKAGE="$dir/ui/package.json" \
+  WEB_MANIFEST="$dir/web/manifest.webmanifest" \
+  ROOT_PACKAGE="$dir/package.json" \
+  BUILD_DIR="$dir/builds" \
+  "$SCRIPT" > "$dir/out.txt" 2>&1
 }
 
 ok_case="$(setup_case ok)"
@@ -81,4 +95,22 @@ set -e
 [[ $status -ne 0 ]] || fail 'web manifest mismatch was accepted'
 contains "$manifest_case/out.txt" 'version mismatch: version.py=4.1.0 but web/manifest.webmanifest=4.0.1'
 
-printf 'check-versions tests: 4 checks passed\n'
+release_case="$(setup_case release)"
+mkdir -p "$release_case/builds"
+printf '{"version":"4.1.0","tag":"latest","assets":[]}\n' \
+  > "$release_case/builds/release-manifest.json"
+run_case_manifest "$release_case"
+contains_spaced "$release_case/out.txt" 'release manifest +4\.1\.0'
+
+stale_case="$(setup_case stale)"
+mkdir -p "$stale_case/builds"
+printf '{"version":"4.0.1","tag":"latest","assets":[]}\n' \
+  > "$stale_case/builds/release-manifest.json"
+set +e
+run_case_manifest "$stale_case"
+status=$?
+set -e
+[[ $status -ne 0 ]] || fail 'stale release manifest was accepted'
+contains "$stale_case/out.txt" 'version mismatch: version.py=4.1.0 but release manifest=4.0.1'
+
+printf 'check-versions tests: 6 checks passed\n'

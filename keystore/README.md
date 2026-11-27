@@ -23,8 +23,10 @@ Do not regenerate or replace this file. A new key is a new app as far as
 Android is concerned.
 
 Because the key is public, an APK is trusted by its build checksum, not by who
-could sign it: from `apps/`, run `sha256sum -c SHA256SUMS` (the file is also
-attached to each GitHub release) and compare the APK's signing certificate
-fingerprint (`keytool -printcert -jarfile mcmusic.apk`) with the fingerprint
-published on the releases page. Publish that fingerprint with every release so
-users can make the comparison.
+could sign it: download `SHA256SUMS` from the same GitHub `latest` release, put
+it beside the downloaded assets, run `sha256sum -c SHA256SUMS`, and compare the
+APK's signing certificate fingerprint (`keytool -printcert -jarfile mcmusic.apk`)
+with the fingerprint published on the releases page. The same digests are
+recorded in the tracked text file `builds/release-manifest.json`. No binary is
+kept in git. Publish that fingerprint with every release so users can make the
+comparison.

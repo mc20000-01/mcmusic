@@ -2,6 +2,11 @@
 
 Branch: `design-4.2.0`. Parent commit: `db5e86c` (Phase 4). This phase aligns every live version carrier at 4.2.0 and prepares the release inputs; it does not publish a release or merge to `main`.
 
+> Historical note: the committed `.deb` described below was required by the
+> old version gate. Release binaries are no longer tracked; CI builds a real
+> `.deb` immediately before `check-versions.sh`, and the tracked text manifest
+> covers clean local checkouts.
+
 ## What changed
 
 - Desktop source of truth `app/linux/mcmusic_linux/version.py` now reports 4.2.0. The Qt `USER_AGENT` and TUI User-Agent are derived from that constant, so they move with it.

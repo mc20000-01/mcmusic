@@ -6,7 +6,8 @@
 #   ./scripts/release.sh --no-build   # release what is already in apps/
 #
 # Every artifact in the release is the same file the website links to. The
-# script never commits binaries — apps/ is ignored on purpose.
+# script never commits binaries — apps/ and builds/ are ignored on purpose;
+# only the small text manifest is tracked.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
