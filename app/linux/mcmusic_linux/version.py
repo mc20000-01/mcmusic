@@ -6,7 +6,7 @@ read this file before the package is installed).
 """
 from __future__ import annotations
 
-FALLBACK_VERSION = "4.3.0"
+FALLBACK_VERSION = "4.3.1"
 
 
 def app_version() -> str:
